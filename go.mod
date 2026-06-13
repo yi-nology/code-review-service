@@ -3,7 +3,7 @@ module github.com/yi-nology/code-review-service
 go 1.26
 
 require (
-	github.com/yi-nology/ekit v0.6.7
+	github.com/yi-nology/ekit v0.6.9
 	github.com/apache/thrift v0.23.0
 	github.com/cloudwego/hertz v0.10.4
 	github.com/go-git/go-git/v6 v6.0.0-alpha.4.0.20260609112911-f4b85e43694f
@@ -176,3 +176,5 @@ require (
 )
 
 replace github.com/apache/thrift => github.com/apache/thrift v0.13.0
+
+replace github.com/yi-nology/ekit => ../ekit

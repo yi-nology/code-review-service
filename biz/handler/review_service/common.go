@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/app"
-	"github.com/yi-nology/code-review-service/internal/pkg/ptr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 
@@ -103,12 +102,7 @@ func maskWebhookSecret(secret string) *string {
 	return strPtr("***")
 }
 
-func derefStr(s *string) string      { return ptr.DerefStr(s) }
-func derefBool(b *bool) bool         { return ptr.DerefBool(b) }
-func derefInt64(i *int64) int64      { return ptr.DerefInt64(i) }
 func strPtr(s string) *string        { if s == "" { return nil }; return &s }
-func boolPtr(b bool) *bool           { return &b }
-func int64Ptr(i int64) *int64        { return &i }
 
 func cleanQuery(s string) string {
 	return strings.TrimSpace(s)

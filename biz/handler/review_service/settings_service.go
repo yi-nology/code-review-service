@@ -9,6 +9,7 @@ import (
 	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
+	"github.com/oekit/pkg/ptrx"
 	hertzApp "github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	provider_sdk "github.com/yi-nology/git-platform-sdk/provider"
@@ -23,7 +24,7 @@ func (h *ReviewHandler) GetOCRSettings(ctx context.Context, c *hertzApp.RequestC
 	}
 
 	resp := dbOCRSettingsToAPI(settings)
-	if derefStr(resp.AuthToken) != "" {
+	if ptrx.Deref(resp.AuthToken, "") != "" {
 		resp.AuthToken = strPtr("***")
 	}
 
@@ -54,7 +55,7 @@ func (h *ReviewHandler) UpdateOCRSettings(ctx context.Context, c *hertzApp.Reque
 	}
 
 	resp := dbOCRSettingsToAPI(dbSettings)
-	if derefStr(resp.AuthToken) != "" {
+	if ptrx.Deref(resp.AuthToken, "") != "" {
 		resp.AuthToken = strPtr("***")
 	}
 
@@ -149,7 +150,7 @@ func (h *ReviewHandler) PutPlatform(ctx context.Context, c *hertzApp.RequestCont
 		return
 	}
 
-	token := derefStr(req.Token)
+	token := ptrx.Deref(req.Token, "")
 	if token == "" {
 		existing, err := h.platform.Get(ctx, req.Provider)
 		if err == nil && existing != nil {
@@ -168,9 +169,9 @@ func (h *ReviewHandler) PutPlatform(ctx context.Context, c *hertzApp.RequestCont
 
 	p := &models.GitPlatform{
 		Provider:      req.Provider,
-		BaseURL:       derefStr(req.BaseURL),
+		BaseURL:       ptrx.Deref(req.BaseURL, ""),
 		Token:         token,
-		WebhookSecret: derefStr(req.WebhookSecret),
+		WebhookSecret: ptrx.Deref(req.WebhookSecret, ""),
 		Enabled:       enabled,
 	}
 	if err := h.platform.Save(ctx, p); err != nil {
@@ -228,7 +229,7 @@ func (h *ReviewHandler) TestPlatform(ctx context.Context, c *hertzApp.RequestCon
 		return
 	}
 
-	result, err := h.gitMgr.TestWithToken(ctx, req.Provider, derefStr(req.BaseURL), req.Token)
+	result, err := h.gitMgr.TestWithToken(ctx, req.Provider, ptrx.Deref(req.BaseURL, ""), req.Token)
 	if err != nil {
 		c.JSON(consts.StatusOK, &modelSettings.TestPlatformResp{
 			Result: &modelSettings.GitTestResult{
@@ -262,13 +263,13 @@ func dbOCRSettingsToAPI(s *models.OCRSettings) *modelSettings.OCRSettings {
 		AuthToken:      strPtr(s.AuthToken),
 		AuthHeader:     strPtr(s.AuthHeader),
 		Model:          strPtr(s.ModelName),
-		UseAnthropic:   boolPtr(s.UseAnthropic),
+		UseAnthropic:   ptrx.Of(s.UseAnthropic),
 		ExtraBody:      strPtr(extraBody),
 		Language:       strPtr(s.Language),
-		Concurrency:    int64Ptr(int64(s.Concurrency)),
-		MaxGitProcs:    int64Ptr(int64(s.MaxGitProcs)),
-		TimeoutMinutes: int64Ptr(int64(s.TimeoutMinutes)),
-		MaxTools:       int64Ptr(int64(s.MaxTools)),
+		Concurrency:    ptrx.Of(int64(s.Concurrency)),
+		MaxGitProcs:    ptrx.Of(int64(s.MaxGitProcs)),
+		TimeoutMinutes: ptrx.Of(int64(s.TimeoutMinutes)),
+		MaxTools:       ptrx.Of(int64(s.MaxTools)),
 	}
 }
 
@@ -278,18 +279,18 @@ func apiOCRSettingsToDB(s *modelSettings.OCRSettings) *models.OCRSettings {
 		return db
 	}
 	db.Enabled = s.Enabled
-	db.Provider = derefStr(s.Provider)
-	db.Plan = derefStr(s.Plan)
-	db.URL = derefStr(s.URL)
-	db.AuthToken = derefStr(s.AuthToken)
-	db.AuthHeader = derefStr(s.AuthHeader)
-	db.ModelName = derefStr(s.Model)
-	db.UseAnthropic = derefBool(s.UseAnthropic)
-	db.Language = derefStr(s.Language)
-	db.Concurrency = int(derefInt64(s.Concurrency))
-	db.MaxGitProcs = int(derefInt64(s.MaxGitProcs))
-	db.TimeoutMinutes = int(derefInt64(s.TimeoutMinutes))
-	db.MaxTools = int(derefInt64(s.MaxTools))
+	db.Provider = ptrx.Deref(s.Provider, "")
+	db.Plan = ptrx.Deref(s.Plan, "")
+	db.URL = ptrx.Deref(s.URL, "")
+	db.AuthToken = ptrx.Deref(s.AuthToken, "")
+	db.AuthHeader = ptrx.Deref(s.AuthHeader, "")
+	db.ModelName = ptrx.Deref(s.Model, "")
+	db.UseAnthropic = ptrx.Deref(s.UseAnthropic, false)
+	db.Language = ptrx.Deref(s.Language, "")
+	db.Concurrency = int(ptrx.Deref(s.Concurrency, 0))
+	db.MaxGitProcs = int(ptrx.Deref(s.MaxGitProcs, 0))
+	db.TimeoutMinutes = int(ptrx.Deref(s.TimeoutMinutes, 0))
+	db.MaxTools = int(ptrx.Deref(s.MaxTools, 0))
 	if s.IsSetExtraBody() && s.ExtraBody != nil && *s.ExtraBody != "" {
 		db.ExtraBody = datatypes.JSON(*s.ExtraBody)
 	}

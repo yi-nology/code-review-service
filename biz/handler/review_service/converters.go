@@ -5,6 +5,8 @@ import (
 
 	modelReview "github.com/yi-nology/code-review-service/biz/model/review"
 	"github.com/yi-nology/code-review-service/internal/service/review"
+
+	"github.com/oekit/pkg/ptrx"
 )
 
 func convertGate(g review.Gate) *modelReview.Gate {
@@ -74,8 +76,8 @@ func convertReport(r review.Report) *modelReview.Report {
 			Minor:    int64(r.Counts.Minor),
 			Info:     int64(r.Counts.Info),
 		},
-		Generated: boolPtr(r.Generated),
-		Complete:  boolPtr(r.Complete),
+		Generated: ptrx.Of(r.Generated),
+		Complete:  ptrx.Of(r.Complete),
 	}
 }
 
@@ -83,13 +85,13 @@ func convertOCRMetadata(o review.OCRMetadata) *modelReview.OCRMetadata {
 	return &modelReview.OCRMetadata{
 		Engine:           strPtr(o.Engine),
 		Status:           strPtr(o.Status),
-		FilesReviewed:    int64Ptr(o.FilesReviewed),
-		Comments:         int64Ptr(o.Comments),
-		TotalTokens:      int64Ptr(o.TotalTokens),
-		InputTokens:      int64Ptr(o.InputTokens),
-		OutputTokens:     int64Ptr(o.OutputTokens),
-		CacheReadTokens:  int64Ptr(o.CacheReadTokens),
-		CacheWriteTokens: int64Ptr(o.CacheWriteTokens),
+		FilesReviewed:    ptrx.Of(o.FilesReviewed),
+		Comments:         ptrx.Of(o.Comments),
+		TotalTokens:      ptrx.Of(o.TotalTokens),
+		InputTokens:      ptrx.Of(o.InputTokens),
+		OutputTokens:     ptrx.Of(o.OutputTokens),
+		CacheReadTokens:  ptrx.Of(o.CacheReadTokens),
+		CacheWriteTokens: ptrx.Of(o.CacheWriteTokens),
 		Elapsed:          strPtr(o.Elapsed),
 	}
 }
@@ -143,9 +145,9 @@ func convertFindings(findings []review.Finding) []*modelReview.Finding {
 			Severity:       string(f.Severity),
 			Category:       strPtr(f.Category),
 			Path:           strPtr(f.Path),
-			Line:           int64Ptr(int64(f.Line)),
-			StartLine:      int64Ptr(int64(f.StartLine)),
-			EndLine:        int64Ptr(int64(f.EndLine)),
+			Line:           ptrx.Of(int64(f.Line)),
+			StartLine:      ptrx.Of(int64(f.StartLine)),
+			EndLine:        ptrx.Of(int64(f.EndLine)),
 			Title:          f.Title,
 			Body:           f.Body,
 			ExistingCode:   strPtr(f.ExistingCode),

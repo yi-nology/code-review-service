@@ -19,6 +19,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 
 	"github.com/oekit/gormx"
+	"github.com/oekit/pkg/ptrx"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
 
@@ -180,11 +181,16 @@ func (s *Service) findActiveReview(ctx context.Context, req Request) *Response {
 		return nil
 	}
 	existing, err := s.reviewRepo.GetActiveByProviderRepo(ctx, req.Provider, req.Repo)
-	if err != nil || existing == nil {
+	if err != nil {
+		hlog.CtxErrorf(ctx, "failed to query active review by provider=%s repo=%s: %v", req.Provider, req.Repo, err)
+		return nil
+	}
+	if existing == nil {
 		return nil
 	}
 	var existingReq Request
 	if err := json.Unmarshal(existing.Request, &existingReq); err != nil {
+		hlog.CtxWarnf(ctx, "failed to decode active review request: %v", err)
 		return nil
 	}
 	if existingReq.PullRequestID != req.PullRequestID || existingReq.MergeRequestIID != req.MergeRequestIID {
@@ -192,6 +198,7 @@ func (s *Service) findActiveReview(ctx context.Context, req Request) *Response {
 	}
 	var resp Response
 	if err := json.Unmarshal(existing.Response, &resp); err != nil {
+		hlog.CtxWarnf(ctx, "failed to decode active review response: %v", err)
 		return nil
 	}
 	return &resp
@@ -250,7 +257,7 @@ func (s *Service) Get(ctx context.Context, reviewID string) (Record, bool, error
 
 	return Record{
 		ID:                 review.ReviewID,
-		IdempotencyKey:     Deref(review.IdempotencyKey, ""),
+		IdempotencyKey:     ptrx.Deref(review.IdempotencyKey, ""),
 		RequestFingerprint: review.RequestFingerprint,
 		Request:            req,
 		Response:           resp,
@@ -397,86 +404,76 @@ func (s *Service) Preview(ctx context.Context, req Request) ([]string, error) {
 }
 
 func (s *Service) Requeue(ctx context.Context, reviewID string) (Response, error) {
-	review, err := s.reviewRepo.GetByReviewID(ctx, reviewID)
+	var resultResp Response
+	err := s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *models.Review) error {
+		switch review.Status {
+		case StatusQueued, StatusRunning:
+			return fmt.Errorf("%w: review is %s, only failed or completed reviews can be re-run", ErrInvalidState, review.Status)
+		}
+
+		var resp Response
+		if err := json.Unmarshal(review.Response, &resp); err != nil {
+			return fmt.Errorf("decode response: %w", err)
+		}
+
+		resp.Status = StatusQueued
+		resp.Summary = "review re-queued"
+		resp.Gate = PendingGate()
+		resp.Error = ""
+		resp.Findings = nil
+		resp.Report = Report{}
+		resp.Analysis = Analysis{}
+		resp.History = append(resp.History, Event{
+			Stage:     StageQueued,
+			Status:    StatusCompleted,
+			Message:   "review re-queued by user",
+			CreatedAt: time.Now().UTC(),
+		})
+
+		review.Status = StatusQueued
+		review.Response = mustMarshal(resp)
+		review.UpdatedAt = time.Now().UTC()
+		resultResp = resp
+		return nil
+	})
 	if err != nil {
 		return Response{}, err
 	}
-	if review == nil {
-		return Response{}, ErrNotFound
-	}
-
-	switch review.Status {
-	case StatusQueued, StatusRunning:
-		return Response{}, fmt.Errorf("%w: review is %s, only failed or completed reviews can be re-run", ErrInvalidState, review.Status)
-	}
-
-	var req Request
-	if err := json.Unmarshal(review.Request, &req); err != nil {
-		return Response{}, fmt.Errorf("decode request: %w", err)
-	}
-	var resp Response
-	if err := json.Unmarshal(review.Response, &resp); err != nil {
-		return Response{}, fmt.Errorf("decode response: %w", err)
-	}
-
-	resp.Status = StatusQueued
-	resp.Summary = "review re-queued"
-	resp.Gate = PendingGate()
-	resp.Error = ""
-	resp.Findings = nil
-	resp.Report = Report{}
-	resp.Analysis = Analysis{}
-	resp.History = append(resp.History, Event{
-		Stage:     StageQueued,
-		Status:    StatusCompleted,
-		Message:   "review re-queued by user",
-		CreatedAt: time.Now().UTC(),
-	})
-
-	review.Status = StatusQueued
-	review.Response = mustMarshal(resp)
-	review.UpdatedAt = time.Now().UTC()
-	if err := s.reviewRepo.Save(ctx, review); err != nil {
-		return Response{}, err
-	}
-	return resp, nil
+	return resultResp, nil
 }
 
 func (s *Service) Cancel(ctx context.Context, reviewID string) (Response, error) {
-	review, err := s.reviewRepo.GetByReviewID(ctx, reviewID)
+	var resultResp Response
+	err := s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *models.Review) error {
+		if review.Status != StatusQueued {
+			return fmt.Errorf("%w: only queued reviews can be cancelled (current: %s)", ErrInvalidState, review.Status)
+		}
+
+		var resp Response
+		if err := json.Unmarshal(review.Response, &resp); err != nil {
+			return fmt.Errorf("decode response: %w", err)
+		}
+
+		resp.Status = StatusFailed
+		resp.Summary = "review cancelled by user"
+		resp.Gate = ErrorGate("review cancelled")
+		resp.History = append(resp.History, Event{
+			Stage:     StageCancelled,
+			Status:    StatusFailed,
+			Message:   "review cancelled by user",
+			CreatedAt: time.Now().UTC(),
+		})
+
+		review.Status = StatusFailed
+		review.Response = mustMarshal(resp)
+		review.UpdatedAt = time.Now().UTC()
+		resultResp = resp
+		return nil
+	})
 	if err != nil {
 		return Response{}, err
 	}
-	if review == nil {
-		return Response{}, ErrNotFound
-	}
-
-	if review.Status != StatusQueued {
-		return Response{}, fmt.Errorf("%w: only queued reviews can be cancelled (current: %s)", ErrInvalidState, review.Status)
-	}
-
-	var resp Response
-	if err := json.Unmarshal(review.Response, &resp); err != nil {
-		return Response{}, fmt.Errorf("decode response: %w", err)
-	}
-
-	resp.Status = StatusFailed
-	resp.Summary = "review cancelled by user"
-	resp.Gate = ErrorGate("review cancelled")
-	resp.History = append(resp.History, Event{
-		Stage:     StageCancelled,
-		Status:    StatusFailed,
-		Message:   "review cancelled by user",
-		CreatedAt: time.Now().UTC(),
-	})
-
-	review.Status = StatusFailed
-	review.Response = mustMarshal(resp)
-	review.UpdatedAt = time.Now().UTC()
-	if err := s.reviewRepo.Save(ctx, review); err != nil {
-		return Response{}, err
-	}
-	return resp, nil
+	return resultResp, nil
 }
 
 func validate(req Request) error {

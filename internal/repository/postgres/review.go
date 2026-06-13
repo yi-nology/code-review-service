@@ -127,7 +127,7 @@ func (r *ReviewRepo) UpdateInTransaction(ctx context.Context, reviewID string, f
 		var review models.Review
 		if err := tx.Where("review_id = ?", reviewID).First(&review).Error; err != nil {
 			if errors.Is(err, gormLib.ErrRecordNotFound) {
-				return fmt.Errorf("review not found: %s", reviewID)
+				return fmt.Errorf("%w: %s", gormLib.ErrRecordNotFound, reviewID)
 			}
 			return err
 		}

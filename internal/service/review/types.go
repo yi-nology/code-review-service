@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 	"time"
+
+	"github.com/oekit/pkg/ptrx"
 )
 
 type Request struct {
@@ -72,11 +74,11 @@ func CompletedGate(passed bool, reason string) Gate {
 	if passed {
 		status = GatePassed
 	}
-	return Gate{Status: status, Passed: Ptr(passed), Reason: reason}
+	return Gate{Status: status, Passed: ptrx.Of(passed), Reason: reason}
 }
 
 func ErrorGate(reason string) Gate {
-	return Gate{Status: GateError, Passed: Ptr(false), Reason: reason}
+	return Gate{Status: GateError, Passed: ptrx.Of(false), Reason: reason}
 }
 
 

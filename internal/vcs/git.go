@@ -159,13 +159,16 @@ func (g *Git) CheckoutFiles(_ context.Context, ref string, files []string) error
 	if err != nil {
 		return err
 	}
+	var lastErr error
 	for _, file := range files {
 		treeFile, err := tree.File(file)
 		if err != nil {
+			lastErr = fmt.Errorf("file %s not found in tree: %w", file, err)
 			continue
 		}
 		reader, err := treeFile.Blob.Reader()
 		if err != nil {
+			lastErr = fmt.Errorf("read blob for %s: %w", file, err)
 			continue
 		}
 		fullPath := filepath.Join(g.dir, file)
@@ -173,14 +176,21 @@ func (g *Git) CheckoutFiles(_ context.Context, ref string, files []string) error
 		f, err := os.Create(fullPath)
 		if err != nil {
 			_ = reader.Close()
+			lastErr = fmt.Errorf("create file %s: %w", file, err)
 			continue
 		}
-		_, _ = io.Copy(f, reader)
+		_, copyErr := io.Copy(f, reader)
 		_ = f.Close()
 		_ = reader.Close()
-		_, _ = g.wt.Add(file)
+		if copyErr != nil {
+			lastErr = fmt.Errorf("write file %s: %w", file, copyErr)
+			continue
+		}
+		if _, err := g.wt.Add(file); err != nil {
+			lastErr = fmt.Errorf("git add %s: %w", file, err)
+		}
 	}
-	return nil
+	return lastErr
 }
 
 func (g *Git) Add(_ context.Context, files []string) error {

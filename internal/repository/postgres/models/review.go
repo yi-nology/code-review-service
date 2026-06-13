@@ -10,9 +10,9 @@ type Review struct {
 	ReviewID           string         `gorm:"type:text;uniqueIndex;not null" json:"review_id"`
 	IdempotencyKey     *string        `gorm:"type:text;uniqueIndex" json:"idempotency_key,omitempty"`
 	RequestFingerprint string         `gorm:"type:text;not null;default:''" json:"request_fingerprint,omitempty"`
-	Provider           string         `gorm:"type:text;not null;index" json:"provider"`
-	Repo               string         `gorm:"type:text;not null;index" json:"repo"`
-	Status             string         `gorm:"type:text;not null;index" json:"status"`
+	Provider           string         `gorm:"type:text;not null;index;index:idx_provider_repo_status,priority:1" json:"provider"`
+	Repo               string         `gorm:"type:text;not null;index;index:idx_provider_repo_status,priority:2" json:"repo"`
+	Status             string         `gorm:"type:text;not null;index;index:idx_provider_repo_status,priority:3" json:"status"`
 	Author             string         `gorm:"type:text;index" json:"author"`
 	AuthorName         string         `gorm:"type:text" json:"author_name,omitempty"`
 	AuthorAvatar       string         `gorm:"type:text" json:"author_avatar,omitempty"`
