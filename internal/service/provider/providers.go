@@ -115,11 +115,10 @@ func cloneAndResolvePR(
 		return "", "", "", fmt.Errorf("create temp dir: %w", err)
 	}
 
-	git := &vcs.Git{Dir: dir, Token: token}
-
-	if err := git.Clone(ctx, cloneURL); err != nil {
+	git, err := vcs.Clone(ctx, dir, cloneURL, token)
+	if err != nil {
 		_ = os.RemoveAll(dir)
-		return "", "", "", fmt.Errorf("git clone: %w", err)
+		return "", "", "", err
 	}
 
 	fetchErrors := make([]string, 0)
@@ -154,7 +153,7 @@ func cloneAndResolvePR(
 			mb, mbErr := git.MergeBase(ctx, apiBaseSHA, headRef)
 			if mbErr == nil && mb != "" && mb != headSHA {
 				baseSHA = mb
-			} else if p, pErr := git.RevParse(ctx, apiBaseSHA+"^1"); pErr == nil {
+			} else if p, pErr := git.RevParse(ctx, apiBaseSHA+"~1"); pErr == nil {
 				mb2, _ := git.MergeBase(ctx, p, headRef)
 				if mb2 != "" && mb2 != headSHA {
 					baseSHA = mb2
@@ -190,6 +189,13 @@ func cloneAndResolvePR(
 	deletedFiles, delErr := git.DeletedFiles(ctx, baseSHA, headRef)
 	if delErr == nil && len(deletedFiles) > 0 {
 		_ = git.CheckoutFiles(ctx, baseSHA, deletedFiles)
+		if err := git.Add(ctx, deletedFiles); err == nil {
+			if err := git.CommitWithIdentity(ctx, "Review Service", "review-service@localhost", "restore deleted files for OCR context"); err == nil {
+				if newHead, err := git.RevParse(ctx, "HEAD"); err == nil {
+					headSHA = newHead
+				}
+			}
+		}
 	}
 
 	return dir, baseSHA, headSHA, nil
@@ -228,11 +234,10 @@ func cloneAndResolveSHA(ctx context.Context, cloneURL, token, baseSHA, headSHA s
 		return "", "", "", "", fmt.Errorf("create temp dir: %w", err)
 	}
 
-	git := &vcs.Git{Dir: dir, Token: token}
-
-	if err := git.Clone(ctx, cloneURL); err != nil {
+	git, err := vcs.Clone(ctx, dir, cloneURL, token)
+	if err != nil {
 		_ = os.RemoveAll(dir)
-		return "", "", "", "", fmt.Errorf("git clone: %w", err)
+		return "", "", "", "", err
 	}
 
 	for _, sha := range []string{baseSHA, headSHA} {

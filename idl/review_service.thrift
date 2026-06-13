@@ -6,6 +6,8 @@ service reviewService {
     review.GetReviewResp GetReview(1: review.GetReviewReq req) (api.get="/api/v1/reviews/:id")
     review.ListReviewsResp ListReviews(1: review.ListReviewsReq req) (api.get="/api/v1/reviews")
     review.PreviewResp PreviewReview(1: review.PreviewReq req) (api.post="/api/v1/reviews/preview")
+    review.CreateReviewResp RerunReview(1: review.ReviewActionReq req) (api.post="/api/v1/reviews/:id/rerun")
+    review.CreateReviewResp CancelReview(1: review.ReviewActionReq req) (api.post="/api/v1/reviews/:id/cancel")
 }
 
 service settingsService {

@@ -179,3 +179,57 @@ func (h *ReviewHandler) PreviewReview(ctx context.Context, c *hertzApp.RequestCo
 		"files": files,
 	})
 }
+
+func (h *ReviewHandler) RerunReview(ctx context.Context, c *hertzApp.RequestContext) {
+	reviewID := c.Param("id")
+	if reviewID == "" {
+		fail(c, badRequest("review id is required"))
+		return
+	}
+
+	resp, err := h.reviewSvc.Requeue(ctx, reviewID)
+	if err != nil {
+		if errors.Is(err, review.ErrNotFound) {
+			fail(c, notFound("review not found"))
+			return
+		}
+		if errors.Is(err, review.ErrInvalidState) {
+			fail(c, bizErr(409, err.Error()))
+			return
+		}
+		fail(c, err)
+		return
+	}
+
+	converted := convertResponse(resp)
+	c.JSON(consts.StatusOK, &modelReview.CreateReviewResp{
+		Review: &converted,
+	})
+}
+
+func (h *ReviewHandler) CancelReview(ctx context.Context, c *hertzApp.RequestContext) {
+	reviewID := c.Param("id")
+	if reviewID == "" {
+		fail(c, badRequest("review id is required"))
+		return
+	}
+
+	resp, err := h.reviewSvc.Cancel(ctx, reviewID)
+	if err != nil {
+		if errors.Is(err, review.ErrNotFound) {
+			fail(c, notFound("review not found"))
+			return
+		}
+		if errors.Is(err, review.ErrInvalidState) {
+			fail(c, bizErr(409, err.Error()))
+			return
+		}
+		fail(c, err)
+		return
+	}
+
+	converted := convertResponse(resp)
+	c.JSON(consts.StatusOK, &modelReview.CreateReviewResp{
+		Review: &converted,
+	})
+}

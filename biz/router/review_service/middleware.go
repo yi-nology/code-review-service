@@ -98,3 +98,11 @@ func _putprojectpolicyMw() []app.HandlerFunc {
 func _webhookMw() []app.HandlerFunc {
 	return nil
 }
+
+func _rerunreviewMw() []app.HandlerFunc {
+	return nil
+}
+
+func _cancelreviewMw() []app.HandlerFunc {
+	return nil
+}
