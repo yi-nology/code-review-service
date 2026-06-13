@@ -2,6 +2,7 @@ package review_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"sync"
@@ -14,6 +15,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"gorm.io/datatypes"
 )
 
 type mockReviewRepo struct {
@@ -79,7 +81,14 @@ func (m *mockReviewRepo) GetByidempotencyKey(_ context.Context, key string) (*mo
 	return nil, nil
 }
 
-func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, _, _ string) (*models.Review, error) {
+func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, provider, repo string) (*models.Review, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, r := range m.reviews {
+		if r.Provider == provider && r.Repo == repo && (r.Status == "queued" || r.Status == "running") {
+			return r, nil
+		}
+	}
 	return nil, nil
 }
 
@@ -520,3 +529,319 @@ func TestCreateRequiresRepo(t *testing.T) {
 		t.Fatal("expected error for missing repo")
 	}
 }
+
+func TestRequeueFailedReview(t *testing.T) {
+	repo := &mockReviewRepo{}
+	svc := newTestService(repo, staticRunner{
+		result: review.Result{
+			Summary:  "found issues",
+			Findings: []review.Finding{{Severity: review.SeverityCritical, Path: "main.go", Title: "bug"}},
+		},
+	})
+
+	req := validRequest()
+	resp, err := svc.Create(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+	if resp.Status != "success" {
+		t.Fatalf("expected success, got %s", resp.Status)
+	}
+
+	requeued, err := svc.Requeue(context.Background(), resp.ReviewID)
+	if err != nil {
+		t.Fatalf("Requeue returned error: %v", err)
+	}
+	if requeued.Status != "queued" {
+		t.Fatalf("expected queued after requeue, got %s", requeued.Status)
+	}
+	if requeued.Gate.Status != review.GatePending {
+		t.Fatalf("expected gate pending after requeue, got %s", requeued.Gate.Status)
+	}
+	if len(requeued.Findings) != 0 {
+		t.Fatalf("expected 0 findings after requeue, got %d", len(requeued.Findings))
+	}
+	if requeued.Report.Generated {
+		t.Fatal("expected report to be cleared after requeue")
+	}
+	if requeued.Error != "" {
+		t.Fatalf("expected empty error after requeue, got %s", requeued.Error)
+	}
+}
+
+func TestRequeueRejectsQueuedReview(t *testing.T) {
+	repo := &mockReviewRepo{}
+	svc := newTestService(repo, blockingRunner{})
+
+	req := validRequest()
+	req.Wait = false
+	resp, err := svc.Create(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+
+	_, err = svc.Requeue(context.Background(), resp.ReviewID)
+	if err == nil {
+		t.Fatal("expected error when requeuing queued review")
+	}
+	if !errors.Is(err, review.ErrInvalidState) {
+		t.Fatalf("expected ErrInvalidState, got: %v", err)
+	}
+}
+
+func TestRequeueRejectsRunningReview(t *testing.T) {
+	repo := &mockReviewRepo{}
+	svc := newTestService(repo, blockingRunner{})
+
+	req := validRequest()
+	req.Wait = false
+	resp, err := svc.Create(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+
+	snap := repo.snapshot()
+	snap[0].Status = "running"
+	repo.Save(context.Background(), snap[0])
+
+	_, err = svc.Requeue(context.Background(), resp.ReviewID)
+	if err == nil {
+		t.Fatal("expected error when requeuing running review")
+	}
+	if !errors.Is(err, review.ErrInvalidState) {
+		t.Fatalf("expected ErrInvalidState, got: %v", err)
+	}
+}
+
+func TestRequeueReturnsNotFound(t *testing.T) {
+	repo := &mockReviewRepo{}
+	svc := newTestService(repo, blockingRunner{})
+
+	_, err := svc.Requeue(context.Background(), "nonexistent-id")
+	if err == nil {
+		t.Fatal("expected error for nonexistent review")
+	}
+	if !errors.Is(err, review.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got: %v", err)
+	}
+}
+
+func TestCancelQueuedReview(t *testing.T) {
+	repo := &mockReviewRepo{}
+	svc := newTestService(repo, blockingRunner{})
+
+	req := validRequest()
+	req.Wait = false
+	resp, err := svc.Create(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+	if resp.Status != "queued" {
+		t.Fatalf("expected queued, got %s", resp.Status)
+	}
+
+	cancelled, err := svc.Cancel(context.Background(), resp.ReviewID)
+	if err != nil {
+		t.Fatalf("Cancel returned error: %v", err)
+	}
+	if cancelled.Status != "failed" {
+		t.Fatalf("expected failed after cancel, got %s", cancelled.Status)
+	}
+	if cancelled.Gate.Status != review.GateError {
+		t.Fatalf("expected gate error after cancel, got %s", cancelled.Gate.Status)
+	}
+	if cancelled.Summary != "review cancelled by user" {
+		t.Fatalf("expected cancel summary, got %s", cancelled.Summary)
+	}
+
+	lastEvent := cancelled.History[len(cancelled.History)-1]
+	if lastEvent.Stage != "cancelled" {
+		t.Fatalf("expected last event stage 'cancelled', got %s", lastEvent.Stage)
+	}
+	if lastEvent.Status != "failed" {
+		t.Fatalf("expected last event status 'failed', got %s", lastEvent.Status)
+	}
+}
+
+func TestCancelRejectsRunningReview(t *testing.T) {
+	repo := &mockReviewRepo{}
+	svc := newTestService(repo, blockingRunner{})
+
+	req := validRequest()
+	req.Wait = false
+	resp, err := svc.Create(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+
+	snap := repo.snapshot()
+	snap[0].Status = "running"
+	repo.Save(context.Background(), snap[0])
+
+	_, err = svc.Cancel(context.Background(), resp.ReviewID)
+	if err == nil {
+		t.Fatal("expected error when cancelling running review")
+	}
+	if !errors.Is(err, review.ErrInvalidState) {
+		t.Fatalf("expected ErrInvalidState, got: %v", err)
+	}
+}
+
+func TestCancelRejectsCompletedReview(t *testing.T) {
+	repo := &mockReviewRepo{}
+	svc := newTestService(repo, staticRunner{
+		result: review.Result{Summary: "ok"},
+	})
+
+	req := validRequest()
+	resp, err := svc.Create(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+
+	_, err = svc.Cancel(context.Background(), resp.ReviewID)
+	if err == nil {
+		t.Fatal("expected error when cancelling completed review")
+	}
+	if !errors.Is(err, review.ErrInvalidState) {
+		t.Fatalf("expected ErrInvalidState, got: %v", err)
+	}
+}
+
+func TestCancelReturnsNotFound(t *testing.T) {
+	repo := &mockReviewRepo{}
+	svc := newTestService(repo, blockingRunner{})
+
+	_, err := svc.Cancel(context.Background(), "nonexistent-id")
+	if err == nil {
+		t.Fatal("expected error for nonexistent review")
+	}
+	if !errors.Is(err, review.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got: %v", err)
+	}
+}
+
+func TestCreateDeduplicatesActiveReviewForSamePR(t *testing.T) {
+	repo := &mockReviewRepo{}
+	runner := &countingRunner{}
+	svc := newTestService(repo, runner)
+
+	req := validRequest()
+	req.PullRequestID = "42"
+	req.Wait = false
+
+	resp1, err := svc.Create(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("first Create returned error: %v", err)
+	}
+
+	resp2, err := svc.Create(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("second Create returned error: %v", err)
+	}
+
+	if resp1.ReviewID != resp2.ReviewID {
+		t.Fatalf("expected same review ID for dedup, got %s and %s", resp1.ReviewID, resp2.ReviewID)
+	}
+
+	snap := repo.snapshot()
+	if len(snap) != 1 {
+		t.Fatalf("expected 1 review persisted (dedup), got %d", len(snap))
+	}
+}
+
+func TestCreateDoesNotDedupDifferentPR(t *testing.T) {
+	repo := &mockReviewRepo{}
+	runner := &countingRunner{}
+	svc := newTestService(repo, runner)
+
+	req1 := validRequest()
+	req1.PullRequestID = "42"
+
+	req2 := validRequest()
+	req2.PullRequestID = "99"
+
+	_, err := svc.Create(context.Background(), req1, "")
+	if err != nil {
+		t.Fatalf("first Create returned error: %v", err)
+	}
+
+	_, err = svc.Create(context.Background(), req2, "")
+	if err != nil {
+		t.Fatalf("second Create returned error: %v", err)
+	}
+
+	if runner.count != 2 {
+		t.Fatalf("expected runner called twice for different PRs, got %d", runner.count)
+	}
+}
+
+type countingRunner struct {
+	count int
+}
+
+func (r *countingRunner) Run(_ context.Context, _ review.Workspace) (review.Result, error) {
+	r.count++
+	return review.Result{
+		Summary:  "ok",
+		Findings: []review.Finding{},
+		OCR:      review.OCRMetadata{Engine: "test", Status: "success"},
+	}, nil
+}
+
+type mockReviewRepoWithActive struct {
+	mockReviewRepo
+	activeReview *models.Review
+}
+
+func (m *mockReviewRepoWithActive) GetActiveByProviderRepo(_ context.Context, provider, repo string) (*models.Review, error) {
+	if m.activeReview != nil && m.activeReview.Provider == provider && m.activeReview.Repo == repo {
+		return m.activeReview, nil
+	}
+	return nil, nil
+}
+
+func TestFindActiveReviewReturnsExisting(t *testing.T) {
+	activeRepo := &mockReviewRepoWithActive{}
+	req := validRequest()
+	req.PullRequestID = "42"
+
+	activeReview := &models.Review{
+		ReviewID: "existing-review",
+		Provider: req.Provider,
+		Repo:     req.Repo,
+		Status:   "queued",
+		Request:  mustMarshalJSON(req),
+		Response: mustMarshalJSON(review.Response{
+			ReviewID: "existing-review",
+			Status:   "queued",
+			Summary:  "queued",
+		}),
+	}
+	activeRepo.activeReview = activeReview
+
+	svc := review.NewService(review.ServiceConfig{
+		ReviewRepo:      activeRepo,
+		OCRSettingsRepo: &mockOCRSettingsRepo{},
+		ProjectRepo:     &mockProjectPolicyRepo{},
+		Policy:          policy.NewEngine(policy.Config{FailOn: "critical"}),
+		Providers:       newTestProviders(testProvider{name: "github"}),
+		Runner:          &countingRunner{},
+		Publisher:       noopPublisher{},
+	})
+
+	resp, err := svc.Create(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+	if resp.ReviewID != "existing-review" {
+		t.Fatalf("expected existing review ID, got %s", resp.ReviewID)
+	}
+}
+
+func mustMarshalJSON(v interface{}) datatypesJSON {
+	data, _ := json.Marshal(v)
+	return datatypesJSON(data)
+}
+
+type datatypesJSON = datatypes.JSON

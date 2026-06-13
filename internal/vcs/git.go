@@ -1,162 +1,258 @@
 package vcs
 
 import (
-	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
-	"os/exec"
-	"strings"
+	"path/filepath"
+	"time"
+
+	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/config"
+	"github.com/go-git/go-git/v6/plumbing"
+	"github.com/go-git/go-git/v6/plumbing/client"
+	"github.com/go-git/go-git/v6/plumbing/object"
+	xhttp "github.com/go-git/go-git/v6/plumbing/transport/http"
+	"github.com/go-git/go-git/v6/utils/merkletrie"
 )
 
 type Git struct {
-	Dir   string
-	Token string
+	repo  *git.Repository
+	wt    *git.Worktree
+	token string
+	dir   string
 }
 
-func (g *Git) Run(ctx context.Context, args ...string) ([]byte, error) {
-	cmd := g.command(ctx, args...)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("git %s: %s", args[0], strings.TrimSpace(string(out)))
+func Clone(ctx context.Context, dir, url, token string) (*Git, error) {
+	opts := &git.CloneOptions{URL: url}
+	if token != "" {
+		opts.ClientOptions = tokenClientOpts(token)
 	}
-	return out, nil
-}
-
-func (g *Git) Output(ctx context.Context, args ...string) (string, error) {
-	out, err := g.Run(ctx, args...)
-	return strings.TrimSpace(string(out)), err
-}
-
-func (g *Git) Lines(ctx context.Context, args ...string) ([]string, error) {
-	out, err := g.Output(ctx, args...)
+	repo, err := git.PlainCloneContext(ctx, dir, opts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("git clone: %w", err)
 	}
-	return splitNonEmpty(out), nil
+	wt, err := repo.Worktree()
+	if err != nil {
+		return nil, fmt.Errorf("git worktree: %w", err)
+	}
+	return &Git{repo: repo, wt: wt, token: token, dir: dir}, nil
 }
 
-func (g *Git) RevParse(ctx context.Context, ref string) (string, error) {
-	return g.Output(ctx, "rev-parse", ref)
+func Open(dir, token string) (*Git, error) {
+	repo, err := git.PlainOpen(dir)
+	if err != nil {
+		return nil, fmt.Errorf("git open: %w", err)
+	}
+	wt, err := repo.Worktree()
+	if err != nil {
+		return nil, fmt.Errorf("git worktree: %w", err)
+	}
+	return &Git{repo: repo, wt: wt, token: token, dir: dir}, nil
 }
 
-func (g *Git) MergeBase(ctx context.Context, a, b string) (string, error) {
-	return g.Output(ctx, "merge-base", a, b)
+func (g *Git) Dir() string { return g.dir }
+
+func (g *Git) Fetch(ctx context.Context, refspec string) error {
+	opts := &git.FetchOptions{
+		RefSpecs: []config.RefSpec{config.RefSpec(refspec)},
+		Force:    true,
+	}
+	if g.token != "" {
+		opts.ClientOptions = tokenClientOpts(g.token)
+	}
+	return g.repo.FetchContext(ctx, opts)
 }
 
-func (g *Git) Clone(ctx context.Context, url string) error {
-	_, err := g.Run(ctx, "clone", "--quiet", url, g.Dir)
-	return err
-}
-
-func (g *Git) Fetch(ctx context.Context, ref string) error {
-	_, err := g.Run(ctx, "fetch", "--quiet", "origin", ref)
-	return err
-}
-
-func (g *Git) Checkout(ctx context.Context, ref string) error {
-	_, err := g.Run(ctx, "checkout", "--quiet", ref)
-	return err
+func (g *Git) Checkout(_ context.Context, ref string) error {
+	hash, err := g.resolveRef(ref)
+	if err != nil {
+		return err
+	}
+	return g.wt.Checkout(&git.CheckoutOptions{Hash: hash, Force: true})
 }
 
 func (g *Git) CheckoutDetached(ctx context.Context, ref string) error {
-	_, err := g.Run(ctx, "checkout", "--quiet", "--detach", ref)
-	return err
+	return g.Checkout(ctx, ref)
 }
 
-func (g *Git) CheckoutFiles(ctx context.Context, ref string, files []string) error {
-	args := append([]string{"checkout", "--quiet", ref, "--"}, files...)
-	_, err := g.Run(ctx, args...)
-	return err
-}
-
-func (g *Git) Diff(ctx context.Context, baseSHA, headSHA string, paths ...string) ([]byte, error) {
-	args := []string{"diff", "--binary", baseSHA, headSHA}
-	if len(paths) > 0 {
-		args = append(args, "--")
-		args = append(args, paths...)
-	}
-	return g.Run(ctx, args...)
-}
-
-func (g *Git) DiffNameOnly(ctx context.Context, baseSHA, headSHA string) ([]string, error) {
-	return g.Lines(ctx, "diff", "--name-only", baseSHA, headSHA)
-}
-
-func (g *Git) DeletedFiles(ctx context.Context, baseSHA, headSHA string) ([]string, error) {
-	return g.Lines(ctx, "diff", "--diff-filter=D", "--name-only", baseSHA, headSHA)
-}
-
-func (g *Git) Apply(ctx context.Context, patch []byte) error {
-	cmd := g.command(ctx, "apply", "--index", "--binary", "-")
-	cmd.Stdin = bytes.NewReader(patch)
-	out, err := cmd.CombinedOutput()
+func (g *Git) RevParse(_ context.Context, ref string) (string, error) {
+	hash, err := g.resolveRef(ref)
 	if err != nil {
-		return fmt.Errorf("git apply: %s", strings.TrimSpace(string(out)))
+		return "", err
+	}
+	return hash.String(), nil
+}
+
+func (g *Git) MergeBase(_ context.Context, a, b string) (string, error) {
+	commitA, err := g.commit(a)
+	if err != nil {
+		return "", err
+	}
+	commitB, err := g.commit(b)
+	if err != nil {
+		return "", err
+	}
+	bases, err := commitA.MergeBase(commitB)
+	if err != nil {
+		return "", fmt.Errorf("merge-base %s %s: %w", a, b, err)
+	}
+	if len(bases) == 0 {
+		return "", nil
+	}
+	return bases[0].Hash.String(), nil
+}
+
+func (g *Git) Diff(_ context.Context, baseSHA, headSHA string) ([]byte, error) {
+	commitBase, err := g.commit(baseSHA)
+	if err != nil {
+		return nil, err
+	}
+	commitHead, err := g.commit(headSHA)
+	if err != nil {
+		return nil, err
+	}
+	patch, err := commitBase.Patch(commitHead)
+	if err != nil {
+		return nil, fmt.Errorf("diff %s..%s: %w", baseSHA, headSHA, err)
+	}
+	return []byte(patch.String()), nil
+}
+
+func (g *Git) DiffNameOnly(_ context.Context, baseSHA, headSHA string) ([]string, error) {
+	changes, err := g.treeChanges(baseSHA, headSHA)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]string, 0, len(changes))
+	for _, c := range changes {
+		result = append(result, changePath(c))
+	}
+	return result, nil
+}
+
+func (g *Git) DeletedFiles(_ context.Context, baseSHA, headSHA string) ([]string, error) {
+	changes, err := g.treeChanges(baseSHA, headSHA)
+	if err != nil {
+		return nil, err
+	}
+	var result []string
+	for _, c := range changes {
+		action, err := c.Action()
+		if err != nil {
+			continue
+		}
+		if action == merkletrie.Delete {
+			result = append(result, c.From.Name)
+		}
+	}
+	return result, nil
+}
+
+func (g *Git) CheckoutFiles(_ context.Context, ref string, files []string) error {
+	commitObj, err := g.commit(ref)
+	if err != nil {
+		return err
+	}
+	tree, err := commitObj.Tree()
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		treeFile, err := tree.File(file)
+		if err != nil {
+			continue
+		}
+		reader, err := treeFile.Blob.Reader()
+		if err != nil {
+			continue
+		}
+		fullPath := filepath.Join(g.dir, file)
+		_ = os.MkdirAll(filepath.Dir(fullPath), 0o755)
+		f, err := os.Create(fullPath)
+		if err != nil {
+			_ = reader.Close()
+			continue
+		}
+		_, _ = io.Copy(f, reader)
+		_ = f.Close()
+		_ = reader.Close()
+		_, _ = g.wt.Add(file)
 	}
 	return nil
 }
 
-func (g *Git) CommitWithIdentity(ctx context.Context, name, email, msg string) error {
-	_, err := g.Run(ctx,
-		"-c", "user.name="+name,
-		"-c", "user.email="+email,
-		"commit", "--quiet", "-m", msg,
-	)
-	return err
-}
-
-func (g *Git) Add(ctx context.Context, files []string) error {
-	args := append([]string{"add", "--"}, files...)
-	_, err := g.Run(ctx, args...)
-	return err
-}
-
-func (g *Git) command(ctx context.Context, args ...string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Dir = g.Dir
-	if g.Token != "" {
-		script, err := writeAskPass()
-		if err == nil {
-			cmd.Env = append(os.Environ(),
-				"GIT_ASKPASS="+script,
-				"GIT_ASKPASS_TOKEN="+g.Token,
-				"GIT_TERMINAL_PROMPT=0",
-			)
+func (g *Git) Add(_ context.Context, files []string) error {
+	for _, file := range files {
+		if _, err := g.wt.Add(file); err != nil {
+			return fmt.Errorf("git add %s: %w", file, err)
 		}
 	}
-	return cmd
+	return nil
 }
 
-func writeAskPass() (string, error) {
-	f, err := os.CreateTemp("", "git-askpass-*.sh")
+func (g *Git) CommitWithIdentity(_ context.Context, name, email, msg string) error {
+	_, err := g.wt.Commit(msg, &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  name,
+			Email: email,
+			When:  time.Now(),
+		},
+		AllowEmptyCommits: true,
+	})
+	return err
+}
+
+func (g *Git) Close() error {
+	return g.repo.Close()
+}
+
+func (g *Git) resolveRef(ref string) (plumbing.Hash, error) {
+	hash, err := g.repo.ResolveRevision(plumbing.Revision(ref))
 	if err != nil {
-		return "", err
+		return plumbing.ZeroHash, fmt.Errorf("rev-parse %s: %w", ref, err)
 	}
-	script := "#!/bin/sh\nexec printf '%s' \"$GIT_ASKPASS_TOKEN\"\n"
-	if _, err := f.WriteString(script); err != nil {
-		_ = f.Close()
-		_ = os.Remove(f.Name())
-		return "", err
-	}
-	if err := f.Close(); err != nil {
-		_ = os.Remove(f.Name())
-		return "", err
-	}
-	if err := os.Chmod(f.Name(), 0700); err != nil {
-		_ = os.Remove(f.Name())
-		return "", err
-	}
-	return f.Name(), nil
+	return *hash, nil
 }
 
-func splitNonEmpty(value string) []string {
-	lines := strings.Split(value, "\n")
-	result := make([]string, 0, len(lines))
-	for _, line := range lines {
-		if line = strings.TrimSpace(line); line != "" {
-			result = append(result, line)
-		}
+func (g *Git) commit(ref string) (*object.Commit, error) {
+	hash, err := g.resolveRef(ref)
+	if err != nil {
+		return nil, err
 	}
-	return result
+	return g.repo.CommitObject(hash)
+}
+
+func (g *Git) treeChanges(baseSHA, headSHA string) (object.Changes, error) {
+	commitBase, err := g.commit(baseSHA)
+	if err != nil {
+		return nil, err
+	}
+	commitHead, err := g.commit(headSHA)
+	if err != nil {
+		return nil, err
+	}
+	treeBase, err := commitBase.Tree()
+	if err != nil {
+		return nil, err
+	}
+	treeHead, err := commitHead.Tree()
+	if err != nil {
+		return nil, err
+	}
+	return object.DiffTree(treeBase, treeHead)
+}
+
+func tokenClientOpts(token string) []client.Option {
+	return []client.Option{
+		client.WithHTTPAuth(&xhttp.BasicAuth{Username: "token", Password: token}),
+	}
+}
+
+func changePath(c *object.Change) string {
+	if c.To.Name != "" {
+		return c.To.Name
+	}
+	return c.From.Name
 }

@@ -9,7 +9,10 @@ import (
 )
 
 func applyProjectScope(ctx context.Context, workspace Workspace, ignorePaths []string) (Workspace, error) {
-	git := &vcs.Git{Dir: workspace.Dir}
+	git, err := vcs.Open(workspace.Dir, "")
+	if err != nil {
+		return Workspace{}, fmt.Errorf("open repo: %w", err)
+	}
 	changed, err := git.DiffNameOnly(ctx, workspace.BaseSHA, workspace.HeadSHA)
 	if err != nil {
 		return Workspace{}, fmt.Errorf("list changed files: %w", err)
@@ -39,12 +42,8 @@ func applyProjectScope(ctx context.Context, workspace Workspace, ignorePaths []s
 	if err := git.CheckoutDetached(ctx, workspace.BaseSHA); err != nil {
 		return Workspace{}, fmt.Errorf("prepare scoped review base: %w", err)
 	}
-	patch, err := git.Diff(ctx, workspace.BaseSHA, originalHead, included...)
-	if err != nil {
-		return Workspace{}, fmt.Errorf("build scoped review patch: %w", err)
-	}
-	if err := git.Apply(ctx, patch); err != nil {
-		return Workspace{}, fmt.Errorf("apply scoped review patch: %w", err)
+	if err := git.CheckoutFiles(ctx, originalHead, included); err != nil {
+		return Workspace{}, fmt.Errorf("restore scoped review files: %w", err)
 	}
 	if err := git.CommitWithIdentity(ctx, "Review Service", "review-service@localhost", "review-service scoped diff"); err != nil {
 		return Workspace{}, fmt.Errorf("commit scoped review patch: %w", err)
@@ -52,6 +51,10 @@ func applyProjectScope(ctx context.Context, workspace Workspace, ignorePaths []s
 	head, err := git.RevParse(ctx, "HEAD")
 	if err != nil {
 		return Workspace{}, err
+	}
+	patch, err := git.Diff(ctx, workspace.BaseSHA, head)
+	if err != nil {
+		return Workspace{}, fmt.Errorf("build scoped diff: %w", err)
 	}
 	workspace.HeadSHA = head
 	workspace.Diff = string(patch)

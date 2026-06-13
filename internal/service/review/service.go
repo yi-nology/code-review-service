@@ -40,7 +40,8 @@ const (
 	StatusFailed    = "failed"
 	StatusCompleted = "completed"
 
-	StageQueued = "queued"
+	StageQueued    = "queued"
+	StageCancelled = "cancelled"
 )
 
 type ServiceConfig struct {
@@ -219,7 +220,8 @@ func queuedMessage(isWebhook bool) string {
 	return "review queued"
 }
 
-func (s *Service) Get(ctx context.Context, reviewID string) (Record, bool, error) {	review, err := s.reviewRepo.GetByReviewID(ctx, reviewID)
+func (s *Service) Get(ctx context.Context, reviewID string) (Record, bool, error) {
+	review, err := s.reviewRepo.GetByReviewID(ctx, reviewID)
 	if err != nil {
 		return Record{}, false, err
 	}
@@ -420,6 +422,10 @@ func (s *Service) Requeue(ctx context.Context, reviewID string) (Response, error
 	resp.Status = StatusQueued
 	resp.Summary = "review re-queued"
 	resp.Gate = PendingGate()
+	resp.Error = ""
+	resp.Findings = nil
+	resp.Report = Report{}
+	resp.Analysis = Analysis{}
 	resp.History = append(resp.History, Event{
 		Stage:     StageQueued,
 		Status:    StatusCompleted,
@@ -458,8 +464,8 @@ func (s *Service) Cancel(ctx context.Context, reviewID string) (Response, error)
 	resp.Summary = "review cancelled by user"
 	resp.Gate = ErrorGate("review cancelled")
 	resp.History = append(resp.History, Event{
-		Stage:     StatusFailed,
-		Status:    "failed",
+		Stage:     StageCancelled,
+		Status:    StatusFailed,
 		Message:   "review cancelled by user",
 		CreatedAt: time.Now().UTC(),
 	})
