@@ -97,12 +97,13 @@ func (a *gitProviderAdapter) Prepare(ctx context.Context, req review.Request) (r
 	}
 
 	return review.Workspace{
-		Provider: a.platform,
-		Repo:     strings.TrimPrefix(req.Repo, "/"),
-		BaseSHA:  baseSHA,
-		HeadSHA:  headSHA,
-		Diff:     diff,
-		Dir:      dir,
+		Provider:        a.platform,
+		Repo:            strings.TrimPrefix(req.Repo, "/"),
+		BaseSHA:         baseSHA,
+		HeadSHA:         headSHA,
+		OriginalHeadSHA: req.HeadSHA,
+		Diff:            diff,
+		Dir:             dir,
 	}, nil
 }
 

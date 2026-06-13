@@ -122,7 +122,11 @@ func (s *Service) run(ctx context.Context, id string, req Request, provider Prov
 
 	if callbackMode != "none" && callbackMode != "summary" {
 		if s.writeback != nil {
-			if err := s.writeback.PublishWithDiff(ctx, req, result, workspace.Diff); err != nil {
+			writebackReq := req
+			if workspace.OriginalHeadSHA != "" {
+				writebackReq.HeadSHA = workspace.OriginalHeadSHA
+			}
+			if err := s.writeback.PublishWithDiff(ctx, writebackReq, result, workspace.Diff); err != nil {
 				hlog.Warn("writeback publish failed, falling back to legacy publisher", "error", err)
 				if err := s.publisher.Publish(ctx, req, result); err != nil {
 					s.recordFailure(ctx, id, req, err)
