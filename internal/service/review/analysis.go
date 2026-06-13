@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/oekit/pkg"
+	"github.com/oekit/pkg/slicex"
 )
 
 func BuildAnalysis(result Result) Analysis {
@@ -41,11 +41,11 @@ func analysisFromFindings(result Result) Analysis {
 		))
 		for _, line := range strings.Split(finding.Body, "\n") {
 			line = strings.TrimSpace(line)
-			if isRecommendationLine(line) && !slice.Contains(analysis.Recommendations, line) {
+			if isRecommendationLine(line) && !slicex.Contains(analysis.Recommendations, line) {
 				analysis.Recommendations = append(analysis.Recommendations, line)
 			}
 		}
-		if strings.TrimSpace(finding.SuggestionCode) != "" && !slice.Contains(analysis.Recommendations, "按问题报告中的\u201c建议改进后\u201d代码调整实现。") {
+		if strings.TrimSpace(finding.SuggestionCode) != "" && !slicex.Contains(analysis.Recommendations, "按问题报告中的\u201c建议改进后\u201d代码调整实现。") {
 			analysis.Recommendations = append(analysis.Recommendations, "按问题报告中的\u201c建议改进后\u201d代码调整实现。")
 		}
 	}
@@ -92,15 +92,15 @@ func analysisFromRawOCR(raw json.RawMessage, result Result) Analysis {
 			}
 			if strings.Contains(line, "失效") ||
 				strings.Contains(line, "影响") ||
-				strings.Contains(line, "风险") && !slice.Contains(analysis.Risks, line) {
+				strings.Contains(line, "风险") && !slicex.Contains(analysis.Risks, line) {
 				analysis.Risks = append(analysis.Risks, line)
 			}
-			if inRecommendations && line != "" && !slice.Contains(analysis.Recommendations, line) {
+			if inRecommendations && line != "" && !slicex.Contains(analysis.Recommendations, line) {
 				analysis.Recommendations = append(analysis.Recommendations, line)
 			}
 		}
 		suggestionText := "模型已提供可直接参考的建议代码，见问题报告中的\u201c建议改进后\u201d。"
-		if strings.TrimSpace(comment.SuggestionCode) != "" && !slice.Contains(analysis.Recommendations, suggestionText) {
+		if strings.TrimSpace(comment.SuggestionCode) != "" && !slicex.Contains(analysis.Recommendations, suggestionText) {
 			analysis.Recommendations = append(analysis.Recommendations, suggestionText)
 		}
 	}

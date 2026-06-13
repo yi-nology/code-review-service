@@ -18,6 +18,7 @@ import (
 	"review-service/internal/repository/postgres/models"
 	"review-service/internal/service/policy"
 
+	"github.com/oekit/gormx"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
 
@@ -140,7 +141,7 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 	}
 
 	if err := s.reviewRepo.Create(ctx, review); err != nil {
-		if idempotencyKey != "" && isUniqueViolation(err) {
+		if idempotencyKey != "" && gormx.IsUniqueViolation(err) {
 			existing, getErr := s.reviewRepo.GetByidempotencyKey(ctx, idempotencyKey)
 			if getErr == nil && existing != nil {
 				if existing.RequestFingerprint != fingerprint {

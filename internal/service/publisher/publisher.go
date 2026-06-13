@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/oekit/pkg"
+	"github.com/oekit/pkg/slicex"
 	"review-service/internal/service/provider"
 	"review-service/internal/service/review"
 
@@ -154,7 +154,7 @@ func FormatReport(result review.Result, maxComments int, summaryOnly bool) strin
 }
 
 func severityCounts(findings []review.Finding) map[review.Severity]int {
-	grouped := slice.GroupBy(findings, func(f review.Finding) review.Severity { return f.Severity })
+	grouped := slicex.GroupBy(findings, func(f review.Finding) review.Severity { return f.Severity })
 	counts := make(map[review.Severity]int, len(grouped))
 	for sev, items := range grouped {
 		counts[sev] = len(items)

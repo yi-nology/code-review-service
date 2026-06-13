@@ -14,7 +14,7 @@ import (
 )
 
 func InitDB(cfg *config.DatabaseConfig) (*gormDB.DB, error) {
-	db, err := gorm.OpenWithPool(
+	db, err := gormx.OpenWithPool(
 		gormLib.Open(cfg.DSN),
 		cfg.MaxIdleConns,
 		cfg.MaxOpenConns,

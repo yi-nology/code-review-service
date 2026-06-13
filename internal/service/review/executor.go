@@ -3,7 +3,6 @@ package review
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"os"
 	"strings"
 
@@ -11,7 +10,7 @@ import (
 	"review-service/internal/service/policy"
 
 	"github.com/cloudwego/hertz/pkg/common/hlog"
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/oekit/pkg/slicex"
 )
 
 func (s *Service) run(ctx context.Context, id string, req Request, provider Provider) (Response, error) {
@@ -157,24 +156,8 @@ func (s *Service) recordFailure(ctx context.Context, id string, req Request, run
 }
 
 func toPolicyFindings(findings []Finding) []policy.Finding {
-	out := make([]policy.Finding, 0, len(findings))
-	for _, finding := range findings {
-		out = append(out, policy.Finding{
-			Severity: string(finding.Severity),
-			Path:     finding.Path,
-		})
-	}
-	return out
-}
-
-func isUniqueViolation(err error) bool {
-	if err == nil {
-		return false
-	}
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		return true
-	}
-	return false
+	return slicex.Map(findings, func(f Finding) policy.Finding {
+		return policy.Finding{Severity: string(f.Severity), Path: f.Path}
+	})
 }
 

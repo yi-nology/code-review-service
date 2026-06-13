@@ -3,7 +3,7 @@ module review-service
 go 1.26
 
 require (
-	github.com/yi-nology/ekit v0.5.0
+	github.com/yi-nology/ekit v0.6.7
 	github.com/apache/thrift v0.23.0
 	github.com/cloudwego/hertz v0.10.4
 	github.com/hertz-contrib/swagger v0.1.1
@@ -108,7 +108,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/nacos-group/nacos-sdk-go/v2 v2.3.5 // indirect
+	github.com/nacos-group/nacos-sdk-go/v2 v2.3.6-0.20260601044846-0e3d1d099507 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/orcaman/concurrent-map v0.0.0-20210501183033-44dafcb38ecc // indirect
 	github.com/paulmach/orb v0.11.1 // indirect

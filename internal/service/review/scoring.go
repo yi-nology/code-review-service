@@ -4,6 +4,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/oekit/pkg/mathx"
 	"review-service/internal/pkg/mathutil"
 )
 
@@ -123,7 +124,7 @@ func BuildReport(result *Result) Report {
 			Version:        scoreVersion,
 			Deductions:     deductions,
 			ChangedLines:   changedLines,
-			FindingsDensity: mathutil.RoundTo2(density),
+			FindingsDensity: mathx.Round(density, 2),
 		},
 	}
 }

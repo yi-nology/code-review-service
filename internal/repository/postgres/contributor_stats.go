@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"review-service/internal/pkg/mathutil"
+	"github.com/oekit/pkg/mathx"
 	"review-service/internal/repository/postgres/models"
 
 	gormLib "gorm.io/gorm"
@@ -175,12 +175,12 @@ func (r *ContributorStatsRepo) GetContributor(ctx context.Context, opts models.C
 
 	return &models.ContributorDetail{
 		ContributorSummary: rowToSummary(row),
-		MedianScore:        mathutil.RoundTo2(medianScore),
+		MedianScore:        mathx.Round(medianScore, 2),
 		MaxScore:           maxScore,
 		MinScore:           minScore,
 		GradeDistribution:  gradeDist,
-		AvgFindings:        mathutil.RoundTo2(avgFindings),
-		AvgChangedLines:    mathutil.RoundTo2(avgChangedLines),
+		AvgFindings:        mathx.Round(avgFindings, 2),
+		AvgChangedLines:    mathx.Round(avgChangedLines, 2),
 	}, nil
 }
 
@@ -209,7 +209,7 @@ func (r *ContributorStatsRepo) GetContributorTrend(ctx context.Context, opts mod
 	for _, row := range rows {
 		points = append(points, models.TrendPoint{
 			Period:      row.Period,
-			AvgScore:    mathutil.RoundTo2(row.AvgScore),
+			AvgScore:    mathx.Round(row.AvgScore, 2),
 			ReviewCount: row.ReviewCount,
 		})
 	}
@@ -286,8 +286,8 @@ func rowToSummary(row contributorRow) models.ContributorSummary {
 		AuthorName:    row.AuthorName,
 		AuthorAvatar:  row.AuthorAvatar,
 		ReviewCount:   row.ReviewCount,
-		AvgScore:      mathutil.RoundTo2(row.AvgScore),
-		PassRate:      mathutil.RoundTo2(row.PassRate * 100),
+		AvgScore:      mathx.Round(row.AvgScore, 2),
+		PassRate:      mathx.Round(row.PassRate * 100, 2),
 		TotalFindings: row.TotalFindings,
 		CriticalCount: row.CriticalCount,
 		MajorCount:    row.MajorCount,
