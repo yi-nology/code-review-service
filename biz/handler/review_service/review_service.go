@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	modelReview "github.com/yi-nology/code-review-service/biz/model/review"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 
+	"github.com/oekit/pkg/ptrx"
 	hertzApp "github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
+	gormLib "gorm.io/gorm"
 )
 
 func mapReviewError(err error) error {
@@ -33,13 +36,13 @@ func (h *ReviewHandler) CreateReview(ctx context.Context, c *hertzApp.RequestCon
 	svcReq := review.Request{
 		Provider:        req.Provider,
 		Repo:            req.Repo,
-		ProjectID:       derefStr(req.ProjectID),
-		PullRequestID:   derefStr(req.PullRequestID),
-		MergeRequestIID: derefStr(req.MergeRequestIid),
-		BaseSHA:         derefStr(req.BaseSha),
-		HeadSHA:         derefStr(req.HeadSha),
-		CallbackMode:    derefStr(req.CallbackMode),
-		Wait:            derefBool(req.Wait),
+		ProjectID:       ptrx.Deref(req.ProjectID, ""),
+		PullRequestID:   ptrx.Deref(req.PullRequestID, ""),
+		MergeRequestIID: ptrx.Deref(req.MergeRequestIid, ""),
+		BaseSHA:         ptrx.Deref(req.BaseSha, ""),
+		HeadSHA:         ptrx.Deref(req.HeadSha, ""),
+		CallbackMode:    ptrx.Deref(req.CallbackMode, ""),
+		Wait:            ptrx.Deref(req.Wait, false),
 	}
 
 	idempotencyKey := string(c.GetHeader("Idempotency-Key"))
@@ -92,14 +95,14 @@ func (h *ReviewHandler) ListReviews(ctx context.Context, c *hertzApp.RequestCont
 	}
 
 	page, pageSize := pageParams(
-		fmt.Sprintf("%d", derefInt64(req.Page)),
-		fmt.Sprintf("%d", derefInt64(req.PageSize)),
+		fmt.Sprintf("%d", ptrx.Deref(req.Page, 0)),
+		fmt.Sprintf("%d", ptrx.Deref(req.PageSize, 0)),
 	)
 
 	result, err := h.reviewSvc.List(ctx, review.ListOptions{
-		Status:   cleanQuery(derefStr(req.Status)),
-		Provider: cleanQuery(derefStr(req.Provider)),
-		Repo:     cleanQuery(derefStr(req.Repo)),
+		Status:   cleanQuery(ptrx.Deref(req.Status, "")),
+		Provider: cleanQuery(ptrx.Deref(req.Provider, "")),
+		Repo:     cleanQuery(ptrx.Deref(req.Repo, "")),
 		Limit:    pageSize,
 		Offset:   (page - 1) * pageSize,
 	})
@@ -162,11 +165,11 @@ func (h *ReviewHandler) PreviewReview(ctx context.Context, c *hertzApp.RequestCo
 	svcReq := review.Request{
 		Provider:        req.Provider,
 		Repo:            req.Repo,
-		ProjectID:       derefStr(req.ProjectID),
-		PullRequestID:   derefStr(req.PullRequestID),
-		MergeRequestIID: derefStr(req.MergeRequestIID),
-		BaseSHA:         derefStr(req.BaseSHA),
-		HeadSHA:         derefStr(req.HeadSHA),
+		ProjectID:       ptrx.Deref(req.ProjectID, ""),
+		PullRequestID:   ptrx.Deref(req.PullRequestID, ""),
+		MergeRequestIID: ptrx.Deref(req.MergeRequestIID, ""),
+		BaseSHA:         ptrx.Deref(req.BaseSHA, ""),
+		HeadSHA:         ptrx.Deref(req.HeadSHA, ""),
 	}
 
 	files, err := h.reviewSvc.Preview(ctx, svcReq)
@@ -189,7 +192,7 @@ func (h *ReviewHandler) RerunReview(ctx context.Context, c *hertzApp.RequestCont
 
 	resp, err := h.reviewSvc.Requeue(ctx, reviewID)
 	if err != nil {
-		if errors.Is(err, review.ErrNotFound) {
+		if errors.Is(err, review.ErrNotFound) || errors.Is(err, gormLib.ErrRecordNotFound) || strings.Contains(err.Error(), "not found") {
 			fail(c, notFound("review not found"))
 			return
 		}
@@ -216,7 +219,7 @@ func (h *ReviewHandler) CancelReview(ctx context.Context, c *hertzApp.RequestCon
 
 	resp, err := h.reviewSvc.Cancel(ctx, reviewID)
 	if err != nil {
-		if errors.Is(err, review.ErrNotFound) {
+		if errors.Is(err, review.ErrNotFound) || errors.Is(err, gormLib.ErrRecordNotFound) || strings.Contains(err.Error(), "not found") {
 			fail(c, notFound("review not found"))
 			return
 		}
