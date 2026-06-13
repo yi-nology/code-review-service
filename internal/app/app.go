@@ -1,0 +1,39 @@
+package app
+
+import (
+	"context"
+
+	"review-service/internal/repository"
+	"review-service/internal/repository/postgres/models"
+	"review-service/internal/service/review"
+
+	gitProvider "review-service/internal/service/provider"
+	"github.com/yi-nology/git-platform-sdk/provider"
+
+	gormLib "gorm.io/gorm"
+)
+
+type ReviewService interface {
+	Create(context.Context, review.Request, string) (review.Response, error)
+	Get(context.Context, string) (review.Record, bool, error)
+	List(context.Context, review.ListOptions) (review.ListResult, error)
+	Preview(context.Context, review.Request) ([]string, error)
+}
+
+type GitProviderManager interface {
+	AddOrUpdateFromDB(p *models.GitPlatform) error
+	Remove(name string)
+	TestWithToken(ctx context.Context, platform, baseURL, token string) (*models.GitTestResult, error)
+	HasProvider(platform string) bool
+	ListRepos(ctx context.Context, platform string, opts provider.ListRepoOptions) ([]*provider.PlatformRepo, error)
+	ListBranches(ctx context.Context, platform, owner, repo string) ([]*provider.PlatformBranch, error)
+	ListCRs(ctx context.Context, platform string, opts provider.ListCROptions) ([]*provider.ChangeRequest, int, error)
+	GetBranchSHA(ctx context.Context, platform, owner, repo, branch string) (string, error)
+}
+
+type App struct {
+	DB         *gormLib.DB
+	Repos      *repository.RepoContainer
+	Review     ReviewService
+	Provider   *gitProvider.GitProviderService
+}

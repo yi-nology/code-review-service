@@ -1,0 +1,315 @@
+package provider
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"sync"
+
+	"review-service/internal/repository/postgres/models"
+
+	"github.com/yi-nology/git-platform-sdk/provider"
+)
+
+type GitProviderService struct {
+	mu        sync.RWMutex
+	providers map[string]provider.Provider
+	configs   map[string]provider.Config
+}
+
+func NewGitProviderService(configs map[string]provider.Config) (*GitProviderService, error) {
+	providers := make(map[string]provider.Provider)
+
+	for name, cfg := range configs {
+		p, err := provider.NewProvider(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("init provider %s: %w", name, err)
+		}
+		providers[name] = p
+	}
+
+	return &GitProviderService{providers: providers, configs: configs}, nil
+}
+
+func (s *GitProviderService) AddOrUpdate(name string, cfg provider.Config) error {
+	p, err := provider.NewProvider(cfg)
+	if err != nil {
+		return fmt.Errorf("init provider %s: %w", name, err)
+	}
+	s.mu.Lock()
+	s.providers[name] = p
+	s.configs[name] = cfg
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *GitProviderService) Remove(name string) {
+	s.mu.Lock()
+	delete(s.providers, name)
+	delete(s.configs, name)
+	s.mu.Unlock()
+}
+
+func (s *GitProviderService) Reload(configs map[string]provider.Config) error {
+	newProviders := make(map[string]provider.Provider, len(configs))
+	for name, cfg := range configs {
+		p, err := provider.NewProvider(cfg)
+		if err != nil {
+			return fmt.Errorf("init provider %s: %w", name, err)
+		}
+		newProviders[name] = p
+	}
+	s.mu.Lock()
+	s.providers = newProviders
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *GitProviderService) GetProvider(platform string) (provider.Provider, error) {
+	s.mu.RLock()
+	p, ok := s.providers[platform]
+	s.mu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("unsupported provider: %s", platform)
+	}
+	return p, nil
+}
+
+func (s *GitProviderService) DetectAndGetProvider(remoteURL string) (provider.Provider, *provider.DetectResult, error) {
+	result, err := provider.DetectPlatform(remoteURL)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	p, err := s.GetProvider(string(result.Platform))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return p, result, nil
+}
+
+func (s *GitProviderService) GetCRDiff(ctx context.Context, platform, owner, repo string, number int) (*provider.MergeDiff, error) {
+	p, err := s.GetProvider(platform)
+	if err != nil {
+		return nil, err
+	}
+	return p.GetCRDiff(ctx, owner, repo, number)
+}
+
+func (s *GitProviderService) GetCRFiles(ctx context.Context, platform, owner, repo string, number int) ([]*provider.ChangedFile, error) {
+	p, err := s.GetProvider(platform)
+	if err != nil {
+		return nil, err
+	}
+	return p.GetCRFiles(ctx, owner, repo, number)
+}
+
+func (s *GitProviderService) CreateComment(ctx context.Context, platform, owner, repo string, number int, body string) (string, error) {
+	p, err := s.GetProvider(platform)
+	if err != nil {
+		return "", err
+	}
+	return p.CreateNote(ctx, owner, repo, number, body)
+}
+
+func (s *GitProviderService) CreateCommitStatus(ctx context.Context, platform, owner, repo, sha string, opts provider.CommitStatusOptions) error {
+	p, err := s.GetProvider(platform)
+	if err != nil {
+		return err
+	}
+	return p.CreateCommitStatus(ctx, owner, repo, sha, opts)
+}
+
+func (s *GitProviderService) GetCR(ctx context.Context, platform, owner, repo string, number int) (*provider.ChangeRequest, error) {
+	p, err := s.GetProvider(platform)
+	if err != nil {
+		return nil, err
+	}
+	return p.GetCR(ctx, owner, repo, number)
+}
+
+func (s *GitProviderService) TestConnection(ctx context.Context, platform string) (*provider.TestConnectionResult, error) {
+	p, err := s.GetProvider(platform)
+	if err != nil {
+		return nil, err
+	}
+	return p.TestConnection(ctx)
+}
+
+func ParseRepoPath(repoPath string) (string, string, error) {
+	repoPath = strings.TrimSpace(repoPath)
+	if repoPath == "" {
+		return "", "", fmt.Errorf("repo path is empty")
+	}
+
+	repoPath = strings.TrimSuffix(repoPath, ".git")
+	repoPath = strings.TrimPrefix(repoPath, "/")
+
+	parts := strings.Split(repoPath, "/")
+	if len(parts) < 2 {
+		return "", "", fmt.Errorf("invalid repo path: %s", repoPath)
+	}
+
+	owner := strings.Join(parts[:len(parts)-1], "/")
+	repo := parts[len(parts)-1]
+	return owner, repo, nil
+}
+
+func (s *GitProviderService) HasProvider(platform string) bool {
+	s.mu.RLock()
+	_, ok := s.providers[platform]
+	s.mu.RUnlock()
+	return ok
+}
+
+func (s *GitProviderService) GetCRDiffString(ctx context.Context, platform, owner, repo string, number int) (string, error) {
+	diff, err := s.GetCRDiff(ctx, platform, owner, repo, number)
+	if err != nil {
+		return "", err
+	}
+	return diff.RawDiff, nil
+}
+
+func (s *GitProviderService) BuildCloneURL(platform, owner, repo string) string {
+	s.mu.RLock()
+	cfg, ok := s.configs[platform]
+	s.mu.RUnlock()
+	if !ok {
+		return ""
+	}
+
+	base := strings.TrimRight(cfg.BaseURL, "/")
+	switch strings.ToLower(platform) {
+	case "gitea":
+		base = strings.TrimSuffix(base, "/api/v1")
+	case "gitcode":
+		base = strings.TrimSuffix(base, "/api/v5")
+		base = strings.Replace(base, "://api.gitcode.com", "://gitcode.com", 1)
+	case "gitlab":
+		base = strings.TrimSuffix(base, "/api/v4")
+	case "github":
+		base = strings.TrimSuffix(base, "/api/v3")
+		base = strings.Replace(base, "://api.github.com", "://github.com", 1)
+	}
+
+	if base == "" {
+		return ""
+	}
+
+	return base + fmt.Sprintf("/%s/%s.git", owner, repo)
+}
+
+func (s *GitProviderService) GetToken(platform string) string {
+	s.mu.RLock()
+	cfg, ok := s.configs[platform]
+	s.mu.RUnlock()
+	if !ok {
+		return ""
+	}
+	return cfg.Token
+}
+
+func (s *GitProviderService) ListRepos(ctx context.Context, platform string, opts provider.ListRepoOptions) ([]*provider.PlatformRepo, error) {
+	p, err := s.GetProvider(platform)
+	if err != nil {
+		return nil, err
+	}
+	return p.ListRepos(ctx, opts)
+}
+
+func (s *GitProviderService) ListBranches(ctx context.Context, platform, owner, repo string) ([]*provider.PlatformBranch, error) {
+	p, err := s.GetProvider(platform)
+	if err != nil {
+		return nil, err
+	}
+	return p.ListBranches(ctx, owner, repo)
+}
+
+func (s *GitProviderService) ListCRs(ctx context.Context, platform string, opts provider.ListCROptions) ([]*provider.ChangeRequest, int, error) {
+	p, err := s.GetProvider(platform)
+	if err != nil {
+		return nil, 0, err
+	}
+	return p.ListCRs(ctx, opts)
+}
+
+func (s *GitProviderService) GetBranchSHA(ctx context.Context, platform, owner, repo, branch string) (string, error) {
+	p, err := s.GetProvider(platform)
+	if err != nil {
+		return "", err
+	}
+	commits, err := p.ListCommits(ctx, owner, repo, provider.ListCommitsOptions{
+		Branch:  branch,
+		Page:    1,
+		PerPage: 1,
+	})
+	if err != nil {
+		return "", err
+	}
+	if len(commits) == 0 {
+		return "", fmt.Errorf("no commits found for branch %s", branch)
+	}
+	return commits[0].SHA, nil
+}
+
+func (s *GitProviderService) GetSupportedPlatforms() []string {
+	s.mu.RLock()
+	platforms := make([]string, 0, len(s.providers))
+	for name := range s.providers {
+		platforms = append(platforms, name)
+	}
+	s.mu.RUnlock()
+	return platforms
+}
+
+func (s *GitProviderService) AddOrUpdateFromDB(p *models.GitPlatform) error {
+	cfg := provider.Config{
+		Platform: provider.Platform(p.Provider),
+		BaseURL:  p.BaseURL,
+		Token:    p.Token,
+	}
+	return s.AddOrUpdate(p.Provider, cfg)
+}
+
+func (s *GitProviderService) TestWithToken(ctx context.Context, platform, baseURL, token string) (*models.GitTestResult, error) {
+	cfg := provider.Config{
+		Platform: provider.Platform(platform),
+		BaseURL:  baseURL,
+		Token:    token,
+	}
+	p, err := provider.NewProvider(cfg)
+	if err != nil {
+		return &models.GitTestResult{Connected: false, Platform: platform, Message: fmt.Sprintf("初始化失败: %v", err)}, nil
+	}
+	result, err := p.TestConnection(ctx)
+	if err != nil {
+		return &models.GitTestResult{Connected: false, Platform: platform, Message: err.Error()}, nil
+	}
+	return &models.GitTestResult{
+		Connected: result.Connected,
+		Platform:  platform,
+		UserName:  result.UserName,
+		Message:   result.Message,
+	}, nil
+}
+
+type GitProviderAdapter struct {
+	svc *GitProviderService
+}
+
+func NewGitProviderAdapter(svc *GitProviderService) *GitProviderAdapter {
+	return &GitProviderAdapter{svc: svc}
+}
+
+func (a *GitProviderAdapter) GetCRDiff(ctx context.Context, platform, owner, repo string, number int) (string, error) {
+	return a.svc.GetCRDiffString(ctx, platform, owner, repo, number)
+}
+
+func (a *GitProviderAdapter) CreateComment(ctx context.Context, platform, owner, repo string, number int, body string) (string, error) {
+	return a.svc.CreateComment(ctx, platform, owner, repo, number, body)
+}
+
+func (a *GitProviderAdapter) HasProvider(platform string) bool {
+	return a.svc.HasProvider(platform)
+}

@@ -1,0 +1,30 @@
+package swagger
+
+import (
+	"context"
+	_ "embed"
+
+	mw "github.com/oekit/middleware"
+
+	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/cloudwego/hertz/pkg/app/server"
+	"github.com/hertz-contrib/swagger"
+	swaggerFiles "github.com/swaggo/files"
+)
+
+//go:embed openapi.yaml
+var openapiYAML []byte
+
+func RegisterRoutes(h *server.Hertz) {
+	h.Use(mw.CORSMiddleware())
+
+	h.GET("/swagger/*any", swagger.WrapHandler(
+		swaggerFiles.Handler,
+		swagger.URL("/openapi.yaml"),
+	))
+
+	h.GET("/openapi.yaml", func(_ context.Context, ctx *app.RequestContext) {
+		ctx.Header("Content-Type", "application/x-yaml")
+		_, _ = ctx.Write(openapiYAML)
+	})
+}

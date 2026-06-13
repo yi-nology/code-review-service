@@ -1,0 +1,332 @@
+openapi: 3.0.3
+info:
+  title: Review Service API
+  description: AI-powered code review service
+  version: 1.0.0
+
+servers:
+  - url: /api/v1
+
+security:
+  - BearerAuth: []
+
+paths:
+  /reviews:
+    post:
+      operationId: createReview
+      summary: Create a code review
+      tags: [Reviews]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          schema:
+            type: string
+            maxLength: 200
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReviewRequest"
+      responses:
+        "200":
+          description: Review completed synchronously
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewResponse"
+        "202":
+          description: Review queued for async processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewResponse"
+        "400":
+          description: Invalid request
+        "409":
+          description: Idempotency conflict
+        "422":
+          description: Unsupported provider
+
+    get:
+      operationId: listReviews
+      summary: List reviews
+      tags: [Reviews]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 200
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: provider
+          in: query
+          schema:
+            type: string
+        - name: repo
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of reviews
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListReviewsResponse"
+
+  /reviews/{id}:
+    get:
+      operationId: getReview
+      summary: Get review by ID
+      tags: [Reviews]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Review detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewDetail"
+        "404":
+          description: Review not found
+
+  /settings/ocr:
+    get:
+      operationId: getOCRSettings
+      summary: Get OCR settings
+      tags: [Settings]
+      responses:
+        "200":
+          description: OCR settings
+    put:
+      operationId: updateOCRSettings
+      summary: Update OCR settings
+      tags: [Settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated settings
+
+  /settings/projects:
+    get:
+      operationId: listProjectPolicies
+      summary: List project policies
+      tags: [Settings]
+      responses:
+        "200":
+          description: List of policies
+    put:
+      operationId: putProjectPolicy
+      summary: Upsert project policy
+      tags: [Settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated policy
+    delete:
+      operationId: deleteProjectPolicy
+      summary: Delete project policy
+      tags: [Settings]
+      parameters:
+        - name: provider
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: repo
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /settings/platforms:
+    get:
+      operationId: listPlatforms
+      summary: List git platforms
+      tags: [Settings]
+      responses:
+        "200":
+          description: List of platforms
+    put:
+      operationId: putPlatform
+      summary: Upsert git platform
+      tags: [Settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider]
+              properties:
+                provider:
+                  type: string
+                base_url:
+                  type: string
+                token:
+                  type: string
+                enabled:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated platform
+    delete:
+      operationId: deletePlatform
+      summary: Delete git platform
+      tags: [Settings]
+      parameters:
+        - name: provider
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /settings/platforms/test:
+    post:
+      operationId: testPlatform
+      summary: Test platform connectivity
+      tags: [Settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, token]
+              properties:
+                provider:
+                  type: string
+                base_url:
+                  type: string
+                token:
+                  type: string
+      responses:
+        "200":
+          description: Test result
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+  schemas:
+    CreateReviewRequest:
+      type: object
+      required: [provider, repo]
+      properties:
+        provider:
+          type: string
+        repo:
+          type: string
+        project_id:
+          type: string
+        pull_request_id:
+          type: string
+        merge_request_iid:
+          type: string
+        base_sha:
+          type: string
+        head_sha:
+          type: string
+        callback_mode:
+          type: string
+        wait:
+          type: boolean
+
+    ReviewResponse:
+      type: object
+      properties:
+        review_id:
+          type: string
+        status:
+          type: string
+        summary:
+          type: string
+        gate:
+          type: object
+        history:
+          type: array
+          items:
+            type: object
+
+    ReviewDetail:
+      type: object
+      properties:
+        review_id:
+          type: string
+        provider:
+          type: string
+        repo:
+          type: string
+        status:
+          type: string
+        summary:
+          type: string
+        gate:
+          type: object
+        analysis:
+          type: object
+        findings:
+          type: array
+          items:
+            type: object
+        report:
+          type: object
+        error:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ListReviewsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_pages:
+          type: integer
+        stats:
+          type: object

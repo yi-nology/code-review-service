@@ -1,0 +1,78 @@
+# Review Service 配置文件
+# 环境变量会覆盖此文件中的配置
+
+port: 8080
+
+# 认证配置
+auth:
+  token: "dev-token"
+
+# 数据库配置
+database:
+  dsn: "${DATABASE_URL:postgres://review_service:review_service@localhost:5432/review_service?sslmode=disable}"
+  max_idle_conns: 10
+  max_open_conns: 100
+
+# Worker 配置
+review:
+  worker_concurrency: 2
+  worker_poll_interval: "1s"
+  worker_stale_after: "15m"
+  max_diff_bytes: 5242880
+
+# OCR 配置
+ocr:
+  enabled: true
+  binary: "/usr/local/bin/ocr"
+  rule: ""
+  command: ""
+
+# 策略配置
+policy:
+  fail_on: "critical"
+  max_comments: 20
+  summary_only: false
+  ignore_paths:
+    - "vendor/**"
+    - "dist/**"
+    - "*.pb.go"
+
+# Git 平台配置
+git:
+  platforms:
+    github:
+      enabled: true
+      base_url: "https://api.github.com"
+      token: "${GITHUB_TOKEN:}"
+    gitlab:
+      enabled: true
+      base_url: "https://gitlab.com/api/v4"
+      token: "${GITLAB_TOKEN:}"
+    gitea:
+      enabled: true
+      base_url: "${GITEA_BASE_URL:}"
+      token: "${GITEA_TOKEN:}"
+    gitcode:
+      enabled: false
+      base_url: "https://api.gitcode.com/api/v5"
+      token: "${GITCODE_TOKEN:}"
+    gitee:
+      enabled: false
+      base_url: "https://gitee.com/api/v5"
+      token: "${GITEE_TOKEN:}"
+    tencent_code:
+      enabled: false
+      base_url: "https://git.code.tencent.com/api/v3"
+      token: "${TENCENT_CODE_TOKEN:}"
+
+# Nacos 配置中心（可选）
+nacos:
+  addr: "${NACOS_ADDR:}"
+  namespace_id: "${NACOS_NAMESPACE:}"
+  service_name: "review-service"
+
+# OpenTelemetry 链路追踪（可选）
+tracing:
+  endpoint: "${OTEL_ENDPOINT:}"
+  insecure: true
+  sample_rate: 1.0

@@ -1,0 +1,196 @@
+package writeback
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"review-service/internal/repository"
+	"review-service/internal/repository/postgres/models"
+	"review-service/internal/service/review"
+
+	"github.com/cloudwego/hertz/pkg/common/hlog"
+)
+
+type OrchestratorConfig struct {
+	Adapters      map[string]Adapter
+	ItemRepo      repository.WritebackItemRepository
+	ChangeRepo    repository.ChangeRevisionRepository
+	MaxComments   int
+	SummaryOnly   bool
+}
+
+type Orchestrator struct {
+	adapters      map[string]Adapter
+	itemRepo      repository.WritebackItemRepository
+	changeRepo    repository.ChangeRevisionRepository
+	maxComments   int
+	summaryOnly   bool
+}
+
+func NewOrchestrator(cfg OrchestratorConfig) *Orchestrator {
+	if cfg.MaxComments <= 0 {
+		cfg.MaxComments = 20
+	}
+	return &Orchestrator{
+		adapters:    cfg.Adapters,
+		itemRepo:    cfg.ItemRepo,
+		changeRepo:  cfg.ChangeRepo,
+		maxComments: cfg.MaxComments,
+		summaryOnly: cfg.SummaryOnly,
+	}
+}
+
+func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result review.Result, diff string) error {
+	adapter, ok := o.adapters[req.Provider]
+	if !ok {
+		return fmt.Errorf("no writeback adapter for provider %q", req.Provider)
+	}
+
+	number := resolveNumber(req)
+	if number == 0 {
+		return fmt.Errorf("cannot determine PR/MR number for writeback")
+	}
+
+	cr := ChangeRequest{
+		Provider:   req.Provider,
+		Repository: strings.TrimPrefix(req.Repo, "/"),
+		Number:     number,
+		BaseSHA:    req.BaseSHA,
+		HeadSHA:    req.HeadSHA,
+	}
+
+	caps, err := adapter.Capabilities(ctx, cr)
+	if err != nil {
+		return fmt.Errorf("check capabilities: %w", err)
+	}
+
+	summaryBody := FormatSummaryBody(result.Summary, result.Findings, o.maxComments)
+
+	var diffIndex *DiffIndex
+	if !o.summaryOnly && diff != "" {
+		diffIndex, err = ParseUnifiedDiff(diff)
+		if err != nil {
+			hlog.Warn("failed to parse diff for writeback validation", "error", err)
+		}
+	}
+
+	var comments []Comment
+	if !o.summaryOnly && len(result.Findings) > 0 {
+		validated := ValidateFindings(result.Findings, diffIndex)
+		limit := len(validated)
+		if o.maxComments > 0 && limit > o.maxComments {
+			limit = o.maxComments
+		}
+
+		for i := 0; i < limit; i++ {
+			vc := validated[i]
+			if !vc.ValidLocation {
+				continue
+			}
+			if !caps.MultiLineComments && vc.Range.End > vc.Range.Start {
+				continue
+			}
+
+			body := FormatInlineComment(
+				findSeverity(result.Findings, i),
+				findTitle(result.Findings, i),
+				vc.Body,
+				vc.Suggestion,
+				findExistingCode(result.Findings, i),
+				vc.Range.Start,
+				vc.Key,
+			)
+			comments = append(comments, Comment{
+				Key:        vc.Key,
+				Path:       vc.Path,
+				Body:       body,
+				Range:      vc.Range,
+				Suggestion: vc.Suggestion,
+			})
+		}
+	}
+
+	revEvent := EventComment
+	if !caps.BatchReview {
+		revEvent = EventComment
+	}
+
+	rev := Review{
+		ChangeRequest: cr,
+		Summary:       summaryBody,
+		Event:         revEvent,
+		Comments:      comments,
+	}
+
+	wbResult, err := adapter.Publish(ctx, rev)
+	if err != nil {
+		return fmt.Errorf("publish writeback: %w", err)
+	}
+
+	if wbResult.ReviewID == "" && len(wbResult.Comments) == 0 {
+		hlog.Info("writeback skipped (stale or empty)")
+		return nil
+	}
+
+	for _, cr := range wbResult.Comments {
+		status := "published"
+		if !cr.Inline {
+			status = "downgraded"
+		}
+		if cr.Error != "" {
+			status = "failed"
+		}
+		_ = o.itemRepo.Create(ctx, &models.WritebackItem{
+			ReviewID:           wbResult.ReviewID,
+			FindingKey:         cr.Key,
+			Kind:               "inline",
+			ProviderExternalID: cr.ExternalID,
+			ProviderURL:        cr.URL,
+			Status:             status,
+			Attempts:           1,
+		})
+	}
+
+	hlog.Info("writeback completed",
+		"provider", req.Provider,
+		"repo", req.Repo,
+		"number", number,
+		"comments", len(comments),
+	)
+	return nil
+}
+
+func resolveNumber(req review.Request) int {
+	s := strings.TrimSpace(req.PullRequestID)
+	if s == "" {
+		s = strings.TrimSpace(req.MergeRequestIID)
+	}
+	if s == "" {
+		return 0
+	}
+	var n int
+	_, _ = fmt.Sscanf(s, "%d", &n)
+	return n
+}
+
+func findSeverity(findings []review.Finding, i int) review.Severity {
+	if i < len(findings) {
+		return findings[i].Severity
+	}
+	return review.SeverityInfo
+}
+
+func findTitle(findings []review.Finding, i int) string {
+	if i < len(findings) {
+		return findings[i].Title
+	}
+	return ""
+}
+
+func findExistingCode(findings []review.Finding, i int) string {
+	if i < len(findings) {
+		return findings[i].ExistingCode
+	}
+	return ""
+}
