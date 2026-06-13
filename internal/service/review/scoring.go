@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/oekit/pkg/mathx"
-	"github.com/yi-nology/code-review-service/internal/pkg/mathutil"
 )
 
 const scoreVersion = "severity-v2"
@@ -36,7 +35,7 @@ func BuildReport(result *Result) Report {
 		changedLines = 100
 	}
 
-	volumeMultiplier := mathutil.Clamp(100.0/float64(changedLines), 0.2, 3.0)
+	volumeMultiplier := mathx.Clamp(100.0/float64(changedLines), 0.2, 3.0)
 	adjustedDeduction := int(math.Round(float64(rawDeduction) * volumeMultiplier))
 
 	deductions := make([]ScoreDeduction, 0, 6)
@@ -79,7 +78,7 @@ func BuildReport(result *Result) Report {
 		})
 	}
 
-	complete := result.OCR.Status == "" || result.OCR.Status == "success"
+	complete := result.OCR.Status == "" || result.OCR.Status == "success" || result.OCR.Status == "skipped" || result.OCR.Status == "completed_with_errors"
 	if !complete {
 		value -= 20
 		deductions = append(deductions, ScoreDeduction{
