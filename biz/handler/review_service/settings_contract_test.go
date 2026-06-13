@@ -6,6 +6,8 @@ import (
 
 	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+
+	"github.com/oekit/pkg/ptrx"
 )
 
 func TestGetOCRSettingsRespJSONContract(t *testing.T) {
@@ -14,7 +16,7 @@ func TestGetOCRSettingsRespJSONContract(t *testing.T) {
 		URL:         strPtr("https://example.com/v1"),
 		Model:       strPtr("test-model"),
 		AuthToken:   strPtr("***"),
-		Concurrency: int64Ptr(4),
+		Concurrency: ptrx.Of(int64(4)),
 	}
 	resp := modelSettings.GetOCRSettingsResp{Settings: apiSettings}
 
@@ -59,10 +61,10 @@ func TestUpdateOCRSettingsReqJSONContract(t *testing.T) {
 	if !req.Settings.Enabled {
 		t.Error("req.Settings.Enabled should be true")
 	}
-	if derefStr(req.Settings.URL) != "https://example.com" {
+	if ptrx.Deref(req.Settings.URL, "") != "https://example.com" {
 		t.Error("url mismatch")
 	}
-	if derefStr(req.Settings.Model) != "m1" {
+	if ptrx.Deref(req.Settings.Model, "") != "m1" {
 		t.Error("model mismatch")
 	}
 }
@@ -96,7 +98,7 @@ func TestPutProjectPolicyReqJSONContract(t *testing.T) {
 	if req.Policy.Repo != "acme/app" {
 		t.Error("repo mismatch")
 	}
-	if derefStr(req.Policy.IgnorePaths) != "[\"vendor/**\"]" {
+	if ptrx.Deref(req.Policy.IgnorePaths, "") != "[\"vendor/**\"]" {
 		t.Error("ignore_paths mismatch")
 	}
 }
