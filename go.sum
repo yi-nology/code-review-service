@@ -399,6 +399,8 @@ github.com/xyproto/randomstring v1.0.5 h1:YtlWPoRdgMu3NZtP45drfy1GKoojuR7hmRcnhZ
 github.com/xyproto/randomstring v1.0.5/go.mod h1:rgmS5DeNXLivK7YprL0pY+lTuhNQW3iGxZ18UQApw/E=
 github.com/yi-nology/git-platform-sdk v0.6.2 h1:lmkZcdq5xTMQuY4og8Akc9ZmGi4nEzTBWSarMXRwQWA=
 github.com/yi-nology/git-platform-sdk v0.6.2/go.mod h1:vHhLp3IO05lHtsp0IboqBtpnbkvJKTVPCYDMAauBjBE=
+github.com/yi-nology/git-platform-sdk v0.7.0 h1:DHW1x1kOsRqdtYj7urIPakF9g19b3ULAWr/vC1ZzJ+g=
+github.com/yi-nology/git-platform-sdk v0.7.0/go.mod h1:E/L1KgRS7Gs9W1sFQKQiIUgXFXsMtEl/yfnKRIwLt6I=
 github.com/yi-nology/gitcode_api v0.2.0 h1:d9milhBHT2jZPFB7mHcl+iuyOFbCJU8VUctU1l2z2yA=
 github.com/yi-nology/gitcode_api v0.2.0/go.mod h1:YaRLRDyxaVqy6Nm4xLISmGJ7AZOf5sPWcWtwZOKd8ig=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=

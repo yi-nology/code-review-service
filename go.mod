@@ -10,7 +10,7 @@ require (
 	github.com/hertz-contrib/swagger v0.1.1
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/swaggo/files v1.0.1
-	github.com/yi-nology/git-platform-sdk v0.6.2
+	github.com/yi-nology/git-platform-sdk v0.7.0
 	gorm.io/datatypes v1.2.5
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/gorm v1.31.1
