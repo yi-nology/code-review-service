@@ -16,6 +16,8 @@ func Register(r *server.Hertz, h *rsHandler.ReviewHandler, wh *rsHandler.Webhook
 			_v1.POST("/reviews/preview", append(_createreviewMw(), h.PreviewReview)...)
 			_reviews := _v1.Group("/reviews", _reviewsMw()...)
 			_reviews.GET("/:id", append(_getreviewMw(), h.GetReview)...)
+			_reviews.POST("/:id/rerun", append(_rerunreviewMw(), h.RerunReview)...)
+			_reviews.POST("/:id/cancel", append(_cancelreviewMw(), h.CancelReview)...)
 			_v1.POST("/webhooks/:provider/:installation", append(_webhookMw(), wh.HandleWebhook)...)
 			{
 				_platforms := _v1.Group("/platforms", _platformsMw()...)

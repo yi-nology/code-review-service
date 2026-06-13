@@ -18,6 +18,8 @@ type ReviewService interface {
 	Get(context.Context, string) (review.Record, bool, error)
 	List(context.Context, review.ListOptions) (review.ListResult, error)
 	Preview(context.Context, review.Request) ([]string, error)
+	Requeue(context.Context, string) (review.Response, error)
+	Cancel(context.Context, string) (review.Response, error)
 }
 
 type GitProviderManager interface {

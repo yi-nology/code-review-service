@@ -199,3 +199,7 @@ struct PreviewReq {
 struct PreviewResp {
     1: list<string> files (api.body="files")
 }
+
+struct ReviewActionReq {
+    1: string id (api.path="id")
+}

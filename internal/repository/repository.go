@@ -16,6 +16,7 @@ type ReviewRepository interface {
 	Save(ctx context.Context, review *models.Review) error
 	GetByReviewID(ctx context.Context, reviewID string) (*models.Review, error)
 	GetByidempotencyKey(ctx context.Context, key string) (*models.Review, error)
+	GetActiveByProviderRepo(ctx context.Context, provider, repo string) (*models.Review, error)
 	List(ctx context.Context, opts models.ListOptions) (*ekitGorm.PageResponse[models.Review], error)
 	AggregateStats(ctx context.Context, opts models.ListOptions) (*models.AggregateStats, error)
 	ClaimQueued(ctx context.Context, limit int) ([]models.Review, error)

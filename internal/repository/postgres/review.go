@@ -56,6 +56,21 @@ func (r *ReviewRepo) GetByidempotencyKey(ctx context.Context, key string) (*mode
 	return &review, nil
 }
 
+func (r *ReviewRepo) GetActiveByProviderRepo(ctx context.Context, provider, repo string) (*models.Review, error) {
+	var review models.Review
+	err := r.db.WithContext(ctx).
+		Where("provider = ? AND repo = ? AND status IN ?", provider, repo, []string{"queued", "running"}).
+		Order("created_at DESC").
+		First(&review).Error
+	if err != nil {
+		if errors.Is(err, gormLib.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &review, nil
+}
+
 func (r *ReviewRepo) List(ctx context.Context, opts models.ListOptions) (*ekitGorm.PageResponse[models.Review], error) {
 	req := ekitGorm.NewPageRequest(opts.Page, opts.PageSize)
 

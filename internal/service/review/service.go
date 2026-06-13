@@ -26,6 +26,11 @@ var gitObjectIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{7,64}$`)
 
 var errIdempotencyKeyTooLong = errors.New("idempotency key too long")
 
+var (
+	ErrNotFound      = errors.New("review not found")
+	ErrInvalidState  = errors.New("invalid review state")
+)
+
 const (
 	idempotencyKeyMaxLength = 200
 
@@ -109,6 +114,10 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 		return Response{}, fmt.Errorf("%w: %q", ErrUnsupportedProvider, req.Provider)
 	}
 
+	if existing := s.findActiveReview(ctx, req); existing != nil {
+		return *existing, nil
+	}
+
 	id := newReviewID(time.Now().UTC())
 	queued := Response{
 		ReviewID: id,
@@ -164,6 +173,29 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 	return s.run(ctx, id, req, provider)
 }
 
+func (s *Service) findActiveReview(ctx context.Context, req Request) *Response {
+	hasPR := req.PullRequestID != "" || req.MergeRequestIID != ""
+	if !hasPR {
+		return nil
+	}
+	existing, err := s.reviewRepo.GetActiveByProviderRepo(ctx, req.Provider, req.Repo)
+	if err != nil || existing == nil {
+		return nil
+	}
+	var existingReq Request
+	if err := json.Unmarshal(existing.Request, &existingReq); err != nil {
+		return nil
+	}
+	if existingReq.PullRequestID != req.PullRequestID || existingReq.MergeRequestIID != req.MergeRequestIID {
+		return nil
+	}
+	var resp Response
+	if err := json.Unmarshal(existing.Response, &resp); err != nil {
+		return nil
+	}
+	return &resp
+}
+
 func requestFingerprint(req Request) (string, error) {
 	data, err := json.Marshal(req)
 	if err != nil {
@@ -187,8 +219,7 @@ func queuedMessage(isWebhook bool) string {
 	return "review queued"
 }
 
-func (s *Service) Get(ctx context.Context, reviewID string) (Record, bool, error) {
-	review, err := s.reviewRepo.GetByReviewID(ctx, reviewID)
+func (s *Service) Get(ctx context.Context, reviewID string) (Record, bool, error) {	review, err := s.reviewRepo.GetByReviewID(ctx, reviewID)
 	if err != nil {
 		return Record{}, false, err
 	}
@@ -361,6 +392,85 @@ func (s *Service) Preview(ctx context.Context, req Request) ([]string, error) {
 		return nil, err
 	}
 	return result.Files, nil
+}
+
+func (s *Service) Requeue(ctx context.Context, reviewID string) (Response, error) {
+	review, err := s.reviewRepo.GetByReviewID(ctx, reviewID)
+	if err != nil {
+		return Response{}, err
+	}
+	if review == nil {
+		return Response{}, ErrNotFound
+	}
+
+	switch review.Status {
+	case StatusQueued, StatusRunning:
+		return Response{}, fmt.Errorf("%w: review is %s, only failed or completed reviews can be re-run", ErrInvalidState, review.Status)
+	}
+
+	var req Request
+	if err := json.Unmarshal(review.Request, &req); err != nil {
+		return Response{}, fmt.Errorf("decode request: %w", err)
+	}
+	var resp Response
+	if err := json.Unmarshal(review.Response, &resp); err != nil {
+		return Response{}, fmt.Errorf("decode response: %w", err)
+	}
+
+	resp.Status = StatusQueued
+	resp.Summary = "review re-queued"
+	resp.Gate = PendingGate()
+	resp.History = append(resp.History, Event{
+		Stage:     StageQueued,
+		Status:    StatusCompleted,
+		Message:   "review re-queued by user",
+		CreatedAt: time.Now().UTC(),
+	})
+
+	review.Status = StatusQueued
+	review.Response = mustMarshal(resp)
+	review.UpdatedAt = time.Now().UTC()
+	if err := s.reviewRepo.Save(ctx, review); err != nil {
+		return Response{}, err
+	}
+	return resp, nil
+}
+
+func (s *Service) Cancel(ctx context.Context, reviewID string) (Response, error) {
+	review, err := s.reviewRepo.GetByReviewID(ctx, reviewID)
+	if err != nil {
+		return Response{}, err
+	}
+	if review == nil {
+		return Response{}, ErrNotFound
+	}
+
+	if review.Status != StatusQueued {
+		return Response{}, fmt.Errorf("%w: only queued reviews can be cancelled (current: %s)", ErrInvalidState, review.Status)
+	}
+
+	var resp Response
+	if err := json.Unmarshal(review.Response, &resp); err != nil {
+		return Response{}, fmt.Errorf("decode response: %w", err)
+	}
+
+	resp.Status = StatusFailed
+	resp.Summary = "review cancelled by user"
+	resp.Gate = ErrorGate("review cancelled")
+	resp.History = append(resp.History, Event{
+		Stage:     StatusFailed,
+		Status:    "failed",
+		Message:   "review cancelled by user",
+		CreatedAt: time.Now().UTC(),
+	})
+
+	review.Status = StatusFailed
+	review.Response = mustMarshal(resp)
+	review.UpdatedAt = time.Now().UTC()
+	if err := s.reviewRepo.Save(ctx, review); err != nil {
+		return Response{}, err
+	}
+	return resp, nil
 }
 
 func validate(req Request) error {

@@ -106,6 +106,12 @@ func (g *Git) CommitWithIdentity(ctx context.Context, name, email, msg string) e
 	return err
 }
 
+func (g *Git) Add(ctx context.Context, files []string) error {
+	args := append([]string{"add", "--"}, files...)
+	_, err := g.Run(ctx, args...)
+	return err
+}
+
 func (g *Git) command(ctx context.Context, args ...string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = g.Dir

@@ -190,6 +190,13 @@ func cloneAndResolvePR(
 	deletedFiles, delErr := git.DeletedFiles(ctx, baseSHA, headRef)
 	if delErr == nil && len(deletedFiles) > 0 {
 		_ = git.CheckoutFiles(ctx, baseSHA, deletedFiles)
+		if err := git.Add(ctx, deletedFiles); err == nil {
+			if err := git.CommitWithIdentity(ctx, "Review Service", "review-service@localhost", "restore deleted files for OCR context"); err == nil {
+				if newHead, err := git.RevParse(ctx, "HEAD"); err == nil {
+					headSHA = newHead
+				}
+			}
+		}
 	}
 
 	return dir, baseSHA, headSHA, nil

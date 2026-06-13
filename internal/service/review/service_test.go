@@ -79,6 +79,10 @@ func (m *mockReviewRepo) GetByidempotencyKey(_ context.Context, key string) (*mo
 	return nil, nil
 }
 
+func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, _, _ string) (*models.Review, error) {
+	return nil, nil
+}
+
 func (m *mockReviewRepo) List(_ context.Context, opts models.ListOptions) (*ekitGorm.PageResponse[models.Review], error) {
 	return &ekitGorm.PageResponse[models.Review]{List: nil, Total: 0}, nil
 }
