@@ -151,7 +151,15 @@ func cloneAndResolvePR(
 	var baseSHA string
 	if apiBaseSHA != "" {
 		if _, err := git.RevParse(ctx, apiBaseSHA); err == nil {
-			baseSHA = apiBaseSHA
+			mb, mbErr := git.MergeBase(ctx, apiBaseSHA, headRef)
+			if mbErr == nil && mb != "" && mb != headSHA {
+				baseSHA = mb
+			} else if p, pErr := git.RevParse(ctx, apiBaseSHA+"^1"); pErr == nil {
+				mb2, _ := git.MergeBase(ctx, p, headRef)
+				if mb2 != "" && mb2 != headSHA {
+					baseSHA = mb2
+				}
+			}
 		}
 	}
 	if baseSHA == "" {
