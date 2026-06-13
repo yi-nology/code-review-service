@@ -1,4 +1,4 @@
-module review-service
+module github.com/yi-nology/code-review-service
 
 go 1.26
 

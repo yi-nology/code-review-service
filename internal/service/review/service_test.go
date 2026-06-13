@@ -9,9 +9,9 @@ import (
 	"time"
 
 	ekitGorm "github.com/oekit/gormx"
-	"review-service/internal/repository/postgres/models"
-	"review-service/internal/service/policy"
-	"review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/service/policy"
+	"github.com/yi-nology/code-review-service/internal/service/review"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	modelReview "review-service/biz/model/review"
-	"review-service/internal/service/review"
+	modelReview "github.com/yi-nology/code-review-service/biz/model/review"
+	"github.com/yi-nology/code-review-service/internal/service/review"
 
 	hertzApp "github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"

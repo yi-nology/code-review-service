@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"review-service/internal/service/review"
-	"review-service/internal/service/runner"
+	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/runner"
 )
 
 func TestDeterministicRunnerReturnsEmptyFindings(t *testing.T) {

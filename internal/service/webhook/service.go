@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"review-service/internal/repository"
-	"review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	"gorm.io/datatypes"
 )

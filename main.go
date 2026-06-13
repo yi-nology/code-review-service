@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/oekit/bootstrap"
-	"review-service/internal/config"
+	"github.com/yi-nology/code-review-service/internal/config"
 )
 
 const defaultShutdownTimeout = 30 * time.Second

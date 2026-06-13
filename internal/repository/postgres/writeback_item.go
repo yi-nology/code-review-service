@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	gormLib "gorm.io/gorm"
 	"gorm.io/gorm/clause"

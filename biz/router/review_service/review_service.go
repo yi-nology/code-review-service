@@ -2,7 +2,7 @@ package review_service
 
 import (
 	"github.com/cloudwego/hertz/pkg/app/server"
-	rsHandler "review-service/biz/handler/review_service"
+	rsHandler "github.com/yi-nology/code-review-service/biz/handler/review_service"
 )
 
 func Register(r *server.Hertz, h *rsHandler.ReviewHandler, wh *rsHandler.WebhookHandler) {

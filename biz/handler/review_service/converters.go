@@ -3,8 +3,8 @@ package review_service
 import (
 	"fmt"
 
-	modelReview "review-service/biz/model/review"
-	"review-service/internal/service/review"
+	modelReview "github.com/yi-nology/code-review-service/biz/model/review"
+	"github.com/yi-nology/code-review-service/internal/service/review"
 )
 
 func convertGate(g review.Gate) *modelReview.Gate {

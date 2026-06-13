@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/oekit/concurrency/async"
-	"review-service/internal/repository/postgres/models"
-	"review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/service/review"
 )
 
 type OpenCodeReviewConfig struct {

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"review-service/internal/repository"
-	"review-service/internal/repository/postgres/models"
-	"review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/service/review"
 
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )

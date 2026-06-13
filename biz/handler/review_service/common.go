@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"review-service/internal/app"
-	"review-service/internal/pkg/ptr"
-	"review-service/internal/repository"
-	"review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/app"
+	"github.com/yi-nology/code-review-service/internal/pkg/ptr"
+	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/yi-nology/code-review-service/internal/service/review"
 
 	mw "github.com/oekit/middleware"
 

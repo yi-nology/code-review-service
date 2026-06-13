@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/apache/thrift/lib/go/thrift"
-	"review-service/biz/model/review"
-	"review-service/biz/model/settings"
+	"github.com/yi-nology/code-review-service/biz/model/review"
+	"github.com/yi-nology/code-review-service/biz/model/settings"
 )
 
 type ReviewService interface {

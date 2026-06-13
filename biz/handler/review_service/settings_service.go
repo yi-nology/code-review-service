@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strconv"
 
-	modelSettings "review-service/biz/model/settings"
-	"review-service/internal/repository/postgres/models"
+	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	hertzApp "github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"

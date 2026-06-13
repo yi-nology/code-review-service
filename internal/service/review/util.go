@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"review-service/internal/pkg/ptr"
+	"github.com/yi-nology/code-review-service/internal/pkg/ptr"
 
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"gorm.io/datatypes"

@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/oekit/gormx"
-	"review-service/internal/config"
-	"review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/config"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	gormLib "gorm.io/driver/postgres"

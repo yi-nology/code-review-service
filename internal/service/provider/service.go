@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	"github.com/yi-nology/git-platform-sdk/provider"
 )

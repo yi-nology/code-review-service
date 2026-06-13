@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"gorm.io/datatypes"

@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"review-service/internal/repository/postgres/models"
-	"review-service/internal/service/policy"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/service/policy"
 
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"github.com/oekit/pkg/slicex"

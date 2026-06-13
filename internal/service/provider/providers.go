@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"review-service/internal/service/review"
-	"review-service/internal/vcs"
+	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/vcs"
 )
 
 type GitProviderProviders struct {
@@ -44,6 +44,7 @@ func (a *gitProviderAdapter) Prepare(ctx context.Context, req review.Request) (r
 	var targetBranch string
 	var sourceBranch string
 	var headSHAFromAPI string
+	var baseSHAFromAPI string
 	hasPR := req.PullRequestID != "" || req.MergeRequestIID != ""
 
 	if hasPR {
@@ -61,12 +62,13 @@ func (a *gitProviderAdapter) Prepare(ctx context.Context, req review.Request) (r
 			return review.Workspace{}, fmt.Errorf("get diff via API: %w", err)
 		}
 
-		cr, crErr := a.svc.GetCR(ctx, a.platform, owner, repoName, prNumber)
-		if crErr == nil && cr != nil {
-			targetBranch = cr.TargetBranch
-			sourceBranch = cr.SourceBranch
-			headSHAFromAPI = cr.HeadSHA
-		}
+	cr, crErr := a.svc.GetCR(ctx, a.platform, owner, repoName, prNumber)
+	if crErr == nil && cr != nil {
+		targetBranch = cr.TargetBranch
+		sourceBranch = cr.SourceBranch
+		headSHAFromAPI = cr.HeadSHA
+		baseSHAFromAPI = cr.BaseSHA
+	}
 	}
 
 	if a.maxDiffBytes > 0 && int64(len(diff)) > a.maxDiffBytes {
@@ -79,7 +81,7 @@ func (a *gitProviderAdapter) Prepare(ctx context.Context, req review.Request) (r
 	var dir, baseSHA, headSHA string
 	if hasPR {
 		dir, baseSHA, headSHA, err = cloneAndResolvePR(
-			ctx, cloneURL, token, prNumber, a.platform, sourceBranch, targetBranch, headSHAFromAPI,
+			ctx, cloneURL, token, prNumber, a.platform, sourceBranch, targetBranch, headSHAFromAPI, baseSHAFromAPI,
 		)
 	} else {
 		var shaDiff string
@@ -106,7 +108,7 @@ func cloneAndResolvePR(
 	ctx context.Context,
 	cloneURL, token string,
 	prNumber int,
-	platform, sourceBranch, targetBranch, apiHeadSHA string,
+	platform, sourceBranch, targetBranch, apiHeadSHA, apiBaseSHA string,
 ) (string, string, string, error) {
 	dir, err := os.MkdirTemp("", "review-workspace-*")
 	if err != nil {
@@ -146,16 +148,26 @@ func cloneAndResolvePR(
 		return "", "", "", fmt.Errorf("resolve head SHA: %w", err)
 	}
 
-	baseRef := "HEAD"
-	if targetBranch != "" {
-		baseRef = targetBranch
+	var baseSHA string
+	if apiBaseSHA != "" {
+		if _, err := git.RevParse(ctx, apiBaseSHA); err == nil {
+			baseSHA = apiBaseSHA
+		}
 	}
-	baseSHA, err := git.MergeBase(ctx, baseRef, headRef)
-	if err != nil {
-		baseSHA, err = git.RevParse(ctx, baseRef)
-		if err != nil {
-			_ = os.RemoveAll(dir)
-			return "", "", "", fmt.Errorf("resolve base SHA: %w", err)
+	if baseSHA == "" {
+		baseRef := "HEAD"
+		if targetBranch != "" {
+			baseRef = targetBranch
+		}
+		mb, mbErr := git.MergeBase(ctx, baseRef, headRef)
+		if mbErr == nil && mb != "" && mb != headSHA {
+			baseSHA = mb
+		} else {
+			baseSHA, err = git.RevParse(ctx, baseRef)
+			if err != nil {
+				_ = os.RemoveAll(dir)
+				return "", "", "", fmt.Errorf("resolve base SHA: %w", err)
+			}
 		}
 	}
 

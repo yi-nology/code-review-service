@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/oekit/pkg/slicex"
-	"review-service/internal/service/provider"
-	"review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/provider"
+	"github.com/yi-nology/code-review-service/internal/service/review"
 
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )

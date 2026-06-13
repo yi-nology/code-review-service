@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/oekit/pkg/mathx"
-	"review-service/internal/pkg/mathutil"
+	"github.com/yi-nology/code-review-service/internal/pkg/mathutil"
 )
 
 const scoreVersion = "severity-v2"

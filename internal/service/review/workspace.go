@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"review-service/internal/service/policy"
-	"review-service/internal/vcs"
+	"github.com/yi-nology/code-review-service/internal/service/policy"
+	"github.com/yi-nology/code-review-service/internal/vcs"
 )
 
 func applyProjectScope(ctx context.Context, workspace Workspace, ignorePaths []string) (Workspace, error) {

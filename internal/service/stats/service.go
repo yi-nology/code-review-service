@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"review-service/internal/repository"
-	"review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 )
 
 type Service struct {

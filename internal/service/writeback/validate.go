@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review"
 )
 
 const reportMarker = "<!-- review-service:summary -->"

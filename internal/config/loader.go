@@ -12,7 +12,7 @@ import (
 	"github.com/oekit/core"
 	"github.com/oekit/bootstrap/nacos"
 	"github.com/oekit/tracing"
-	svcPolicy "review-service/internal/service/policy"
+	svcPolicy "github.com/yi-nology/code-review-service/internal/service/policy"
 )
 
 var env = flag.String("env", "local", "environment: local, dev, prod")

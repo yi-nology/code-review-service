@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/oekit/pkg/mathx"
-	"review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	gormLib "gorm.io/gorm"
 )

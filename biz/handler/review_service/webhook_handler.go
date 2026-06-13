@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"review-service/internal/repository"
-	"review-service/internal/service/review"
-	"review-service/internal/service/webhook"
+	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/webhook"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/hlog"

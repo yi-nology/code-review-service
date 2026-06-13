@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	gitprovider "review-service/internal/service/provider"
+	gitprovider "github.com/yi-nology/code-review-service/internal/service/provider"
 
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	sdk "github.com/yi-nology/git-platform-sdk/provider"

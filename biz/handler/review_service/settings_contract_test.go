@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	modelSettings "review-service/biz/model/settings"
-	"review-service/internal/repository/postgres/models"
+	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 )
 
 func TestGetOCRSettingsRespJSONContract(t *testing.T) {

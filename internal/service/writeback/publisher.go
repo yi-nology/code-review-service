@@ -3,7 +3,7 @@ package writeback
 import (
 	"context"
 
-	"review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review"
 )
 
 type WritebackPublisherAdapter struct {

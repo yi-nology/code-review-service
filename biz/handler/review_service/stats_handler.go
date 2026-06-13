@@ -3,7 +3,7 @@ package review_service
 import (
 	"context"
 
-	"review-service/internal/service/stats"
+	"github.com/yi-nology/code-review-service/internal/service/stats"
 
 	hertzApp "github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"

@@ -3,7 +3,7 @@ package policy_test
 import (
 	"testing"
 
-	"review-service/internal/service/policy"
+	"github.com/yi-nology/code-review-service/internal/service/policy"
 )
 
 func TestEvaluateNoFindingsPasses(t *testing.T) {

@@ -14,9 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"review-service/internal/repository"
-	"review-service/internal/repository/postgres/models"
-	"review-service/internal/service/policy"
+	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/service/policy"
 
 	"github.com/oekit/gormx"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
