@@ -150,8 +150,6 @@ github.com/go-git/go-billy/v6 v6.0.0-alpha.1.0.20260519112248-0095b064a6c6 h1:Aa
 github.com/go-git/go-billy/v6 v6.0.0-alpha.1.0.20260519112248-0095b064a6c6/go.mod h1:eaCUpHbedW7//EwcYmUDfJe2N6sJC9O12AT0OTqJR1E=
 github.com/go-git/go-git-fixtures/v6 v6.0.0-alpha.1 h1:gmqi2jvsreu0s8JMLylYDFq4sbjHwwlhktMw0DUg3mA=
 github.com/go-git/go-git-fixtures/v6 v6.0.0-alpha.1/go.mod h1:ECf1MqJlBdYpKggBrOXjo/0EnvRZx6D++I86UYjPgAQ=
-github.com/go-git/go-git/v6 v6.0.0-alpha.4 h1:aDTc2UGanmaE7FkGLSlBEB9nohMnQ+RKXcfq/D+esDQ=
-github.com/go-git/go-git/v6 v6.0.0-alpha.4/go.mod h1:4ODa/G7hPWrh4Y+7lmt59Ij3zW38IEfvRoAZxLYYBhc=
 github.com/go-git/go-git/v6 v6.0.0-alpha.4.0.20260609112911-f4b85e43694f h1:6M9F9D80i4gdbNVmThOcwMUreTny9evVLo2HLfjjlps=
 github.com/go-git/go-git/v6 v6.0.0-alpha.4.0.20260609112911-f4b85e43694f/go.mod h1:3kcXXLqFhKhqpmWOXp5bKEiVN0ZYtgyVkhN+DaiUGKU=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
@@ -401,8 +399,6 @@ github.com/twitchyliquid64/golang-asm v0.15.1 h1:SU5vSMR7hnwNxj24w34ZyCi/FmDZTkS
 github.com/twitchyliquid64/golang-asm v0.15.1/go.mod h1:a1lVb/DtPvCB8fslRZhAngC2+aY1QWCk3Cedj/Gdt08=
 github.com/xyproto/randomstring v1.0.5 h1:YtlWPoRdgMu3NZtP45drfy1GKoojuR7hmRcnhZqKjWU=
 github.com/xyproto/randomstring v1.0.5/go.mod h1:rgmS5DeNXLivK7YprL0pY+lTuhNQW3iGxZ18UQApw/E=
-github.com/yi-nology/git-platform-sdk v0.6.1 h1:nBoL/DlGyV0tZ/BbiFpp5GroSbtYVIZ4Shu8N/52u6A=
-github.com/yi-nology/git-platform-sdk v0.6.1/go.mod h1:syL70rm7gEuwfoIfl9XcgewygDf2XzBjDp+U/h67MnU=
 github.com/yi-nology/git-platform-sdk v0.6.2 h1:lmkZcdq5xTMQuY4og8Akc9ZmGi4nEzTBWSarMXRwQWA=
 github.com/yi-nology/git-platform-sdk v0.6.2/go.mod h1:vHhLp3IO05lHtsp0IboqBtpnbkvJKTVPCYDMAauBjBE=
 github.com/yi-nology/gitcode_api v0.2.0 h1:d9milhBHT2jZPFB7mHcl+iuyOFbCJU8VUctU1l2z2yA=
