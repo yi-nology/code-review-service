@@ -69,10 +69,13 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 
 	var diffIndex *DiffIndex
 	if !o.summaryOnly && diff != "" {
+		hlog.Info("parsing diff for writeback validation", "diff_size", len(diff))
 		diffIndex, err = ParseUnifiedDiff(diff)
 		if err != nil {
 			hlog.Warn("failed to parse diff for writeback validation", "error", err)
 		}
+	} else {
+		hlog.Info("skipping diff parsing", "summaryOnly", o.summaryOnly, "diff_empty", diff == "")
 	}
 
 	var comments []Comment
@@ -88,7 +91,7 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 			if !vc.ValidLocation {
 				continue
 			}
-			if !caps.MultiLineComments && vc.Range.End > vc.Range.Start {
+			if !caps.MultiLineComments && vc.Range.End > vc.Range.Start+1 {
 				continue
 			}
 
