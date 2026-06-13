@@ -1,6 +1,9 @@
 package webhook
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -89,9 +92,16 @@ func (n *GiteaNormalizer) Normalize(rawBody []byte, eventType string) (*ChangeEv
 
 func (n *GiteaNormalizer) VerifySignature(body []byte, signature string, secret string) bool {
 	if secret == "" {
+		return true
+	}
+	if signature == "" {
 		return false
 	}
-	return strings.TrimSpace(signature) == strings.TrimSpace(secret)
+
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(body)
+	expectedMAC := hex.EncodeToString(mac.Sum(nil))
+	return hmac.Equal([]byte(strings.TrimSpace(signature)), []byte(expectedMAC))
 }
 
 func (n *GiteaNormalizer) EventType(headerValue string) string {
