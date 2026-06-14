@@ -219,62 +219,62 @@ export interface ReviewerPersona {
 export const sessionApi = {
   // Get sessions for a review
   getSessions(reviewId: string): Promise<{ sessions: ReviewSession[] }> {
-    return request.get(`/api/v1/reviews/${reviewId}/sessions`)
+    return request.get(`/reviews/${reviewId}/sessions`)
   },
 
   // Get active session for a review
   getActiveSession(reviewId: string): Promise<ReviewSession> {
-    return request.get(`/api/v1/reviews/${reviewId}/sessions/active`)
+    return request.get(`/reviews/${reviewId}/sessions/active`)
   },
 
   // Get a specific session
   getSession(reviewId: string, sessionId: string): Promise<ReviewSession> {
-    return request.get(`/api/v1/reviews/${reviewId}/sessions/${sessionId}`)
+    return request.get(`/reviews/${reviewId}/sessions/${sessionId}`)
   },
 
   // Create a new session
   createSession(reviewId: string): Promise<ReviewSession> {
-    return request.post(`/api/v1/reviews/${reviewId}/sessions`)
+    return request.post(`/reviews/${reviewId}/sessions`)
   },
 
   // Update session phase
   updatePhase(reviewId: string, sessionId: string, phase: string, progress: number): Promise<void> {
-    return request.put(`/api/v1/reviews/${reviewId}/sessions/${sessionId}/phase`, { phase, progress })
+    return request.put(`/reviews/${reviewId}/sessions/${sessionId}/phase`, { phase, progress })
   },
 
   // Update session status
   updateStatus(reviewId: string, sessionId: string, status: string): Promise<void> {
-    return request.put(`/api/v1/reviews/${reviewId}/sessions/${sessionId}/status`, { status })
+    return request.put(`/reviews/${reviewId}/sessions/${sessionId}/status`, { status })
   },
 
   // Update agent results
   updateAgentResults(reviewId: string, sessionId: string, agentResults: AgentResult[]): Promise<void> {
-    return request.put(`/api/v1/reviews/${reviewId}/sessions/${sessionId}/agent-results`, agentResults)
+    return request.put(`/reviews/${reviewId}/sessions/${sessionId}/agent-results`, agentResults)
   },
 
   // Update discussion
   updateDiscussion(reviewId: string, sessionId: string, discussion: Discussion): Promise<void> {
-    return request.put(`/api/v1/reviews/${reviewId}/sessions/${sessionId}/discussion`, discussion)
+    return request.put(`/reviews/${reviewId}/sessions/${sessionId}/discussion`, discussion)
   },
 
   // Update final report
   updateFinalReport(reviewId: string, sessionId: string, finalReport: FinalReport): Promise<void> {
-    return request.put(`/api/v1/reviews/${reviewId}/sessions/${sessionId}/final-report`, finalReport)
+    return request.put(`/reviews/${reviewId}/sessions/${sessionId}/final-report`, finalReport)
   },
 
   // Complete session
   completeSession(reviewId: string, sessionId: string, finalReport: FinalReport): Promise<void> {
-    return request.post(`/api/v1/reviews/${reviewId}/sessions/${sessionId}/complete`, finalReport)
+    return request.post(`/reviews/${reviewId}/sessions/${sessionId}/complete`, finalReport)
   },
 
   // Fail session
   failSession(reviewId: string, sessionId: string, reason: string): Promise<void> {
-    return request.post(`/api/v1/reviews/${reviewId}/sessions/${sessionId}/fail`, { reason })
+    return request.post(`/reviews/${reviewId}/sessions/${sessionId}/fail`, { reason })
   },
 
   // Cancel session
   cancelSession(reviewId: string, sessionId: string): Promise<void> {
-    return request.post(`/api/v1/reviews/${reviewId}/sessions/${sessionId}/cancel`)
+    return request.post(`/reviews/${reviewId}/sessions/${sessionId}/cancel`)
   },
 
   // List all sessions
@@ -285,7 +285,7 @@ export const sessionApi = {
     page_size: number
     total_pages: number
   }> {
-    return request.get('/api/v1/sessions', { params: { page, page_size: pageSize } })
+    return request.get('/sessions', { params: { page, page_size: pageSize } })
   },
 }
 
@@ -293,7 +293,7 @@ export const sessionApi = {
 export const progressApi = {
   // Get progress for a review
   getProgress(reviewId: string): Promise<ReviewProgress> {
-    return request.get(`/api/v1/reviews/${reviewId}/progress/status`)
+    return request.get(`/reviews/${reviewId}/progress/status`)
   },
 
   // Get active reviews
@@ -310,7 +310,7 @@ export const progressApi = {
     }>
     total: number
   }> {
-    return request.get('/api/v1/progress/active')
+    return request.get('/progress/active')
   },
 
   // Connect to progress WebSocket
@@ -337,49 +337,49 @@ export const progressApi = {
 export const reviewMapApi = {
   // Get maps for a review
   getMaps(reviewId: string): Promise<{ maps: ReviewMap[] }> {
-    return request.get(`/api/v1/reviews/${reviewId}/maps`)
+    return request.get(`/reviews/${reviewId}/maps`)
   },
 
   // Get a specific map
   getMap(reviewId: string, mapId: string): Promise<ReviewMap> {
-    return request.get(`/api/v1/reviews/${reviewId}/maps/${mapId}`)
+    return request.get(`/reviews/${reviewId}/maps/${mapId}`)
   },
 
   // Generate a map
   generateMap(reviewId: string): Promise<ReviewMap> {
-    return request.post(`/api/v1/reviews/${reviewId}/maps`)
+    return request.post(`/reviews/${reviewId}/maps`)
   },
 }
 
 // Persona API
 export const personaApi = {
-  // List personas
+  // list personas
   listPersonas(): Promise<{ personas: ReviewerPersona[] }> {
-    return request.get('/api/v1/personas')
+    return request.get('/personas')
   },
 
   // Get a specific persona
   getPersona(id: string): Promise<ReviewerPersona> {
-    return request.get(`/api/v1/personas/${id}`)
+    return request.get(`/personas/${id}`)
   },
 
   // Create a persona
   createPersona(persona: Partial<ReviewerPersona>): Promise<ReviewerPersona> {
-    return request.post('/api/v1/personas', persona)
+    return request.post('/personas', persona)
   },
 
   // Update a persona
   updatePersona(id: string, persona: Partial<ReviewerPersona>): Promise<ReviewerPersona> {
-    return request.put(`/api/v1/personas/${id}`, persona)
+    return request.put(`/personas/${id}`, persona)
   },
 
   // Delete a persona
   deletePersona(id: string): Promise<void> {
-    return request.delete(`/api/v1/personas/${id}`)
+    return request.delete(`/personas/${id}`)
   },
 
   // Search personas
   searchPersonas(query: string): Promise<{ personas: ReviewerPersona[] }> {
-    return request.get('/api/v1/personas/search', { params: { q: query } })
+    return request.get('/personas/search', { params: { q: query } })
   },
 }
