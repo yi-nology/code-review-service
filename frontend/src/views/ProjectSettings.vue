@@ -4,7 +4,7 @@
       <header class="page-header">
         <div class="eyebrow">PROJECT POLICY</div>
         <h1>项目审查策略</h1>
-        <p>为不同仓库独立设置门禁等级和不参与代码审查的文件。</p>
+        <p>为不同仓库独立设置门禁等级、审查员和不参与代码审查的文件。</p>
       </header>
 
       <el-row :gutter="24">
@@ -17,14 +17,27 @@
             </template>
             <el-form :model="form" label-width="100px">
               <el-form-item label="代码平台">
-                <el-select v-model="form.provider">
+                <el-select v-model="form.provider" @change="handleProviderChange">
                   <el-option label="Gitea" value="gitea" />
                   <el-option label="GitLab" value="gitlab" />
                   <el-option label="GitHub" value="github" />
                 </el-select>
               </el-form-item>
               <el-form-item label="仓库">
-                <el-input v-model="form.repo" placeholder="group/project" />
+                <el-select
+                  v-model="form.repo"
+                  filterable
+                  placeholder="选择仓库"
+                  :loading="reposLoading"
+                  style="width: 100%"
+                >
+                  <el-option
+                    v-for="repo in repos"
+                    :key="repo.full_name"
+                    :label="repo.full_name"
+                    :value="repo.full_name"
+                  />
+                </el-select>
               </el-form-item>
               <el-form-item label="门禁阻断级别">
                 <el-select v-model="form.fail_on">
@@ -76,14 +89,15 @@
             </template>
             <div v-loading="loading">
               <div v-if="policies.length === 0" class="empty-state">
-                暂无配置的项目策略
+                <el-empty description="暂无配置的项目策略">
+                  <p class="empty-tip">请先在左侧表单中创建项目策略，然后即可配置项目审查员</p>
+                </el-empty>
               </div>
               <div v-else class="policy-list">
                 <div
                   v-for="policy in policies"
                   :key="`${policy.provider}:${policy.repo}`"
                   class="policy-item"
-                  @click="handleEdit(policy)"
                 >
                   <div class="policy-header">
                     <el-tag size="small">{{ policy.provider }}</el-tag>
@@ -94,34 +108,70 @@
                     忽略: {{ policy.ignore_paths?.length || 0 }} 条 |
                     规则: {{ policy.rules?.length || 0 }} 条
                   </div>
-                  <el-button
-                    type="danger"
-                    size="small"
-                    class="delete-btn"
-                    @click.stop="handleDelete(policy)"
-                  >
-                    删除
-                  </el-button>
+                  <div class="policy-actions">
+                    <el-button
+                      size="small"
+                      type="primary"
+                      plain
+                      @click="handleEdit(policy)"
+                    >
+                      编辑规则
+                    </el-button>
+                    <el-button
+                      size="small"
+                      type="success"
+                      plain
+                      @click="handleConfigAgents(policy)"
+                    >
+                      配置审查员
+                    </el-button>
+                    <el-button
+                      type="danger"
+                      size="small"
+                      plain
+                      @click="handleDelete(policy)"
+                    >
+                      删除
+                    </el-button>
+                  </div>
                 </div>
               </div>
             </div>
           </el-card>
         </el-col>
       </el-row>
+
+      <!-- 项目审查员配置对话框 -->
+      <el-dialog
+        v-model="agentDialogVisible"
+        :title="`${currentProject?.provider}/${currentProject?.repo} - 审查员配置`"
+        width="700px"
+      >
+        <ProjectAgentConfig
+          v-if="currentProject"
+          :provider="currentProject.provider"
+          :repo="currentProject.repo"
+        />
+      </el-dialog>
     </div>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import { getProjectPolicies, putProjectPolicy, deleteProjectPolicy } from '@/api/config'
-import type { ProjectPolicy, ReviewRule } from '@/types/config'
+import ProjectAgentConfig from '@/components/ProjectAgentConfig.vue'
+import { getProjectPolicies, putProjectPolicy, deleteProjectPolicy, getProviderRepos } from '@/api/config'
+import type { ProjectPolicy, ReviewRule, PlatformRepo } from '@/types/config'
 
 const loading = ref(false)
 const saving = ref(false)
 const policies = ref<ProjectPolicy[]>([])
+const agentDialogVisible = ref(false)
+const currentProject = ref<{ provider: string; repo: string } | null>(null)
+const reposLoading = ref(false)
+const repos = ref<PlatformRepo[]>([])
 
 const form = reactive<ProjectPolicy & { rules: ReviewRule[] }>({
   provider: 'gitea',
@@ -132,6 +182,23 @@ const form = reactive<ProjectPolicy & { rules: ReviewRule[] }>({
 })
 
 const ignorePathsText = ref('')
+
+async function fetchRepos() {
+  reposLoading.value = true
+  try {
+    repos.value = await getProviderRepos(form.provider)
+  } catch (e) {
+    console.error('Failed to load repos:', e)
+    repos.value = []
+  } finally {
+    reposLoading.value = false
+  }
+}
+
+function handleProviderChange() {
+  form.repo = ''
+  fetchRepos()
+}
 
 async function fetchPolicies() {
   loading.value = true
@@ -171,6 +238,14 @@ function handleEdit(policy: ProjectPolicy) {
   ignorePathsText.value = (policy.ignore_paths || []).join('\n')
 }
 
+function handleConfigAgents(policy: ProjectPolicy) {
+  currentProject.value = {
+    provider: policy.provider,
+    repo: policy.repo,
+  }
+  agentDialogVisible.value = true
+}
+
 async function handleDelete(policy: ProjectPolicy) {
   await ElMessageBox.confirm('确定删除该策略？', '确认')
   try {
@@ -192,7 +267,10 @@ function getFailOnLabel(failOn: string) {
   return map[failOn] || failOn
 }
 
-onMounted(fetchPolicies)
+onMounted(() => {
+  fetchPolicies()
+  fetchRepos()
+})
 </script>
 
 <style scoped>
@@ -247,24 +325,33 @@ onMounted(fetchPolicies)
   padding: 40px 0;
 }
 
+.empty-tip {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #999;
+}
+
+.policy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .policy-item {
-  padding: 12px;
+  padding: 16px;
   border: 1px solid #eee;
   border-radius: 8px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  position: relative;
 }
 
 .policy-item:hover {
-  background: #f5f5f5;
+  background: #f9f9f9;
 }
 
 .policy-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .policy-repo {
@@ -274,12 +361,12 @@ onMounted(fetchPolicies)
 .policy-meta {
   font-size: 12px;
   color: #999;
+  margin-bottom: 12px;
 }
 
-.delete-btn {
-  position: absolute;
-  right: 12px;
-  top: 12px;
+.policy-actions {
+  display: flex;
+  gap: 8px;
 }
 
 @media (max-width: 1199px) {

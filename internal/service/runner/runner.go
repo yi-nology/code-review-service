@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/oekit/concurrency/async"
+	"github.com/oekit/pkg/convert"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 )
@@ -31,6 +32,7 @@ type OpenCodeReviewConfig struct {
 	UseAnthropic    bool
 	ExtraBody       string
 	Language        string
+	Background      string
 }
 
 type OpenCodeReviewRunner struct {
@@ -80,9 +82,9 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 		"--from", fromRef,
 		"--to", toRef,
 		"--format", "json",
-		"--concurrency", fmt.Sprintf("%d", r.config.Concurrency),
-		"--max-git-procs", fmt.Sprintf("%d", r.config.MaxGitProcs),
-		"--timeout", fmt.Sprintf("%d", r.config.TimeoutMinutes),
+		"--concurrency", convert.IntToStr(r.config.Concurrency),
+		"--max-git-procs", convert.IntToStr(r.config.MaxGitProcs),
+		"--timeout", convert.IntToStr(r.config.TimeoutMinutes),
 	}
 	rulePath := r.config.RulePath
 	if strings.TrimSpace(workspace.RulePath) != "" {
@@ -92,7 +94,10 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 		args = append(args, "--rule", rulePath)
 	}
 	if r.config.MaxTools > 0 {
-		args = append(args, "--max-tools", fmt.Sprintf("%d", r.config.MaxTools))
+		args = append(args, "--max-tools", convert.IntToStr(r.config.MaxTools))
+	}
+	if strings.TrimSpace(r.config.Background) != "" {
+		args = append(args, "--background", r.config.Background)
 	}
 
 	cmd := exec.CommandContext(ctx, r.config.Binary, args...)
@@ -614,6 +619,7 @@ func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings) OpenCod
 		ExtraBody:       string(s.ExtraBody),
 		Language:        s.Language,
 		MaxTools:        s.MaxTools,
+		Background:      s.Background,
 	}
 	if s.Concurrency > 0 {
 		cfg.Concurrency = s.Concurrency

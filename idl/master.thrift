@@ -1,0 +1,8 @@
+include "review_service.thrift"
+include "settings_service.thrift"
+include "stats_service.thrift"
+include "session_service.thrift"
+include "progress_service.thrift"
+include "review_map_service.thrift"
+include "publisher_service.thrift"
+include "project_agent_service.thrift"

@@ -5,9 +5,10 @@ package review_service
 import (
 	"context"
 	"fmt"
-	"github.com/apache/thrift/lib/go/thrift"
+	"github.com/yi-nology/code-review-service/biz/model/platform"
 	"github.com/yi-nology/code-review-service/biz/model/review"
-	"github.com/yi-nology/code-review-service/biz/model/settings"
+	"github.com/yi-nology/code-review-service/biz/model/webhook"
+	"github.com/apache/thrift/lib/go/thrift"
 )
 
 type ReviewService interface {
@@ -16,6 +17,22 @@ type ReviewService interface {
 	GetReview(ctx context.Context, req *review.GetReviewReq) (r *review.GetReviewResp, err error)
 
 	ListReviews(ctx context.Context, req *review.ListReviewsReq) (r *review.ListReviewsResp, err error)
+
+	PreviewReview(ctx context.Context, req *review.PreviewReq) (r *review.PreviewResp, err error)
+
+	RerunReview(ctx context.Context, req *review.ReviewActionReq) (r *review.CreateReviewResp, err error)
+
+	CancelReview(ctx context.Context, req *review.ReviewActionReq) (r *review.CreateReviewResp, err error)
+
+	HandleWebhook(ctx context.Context, req *webhook.HandleWebhookReq) (r *webhook.HandleWebhookResp, err error)
+
+	ListProviderRepos(ctx context.Context, req *platform.ListProviderReposReq) (r *platform.ListProviderReposResp, err error)
+
+	ListProviderBranches(ctx context.Context, req *platform.ListProviderBranchesReq) (r *platform.ListProviderBranchesResp, err error)
+
+	GetBranchSHA(ctx context.Context, req *platform.GetBranchSHAReq) (r *platform.GetBranchSHAResp, err error)
+
+	ListProviderPulls(ctx context.Context, req *platform.ListProviderPullsReq) (r *platform.ListProviderPullsResp, err error)
 }
 
 type ReviewServiceClient struct {
@@ -71,127 +88,74 @@ func (p *ReviewServiceClient) ListReviews(ctx context.Context, req *review.ListR
 	}
 	return _result.GetSuccess(), nil
 }
-
-type SettingsService interface {
-	GetOCRSettings(ctx context.Context) (r *settings.GetOCRSettingsResp, err error)
-
-	UpdateOCRSettings(ctx context.Context, req *settings.UpdateOCRSettingsReq) (r *settings.UpdateOCRSettingsResp, err error)
-
-	ListProjectPolicies(ctx context.Context) (r *settings.ListProjectPoliciesResp, err error)
-
-	PutProjectPolicy(ctx context.Context, req *settings.PutProjectPolicyReq) (r *settings.PutProjectPolicyResp, err error)
-
-	DeleteProjectPolicy(ctx context.Context, req *settings.DeleteProjectPolicyReq) (r *settings.DeleteProjectPolicyResp, err error)
-
-	ListPlatforms(ctx context.Context) (r *settings.ListPlatformsResp, err error)
-
-	PutPlatform(ctx context.Context, req *settings.PutPlatformReq) (r *settings.PutPlatformResp, err error)
-
-	DeletePlatform(ctx context.Context, req *settings.DeletePlatformReq) (r *settings.DeletePlatformResp, err error)
-
-	TestPlatform(ctx context.Context, req *settings.TestPlatformReq) (r *settings.TestPlatformResp, err error)
-}
-
-type SettingsServiceClient struct {
-	c thrift.TClient
-}
-
-func NewSettingsServiceClientFactory(t thrift.TTransport, f thrift.TProtocolFactory) *SettingsServiceClient {
-	return &SettingsServiceClient{
-		c: thrift.NewTStandardClient(f.GetProtocol(t), f.GetProtocol(t)),
-	}
-}
-
-func NewSettingsServiceClientProtocol(t thrift.TTransport, iprot thrift.TProtocol, oprot thrift.TProtocol) *SettingsServiceClient {
-	return &SettingsServiceClient{
-		c: thrift.NewTStandardClient(iprot, oprot),
-	}
-}
-
-func NewSettingsServiceClient(c thrift.TClient) *SettingsServiceClient {
-	return &SettingsServiceClient{
-		c: c,
-	}
-}
-
-func (p *SettingsServiceClient) Client_() thrift.TClient {
-	return p.c
-}
-
-func (p *SettingsServiceClient) GetOCRSettings(ctx context.Context) (r *settings.GetOCRSettingsResp, err error) {
-	var _args SettingsServiceGetOCRSettingsArgs
-	var _result SettingsServiceGetOCRSettingsResult
-	if err = p.Client_().Call(ctx, "GetOCRSettings", &_args, &_result); err != nil {
-		return
-	}
-	return _result.GetSuccess(), nil
-}
-func (p *SettingsServiceClient) UpdateOCRSettings(ctx context.Context, req *settings.UpdateOCRSettingsReq) (r *settings.UpdateOCRSettingsResp, err error) {
-	var _args SettingsServiceUpdateOCRSettingsArgs
+func (p *ReviewServiceClient) PreviewReview(ctx context.Context, req *review.PreviewReq) (r *review.PreviewResp, err error) {
+	var _args ReviewServicePreviewReviewArgs
 	_args.Req = req
-	var _result SettingsServiceUpdateOCRSettingsResult
-	if err = p.Client_().Call(ctx, "UpdateOCRSettings", &_args, &_result); err != nil {
+	var _result ReviewServicePreviewReviewResult
+	if err = p.Client_().Call(ctx, "PreviewReview", &_args, &_result); err != nil {
 		return
 	}
 	return _result.GetSuccess(), nil
 }
-func (p *SettingsServiceClient) ListProjectPolicies(ctx context.Context) (r *settings.ListProjectPoliciesResp, err error) {
-	var _args SettingsServiceListProjectPoliciesArgs
-	var _result SettingsServiceListProjectPoliciesResult
-	if err = p.Client_().Call(ctx, "ListProjectPolicies", &_args, &_result); err != nil {
-		return
-	}
-	return _result.GetSuccess(), nil
-}
-func (p *SettingsServiceClient) PutProjectPolicy(ctx context.Context, req *settings.PutProjectPolicyReq) (r *settings.PutProjectPolicyResp, err error) {
-	var _args SettingsServicePutProjectPolicyArgs
+func (p *ReviewServiceClient) RerunReview(ctx context.Context, req *review.ReviewActionReq) (r *review.CreateReviewResp, err error) {
+	var _args ReviewServiceRerunReviewArgs
 	_args.Req = req
-	var _result SettingsServicePutProjectPolicyResult
-	if err = p.Client_().Call(ctx, "PutProjectPolicy", &_args, &_result); err != nil {
+	var _result ReviewServiceRerunReviewResult
+	if err = p.Client_().Call(ctx, "RerunReview", &_args, &_result); err != nil {
 		return
 	}
 	return _result.GetSuccess(), nil
 }
-func (p *SettingsServiceClient) DeleteProjectPolicy(ctx context.Context, req *settings.DeleteProjectPolicyReq) (r *settings.DeleteProjectPolicyResp, err error) {
-	var _args SettingsServiceDeleteProjectPolicyArgs
+func (p *ReviewServiceClient) CancelReview(ctx context.Context, req *review.ReviewActionReq) (r *review.CreateReviewResp, err error) {
+	var _args ReviewServiceCancelReviewArgs
 	_args.Req = req
-	var _result SettingsServiceDeleteProjectPolicyResult
-	if err = p.Client_().Call(ctx, "DeleteProjectPolicy", &_args, &_result); err != nil {
+	var _result ReviewServiceCancelReviewResult
+	if err = p.Client_().Call(ctx, "CancelReview", &_args, &_result); err != nil {
 		return
 	}
 	return _result.GetSuccess(), nil
 }
-func (p *SettingsServiceClient) ListPlatforms(ctx context.Context) (r *settings.ListPlatformsResp, err error) {
-	var _args SettingsServiceListPlatformsArgs
-	var _result SettingsServiceListPlatformsResult
-	if err = p.Client_().Call(ctx, "ListPlatforms", &_args, &_result); err != nil {
-		return
-	}
-	return _result.GetSuccess(), nil
-}
-func (p *SettingsServiceClient) PutPlatform(ctx context.Context, req *settings.PutPlatformReq) (r *settings.PutPlatformResp, err error) {
-	var _args SettingsServicePutPlatformArgs
+func (p *ReviewServiceClient) HandleWebhook(ctx context.Context, req *webhook.HandleWebhookReq) (r *webhook.HandleWebhookResp, err error) {
+	var _args ReviewServiceHandleWebhookArgs
 	_args.Req = req
-	var _result SettingsServicePutPlatformResult
-	if err = p.Client_().Call(ctx, "PutPlatform", &_args, &_result); err != nil {
+	var _result ReviewServiceHandleWebhookResult
+	if err = p.Client_().Call(ctx, "HandleWebhook", &_args, &_result); err != nil {
 		return
 	}
 	return _result.GetSuccess(), nil
 }
-func (p *SettingsServiceClient) DeletePlatform(ctx context.Context, req *settings.DeletePlatformReq) (r *settings.DeletePlatformResp, err error) {
-	var _args SettingsServiceDeletePlatformArgs
+func (p *ReviewServiceClient) ListProviderRepos(ctx context.Context, req *platform.ListProviderReposReq) (r *platform.ListProviderReposResp, err error) {
+	var _args ReviewServiceListProviderReposArgs
 	_args.Req = req
-	var _result SettingsServiceDeletePlatformResult
-	if err = p.Client_().Call(ctx, "DeletePlatform", &_args, &_result); err != nil {
+	var _result ReviewServiceListProviderReposResult
+	if err = p.Client_().Call(ctx, "ListProviderRepos", &_args, &_result); err != nil {
 		return
 	}
 	return _result.GetSuccess(), nil
 }
-func (p *SettingsServiceClient) TestPlatform(ctx context.Context, req *settings.TestPlatformReq) (r *settings.TestPlatformResp, err error) {
-	var _args SettingsServiceTestPlatformArgs
+func (p *ReviewServiceClient) ListProviderBranches(ctx context.Context, req *platform.ListProviderBranchesReq) (r *platform.ListProviderBranchesResp, err error) {
+	var _args ReviewServiceListProviderBranchesArgs
 	_args.Req = req
-	var _result SettingsServiceTestPlatformResult
-	if err = p.Client_().Call(ctx, "TestPlatform", &_args, &_result); err != nil {
+	var _result ReviewServiceListProviderBranchesResult
+	if err = p.Client_().Call(ctx, "ListProviderBranches", &_args, &_result); err != nil {
+		return
+	}
+	return _result.GetSuccess(), nil
+}
+func (p *ReviewServiceClient) GetBranchSHA(ctx context.Context, req *platform.GetBranchSHAReq) (r *platform.GetBranchSHAResp, err error) {
+	var _args ReviewServiceGetBranchSHAArgs
+	_args.Req = req
+	var _result ReviewServiceGetBranchSHAResult
+	if err = p.Client_().Call(ctx, "GetBranchSHA", &_args, &_result); err != nil {
+		return
+	}
+	return _result.GetSuccess(), nil
+}
+func (p *ReviewServiceClient) ListProviderPulls(ctx context.Context, req *platform.ListProviderPullsReq) (r *platform.ListProviderPullsResp, err error) {
+	var _args ReviewServiceListProviderPullsArgs
+	_args.Req = req
+	var _result ReviewServiceListProviderPullsResult
+	if err = p.Client_().Call(ctx, "ListProviderPulls", &_args, &_result); err != nil {
 		return
 	}
 	return _result.GetSuccess(), nil
@@ -220,6 +184,14 @@ func NewReviewServiceProcessor(handler ReviewService) *ReviewServiceProcessor {
 	self.AddToProcessorMap("CreateReview", &reviewServiceProcessorCreateReview{handler: handler})
 	self.AddToProcessorMap("GetReview", &reviewServiceProcessorGetReview{handler: handler})
 	self.AddToProcessorMap("ListReviews", &reviewServiceProcessorListReviews{handler: handler})
+	self.AddToProcessorMap("PreviewReview", &reviewServiceProcessorPreviewReview{handler: handler})
+	self.AddToProcessorMap("RerunReview", &reviewServiceProcessorRerunReview{handler: handler})
+	self.AddToProcessorMap("CancelReview", &reviewServiceProcessorCancelReview{handler: handler})
+	self.AddToProcessorMap("HandleWebhook", &reviewServiceProcessorHandleWebhook{handler: handler})
+	self.AddToProcessorMap("ListProviderRepos", &reviewServiceProcessorListProviderRepos{handler: handler})
+	self.AddToProcessorMap("ListProviderBranches", &reviewServiceProcessorListProviderBranches{handler: handler})
+	self.AddToProcessorMap("GetBranchSHA", &reviewServiceProcessorGetBranchSHA{handler: handler})
+	self.AddToProcessorMap("ListProviderPulls", &reviewServiceProcessorListProviderPulls{handler: handler})
 	return self
 }
 func (p *ReviewServiceProcessor) Process(ctx context.Context, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
@@ -367,6 +339,390 @@ func (p *reviewServiceProcessorListReviews) Process(ctx context.Context, seqId i
 		result.Success = retval
 	}
 	if err2 = oprot.WriteMessageBegin("ListReviews", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 = result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type reviewServiceProcessorPreviewReview struct {
+	handler ReviewService
+}
+
+func (p *reviewServiceProcessorPreviewReview) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := ReviewServicePreviewReviewArgs{}
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("PreviewReview", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return false, err
+	}
+
+	iprot.ReadMessageEnd()
+	var err2 error
+	result := ReviewServicePreviewReviewResult{}
+	var retval *review.PreviewResp
+	if retval, err2 = p.handler.PreviewReview(ctx, args.Req); err2 != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing PreviewReview: "+err2.Error())
+		oprot.WriteMessageBegin("PreviewReview", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return true, err2
+	} else {
+		result.Success = retval
+	}
+	if err2 = oprot.WriteMessageBegin("PreviewReview", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 = result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type reviewServiceProcessorRerunReview struct {
+	handler ReviewService
+}
+
+func (p *reviewServiceProcessorRerunReview) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := ReviewServiceRerunReviewArgs{}
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("RerunReview", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return false, err
+	}
+
+	iprot.ReadMessageEnd()
+	var err2 error
+	result := ReviewServiceRerunReviewResult{}
+	var retval *review.CreateReviewResp
+	if retval, err2 = p.handler.RerunReview(ctx, args.Req); err2 != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing RerunReview: "+err2.Error())
+		oprot.WriteMessageBegin("RerunReview", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return true, err2
+	} else {
+		result.Success = retval
+	}
+	if err2 = oprot.WriteMessageBegin("RerunReview", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 = result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type reviewServiceProcessorCancelReview struct {
+	handler ReviewService
+}
+
+func (p *reviewServiceProcessorCancelReview) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := ReviewServiceCancelReviewArgs{}
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("CancelReview", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return false, err
+	}
+
+	iprot.ReadMessageEnd()
+	var err2 error
+	result := ReviewServiceCancelReviewResult{}
+	var retval *review.CreateReviewResp
+	if retval, err2 = p.handler.CancelReview(ctx, args.Req); err2 != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing CancelReview: "+err2.Error())
+		oprot.WriteMessageBegin("CancelReview", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return true, err2
+	} else {
+		result.Success = retval
+	}
+	if err2 = oprot.WriteMessageBegin("CancelReview", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 = result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type reviewServiceProcessorHandleWebhook struct {
+	handler ReviewService
+}
+
+func (p *reviewServiceProcessorHandleWebhook) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := ReviewServiceHandleWebhookArgs{}
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("HandleWebhook", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return false, err
+	}
+
+	iprot.ReadMessageEnd()
+	var err2 error
+	result := ReviewServiceHandleWebhookResult{}
+	var retval *webhook.HandleWebhookResp
+	if retval, err2 = p.handler.HandleWebhook(ctx, args.Req); err2 != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing HandleWebhook: "+err2.Error())
+		oprot.WriteMessageBegin("HandleWebhook", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return true, err2
+	} else {
+		result.Success = retval
+	}
+	if err2 = oprot.WriteMessageBegin("HandleWebhook", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 = result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type reviewServiceProcessorListProviderRepos struct {
+	handler ReviewService
+}
+
+func (p *reviewServiceProcessorListProviderRepos) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := ReviewServiceListProviderReposArgs{}
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("ListProviderRepos", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return false, err
+	}
+
+	iprot.ReadMessageEnd()
+	var err2 error
+	result := ReviewServiceListProviderReposResult{}
+	var retval *platform.ListProviderReposResp
+	if retval, err2 = p.handler.ListProviderRepos(ctx, args.Req); err2 != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing ListProviderRepos: "+err2.Error())
+		oprot.WriteMessageBegin("ListProviderRepos", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return true, err2
+	} else {
+		result.Success = retval
+	}
+	if err2 = oprot.WriteMessageBegin("ListProviderRepos", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 = result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type reviewServiceProcessorListProviderBranches struct {
+	handler ReviewService
+}
+
+func (p *reviewServiceProcessorListProviderBranches) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := ReviewServiceListProviderBranchesArgs{}
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("ListProviderBranches", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return false, err
+	}
+
+	iprot.ReadMessageEnd()
+	var err2 error
+	result := ReviewServiceListProviderBranchesResult{}
+	var retval *platform.ListProviderBranchesResp
+	if retval, err2 = p.handler.ListProviderBranches(ctx, args.Req); err2 != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing ListProviderBranches: "+err2.Error())
+		oprot.WriteMessageBegin("ListProviderBranches", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return true, err2
+	} else {
+		result.Success = retval
+	}
+	if err2 = oprot.WriteMessageBegin("ListProviderBranches", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 = result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type reviewServiceProcessorGetBranchSHA struct {
+	handler ReviewService
+}
+
+func (p *reviewServiceProcessorGetBranchSHA) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := ReviewServiceGetBranchSHAArgs{}
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("GetBranchSHA", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return false, err
+	}
+
+	iprot.ReadMessageEnd()
+	var err2 error
+	result := ReviewServiceGetBranchSHAResult{}
+	var retval *platform.GetBranchSHAResp
+	if retval, err2 = p.handler.GetBranchSHA(ctx, args.Req); err2 != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing GetBranchSHA: "+err2.Error())
+		oprot.WriteMessageBegin("GetBranchSHA", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return true, err2
+	} else {
+		result.Success = retval
+	}
+	if err2 = oprot.WriteMessageBegin("GetBranchSHA", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 = result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type reviewServiceProcessorListProviderPulls struct {
+	handler ReviewService
+}
+
+func (p *reviewServiceProcessorListProviderPulls) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := ReviewServiceListProviderPullsArgs{}
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("ListProviderPulls", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return false, err
+	}
+
+	iprot.ReadMessageEnd()
+	var err2 error
+	result := ReviewServiceListProviderPullsResult{}
+	var retval *platform.ListProviderPullsResp
+	if retval, err2 = p.handler.ListProviderPulls(ctx, args.Req); err2 != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing ListProviderPulls: "+err2.Error())
+		oprot.WriteMessageBegin("ListProviderPulls", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return true, err2
+	} else {
+		result.Success = retval
+	}
+	if err2 = oprot.WriteMessageBegin("ListProviderPulls", thrift.REPLY, seqId); err2 != nil {
 		err = err2
 	}
 	if err2 = result.Write(oprot); err == nil && err2 != nil {
@@ -1266,747 +1622,35 @@ func (p *ReviewServiceListReviewsResult) String() string {
 
 }
 
-type SettingsServiceProcessor struct {
-	processorMap map[string]thrift.TProcessorFunction
-	handler      SettingsService
+type ReviewServicePreviewReviewArgs struct {
+	Req *review.PreviewReq `thrift:"req,1"`
 }
 
-func (p *SettingsServiceProcessor) AddToProcessorMap(key string, processor thrift.TProcessorFunction) {
-	p.processorMap[key] = processor
+func NewReviewServicePreviewReviewArgs() *ReviewServicePreviewReviewArgs {
+	return &ReviewServicePreviewReviewArgs{}
 }
 
-func (p *SettingsServiceProcessor) GetProcessorFunction(key string) (processor thrift.TProcessorFunction, ok bool) {
-	processor, ok = p.processorMap[key]
-	return processor, ok
+func (p *ReviewServicePreviewReviewArgs) InitDefault() {
 }
 
-func (p *SettingsServiceProcessor) ProcessorMap() map[string]thrift.TProcessorFunction {
-	return p.processorMap
-}
+var ReviewServicePreviewReviewArgs_Req_DEFAULT *review.PreviewReq
 
-func NewSettingsServiceProcessor(handler SettingsService) *SettingsServiceProcessor {
-	self := &SettingsServiceProcessor{handler: handler, processorMap: make(map[string]thrift.TProcessorFunction)}
-	self.AddToProcessorMap("GetOCRSettings", &settingsServiceProcessorGetOCRSettings{handler: handler})
-	self.AddToProcessorMap("UpdateOCRSettings", &settingsServiceProcessorUpdateOCRSettings{handler: handler})
-	self.AddToProcessorMap("ListProjectPolicies", &settingsServiceProcessorListProjectPolicies{handler: handler})
-	self.AddToProcessorMap("PutProjectPolicy", &settingsServiceProcessorPutProjectPolicy{handler: handler})
-	self.AddToProcessorMap("DeleteProjectPolicy", &settingsServiceProcessorDeleteProjectPolicy{handler: handler})
-	self.AddToProcessorMap("ListPlatforms", &settingsServiceProcessorListPlatforms{handler: handler})
-	self.AddToProcessorMap("PutPlatform", &settingsServiceProcessorPutPlatform{handler: handler})
-	self.AddToProcessorMap("DeletePlatform", &settingsServiceProcessorDeletePlatform{handler: handler})
-	self.AddToProcessorMap("TestPlatform", &settingsServiceProcessorTestPlatform{handler: handler})
-	return self
-}
-func (p *SettingsServiceProcessor) Process(ctx context.Context, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
-	name, _, seqId, err := iprot.ReadMessageBegin()
-	if err != nil {
-		return false, err
-	}
-	if processor, ok := p.GetProcessorFunction(name); ok {
-		return processor.Process(ctx, seqId, iprot, oprot)
-	}
-	iprot.Skip(thrift.STRUCT)
-	iprot.ReadMessageEnd()
-	x := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function "+name)
-	oprot.WriteMessageBegin(name, thrift.EXCEPTION, seqId)
-	x.Write(oprot)
-	oprot.WriteMessageEnd()
-	oprot.Flush(ctx)
-	return false, x
-}
-
-type settingsServiceProcessorGetOCRSettings struct {
-	handler SettingsService
-}
-
-func (p *settingsServiceProcessorGetOCRSettings) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
-	args := SettingsServiceGetOCRSettingsArgs{}
-	if err = args.Read(iprot); err != nil {
-		iprot.ReadMessageEnd()
-		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
-		oprot.WriteMessageBegin("GetOCRSettings", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return false, err
-	}
-
-	iprot.ReadMessageEnd()
-	var err2 error
-	result := SettingsServiceGetOCRSettingsResult{}
-	var retval *settings.GetOCRSettingsResp
-	if retval, err2 = p.handler.GetOCRSettings(ctx); err2 != nil {
-		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing GetOCRSettings: "+err2.Error())
-		oprot.WriteMessageBegin("GetOCRSettings", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return true, err2
-	} else {
-		result.Success = retval
-	}
-	if err2 = oprot.WriteMessageBegin("GetOCRSettings", thrift.REPLY, seqId); err2 != nil {
-		err = err2
-	}
-	if err2 = result.Write(oprot); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
-		err = err2
-	}
-	if err != nil {
-		return
-	}
-	return true, err
-}
-
-type settingsServiceProcessorUpdateOCRSettings struct {
-	handler SettingsService
-}
-
-func (p *settingsServiceProcessorUpdateOCRSettings) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
-	args := SettingsServiceUpdateOCRSettingsArgs{}
-	if err = args.Read(iprot); err != nil {
-		iprot.ReadMessageEnd()
-		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
-		oprot.WriteMessageBegin("UpdateOCRSettings", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return false, err
-	}
-
-	iprot.ReadMessageEnd()
-	var err2 error
-	result := SettingsServiceUpdateOCRSettingsResult{}
-	var retval *settings.UpdateOCRSettingsResp
-	if retval, err2 = p.handler.UpdateOCRSettings(ctx, args.Req); err2 != nil {
-		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing UpdateOCRSettings: "+err2.Error())
-		oprot.WriteMessageBegin("UpdateOCRSettings", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return true, err2
-	} else {
-		result.Success = retval
-	}
-	if err2 = oprot.WriteMessageBegin("UpdateOCRSettings", thrift.REPLY, seqId); err2 != nil {
-		err = err2
-	}
-	if err2 = result.Write(oprot); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
-		err = err2
-	}
-	if err != nil {
-		return
-	}
-	return true, err
-}
-
-type settingsServiceProcessorListProjectPolicies struct {
-	handler SettingsService
-}
-
-func (p *settingsServiceProcessorListProjectPolicies) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
-	args := SettingsServiceListProjectPoliciesArgs{}
-	if err = args.Read(iprot); err != nil {
-		iprot.ReadMessageEnd()
-		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
-		oprot.WriteMessageBegin("ListProjectPolicies", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return false, err
-	}
-
-	iprot.ReadMessageEnd()
-	var err2 error
-	result := SettingsServiceListProjectPoliciesResult{}
-	var retval *settings.ListProjectPoliciesResp
-	if retval, err2 = p.handler.ListProjectPolicies(ctx); err2 != nil {
-		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing ListProjectPolicies: "+err2.Error())
-		oprot.WriteMessageBegin("ListProjectPolicies", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return true, err2
-	} else {
-		result.Success = retval
-	}
-	if err2 = oprot.WriteMessageBegin("ListProjectPolicies", thrift.REPLY, seqId); err2 != nil {
-		err = err2
-	}
-	if err2 = result.Write(oprot); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
-		err = err2
-	}
-	if err != nil {
-		return
-	}
-	return true, err
-}
-
-type settingsServiceProcessorPutProjectPolicy struct {
-	handler SettingsService
-}
-
-func (p *settingsServiceProcessorPutProjectPolicy) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
-	args := SettingsServicePutProjectPolicyArgs{}
-	if err = args.Read(iprot); err != nil {
-		iprot.ReadMessageEnd()
-		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
-		oprot.WriteMessageBegin("PutProjectPolicy", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return false, err
-	}
-
-	iprot.ReadMessageEnd()
-	var err2 error
-	result := SettingsServicePutProjectPolicyResult{}
-	var retval *settings.PutProjectPolicyResp
-	if retval, err2 = p.handler.PutProjectPolicy(ctx, args.Req); err2 != nil {
-		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing PutProjectPolicy: "+err2.Error())
-		oprot.WriteMessageBegin("PutProjectPolicy", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return true, err2
-	} else {
-		result.Success = retval
-	}
-	if err2 = oprot.WriteMessageBegin("PutProjectPolicy", thrift.REPLY, seqId); err2 != nil {
-		err = err2
-	}
-	if err2 = result.Write(oprot); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
-		err = err2
-	}
-	if err != nil {
-		return
-	}
-	return true, err
-}
-
-type settingsServiceProcessorDeleteProjectPolicy struct {
-	handler SettingsService
-}
-
-func (p *settingsServiceProcessorDeleteProjectPolicy) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
-	args := SettingsServiceDeleteProjectPolicyArgs{}
-	if err = args.Read(iprot); err != nil {
-		iprot.ReadMessageEnd()
-		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
-		oprot.WriteMessageBegin("DeleteProjectPolicy", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return false, err
-	}
-
-	iprot.ReadMessageEnd()
-	var err2 error
-	result := SettingsServiceDeleteProjectPolicyResult{}
-	var retval *settings.DeleteProjectPolicyResp
-	if retval, err2 = p.handler.DeleteProjectPolicy(ctx, args.Req); err2 != nil {
-		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing DeleteProjectPolicy: "+err2.Error())
-		oprot.WriteMessageBegin("DeleteProjectPolicy", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return true, err2
-	} else {
-		result.Success = retval
-	}
-	if err2 = oprot.WriteMessageBegin("DeleteProjectPolicy", thrift.REPLY, seqId); err2 != nil {
-		err = err2
-	}
-	if err2 = result.Write(oprot); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
-		err = err2
-	}
-	if err != nil {
-		return
-	}
-	return true, err
-}
-
-type settingsServiceProcessorListPlatforms struct {
-	handler SettingsService
-}
-
-func (p *settingsServiceProcessorListPlatforms) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
-	args := SettingsServiceListPlatformsArgs{}
-	if err = args.Read(iprot); err != nil {
-		iprot.ReadMessageEnd()
-		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
-		oprot.WriteMessageBegin("ListPlatforms", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return false, err
-	}
-
-	iprot.ReadMessageEnd()
-	var err2 error
-	result := SettingsServiceListPlatformsResult{}
-	var retval *settings.ListPlatformsResp
-	if retval, err2 = p.handler.ListPlatforms(ctx); err2 != nil {
-		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing ListPlatforms: "+err2.Error())
-		oprot.WriteMessageBegin("ListPlatforms", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return true, err2
-	} else {
-		result.Success = retval
-	}
-	if err2 = oprot.WriteMessageBegin("ListPlatforms", thrift.REPLY, seqId); err2 != nil {
-		err = err2
-	}
-	if err2 = result.Write(oprot); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
-		err = err2
-	}
-	if err != nil {
-		return
-	}
-	return true, err
-}
-
-type settingsServiceProcessorPutPlatform struct {
-	handler SettingsService
-}
-
-func (p *settingsServiceProcessorPutPlatform) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
-	args := SettingsServicePutPlatformArgs{}
-	if err = args.Read(iprot); err != nil {
-		iprot.ReadMessageEnd()
-		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
-		oprot.WriteMessageBegin("PutPlatform", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return false, err
-	}
-
-	iprot.ReadMessageEnd()
-	var err2 error
-	result := SettingsServicePutPlatformResult{}
-	var retval *settings.PutPlatformResp
-	if retval, err2 = p.handler.PutPlatform(ctx, args.Req); err2 != nil {
-		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing PutPlatform: "+err2.Error())
-		oprot.WriteMessageBegin("PutPlatform", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return true, err2
-	} else {
-		result.Success = retval
-	}
-	if err2 = oprot.WriteMessageBegin("PutPlatform", thrift.REPLY, seqId); err2 != nil {
-		err = err2
-	}
-	if err2 = result.Write(oprot); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
-		err = err2
-	}
-	if err != nil {
-		return
-	}
-	return true, err
-}
-
-type settingsServiceProcessorDeletePlatform struct {
-	handler SettingsService
-}
-
-func (p *settingsServiceProcessorDeletePlatform) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
-	args := SettingsServiceDeletePlatformArgs{}
-	if err = args.Read(iprot); err != nil {
-		iprot.ReadMessageEnd()
-		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
-		oprot.WriteMessageBegin("DeletePlatform", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return false, err
-	}
-
-	iprot.ReadMessageEnd()
-	var err2 error
-	result := SettingsServiceDeletePlatformResult{}
-	var retval *settings.DeletePlatformResp
-	if retval, err2 = p.handler.DeletePlatform(ctx, args.Req); err2 != nil {
-		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing DeletePlatform: "+err2.Error())
-		oprot.WriteMessageBegin("DeletePlatform", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return true, err2
-	} else {
-		result.Success = retval
-	}
-	if err2 = oprot.WriteMessageBegin("DeletePlatform", thrift.REPLY, seqId); err2 != nil {
-		err = err2
-	}
-	if err2 = result.Write(oprot); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
-		err = err2
-	}
-	if err != nil {
-		return
-	}
-	return true, err
-}
-
-type settingsServiceProcessorTestPlatform struct {
-	handler SettingsService
-}
-
-func (p *settingsServiceProcessorTestPlatform) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
-	args := SettingsServiceTestPlatformArgs{}
-	if err = args.Read(iprot); err != nil {
-		iprot.ReadMessageEnd()
-		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
-		oprot.WriteMessageBegin("TestPlatform", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return false, err
-	}
-
-	iprot.ReadMessageEnd()
-	var err2 error
-	result := SettingsServiceTestPlatformResult{}
-	var retval *settings.TestPlatformResp
-	if retval, err2 = p.handler.TestPlatform(ctx, args.Req); err2 != nil {
-		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing TestPlatform: "+err2.Error())
-		oprot.WriteMessageBegin("TestPlatform", thrift.EXCEPTION, seqId)
-		x.Write(oprot)
-		oprot.WriteMessageEnd()
-		oprot.Flush(ctx)
-		return true, err2
-	} else {
-		result.Success = retval
-	}
-	if err2 = oprot.WriteMessageBegin("TestPlatform", thrift.REPLY, seqId); err2 != nil {
-		err = err2
-	}
-	if err2 = result.Write(oprot); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
-		err = err2
-	}
-	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
-		err = err2
-	}
-	if err != nil {
-		return
-	}
-	return true, err
-}
-
-type SettingsServiceGetOCRSettingsArgs struct {
-}
-
-func NewSettingsServiceGetOCRSettingsArgs() *SettingsServiceGetOCRSettingsArgs {
-	return &SettingsServiceGetOCRSettingsArgs{}
-}
-
-func (p *SettingsServiceGetOCRSettingsArgs) InitDefault() {
-}
-
-var fieldIDToName_SettingsServiceGetOCRSettingsArgs = map[int16]string{}
-
-func (p *SettingsServiceGetOCRSettingsArgs) Read(iprot thrift.TProtocol) (err error) {
-
-	var fieldTypeId thrift.TType
-	var fieldId int16
-
-	if _, err = iprot.ReadStructBegin(); err != nil {
-		goto ReadStructBeginError
-	}
-
-	for {
-		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
-		if err != nil {
-			goto ReadFieldBeginError
-		}
-		if fieldTypeId == thrift.STOP {
-			break
-		}
-		if err = iprot.Skip(fieldTypeId); err != nil {
-			goto SkipFieldTypeError
-		}
-		if err = iprot.ReadFieldEnd(); err != nil {
-			goto ReadFieldEndError
-		}
-	}
-	if err = iprot.ReadStructEnd(); err != nil {
-		goto ReadStructEndError
-	}
-
-	return nil
-ReadStructBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
-ReadFieldBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
-SkipFieldTypeError:
-	return thrift.PrependError(fmt.Sprintf("%T skip field type %d error", p, fieldTypeId), err)
-
-ReadFieldEndError:
-	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
-ReadStructEndError:
-	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
-}
-
-func (p *SettingsServiceGetOCRSettingsArgs) Write(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteStructBegin("GetOCRSettings_args"); err != nil {
-		goto WriteStructBeginError
-	}
-	if p != nil {
-	}
-	if err = oprot.WriteFieldStop(); err != nil {
-		goto WriteFieldStopError
-	}
-	if err = oprot.WriteStructEnd(); err != nil {
-		goto WriteStructEndError
-	}
-	return nil
-WriteStructBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
-WriteFieldStopError:
-	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
-WriteStructEndError:
-	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
-}
-
-func (p *SettingsServiceGetOCRSettingsArgs) String() string {
-	if p == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("SettingsServiceGetOCRSettingsArgs(%+v)", *p)
-
-}
-
-type SettingsServiceGetOCRSettingsResult struct {
-	Success *settings.GetOCRSettingsResp `thrift:"success,0,optional"`
-}
-
-func NewSettingsServiceGetOCRSettingsResult() *SettingsServiceGetOCRSettingsResult {
-	return &SettingsServiceGetOCRSettingsResult{}
-}
-
-func (p *SettingsServiceGetOCRSettingsResult) InitDefault() {
-}
-
-var SettingsServiceGetOCRSettingsResult_Success_DEFAULT *settings.GetOCRSettingsResp
-
-func (p *SettingsServiceGetOCRSettingsResult) GetSuccess() (v *settings.GetOCRSettingsResp) {
-	if !p.IsSetSuccess() {
-		return SettingsServiceGetOCRSettingsResult_Success_DEFAULT
-	}
-	return p.Success
-}
-
-var fieldIDToName_SettingsServiceGetOCRSettingsResult = map[int16]string{
-	0: "success",
-}
-
-func (p *SettingsServiceGetOCRSettingsResult) IsSetSuccess() bool {
-	return p.Success != nil
-}
-
-func (p *SettingsServiceGetOCRSettingsResult) Read(iprot thrift.TProtocol) (err error) {
-
-	var fieldTypeId thrift.TType
-	var fieldId int16
-
-	if _, err = iprot.ReadStructBegin(); err != nil {
-		goto ReadStructBeginError
-	}
-
-	for {
-		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
-		if err != nil {
-			goto ReadFieldBeginError
-		}
-		if fieldTypeId == thrift.STOP {
-			break
-		}
-
-		switch fieldId {
-		case 0:
-			if fieldTypeId == thrift.STRUCT {
-				if err = p.ReadField0(iprot); err != nil {
-					goto ReadFieldError
-				}
-			} else if err = iprot.Skip(fieldTypeId); err != nil {
-				goto SkipFieldError
-			}
-		default:
-			if err = iprot.Skip(fieldTypeId); err != nil {
-				goto SkipFieldError
-			}
-		}
-		if err = iprot.ReadFieldEnd(); err != nil {
-			goto ReadFieldEndError
-		}
-	}
-	if err = iprot.ReadStructEnd(); err != nil {
-		goto ReadStructEndError
-	}
-
-	return nil
-ReadStructBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
-ReadFieldBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
-ReadFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SettingsServiceGetOCRSettingsResult[fieldId]), err)
-SkipFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
-
-ReadFieldEndError:
-	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
-ReadStructEndError:
-	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
-}
-
-func (p *SettingsServiceGetOCRSettingsResult) ReadField0(iprot thrift.TProtocol) error {
-	_field := settings.NewGetOCRSettingsResp()
-	if err := _field.Read(iprot); err != nil {
-		return err
-	}
-	p.Success = _field
-	return nil
-}
-
-func (p *SettingsServiceGetOCRSettingsResult) Write(oprot thrift.TProtocol) (err error) {
-	var fieldId int16
-	if err = oprot.WriteStructBegin("GetOCRSettings_result"); err != nil {
-		goto WriteStructBeginError
-	}
-	if p != nil {
-		if err = p.writeField0(oprot); err != nil {
-			fieldId = 0
-			goto WriteFieldError
-		}
-	}
-	if err = oprot.WriteFieldStop(); err != nil {
-		goto WriteFieldStopError
-	}
-	if err = oprot.WriteStructEnd(); err != nil {
-		goto WriteStructEndError
-	}
-	return nil
-WriteStructBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
-WriteFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
-WriteFieldStopError:
-	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
-WriteStructEndError:
-	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
-}
-
-func (p *SettingsServiceGetOCRSettingsResult) writeField0(oprot thrift.TProtocol) (err error) {
-	if p.IsSetSuccess() {
-		if err = oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
-			goto WriteFieldBeginError
-		}
-		if err := p.Success.Write(oprot); err != nil {
-			return err
-		}
-		if err = oprot.WriteFieldEnd(); err != nil {
-			goto WriteFieldEndError
-		}
-	}
-	return nil
-WriteFieldBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T write field 0 begin error: ", p), err)
-WriteFieldEndError:
-	return thrift.PrependError(fmt.Sprintf("%T write field 0 end error: ", p), err)
-}
-
-func (p *SettingsServiceGetOCRSettingsResult) String() string {
-	if p == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("SettingsServiceGetOCRSettingsResult(%+v)", *p)
-
-}
-
-type SettingsServiceUpdateOCRSettingsArgs struct {
-	Req *settings.UpdateOCRSettingsReq `thrift:"req,1"`
-}
-
-func NewSettingsServiceUpdateOCRSettingsArgs() *SettingsServiceUpdateOCRSettingsArgs {
-	return &SettingsServiceUpdateOCRSettingsArgs{}
-}
-
-func (p *SettingsServiceUpdateOCRSettingsArgs) InitDefault() {
-}
-
-var SettingsServiceUpdateOCRSettingsArgs_Req_DEFAULT *settings.UpdateOCRSettingsReq
-
-func (p *SettingsServiceUpdateOCRSettingsArgs) GetReq() (v *settings.UpdateOCRSettingsReq) {
+func (p *ReviewServicePreviewReviewArgs) GetReq() (v *review.PreviewReq) {
 	if !p.IsSetReq() {
-		return SettingsServiceUpdateOCRSettingsArgs_Req_DEFAULT
+		return ReviewServicePreviewReviewArgs_Req_DEFAULT
 	}
 	return p.Req
 }
 
-var fieldIDToName_SettingsServiceUpdateOCRSettingsArgs = map[int16]string{
+var fieldIDToName_ReviewServicePreviewReviewArgs = map[int16]string{
 	1: "req",
 }
 
-func (p *SettingsServiceUpdateOCRSettingsArgs) IsSetReq() bool {
+func (p *ReviewServicePreviewReviewArgs) IsSetReq() bool {
 	return p.Req != nil
 }
 
-func (p *SettingsServiceUpdateOCRSettingsArgs) Read(iprot thrift.TProtocol) (err error) {
+func (p *ReviewServicePreviewReviewArgs) Read(iprot thrift.TProtocol) (err error) {
 
 	var fieldTypeId thrift.TType
 	var fieldId int16
@@ -2052,7 +1696,7 @@ ReadStructBeginError:
 ReadFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
 ReadFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SettingsServiceUpdateOCRSettingsArgs[fieldId]), err)
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewServicePreviewReviewArgs[fieldId]), err)
 SkipFieldError:
 	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
 
@@ -2062,8 +1706,8 @@ ReadStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
 }
 
-func (p *SettingsServiceUpdateOCRSettingsArgs) ReadField1(iprot thrift.TProtocol) error {
-	_field := settings.NewUpdateOCRSettingsReq()
+func (p *ReviewServicePreviewReviewArgs) ReadField1(iprot thrift.TProtocol) error {
+	_field := review.NewPreviewReq()
 	if err := _field.Read(iprot); err != nil {
 		return err
 	}
@@ -2071,9 +1715,9 @@ func (p *SettingsServiceUpdateOCRSettingsArgs) ReadField1(iprot thrift.TProtocol
 	return nil
 }
 
-func (p *SettingsServiceUpdateOCRSettingsArgs) Write(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServicePreviewReviewArgs) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
-	if err = oprot.WriteStructBegin("UpdateOCRSettings_args"); err != nil {
+	if err = oprot.WriteStructBegin("PreviewReview_args"); err != nil {
 		goto WriteStructBeginError
 	}
 	if p != nil {
@@ -2099,7 +1743,7 @@ WriteStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
 }
 
-func (p *SettingsServiceUpdateOCRSettingsArgs) writeField1(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServicePreviewReviewArgs) writeField1(oprot thrift.TProtocol) (err error) {
 	if err = oprot.WriteFieldBegin("req", thrift.STRUCT, 1); err != nil {
 		goto WriteFieldBeginError
 	}
@@ -2116,43 +1760,43 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
 }
 
-func (p *SettingsServiceUpdateOCRSettingsArgs) String() string {
+func (p *ReviewServicePreviewReviewArgs) String() string {
 	if p == nil {
 		return "<nil>"
 	}
-	return fmt.Sprintf("SettingsServiceUpdateOCRSettingsArgs(%+v)", *p)
+	return fmt.Sprintf("ReviewServicePreviewReviewArgs(%+v)", *p)
 
 }
 
-type SettingsServiceUpdateOCRSettingsResult struct {
-	Success *settings.UpdateOCRSettingsResp `thrift:"success,0,optional"`
+type ReviewServicePreviewReviewResult struct {
+	Success *review.PreviewResp `thrift:"success,0,optional"`
 }
 
-func NewSettingsServiceUpdateOCRSettingsResult() *SettingsServiceUpdateOCRSettingsResult {
-	return &SettingsServiceUpdateOCRSettingsResult{}
+func NewReviewServicePreviewReviewResult() *ReviewServicePreviewReviewResult {
+	return &ReviewServicePreviewReviewResult{}
 }
 
-func (p *SettingsServiceUpdateOCRSettingsResult) InitDefault() {
+func (p *ReviewServicePreviewReviewResult) InitDefault() {
 }
 
-var SettingsServiceUpdateOCRSettingsResult_Success_DEFAULT *settings.UpdateOCRSettingsResp
+var ReviewServicePreviewReviewResult_Success_DEFAULT *review.PreviewResp
 
-func (p *SettingsServiceUpdateOCRSettingsResult) GetSuccess() (v *settings.UpdateOCRSettingsResp) {
+func (p *ReviewServicePreviewReviewResult) GetSuccess() (v *review.PreviewResp) {
 	if !p.IsSetSuccess() {
-		return SettingsServiceUpdateOCRSettingsResult_Success_DEFAULT
+		return ReviewServicePreviewReviewResult_Success_DEFAULT
 	}
 	return p.Success
 }
 
-var fieldIDToName_SettingsServiceUpdateOCRSettingsResult = map[int16]string{
+var fieldIDToName_ReviewServicePreviewReviewResult = map[int16]string{
 	0: "success",
 }
 
-func (p *SettingsServiceUpdateOCRSettingsResult) IsSetSuccess() bool {
+func (p *ReviewServicePreviewReviewResult) IsSetSuccess() bool {
 	return p.Success != nil
 }
 
-func (p *SettingsServiceUpdateOCRSettingsResult) Read(iprot thrift.TProtocol) (err error) {
+func (p *ReviewServicePreviewReviewResult) Read(iprot thrift.TProtocol) (err error) {
 
 	var fieldTypeId thrift.TType
 	var fieldId int16
@@ -2198,7 +1842,7 @@ ReadStructBeginError:
 ReadFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
 ReadFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SettingsServiceUpdateOCRSettingsResult[fieldId]), err)
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewServicePreviewReviewResult[fieldId]), err)
 SkipFieldError:
 	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
 
@@ -2208,8 +1852,8 @@ ReadStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
 }
 
-func (p *SettingsServiceUpdateOCRSettingsResult) ReadField0(iprot thrift.TProtocol) error {
-	_field := settings.NewUpdateOCRSettingsResp()
+func (p *ReviewServicePreviewReviewResult) ReadField0(iprot thrift.TProtocol) error {
+	_field := review.NewPreviewResp()
 	if err := _field.Read(iprot); err != nil {
 		return err
 	}
@@ -2217,9 +1861,9 @@ func (p *SettingsServiceUpdateOCRSettingsResult) ReadField0(iprot thrift.TProtoc
 	return nil
 }
 
-func (p *SettingsServiceUpdateOCRSettingsResult) Write(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServicePreviewReviewResult) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
-	if err = oprot.WriteStructBegin("UpdateOCRSettings_result"); err != nil {
+	if err = oprot.WriteStructBegin("PreviewReview_result"); err != nil {
 		goto WriteStructBeginError
 	}
 	if p != nil {
@@ -2245,7 +1889,7 @@ WriteStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
 }
 
-func (p *SettingsServiceUpdateOCRSettingsResult) writeField0(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServicePreviewReviewResult) writeField0(oprot thrift.TProtocol) (err error) {
 	if p.IsSetSuccess() {
 		if err = oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
 			goto WriteFieldBeginError
@@ -2264,274 +1908,43 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 0 end error: ", p), err)
 }
 
-func (p *SettingsServiceUpdateOCRSettingsResult) String() string {
+func (p *ReviewServicePreviewReviewResult) String() string {
 	if p == nil {
 		return "<nil>"
 	}
-	return fmt.Sprintf("SettingsServiceUpdateOCRSettingsResult(%+v)", *p)
+	return fmt.Sprintf("ReviewServicePreviewReviewResult(%+v)", *p)
 
 }
 
-type SettingsServiceListProjectPoliciesArgs struct {
+type ReviewServiceRerunReviewArgs struct {
+	Req *review.ReviewActionReq `thrift:"req,1"`
 }
 
-func NewSettingsServiceListProjectPoliciesArgs() *SettingsServiceListProjectPoliciesArgs {
-	return &SettingsServiceListProjectPoliciesArgs{}
+func NewReviewServiceRerunReviewArgs() *ReviewServiceRerunReviewArgs {
+	return &ReviewServiceRerunReviewArgs{}
 }
 
-func (p *SettingsServiceListProjectPoliciesArgs) InitDefault() {
+func (p *ReviewServiceRerunReviewArgs) InitDefault() {
 }
 
-var fieldIDToName_SettingsServiceListProjectPoliciesArgs = map[int16]string{}
+var ReviewServiceRerunReviewArgs_Req_DEFAULT *review.ReviewActionReq
 
-func (p *SettingsServiceListProjectPoliciesArgs) Read(iprot thrift.TProtocol) (err error) {
-
-	var fieldTypeId thrift.TType
-	var fieldId int16
-
-	if _, err = iprot.ReadStructBegin(); err != nil {
-		goto ReadStructBeginError
-	}
-
-	for {
-		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
-		if err != nil {
-			goto ReadFieldBeginError
-		}
-		if fieldTypeId == thrift.STOP {
-			break
-		}
-		if err = iprot.Skip(fieldTypeId); err != nil {
-			goto SkipFieldTypeError
-		}
-		if err = iprot.ReadFieldEnd(); err != nil {
-			goto ReadFieldEndError
-		}
-	}
-	if err = iprot.ReadStructEnd(); err != nil {
-		goto ReadStructEndError
-	}
-
-	return nil
-ReadStructBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
-ReadFieldBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
-SkipFieldTypeError:
-	return thrift.PrependError(fmt.Sprintf("%T skip field type %d error", p, fieldTypeId), err)
-
-ReadFieldEndError:
-	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
-ReadStructEndError:
-	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
-}
-
-func (p *SettingsServiceListProjectPoliciesArgs) Write(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteStructBegin("ListProjectPolicies_args"); err != nil {
-		goto WriteStructBeginError
-	}
-	if p != nil {
-	}
-	if err = oprot.WriteFieldStop(); err != nil {
-		goto WriteFieldStopError
-	}
-	if err = oprot.WriteStructEnd(); err != nil {
-		goto WriteStructEndError
-	}
-	return nil
-WriteStructBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
-WriteFieldStopError:
-	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
-WriteStructEndError:
-	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
-}
-
-func (p *SettingsServiceListProjectPoliciesArgs) String() string {
-	if p == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("SettingsServiceListProjectPoliciesArgs(%+v)", *p)
-
-}
-
-type SettingsServiceListProjectPoliciesResult struct {
-	Success *settings.ListProjectPoliciesResp `thrift:"success,0,optional"`
-}
-
-func NewSettingsServiceListProjectPoliciesResult() *SettingsServiceListProjectPoliciesResult {
-	return &SettingsServiceListProjectPoliciesResult{}
-}
-
-func (p *SettingsServiceListProjectPoliciesResult) InitDefault() {
-}
-
-var SettingsServiceListProjectPoliciesResult_Success_DEFAULT *settings.ListProjectPoliciesResp
-
-func (p *SettingsServiceListProjectPoliciesResult) GetSuccess() (v *settings.ListProjectPoliciesResp) {
-	if !p.IsSetSuccess() {
-		return SettingsServiceListProjectPoliciesResult_Success_DEFAULT
-	}
-	return p.Success
-}
-
-var fieldIDToName_SettingsServiceListProjectPoliciesResult = map[int16]string{
-	0: "success",
-}
-
-func (p *SettingsServiceListProjectPoliciesResult) IsSetSuccess() bool {
-	return p.Success != nil
-}
-
-func (p *SettingsServiceListProjectPoliciesResult) Read(iprot thrift.TProtocol) (err error) {
-
-	var fieldTypeId thrift.TType
-	var fieldId int16
-
-	if _, err = iprot.ReadStructBegin(); err != nil {
-		goto ReadStructBeginError
-	}
-
-	for {
-		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
-		if err != nil {
-			goto ReadFieldBeginError
-		}
-		if fieldTypeId == thrift.STOP {
-			break
-		}
-
-		switch fieldId {
-		case 0:
-			if fieldTypeId == thrift.STRUCT {
-				if err = p.ReadField0(iprot); err != nil {
-					goto ReadFieldError
-				}
-			} else if err = iprot.Skip(fieldTypeId); err != nil {
-				goto SkipFieldError
-			}
-		default:
-			if err = iprot.Skip(fieldTypeId); err != nil {
-				goto SkipFieldError
-			}
-		}
-		if err = iprot.ReadFieldEnd(); err != nil {
-			goto ReadFieldEndError
-		}
-	}
-	if err = iprot.ReadStructEnd(); err != nil {
-		goto ReadStructEndError
-	}
-
-	return nil
-ReadStructBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
-ReadFieldBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
-ReadFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SettingsServiceListProjectPoliciesResult[fieldId]), err)
-SkipFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
-
-ReadFieldEndError:
-	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
-ReadStructEndError:
-	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
-}
-
-func (p *SettingsServiceListProjectPoliciesResult) ReadField0(iprot thrift.TProtocol) error {
-	_field := settings.NewListProjectPoliciesResp()
-	if err := _field.Read(iprot); err != nil {
-		return err
-	}
-	p.Success = _field
-	return nil
-}
-
-func (p *SettingsServiceListProjectPoliciesResult) Write(oprot thrift.TProtocol) (err error) {
-	var fieldId int16
-	if err = oprot.WriteStructBegin("ListProjectPolicies_result"); err != nil {
-		goto WriteStructBeginError
-	}
-	if p != nil {
-		if err = p.writeField0(oprot); err != nil {
-			fieldId = 0
-			goto WriteFieldError
-		}
-	}
-	if err = oprot.WriteFieldStop(); err != nil {
-		goto WriteFieldStopError
-	}
-	if err = oprot.WriteStructEnd(); err != nil {
-		goto WriteStructEndError
-	}
-	return nil
-WriteStructBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
-WriteFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
-WriteFieldStopError:
-	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
-WriteStructEndError:
-	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
-}
-
-func (p *SettingsServiceListProjectPoliciesResult) writeField0(oprot thrift.TProtocol) (err error) {
-	if p.IsSetSuccess() {
-		if err = oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
-			goto WriteFieldBeginError
-		}
-		if err := p.Success.Write(oprot); err != nil {
-			return err
-		}
-		if err = oprot.WriteFieldEnd(); err != nil {
-			goto WriteFieldEndError
-		}
-	}
-	return nil
-WriteFieldBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T write field 0 begin error: ", p), err)
-WriteFieldEndError:
-	return thrift.PrependError(fmt.Sprintf("%T write field 0 end error: ", p), err)
-}
-
-func (p *SettingsServiceListProjectPoliciesResult) String() string {
-	if p == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("SettingsServiceListProjectPoliciesResult(%+v)", *p)
-
-}
-
-type SettingsServicePutProjectPolicyArgs struct {
-	Req *settings.PutProjectPolicyReq `thrift:"req,1"`
-}
-
-func NewSettingsServicePutProjectPolicyArgs() *SettingsServicePutProjectPolicyArgs {
-	return &SettingsServicePutProjectPolicyArgs{}
-}
-
-func (p *SettingsServicePutProjectPolicyArgs) InitDefault() {
-}
-
-var SettingsServicePutProjectPolicyArgs_Req_DEFAULT *settings.PutProjectPolicyReq
-
-func (p *SettingsServicePutProjectPolicyArgs) GetReq() (v *settings.PutProjectPolicyReq) {
+func (p *ReviewServiceRerunReviewArgs) GetReq() (v *review.ReviewActionReq) {
 	if !p.IsSetReq() {
-		return SettingsServicePutProjectPolicyArgs_Req_DEFAULT
+		return ReviewServiceRerunReviewArgs_Req_DEFAULT
 	}
 	return p.Req
 }
 
-var fieldIDToName_SettingsServicePutProjectPolicyArgs = map[int16]string{
+var fieldIDToName_ReviewServiceRerunReviewArgs = map[int16]string{
 	1: "req",
 }
 
-func (p *SettingsServicePutProjectPolicyArgs) IsSetReq() bool {
+func (p *ReviewServiceRerunReviewArgs) IsSetReq() bool {
 	return p.Req != nil
 }
 
-func (p *SettingsServicePutProjectPolicyArgs) Read(iprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceRerunReviewArgs) Read(iprot thrift.TProtocol) (err error) {
 
 	var fieldTypeId thrift.TType
 	var fieldId int16
@@ -2577,7 +1990,7 @@ ReadStructBeginError:
 ReadFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
 ReadFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SettingsServicePutProjectPolicyArgs[fieldId]), err)
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewServiceRerunReviewArgs[fieldId]), err)
 SkipFieldError:
 	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
 
@@ -2587,8 +2000,8 @@ ReadStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
 }
 
-func (p *SettingsServicePutProjectPolicyArgs) ReadField1(iprot thrift.TProtocol) error {
-	_field := settings.NewPutProjectPolicyReq()
+func (p *ReviewServiceRerunReviewArgs) ReadField1(iprot thrift.TProtocol) error {
+	_field := review.NewReviewActionReq()
 	if err := _field.Read(iprot); err != nil {
 		return err
 	}
@@ -2596,9 +2009,9 @@ func (p *SettingsServicePutProjectPolicyArgs) ReadField1(iprot thrift.TProtocol)
 	return nil
 }
 
-func (p *SettingsServicePutProjectPolicyArgs) Write(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceRerunReviewArgs) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
-	if err = oprot.WriteStructBegin("PutProjectPolicy_args"); err != nil {
+	if err = oprot.WriteStructBegin("RerunReview_args"); err != nil {
 		goto WriteStructBeginError
 	}
 	if p != nil {
@@ -2624,7 +2037,7 @@ WriteStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
 }
 
-func (p *SettingsServicePutProjectPolicyArgs) writeField1(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceRerunReviewArgs) writeField1(oprot thrift.TProtocol) (err error) {
 	if err = oprot.WriteFieldBegin("req", thrift.STRUCT, 1); err != nil {
 		goto WriteFieldBeginError
 	}
@@ -2641,43 +2054,43 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
 }
 
-func (p *SettingsServicePutProjectPolicyArgs) String() string {
+func (p *ReviewServiceRerunReviewArgs) String() string {
 	if p == nil {
 		return "<nil>"
 	}
-	return fmt.Sprintf("SettingsServicePutProjectPolicyArgs(%+v)", *p)
+	return fmt.Sprintf("ReviewServiceRerunReviewArgs(%+v)", *p)
 
 }
 
-type SettingsServicePutProjectPolicyResult struct {
-	Success *settings.PutProjectPolicyResp `thrift:"success,0,optional"`
+type ReviewServiceRerunReviewResult struct {
+	Success *review.CreateReviewResp `thrift:"success,0,optional"`
 }
 
-func NewSettingsServicePutProjectPolicyResult() *SettingsServicePutProjectPolicyResult {
-	return &SettingsServicePutProjectPolicyResult{}
+func NewReviewServiceRerunReviewResult() *ReviewServiceRerunReviewResult {
+	return &ReviewServiceRerunReviewResult{}
 }
 
-func (p *SettingsServicePutProjectPolicyResult) InitDefault() {
+func (p *ReviewServiceRerunReviewResult) InitDefault() {
 }
 
-var SettingsServicePutProjectPolicyResult_Success_DEFAULT *settings.PutProjectPolicyResp
+var ReviewServiceRerunReviewResult_Success_DEFAULT *review.CreateReviewResp
 
-func (p *SettingsServicePutProjectPolicyResult) GetSuccess() (v *settings.PutProjectPolicyResp) {
+func (p *ReviewServiceRerunReviewResult) GetSuccess() (v *review.CreateReviewResp) {
 	if !p.IsSetSuccess() {
-		return SettingsServicePutProjectPolicyResult_Success_DEFAULT
+		return ReviewServiceRerunReviewResult_Success_DEFAULT
 	}
 	return p.Success
 }
 
-var fieldIDToName_SettingsServicePutProjectPolicyResult = map[int16]string{
+var fieldIDToName_ReviewServiceRerunReviewResult = map[int16]string{
 	0: "success",
 }
 
-func (p *SettingsServicePutProjectPolicyResult) IsSetSuccess() bool {
+func (p *ReviewServiceRerunReviewResult) IsSetSuccess() bool {
 	return p.Success != nil
 }
 
-func (p *SettingsServicePutProjectPolicyResult) Read(iprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceRerunReviewResult) Read(iprot thrift.TProtocol) (err error) {
 
 	var fieldTypeId thrift.TType
 	var fieldId int16
@@ -2723,7 +2136,7 @@ ReadStructBeginError:
 ReadFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
 ReadFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SettingsServicePutProjectPolicyResult[fieldId]), err)
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewServiceRerunReviewResult[fieldId]), err)
 SkipFieldError:
 	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
 
@@ -2733,8 +2146,8 @@ ReadStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
 }
 
-func (p *SettingsServicePutProjectPolicyResult) ReadField0(iprot thrift.TProtocol) error {
-	_field := settings.NewPutProjectPolicyResp()
+func (p *ReviewServiceRerunReviewResult) ReadField0(iprot thrift.TProtocol) error {
+	_field := review.NewCreateReviewResp()
 	if err := _field.Read(iprot); err != nil {
 		return err
 	}
@@ -2742,9 +2155,9 @@ func (p *SettingsServicePutProjectPolicyResult) ReadField0(iprot thrift.TProtoco
 	return nil
 }
 
-func (p *SettingsServicePutProjectPolicyResult) Write(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceRerunReviewResult) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
-	if err = oprot.WriteStructBegin("PutProjectPolicy_result"); err != nil {
+	if err = oprot.WriteStructBegin("RerunReview_result"); err != nil {
 		goto WriteStructBeginError
 	}
 	if p != nil {
@@ -2770,7 +2183,7 @@ WriteStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
 }
 
-func (p *SettingsServicePutProjectPolicyResult) writeField0(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceRerunReviewResult) writeField0(oprot thrift.TProtocol) (err error) {
 	if p.IsSetSuccess() {
 		if err = oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
 			goto WriteFieldBeginError
@@ -2789,43 +2202,43 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 0 end error: ", p), err)
 }
 
-func (p *SettingsServicePutProjectPolicyResult) String() string {
+func (p *ReviewServiceRerunReviewResult) String() string {
 	if p == nil {
 		return "<nil>"
 	}
-	return fmt.Sprintf("SettingsServicePutProjectPolicyResult(%+v)", *p)
+	return fmt.Sprintf("ReviewServiceRerunReviewResult(%+v)", *p)
 
 }
 
-type SettingsServiceDeleteProjectPolicyArgs struct {
-	Req *settings.DeleteProjectPolicyReq `thrift:"req,1"`
+type ReviewServiceCancelReviewArgs struct {
+	Req *review.ReviewActionReq `thrift:"req,1"`
 }
 
-func NewSettingsServiceDeleteProjectPolicyArgs() *SettingsServiceDeleteProjectPolicyArgs {
-	return &SettingsServiceDeleteProjectPolicyArgs{}
+func NewReviewServiceCancelReviewArgs() *ReviewServiceCancelReviewArgs {
+	return &ReviewServiceCancelReviewArgs{}
 }
 
-func (p *SettingsServiceDeleteProjectPolicyArgs) InitDefault() {
+func (p *ReviewServiceCancelReviewArgs) InitDefault() {
 }
 
-var SettingsServiceDeleteProjectPolicyArgs_Req_DEFAULT *settings.DeleteProjectPolicyReq
+var ReviewServiceCancelReviewArgs_Req_DEFAULT *review.ReviewActionReq
 
-func (p *SettingsServiceDeleteProjectPolicyArgs) GetReq() (v *settings.DeleteProjectPolicyReq) {
+func (p *ReviewServiceCancelReviewArgs) GetReq() (v *review.ReviewActionReq) {
 	if !p.IsSetReq() {
-		return SettingsServiceDeleteProjectPolicyArgs_Req_DEFAULT
+		return ReviewServiceCancelReviewArgs_Req_DEFAULT
 	}
 	return p.Req
 }
 
-var fieldIDToName_SettingsServiceDeleteProjectPolicyArgs = map[int16]string{
+var fieldIDToName_ReviewServiceCancelReviewArgs = map[int16]string{
 	1: "req",
 }
 
-func (p *SettingsServiceDeleteProjectPolicyArgs) IsSetReq() bool {
+func (p *ReviewServiceCancelReviewArgs) IsSetReq() bool {
 	return p.Req != nil
 }
 
-func (p *SettingsServiceDeleteProjectPolicyArgs) Read(iprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceCancelReviewArgs) Read(iprot thrift.TProtocol) (err error) {
 
 	var fieldTypeId thrift.TType
 	var fieldId int16
@@ -2871,7 +2284,7 @@ ReadStructBeginError:
 ReadFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
 ReadFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SettingsServiceDeleteProjectPolicyArgs[fieldId]), err)
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewServiceCancelReviewArgs[fieldId]), err)
 SkipFieldError:
 	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
 
@@ -2881,8 +2294,8 @@ ReadStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
 }
 
-func (p *SettingsServiceDeleteProjectPolicyArgs) ReadField1(iprot thrift.TProtocol) error {
-	_field := settings.NewDeleteProjectPolicyReq()
+func (p *ReviewServiceCancelReviewArgs) ReadField1(iprot thrift.TProtocol) error {
+	_field := review.NewReviewActionReq()
 	if err := _field.Read(iprot); err != nil {
 		return err
 	}
@@ -2890,9 +2303,9 @@ func (p *SettingsServiceDeleteProjectPolicyArgs) ReadField1(iprot thrift.TProtoc
 	return nil
 }
 
-func (p *SettingsServiceDeleteProjectPolicyArgs) Write(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceCancelReviewArgs) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
-	if err = oprot.WriteStructBegin("DeleteProjectPolicy_args"); err != nil {
+	if err = oprot.WriteStructBegin("CancelReview_args"); err != nil {
 		goto WriteStructBeginError
 	}
 	if p != nil {
@@ -2918,7 +2331,7 @@ WriteStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
 }
 
-func (p *SettingsServiceDeleteProjectPolicyArgs) writeField1(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceCancelReviewArgs) writeField1(oprot thrift.TProtocol) (err error) {
 	if err = oprot.WriteFieldBegin("req", thrift.STRUCT, 1); err != nil {
 		goto WriteFieldBeginError
 	}
@@ -2935,43 +2348,43 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
 }
 
-func (p *SettingsServiceDeleteProjectPolicyArgs) String() string {
+func (p *ReviewServiceCancelReviewArgs) String() string {
 	if p == nil {
 		return "<nil>"
 	}
-	return fmt.Sprintf("SettingsServiceDeleteProjectPolicyArgs(%+v)", *p)
+	return fmt.Sprintf("ReviewServiceCancelReviewArgs(%+v)", *p)
 
 }
 
-type SettingsServiceDeleteProjectPolicyResult struct {
-	Success *settings.DeleteProjectPolicyResp `thrift:"success,0,optional"`
+type ReviewServiceCancelReviewResult struct {
+	Success *review.CreateReviewResp `thrift:"success,0,optional"`
 }
 
-func NewSettingsServiceDeleteProjectPolicyResult() *SettingsServiceDeleteProjectPolicyResult {
-	return &SettingsServiceDeleteProjectPolicyResult{}
+func NewReviewServiceCancelReviewResult() *ReviewServiceCancelReviewResult {
+	return &ReviewServiceCancelReviewResult{}
 }
 
-func (p *SettingsServiceDeleteProjectPolicyResult) InitDefault() {
+func (p *ReviewServiceCancelReviewResult) InitDefault() {
 }
 
-var SettingsServiceDeleteProjectPolicyResult_Success_DEFAULT *settings.DeleteProjectPolicyResp
+var ReviewServiceCancelReviewResult_Success_DEFAULT *review.CreateReviewResp
 
-func (p *SettingsServiceDeleteProjectPolicyResult) GetSuccess() (v *settings.DeleteProjectPolicyResp) {
+func (p *ReviewServiceCancelReviewResult) GetSuccess() (v *review.CreateReviewResp) {
 	if !p.IsSetSuccess() {
-		return SettingsServiceDeleteProjectPolicyResult_Success_DEFAULT
+		return ReviewServiceCancelReviewResult_Success_DEFAULT
 	}
 	return p.Success
 }
 
-var fieldIDToName_SettingsServiceDeleteProjectPolicyResult = map[int16]string{
+var fieldIDToName_ReviewServiceCancelReviewResult = map[int16]string{
 	0: "success",
 }
 
-func (p *SettingsServiceDeleteProjectPolicyResult) IsSetSuccess() bool {
+func (p *ReviewServiceCancelReviewResult) IsSetSuccess() bool {
 	return p.Success != nil
 }
 
-func (p *SettingsServiceDeleteProjectPolicyResult) Read(iprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceCancelReviewResult) Read(iprot thrift.TProtocol) (err error) {
 
 	var fieldTypeId thrift.TType
 	var fieldId int16
@@ -3017,7 +2430,7 @@ ReadStructBeginError:
 ReadFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
 ReadFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SettingsServiceDeleteProjectPolicyResult[fieldId]), err)
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewServiceCancelReviewResult[fieldId]), err)
 SkipFieldError:
 	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
 
@@ -3027,8 +2440,8 @@ ReadStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
 }
 
-func (p *SettingsServiceDeleteProjectPolicyResult) ReadField0(iprot thrift.TProtocol) error {
-	_field := settings.NewDeleteProjectPolicyResp()
+func (p *ReviewServiceCancelReviewResult) ReadField0(iprot thrift.TProtocol) error {
+	_field := review.NewCreateReviewResp()
 	if err := _field.Read(iprot); err != nil {
 		return err
 	}
@@ -3036,9 +2449,9 @@ func (p *SettingsServiceDeleteProjectPolicyResult) ReadField0(iprot thrift.TProt
 	return nil
 }
 
-func (p *SettingsServiceDeleteProjectPolicyResult) Write(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceCancelReviewResult) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
-	if err = oprot.WriteStructBegin("DeleteProjectPolicy_result"); err != nil {
+	if err = oprot.WriteStructBegin("CancelReview_result"); err != nil {
 		goto WriteStructBeginError
 	}
 	if p != nil {
@@ -3064,7 +2477,7 @@ WriteStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
 }
 
-func (p *SettingsServiceDeleteProjectPolicyResult) writeField0(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceCancelReviewResult) writeField0(oprot thrift.TProtocol) (err error) {
 	if p.IsSetSuccess() {
 		if err = oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
 			goto WriteFieldBeginError
@@ -3083,274 +2496,43 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 0 end error: ", p), err)
 }
 
-func (p *SettingsServiceDeleteProjectPolicyResult) String() string {
+func (p *ReviewServiceCancelReviewResult) String() string {
 	if p == nil {
 		return "<nil>"
 	}
-	return fmt.Sprintf("SettingsServiceDeleteProjectPolicyResult(%+v)", *p)
+	return fmt.Sprintf("ReviewServiceCancelReviewResult(%+v)", *p)
 
 }
 
-type SettingsServiceListPlatformsArgs struct {
+type ReviewServiceHandleWebhookArgs struct {
+	Req *webhook.HandleWebhookReq `thrift:"req,1"`
 }
 
-func NewSettingsServiceListPlatformsArgs() *SettingsServiceListPlatformsArgs {
-	return &SettingsServiceListPlatformsArgs{}
+func NewReviewServiceHandleWebhookArgs() *ReviewServiceHandleWebhookArgs {
+	return &ReviewServiceHandleWebhookArgs{}
 }
 
-func (p *SettingsServiceListPlatformsArgs) InitDefault() {
+func (p *ReviewServiceHandleWebhookArgs) InitDefault() {
 }
 
-var fieldIDToName_SettingsServiceListPlatformsArgs = map[int16]string{}
+var ReviewServiceHandleWebhookArgs_Req_DEFAULT *webhook.HandleWebhookReq
 
-func (p *SettingsServiceListPlatformsArgs) Read(iprot thrift.TProtocol) (err error) {
-
-	var fieldTypeId thrift.TType
-	var fieldId int16
-
-	if _, err = iprot.ReadStructBegin(); err != nil {
-		goto ReadStructBeginError
-	}
-
-	for {
-		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
-		if err != nil {
-			goto ReadFieldBeginError
-		}
-		if fieldTypeId == thrift.STOP {
-			break
-		}
-		if err = iprot.Skip(fieldTypeId); err != nil {
-			goto SkipFieldTypeError
-		}
-		if err = iprot.ReadFieldEnd(); err != nil {
-			goto ReadFieldEndError
-		}
-	}
-	if err = iprot.ReadStructEnd(); err != nil {
-		goto ReadStructEndError
-	}
-
-	return nil
-ReadStructBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
-ReadFieldBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
-SkipFieldTypeError:
-	return thrift.PrependError(fmt.Sprintf("%T skip field type %d error", p, fieldTypeId), err)
-
-ReadFieldEndError:
-	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
-ReadStructEndError:
-	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
-}
-
-func (p *SettingsServiceListPlatformsArgs) Write(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteStructBegin("ListPlatforms_args"); err != nil {
-		goto WriteStructBeginError
-	}
-	if p != nil {
-	}
-	if err = oprot.WriteFieldStop(); err != nil {
-		goto WriteFieldStopError
-	}
-	if err = oprot.WriteStructEnd(); err != nil {
-		goto WriteStructEndError
-	}
-	return nil
-WriteStructBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
-WriteFieldStopError:
-	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
-WriteStructEndError:
-	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
-}
-
-func (p *SettingsServiceListPlatformsArgs) String() string {
-	if p == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("SettingsServiceListPlatformsArgs(%+v)", *p)
-
-}
-
-type SettingsServiceListPlatformsResult struct {
-	Success *settings.ListPlatformsResp `thrift:"success,0,optional"`
-}
-
-func NewSettingsServiceListPlatformsResult() *SettingsServiceListPlatformsResult {
-	return &SettingsServiceListPlatformsResult{}
-}
-
-func (p *SettingsServiceListPlatformsResult) InitDefault() {
-}
-
-var SettingsServiceListPlatformsResult_Success_DEFAULT *settings.ListPlatformsResp
-
-func (p *SettingsServiceListPlatformsResult) GetSuccess() (v *settings.ListPlatformsResp) {
-	if !p.IsSetSuccess() {
-		return SettingsServiceListPlatformsResult_Success_DEFAULT
-	}
-	return p.Success
-}
-
-var fieldIDToName_SettingsServiceListPlatformsResult = map[int16]string{
-	0: "success",
-}
-
-func (p *SettingsServiceListPlatformsResult) IsSetSuccess() bool {
-	return p.Success != nil
-}
-
-func (p *SettingsServiceListPlatformsResult) Read(iprot thrift.TProtocol) (err error) {
-
-	var fieldTypeId thrift.TType
-	var fieldId int16
-
-	if _, err = iprot.ReadStructBegin(); err != nil {
-		goto ReadStructBeginError
-	}
-
-	for {
-		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
-		if err != nil {
-			goto ReadFieldBeginError
-		}
-		if fieldTypeId == thrift.STOP {
-			break
-		}
-
-		switch fieldId {
-		case 0:
-			if fieldTypeId == thrift.STRUCT {
-				if err = p.ReadField0(iprot); err != nil {
-					goto ReadFieldError
-				}
-			} else if err = iprot.Skip(fieldTypeId); err != nil {
-				goto SkipFieldError
-			}
-		default:
-			if err = iprot.Skip(fieldTypeId); err != nil {
-				goto SkipFieldError
-			}
-		}
-		if err = iprot.ReadFieldEnd(); err != nil {
-			goto ReadFieldEndError
-		}
-	}
-	if err = iprot.ReadStructEnd(); err != nil {
-		goto ReadStructEndError
-	}
-
-	return nil
-ReadStructBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
-ReadFieldBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
-ReadFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SettingsServiceListPlatformsResult[fieldId]), err)
-SkipFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
-
-ReadFieldEndError:
-	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
-ReadStructEndError:
-	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
-}
-
-func (p *SettingsServiceListPlatformsResult) ReadField0(iprot thrift.TProtocol) error {
-	_field := settings.NewListPlatformsResp()
-	if err := _field.Read(iprot); err != nil {
-		return err
-	}
-	p.Success = _field
-	return nil
-}
-
-func (p *SettingsServiceListPlatformsResult) Write(oprot thrift.TProtocol) (err error) {
-	var fieldId int16
-	if err = oprot.WriteStructBegin("ListPlatforms_result"); err != nil {
-		goto WriteStructBeginError
-	}
-	if p != nil {
-		if err = p.writeField0(oprot); err != nil {
-			fieldId = 0
-			goto WriteFieldError
-		}
-	}
-	if err = oprot.WriteFieldStop(); err != nil {
-		goto WriteFieldStopError
-	}
-	if err = oprot.WriteStructEnd(); err != nil {
-		goto WriteStructEndError
-	}
-	return nil
-WriteStructBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
-WriteFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
-WriteFieldStopError:
-	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
-WriteStructEndError:
-	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
-}
-
-func (p *SettingsServiceListPlatformsResult) writeField0(oprot thrift.TProtocol) (err error) {
-	if p.IsSetSuccess() {
-		if err = oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
-			goto WriteFieldBeginError
-		}
-		if err := p.Success.Write(oprot); err != nil {
-			return err
-		}
-		if err = oprot.WriteFieldEnd(); err != nil {
-			goto WriteFieldEndError
-		}
-	}
-	return nil
-WriteFieldBeginError:
-	return thrift.PrependError(fmt.Sprintf("%T write field 0 begin error: ", p), err)
-WriteFieldEndError:
-	return thrift.PrependError(fmt.Sprintf("%T write field 0 end error: ", p), err)
-}
-
-func (p *SettingsServiceListPlatformsResult) String() string {
-	if p == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("SettingsServiceListPlatformsResult(%+v)", *p)
-
-}
-
-type SettingsServicePutPlatformArgs struct {
-	Req *settings.PutPlatformReq `thrift:"req,1"`
-}
-
-func NewSettingsServicePutPlatformArgs() *SettingsServicePutPlatformArgs {
-	return &SettingsServicePutPlatformArgs{}
-}
-
-func (p *SettingsServicePutPlatformArgs) InitDefault() {
-}
-
-var SettingsServicePutPlatformArgs_Req_DEFAULT *settings.PutPlatformReq
-
-func (p *SettingsServicePutPlatformArgs) GetReq() (v *settings.PutPlatformReq) {
+func (p *ReviewServiceHandleWebhookArgs) GetReq() (v *webhook.HandleWebhookReq) {
 	if !p.IsSetReq() {
-		return SettingsServicePutPlatformArgs_Req_DEFAULT
+		return ReviewServiceHandleWebhookArgs_Req_DEFAULT
 	}
 	return p.Req
 }
 
-var fieldIDToName_SettingsServicePutPlatformArgs = map[int16]string{
+var fieldIDToName_ReviewServiceHandleWebhookArgs = map[int16]string{
 	1: "req",
 }
 
-func (p *SettingsServicePutPlatformArgs) IsSetReq() bool {
+func (p *ReviewServiceHandleWebhookArgs) IsSetReq() bool {
 	return p.Req != nil
 }
 
-func (p *SettingsServicePutPlatformArgs) Read(iprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceHandleWebhookArgs) Read(iprot thrift.TProtocol) (err error) {
 
 	var fieldTypeId thrift.TType
 	var fieldId int16
@@ -3396,7 +2578,7 @@ ReadStructBeginError:
 ReadFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
 ReadFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SettingsServicePutPlatformArgs[fieldId]), err)
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewServiceHandleWebhookArgs[fieldId]), err)
 SkipFieldError:
 	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
 
@@ -3406,8 +2588,8 @@ ReadStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
 }
 
-func (p *SettingsServicePutPlatformArgs) ReadField1(iprot thrift.TProtocol) error {
-	_field := settings.NewPutPlatformReq()
+func (p *ReviewServiceHandleWebhookArgs) ReadField1(iprot thrift.TProtocol) error {
+	_field := webhook.NewHandleWebhookReq()
 	if err := _field.Read(iprot); err != nil {
 		return err
 	}
@@ -3415,9 +2597,9 @@ func (p *SettingsServicePutPlatformArgs) ReadField1(iprot thrift.TProtocol) erro
 	return nil
 }
 
-func (p *SettingsServicePutPlatformArgs) Write(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceHandleWebhookArgs) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
-	if err = oprot.WriteStructBegin("PutPlatform_args"); err != nil {
+	if err = oprot.WriteStructBegin("HandleWebhook_args"); err != nil {
 		goto WriteStructBeginError
 	}
 	if p != nil {
@@ -3443,7 +2625,7 @@ WriteStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
 }
 
-func (p *SettingsServicePutPlatformArgs) writeField1(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceHandleWebhookArgs) writeField1(oprot thrift.TProtocol) (err error) {
 	if err = oprot.WriteFieldBegin("req", thrift.STRUCT, 1); err != nil {
 		goto WriteFieldBeginError
 	}
@@ -3460,43 +2642,43 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
 }
 
-func (p *SettingsServicePutPlatformArgs) String() string {
+func (p *ReviewServiceHandleWebhookArgs) String() string {
 	if p == nil {
 		return "<nil>"
 	}
-	return fmt.Sprintf("SettingsServicePutPlatformArgs(%+v)", *p)
+	return fmt.Sprintf("ReviewServiceHandleWebhookArgs(%+v)", *p)
 
 }
 
-type SettingsServicePutPlatformResult struct {
-	Success *settings.PutPlatformResp `thrift:"success,0,optional"`
+type ReviewServiceHandleWebhookResult struct {
+	Success *webhook.HandleWebhookResp `thrift:"success,0,optional"`
 }
 
-func NewSettingsServicePutPlatformResult() *SettingsServicePutPlatformResult {
-	return &SettingsServicePutPlatformResult{}
+func NewReviewServiceHandleWebhookResult() *ReviewServiceHandleWebhookResult {
+	return &ReviewServiceHandleWebhookResult{}
 }
 
-func (p *SettingsServicePutPlatformResult) InitDefault() {
+func (p *ReviewServiceHandleWebhookResult) InitDefault() {
 }
 
-var SettingsServicePutPlatformResult_Success_DEFAULT *settings.PutPlatformResp
+var ReviewServiceHandleWebhookResult_Success_DEFAULT *webhook.HandleWebhookResp
 
-func (p *SettingsServicePutPlatformResult) GetSuccess() (v *settings.PutPlatformResp) {
+func (p *ReviewServiceHandleWebhookResult) GetSuccess() (v *webhook.HandleWebhookResp) {
 	if !p.IsSetSuccess() {
-		return SettingsServicePutPlatformResult_Success_DEFAULT
+		return ReviewServiceHandleWebhookResult_Success_DEFAULT
 	}
 	return p.Success
 }
 
-var fieldIDToName_SettingsServicePutPlatformResult = map[int16]string{
+var fieldIDToName_ReviewServiceHandleWebhookResult = map[int16]string{
 	0: "success",
 }
 
-func (p *SettingsServicePutPlatformResult) IsSetSuccess() bool {
+func (p *ReviewServiceHandleWebhookResult) IsSetSuccess() bool {
 	return p.Success != nil
 }
 
-func (p *SettingsServicePutPlatformResult) Read(iprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceHandleWebhookResult) Read(iprot thrift.TProtocol) (err error) {
 
 	var fieldTypeId thrift.TType
 	var fieldId int16
@@ -3542,7 +2724,7 @@ ReadStructBeginError:
 ReadFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
 ReadFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SettingsServicePutPlatformResult[fieldId]), err)
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewServiceHandleWebhookResult[fieldId]), err)
 SkipFieldError:
 	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
 
@@ -3552,8 +2734,8 @@ ReadStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
 }
 
-func (p *SettingsServicePutPlatformResult) ReadField0(iprot thrift.TProtocol) error {
-	_field := settings.NewPutPlatformResp()
+func (p *ReviewServiceHandleWebhookResult) ReadField0(iprot thrift.TProtocol) error {
+	_field := webhook.NewHandleWebhookResp()
 	if err := _field.Read(iprot); err != nil {
 		return err
 	}
@@ -3561,9 +2743,9 @@ func (p *SettingsServicePutPlatformResult) ReadField0(iprot thrift.TProtocol) er
 	return nil
 }
 
-func (p *SettingsServicePutPlatformResult) Write(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceHandleWebhookResult) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
-	if err = oprot.WriteStructBegin("PutPlatform_result"); err != nil {
+	if err = oprot.WriteStructBegin("HandleWebhook_result"); err != nil {
 		goto WriteStructBeginError
 	}
 	if p != nil {
@@ -3589,7 +2771,7 @@ WriteStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
 }
 
-func (p *SettingsServicePutPlatformResult) writeField0(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceHandleWebhookResult) writeField0(oprot thrift.TProtocol) (err error) {
 	if p.IsSetSuccess() {
 		if err = oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
 			goto WriteFieldBeginError
@@ -3608,43 +2790,43 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 0 end error: ", p), err)
 }
 
-func (p *SettingsServicePutPlatformResult) String() string {
+func (p *ReviewServiceHandleWebhookResult) String() string {
 	if p == nil {
 		return "<nil>"
 	}
-	return fmt.Sprintf("SettingsServicePutPlatformResult(%+v)", *p)
+	return fmt.Sprintf("ReviewServiceHandleWebhookResult(%+v)", *p)
 
 }
 
-type SettingsServiceDeletePlatformArgs struct {
-	Req *settings.DeletePlatformReq `thrift:"req,1"`
+type ReviewServiceListProviderReposArgs struct {
+	Req *platform.ListProviderReposReq `thrift:"req,1"`
 }
 
-func NewSettingsServiceDeletePlatformArgs() *SettingsServiceDeletePlatformArgs {
-	return &SettingsServiceDeletePlatformArgs{}
+func NewReviewServiceListProviderReposArgs() *ReviewServiceListProviderReposArgs {
+	return &ReviewServiceListProviderReposArgs{}
 }
 
-func (p *SettingsServiceDeletePlatformArgs) InitDefault() {
+func (p *ReviewServiceListProviderReposArgs) InitDefault() {
 }
 
-var SettingsServiceDeletePlatformArgs_Req_DEFAULT *settings.DeletePlatformReq
+var ReviewServiceListProviderReposArgs_Req_DEFAULT *platform.ListProviderReposReq
 
-func (p *SettingsServiceDeletePlatformArgs) GetReq() (v *settings.DeletePlatformReq) {
+func (p *ReviewServiceListProviderReposArgs) GetReq() (v *platform.ListProviderReposReq) {
 	if !p.IsSetReq() {
-		return SettingsServiceDeletePlatformArgs_Req_DEFAULT
+		return ReviewServiceListProviderReposArgs_Req_DEFAULT
 	}
 	return p.Req
 }
 
-var fieldIDToName_SettingsServiceDeletePlatformArgs = map[int16]string{
+var fieldIDToName_ReviewServiceListProviderReposArgs = map[int16]string{
 	1: "req",
 }
 
-func (p *SettingsServiceDeletePlatformArgs) IsSetReq() bool {
+func (p *ReviewServiceListProviderReposArgs) IsSetReq() bool {
 	return p.Req != nil
 }
 
-func (p *SettingsServiceDeletePlatformArgs) Read(iprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceListProviderReposArgs) Read(iprot thrift.TProtocol) (err error) {
 
 	var fieldTypeId thrift.TType
 	var fieldId int16
@@ -3690,7 +2872,7 @@ ReadStructBeginError:
 ReadFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
 ReadFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SettingsServiceDeletePlatformArgs[fieldId]), err)
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewServiceListProviderReposArgs[fieldId]), err)
 SkipFieldError:
 	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
 
@@ -3700,8 +2882,8 @@ ReadStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
 }
 
-func (p *SettingsServiceDeletePlatformArgs) ReadField1(iprot thrift.TProtocol) error {
-	_field := settings.NewDeletePlatformReq()
+func (p *ReviewServiceListProviderReposArgs) ReadField1(iprot thrift.TProtocol) error {
+	_field := platform.NewListProviderReposReq()
 	if err := _field.Read(iprot); err != nil {
 		return err
 	}
@@ -3709,9 +2891,9 @@ func (p *SettingsServiceDeletePlatformArgs) ReadField1(iprot thrift.TProtocol) e
 	return nil
 }
 
-func (p *SettingsServiceDeletePlatformArgs) Write(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceListProviderReposArgs) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
-	if err = oprot.WriteStructBegin("DeletePlatform_args"); err != nil {
+	if err = oprot.WriteStructBegin("ListProviderRepos_args"); err != nil {
 		goto WriteStructBeginError
 	}
 	if p != nil {
@@ -3737,7 +2919,7 @@ WriteStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
 }
 
-func (p *SettingsServiceDeletePlatformArgs) writeField1(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceListProviderReposArgs) writeField1(oprot thrift.TProtocol) (err error) {
 	if err = oprot.WriteFieldBegin("req", thrift.STRUCT, 1); err != nil {
 		goto WriteFieldBeginError
 	}
@@ -3754,43 +2936,43 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
 }
 
-func (p *SettingsServiceDeletePlatformArgs) String() string {
+func (p *ReviewServiceListProviderReposArgs) String() string {
 	if p == nil {
 		return "<nil>"
 	}
-	return fmt.Sprintf("SettingsServiceDeletePlatformArgs(%+v)", *p)
+	return fmt.Sprintf("ReviewServiceListProviderReposArgs(%+v)", *p)
 
 }
 
-type SettingsServiceDeletePlatformResult struct {
-	Success *settings.DeletePlatformResp `thrift:"success,0,optional"`
+type ReviewServiceListProviderReposResult struct {
+	Success *platform.ListProviderReposResp `thrift:"success,0,optional"`
 }
 
-func NewSettingsServiceDeletePlatformResult() *SettingsServiceDeletePlatformResult {
-	return &SettingsServiceDeletePlatformResult{}
+func NewReviewServiceListProviderReposResult() *ReviewServiceListProviderReposResult {
+	return &ReviewServiceListProviderReposResult{}
 }
 
-func (p *SettingsServiceDeletePlatformResult) InitDefault() {
+func (p *ReviewServiceListProviderReposResult) InitDefault() {
 }
 
-var SettingsServiceDeletePlatformResult_Success_DEFAULT *settings.DeletePlatformResp
+var ReviewServiceListProviderReposResult_Success_DEFAULT *platform.ListProviderReposResp
 
-func (p *SettingsServiceDeletePlatformResult) GetSuccess() (v *settings.DeletePlatformResp) {
+func (p *ReviewServiceListProviderReposResult) GetSuccess() (v *platform.ListProviderReposResp) {
 	if !p.IsSetSuccess() {
-		return SettingsServiceDeletePlatformResult_Success_DEFAULT
+		return ReviewServiceListProviderReposResult_Success_DEFAULT
 	}
 	return p.Success
 }
 
-var fieldIDToName_SettingsServiceDeletePlatformResult = map[int16]string{
+var fieldIDToName_ReviewServiceListProviderReposResult = map[int16]string{
 	0: "success",
 }
 
-func (p *SettingsServiceDeletePlatformResult) IsSetSuccess() bool {
+func (p *ReviewServiceListProviderReposResult) IsSetSuccess() bool {
 	return p.Success != nil
 }
 
-func (p *SettingsServiceDeletePlatformResult) Read(iprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceListProviderReposResult) Read(iprot thrift.TProtocol) (err error) {
 
 	var fieldTypeId thrift.TType
 	var fieldId int16
@@ -3836,7 +3018,7 @@ ReadStructBeginError:
 ReadFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
 ReadFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SettingsServiceDeletePlatformResult[fieldId]), err)
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewServiceListProviderReposResult[fieldId]), err)
 SkipFieldError:
 	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
 
@@ -3846,8 +3028,8 @@ ReadStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
 }
 
-func (p *SettingsServiceDeletePlatformResult) ReadField0(iprot thrift.TProtocol) error {
-	_field := settings.NewDeletePlatformResp()
+func (p *ReviewServiceListProviderReposResult) ReadField0(iprot thrift.TProtocol) error {
+	_field := platform.NewListProviderReposResp()
 	if err := _field.Read(iprot); err != nil {
 		return err
 	}
@@ -3855,9 +3037,9 @@ func (p *SettingsServiceDeletePlatformResult) ReadField0(iprot thrift.TProtocol)
 	return nil
 }
 
-func (p *SettingsServiceDeletePlatformResult) Write(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceListProviderReposResult) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
-	if err = oprot.WriteStructBegin("DeletePlatform_result"); err != nil {
+	if err = oprot.WriteStructBegin("ListProviderRepos_result"); err != nil {
 		goto WriteStructBeginError
 	}
 	if p != nil {
@@ -3883,7 +3065,7 @@ WriteStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
 }
 
-func (p *SettingsServiceDeletePlatformResult) writeField0(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceListProviderReposResult) writeField0(oprot thrift.TProtocol) (err error) {
 	if p.IsSetSuccess() {
 		if err = oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
 			goto WriteFieldBeginError
@@ -3902,43 +3084,43 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 0 end error: ", p), err)
 }
 
-func (p *SettingsServiceDeletePlatformResult) String() string {
+func (p *ReviewServiceListProviderReposResult) String() string {
 	if p == nil {
 		return "<nil>"
 	}
-	return fmt.Sprintf("SettingsServiceDeletePlatformResult(%+v)", *p)
+	return fmt.Sprintf("ReviewServiceListProviderReposResult(%+v)", *p)
 
 }
 
-type SettingsServiceTestPlatformArgs struct {
-	Req *settings.TestPlatformReq `thrift:"req,1"`
+type ReviewServiceListProviderBranchesArgs struct {
+	Req *platform.ListProviderBranchesReq `thrift:"req,1"`
 }
 
-func NewSettingsServiceTestPlatformArgs() *SettingsServiceTestPlatformArgs {
-	return &SettingsServiceTestPlatformArgs{}
+func NewReviewServiceListProviderBranchesArgs() *ReviewServiceListProviderBranchesArgs {
+	return &ReviewServiceListProviderBranchesArgs{}
 }
 
-func (p *SettingsServiceTestPlatformArgs) InitDefault() {
+func (p *ReviewServiceListProviderBranchesArgs) InitDefault() {
 }
 
-var SettingsServiceTestPlatformArgs_Req_DEFAULT *settings.TestPlatformReq
+var ReviewServiceListProviderBranchesArgs_Req_DEFAULT *platform.ListProviderBranchesReq
 
-func (p *SettingsServiceTestPlatformArgs) GetReq() (v *settings.TestPlatformReq) {
+func (p *ReviewServiceListProviderBranchesArgs) GetReq() (v *platform.ListProviderBranchesReq) {
 	if !p.IsSetReq() {
-		return SettingsServiceTestPlatformArgs_Req_DEFAULT
+		return ReviewServiceListProviderBranchesArgs_Req_DEFAULT
 	}
 	return p.Req
 }
 
-var fieldIDToName_SettingsServiceTestPlatformArgs = map[int16]string{
+var fieldIDToName_ReviewServiceListProviderBranchesArgs = map[int16]string{
 	1: "req",
 }
 
-func (p *SettingsServiceTestPlatformArgs) IsSetReq() bool {
+func (p *ReviewServiceListProviderBranchesArgs) IsSetReq() bool {
 	return p.Req != nil
 }
 
-func (p *SettingsServiceTestPlatformArgs) Read(iprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceListProviderBranchesArgs) Read(iprot thrift.TProtocol) (err error) {
 
 	var fieldTypeId thrift.TType
 	var fieldId int16
@@ -3984,7 +3166,7 @@ ReadStructBeginError:
 ReadFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
 ReadFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SettingsServiceTestPlatformArgs[fieldId]), err)
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewServiceListProviderBranchesArgs[fieldId]), err)
 SkipFieldError:
 	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
 
@@ -3994,8 +3176,8 @@ ReadStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
 }
 
-func (p *SettingsServiceTestPlatformArgs) ReadField1(iprot thrift.TProtocol) error {
-	_field := settings.NewTestPlatformReq()
+func (p *ReviewServiceListProviderBranchesArgs) ReadField1(iprot thrift.TProtocol) error {
+	_field := platform.NewListProviderBranchesReq()
 	if err := _field.Read(iprot); err != nil {
 		return err
 	}
@@ -4003,9 +3185,9 @@ func (p *SettingsServiceTestPlatformArgs) ReadField1(iprot thrift.TProtocol) err
 	return nil
 }
 
-func (p *SettingsServiceTestPlatformArgs) Write(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceListProviderBranchesArgs) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
-	if err = oprot.WriteStructBegin("TestPlatform_args"); err != nil {
+	if err = oprot.WriteStructBegin("ListProviderBranches_args"); err != nil {
 		goto WriteStructBeginError
 	}
 	if p != nil {
@@ -4031,7 +3213,7 @@ WriteStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
 }
 
-func (p *SettingsServiceTestPlatformArgs) writeField1(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceListProviderBranchesArgs) writeField1(oprot thrift.TProtocol) (err error) {
 	if err = oprot.WriteFieldBegin("req", thrift.STRUCT, 1); err != nil {
 		goto WriteFieldBeginError
 	}
@@ -4048,43 +3230,43 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
 }
 
-func (p *SettingsServiceTestPlatformArgs) String() string {
+func (p *ReviewServiceListProviderBranchesArgs) String() string {
 	if p == nil {
 		return "<nil>"
 	}
-	return fmt.Sprintf("SettingsServiceTestPlatformArgs(%+v)", *p)
+	return fmt.Sprintf("ReviewServiceListProviderBranchesArgs(%+v)", *p)
 
 }
 
-type SettingsServiceTestPlatformResult struct {
-	Success *settings.TestPlatformResp `thrift:"success,0,optional"`
+type ReviewServiceListProviderBranchesResult struct {
+	Success *platform.ListProviderBranchesResp `thrift:"success,0,optional"`
 }
 
-func NewSettingsServiceTestPlatformResult() *SettingsServiceTestPlatformResult {
-	return &SettingsServiceTestPlatformResult{}
+func NewReviewServiceListProviderBranchesResult() *ReviewServiceListProviderBranchesResult {
+	return &ReviewServiceListProviderBranchesResult{}
 }
 
-func (p *SettingsServiceTestPlatformResult) InitDefault() {
+func (p *ReviewServiceListProviderBranchesResult) InitDefault() {
 }
 
-var SettingsServiceTestPlatformResult_Success_DEFAULT *settings.TestPlatformResp
+var ReviewServiceListProviderBranchesResult_Success_DEFAULT *platform.ListProviderBranchesResp
 
-func (p *SettingsServiceTestPlatformResult) GetSuccess() (v *settings.TestPlatformResp) {
+func (p *ReviewServiceListProviderBranchesResult) GetSuccess() (v *platform.ListProviderBranchesResp) {
 	if !p.IsSetSuccess() {
-		return SettingsServiceTestPlatformResult_Success_DEFAULT
+		return ReviewServiceListProviderBranchesResult_Success_DEFAULT
 	}
 	return p.Success
 }
 
-var fieldIDToName_SettingsServiceTestPlatformResult = map[int16]string{
+var fieldIDToName_ReviewServiceListProviderBranchesResult = map[int16]string{
 	0: "success",
 }
 
-func (p *SettingsServiceTestPlatformResult) IsSetSuccess() bool {
+func (p *ReviewServiceListProviderBranchesResult) IsSetSuccess() bool {
 	return p.Success != nil
 }
 
-func (p *SettingsServiceTestPlatformResult) Read(iprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceListProviderBranchesResult) Read(iprot thrift.TProtocol) (err error) {
 
 	var fieldTypeId thrift.TType
 	var fieldId int16
@@ -4130,7 +3312,7 @@ ReadStructBeginError:
 ReadFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
 ReadFieldError:
-	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_SettingsServiceTestPlatformResult[fieldId]), err)
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewServiceListProviderBranchesResult[fieldId]), err)
 SkipFieldError:
 	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
 
@@ -4140,8 +3322,8 @@ ReadStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
 }
 
-func (p *SettingsServiceTestPlatformResult) ReadField0(iprot thrift.TProtocol) error {
-	_field := settings.NewTestPlatformResp()
+func (p *ReviewServiceListProviderBranchesResult) ReadField0(iprot thrift.TProtocol) error {
+	_field := platform.NewListProviderBranchesResp()
 	if err := _field.Read(iprot); err != nil {
 		return err
 	}
@@ -4149,9 +3331,9 @@ func (p *SettingsServiceTestPlatformResult) ReadField0(iprot thrift.TProtocol) e
 	return nil
 }
 
-func (p *SettingsServiceTestPlatformResult) Write(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceListProviderBranchesResult) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
-	if err = oprot.WriteStructBegin("TestPlatform_result"); err != nil {
+	if err = oprot.WriteStructBegin("ListProviderBranches_result"); err != nil {
 		goto WriteStructBeginError
 	}
 	if p != nil {
@@ -4177,7 +3359,7 @@ WriteStructEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
 }
 
-func (p *SettingsServiceTestPlatformResult) writeField0(oprot thrift.TProtocol) (err error) {
+func (p *ReviewServiceListProviderBranchesResult) writeField0(oprot thrift.TProtocol) (err error) {
 	if p.IsSetSuccess() {
 		if err = oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
 			goto WriteFieldBeginError
@@ -4196,10 +3378,598 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 0 end error: ", p), err)
 }
 
-func (p *SettingsServiceTestPlatformResult) String() string {
+func (p *ReviewServiceListProviderBranchesResult) String() string {
 	if p == nil {
 		return "<nil>"
 	}
-	return fmt.Sprintf("SettingsServiceTestPlatformResult(%+v)", *p)
+	return fmt.Sprintf("ReviewServiceListProviderBranchesResult(%+v)", *p)
+
+}
+
+type ReviewServiceGetBranchSHAArgs struct {
+	Req *platform.GetBranchSHAReq `thrift:"req,1"`
+}
+
+func NewReviewServiceGetBranchSHAArgs() *ReviewServiceGetBranchSHAArgs {
+	return &ReviewServiceGetBranchSHAArgs{}
+}
+
+func (p *ReviewServiceGetBranchSHAArgs) InitDefault() {
+}
+
+var ReviewServiceGetBranchSHAArgs_Req_DEFAULT *platform.GetBranchSHAReq
+
+func (p *ReviewServiceGetBranchSHAArgs) GetReq() (v *platform.GetBranchSHAReq) {
+	if !p.IsSetReq() {
+		return ReviewServiceGetBranchSHAArgs_Req_DEFAULT
+	}
+	return p.Req
+}
+
+var fieldIDToName_ReviewServiceGetBranchSHAArgs = map[int16]string{
+	1: "req",
+}
+
+func (p *ReviewServiceGetBranchSHAArgs) IsSetReq() bool {
+	return p.Req != nil
+}
+
+func (p *ReviewServiceGetBranchSHAArgs) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.STRUCT {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewServiceGetBranchSHAArgs[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *ReviewServiceGetBranchSHAArgs) ReadField1(iprot thrift.TProtocol) error {
+	_field := platform.NewGetBranchSHAReq()
+	if err := _field.Read(iprot); err != nil {
+		return err
+	}
+	p.Req = _field
+	return nil
+}
+
+func (p *ReviewServiceGetBranchSHAArgs) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("GetBranchSHA_args"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *ReviewServiceGetBranchSHAArgs) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("req", thrift.STRUCT, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := p.Req.Write(oprot); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *ReviewServiceGetBranchSHAArgs) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("ReviewServiceGetBranchSHAArgs(%+v)", *p)
+
+}
+
+type ReviewServiceGetBranchSHAResult struct {
+	Success *platform.GetBranchSHAResp `thrift:"success,0,optional"`
+}
+
+func NewReviewServiceGetBranchSHAResult() *ReviewServiceGetBranchSHAResult {
+	return &ReviewServiceGetBranchSHAResult{}
+}
+
+func (p *ReviewServiceGetBranchSHAResult) InitDefault() {
+}
+
+var ReviewServiceGetBranchSHAResult_Success_DEFAULT *platform.GetBranchSHAResp
+
+func (p *ReviewServiceGetBranchSHAResult) GetSuccess() (v *platform.GetBranchSHAResp) {
+	if !p.IsSetSuccess() {
+		return ReviewServiceGetBranchSHAResult_Success_DEFAULT
+	}
+	return p.Success
+}
+
+var fieldIDToName_ReviewServiceGetBranchSHAResult = map[int16]string{
+	0: "success",
+}
+
+func (p *ReviewServiceGetBranchSHAResult) IsSetSuccess() bool {
+	return p.Success != nil
+}
+
+func (p *ReviewServiceGetBranchSHAResult) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 0:
+			if fieldTypeId == thrift.STRUCT {
+				if err = p.ReadField0(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewServiceGetBranchSHAResult[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *ReviewServiceGetBranchSHAResult) ReadField0(iprot thrift.TProtocol) error {
+	_field := platform.NewGetBranchSHAResp()
+	if err := _field.Read(iprot); err != nil {
+		return err
+	}
+	p.Success = _field
+	return nil
+}
+
+func (p *ReviewServiceGetBranchSHAResult) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("GetBranchSHA_result"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField0(oprot); err != nil {
+			fieldId = 0
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *ReviewServiceGetBranchSHAResult) writeField0(oprot thrift.TProtocol) (err error) {
+	if p.IsSetSuccess() {
+		if err = oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := p.Success.Write(oprot); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 0 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 0 end error: ", p), err)
+}
+
+func (p *ReviewServiceGetBranchSHAResult) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("ReviewServiceGetBranchSHAResult(%+v)", *p)
+
+}
+
+type ReviewServiceListProviderPullsArgs struct {
+	Req *platform.ListProviderPullsReq `thrift:"req,1"`
+}
+
+func NewReviewServiceListProviderPullsArgs() *ReviewServiceListProviderPullsArgs {
+	return &ReviewServiceListProviderPullsArgs{}
+}
+
+func (p *ReviewServiceListProviderPullsArgs) InitDefault() {
+}
+
+var ReviewServiceListProviderPullsArgs_Req_DEFAULT *platform.ListProviderPullsReq
+
+func (p *ReviewServiceListProviderPullsArgs) GetReq() (v *platform.ListProviderPullsReq) {
+	if !p.IsSetReq() {
+		return ReviewServiceListProviderPullsArgs_Req_DEFAULT
+	}
+	return p.Req
+}
+
+var fieldIDToName_ReviewServiceListProviderPullsArgs = map[int16]string{
+	1: "req",
+}
+
+func (p *ReviewServiceListProviderPullsArgs) IsSetReq() bool {
+	return p.Req != nil
+}
+
+func (p *ReviewServiceListProviderPullsArgs) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.STRUCT {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewServiceListProviderPullsArgs[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *ReviewServiceListProviderPullsArgs) ReadField1(iprot thrift.TProtocol) error {
+	_field := platform.NewListProviderPullsReq()
+	if err := _field.Read(iprot); err != nil {
+		return err
+	}
+	p.Req = _field
+	return nil
+}
+
+func (p *ReviewServiceListProviderPullsArgs) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("ListProviderPulls_args"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *ReviewServiceListProviderPullsArgs) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("req", thrift.STRUCT, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := p.Req.Write(oprot); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *ReviewServiceListProviderPullsArgs) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("ReviewServiceListProviderPullsArgs(%+v)", *p)
+
+}
+
+type ReviewServiceListProviderPullsResult struct {
+	Success *platform.ListProviderPullsResp `thrift:"success,0,optional"`
+}
+
+func NewReviewServiceListProviderPullsResult() *ReviewServiceListProviderPullsResult {
+	return &ReviewServiceListProviderPullsResult{}
+}
+
+func (p *ReviewServiceListProviderPullsResult) InitDefault() {
+}
+
+var ReviewServiceListProviderPullsResult_Success_DEFAULT *platform.ListProviderPullsResp
+
+func (p *ReviewServiceListProviderPullsResult) GetSuccess() (v *platform.ListProviderPullsResp) {
+	if !p.IsSetSuccess() {
+		return ReviewServiceListProviderPullsResult_Success_DEFAULT
+	}
+	return p.Success
+}
+
+var fieldIDToName_ReviewServiceListProviderPullsResult = map[int16]string{
+	0: "success",
+}
+
+func (p *ReviewServiceListProviderPullsResult) IsSetSuccess() bool {
+	return p.Success != nil
+}
+
+func (p *ReviewServiceListProviderPullsResult) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 0:
+			if fieldTypeId == thrift.STRUCT {
+				if err = p.ReadField0(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewServiceListProviderPullsResult[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *ReviewServiceListProviderPullsResult) ReadField0(iprot thrift.TProtocol) error {
+	_field := platform.NewListProviderPullsResp()
+	if err := _field.Read(iprot); err != nil {
+		return err
+	}
+	p.Success = _field
+	return nil
+}
+
+func (p *ReviewServiceListProviderPullsResult) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("ListProviderPulls_result"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField0(oprot); err != nil {
+			fieldId = 0
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *ReviewServiceListProviderPullsResult) writeField0(oprot thrift.TProtocol) (err error) {
+	if p.IsSetSuccess() {
+		if err = oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := p.Success.Write(oprot); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 0 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 0 end error: ", p), err)
+}
+
+func (p *ReviewServiceListProviderPullsResult) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("ReviewServiceListProviderPullsResult(%+v)", *p)
 
 }

@@ -76,6 +76,18 @@
             <div class="form-tip">0 表示使用 OCR 内置默认值</div>
           </el-form-item>
 
+          <el-divider content-position="left">默认审查侧重点</el-divider>
+
+          <el-form-item label="审查背景">
+            <el-input
+              v-model="form.background"
+              type="textarea"
+              :rows="4"
+              placeholder="默认的审查侧重点，例如：这是一个电商项目，重点关注支付流程的安全性和性能"
+            />
+            <div class="form-tip">当未配置代理团队时，使用此默认背景进行审查。配置代理后，各代理使用各自的审查侧重点。</div>
+          </el-form-item>
+
           <el-form-item>
             <el-button type="primary" @click="handleSave" :loading="saving">保存配置</el-button>
             <el-button @click="handleTestLLM" :loading="testingLLM">测试 LLM 连接</el-button>
@@ -110,6 +122,7 @@ const form = reactive<OCRSettings>({
   max_git_procs: 4,
   timeout_minutes: 10,
   max_tools: 0,
+  background: '',
 })
 
 async function fetchSettings() {

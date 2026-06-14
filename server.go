@@ -7,7 +7,6 @@ import (
 	"github.com/oekit/hertz/health"
 	emetrics "github.com/oekit/metrics"
 	mw "github.com/oekit/middleware"
-	"github.com/yi-nology/code-review-service/biz/handler/review_service"
 	"github.com/yi-nology/code-review-service/biz/router"
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/middleware"
@@ -35,6 +34,9 @@ func registerGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 		h.Use(m)
 	}
 
+	h.Use(middleware.RateLimitMiddleware(100, 200))
+	hlog.Infof("rate limiting middleware enabled (100 req/s, burst 200)")
+
 	if cfg.Auth.Token != "" {
 		h.Use(middleware.BearerTokenAuth(cfg.Auth.Token))
 		hlog.Infof("auth middleware enabled")
@@ -43,8 +45,8 @@ func registerGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 	h.Use(middleware.SecurityHeaders())
 }
 
-func registerCustomRoutes(h *server.Hertz, cfg *config.Config, db *gormDB.DB, handler *review_service.ReviewHandler, webhookHandler *review_service.WebhookHandler, statsHandler *review_service.StatsHandler) {
-	hlog.Infof("[routes] registering custom routes...")
+func registerRoutes(h *server.Hertz, db *gormDB.DB) {
+	hlog.Infof("[routes] registering routes...")
 
 	healthOpts := []health.Option{}
 	if sqlDB, err := db.DB(); err == nil {
@@ -54,14 +56,5 @@ func registerCustomRoutes(h *server.Hertz, cfg *config.Config, db *gormDB.DB, ha
 
 	swagger.RegisterRoutes(h)
 
-	router.GeneratedRegister(h, handler, webhookHandler)
-
-	v1 := h.Group("/api/v1")
-	{
-		stats := v1.Group("/stats")
-		stats.GET("/contributors", statsHandler.ListContributors)
-		stats.GET("/contributors/:author", statsHandler.GetContributor)
-		stats.GET("/contributors/:author/trend", statsHandler.GetContributorTrend)
-		stats.GET("/contributors/:author/categories", statsHandler.GetContributorCategories)
-	}
+	router.GeneratedRegister(h)
 }

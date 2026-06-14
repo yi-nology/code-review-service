@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/oekit/pkg/mathx"
+	"github.com/oekit/pkg/slicex"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	gormLib "gorm.io/gorm"
@@ -298,9 +299,7 @@ func rowToSummary(row contributorRow) models.ContributorSummary {
 }
 
 func rowsToSummaries(rows []contributorRow) []models.ContributorSummary {
-	contributors := make([]models.ContributorSummary, 0, len(rows))
-	for _, row := range rows {
-		contributors = append(contributors, rowToSummary(row))
-	}
-	return contributors
+	return slicex.Map(rows, func(row contributorRow) models.ContributorSummary {
+		return rowToSummary(row)
+	})
 }

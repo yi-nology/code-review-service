@@ -348,3 +348,71 @@ func TestCountDiffLinesEmpty(t *testing.T) {
 		t.Fatal("expected 0 for empty diff")
 	}
 }
+
+func TestBuildReportSkippedStatus(t *testing.T) {
+	result := &review.Result{
+		Summary:  "skipped review",
+		OCR:      review.OCRMetadata{Engine: "test", Status: "skipped"},
+		Findings: []review.Finding{},
+	}
+
+	report := review.BuildReport(result)
+
+	if !report.Complete {
+		t.Fatal("expected complete=true for skipped status")
+	}
+	if report.Score.Value != 100 {
+		t.Fatalf("expected score 100 for skipped (complete, no deduction), got %d", report.Score.Value)
+	}
+}
+
+func TestBuildReportCompletedWithErrorsStatus(t *testing.T) {
+	result := &review.Result{
+		Summary:  "review with errors",
+		OCR:      review.OCRMetadata{Engine: "test", Status: "completed_with_errors"},
+		Findings: []review.Finding{},
+	}
+
+	report := review.BuildReport(result)
+
+	if !report.Complete {
+		t.Fatal("expected complete=true for completed_with_errors status")
+	}
+	if report.Score.Value != 100 {
+		t.Fatalf("expected score 100 for completed_with_errors (complete, no deduction), got %d", report.Score.Value)
+	}
+}
+
+func TestBuildReportEmptyStatusIncomplete(t *testing.T) {
+	result := &review.Result{
+		Summary:  "no OCR status",
+		OCR:      review.OCRMetadata{Engine: "test", Status: ""},
+		Findings: []review.Finding{},
+	}
+
+	report := review.BuildReport(result)
+
+	if report.Complete {
+		t.Fatal("expected complete=false for empty status (no OCR executed)")
+	}
+	if report.Score.Value != 80 {
+		t.Fatalf("expected score 80 (100 - 20 incomplete), got %d", report.Score.Value)
+	}
+}
+
+func TestBuildReportTimeoutStatusIncomplete(t *testing.T) {
+	result := &review.Result{
+		Summary:  "timeout",
+		OCR:      review.OCRMetadata{Engine: "test", Status: "timeout"},
+		Findings: []review.Finding{},
+	}
+
+	report := review.BuildReport(result)
+
+	if report.Complete {
+		t.Fatal("expected complete=false for timeout status")
+	}
+	if report.Score.Value != 80 {
+		t.Fatalf("expected score 80 (100 - 20 incomplete), got %d", report.Score.Value)
+	}
+}

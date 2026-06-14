@@ -22,3 +22,15 @@ export async function createReview(data: CreateReviewOptions): Promise<ReviewDet
   })
   return res?.review ?? res
 }
+
+export async function getSessionMap(reviewId: string, sessionId: string): Promise<any> {
+  return request.get(`/reviews/${reviewId}/sessions/${sessionId}/map`) as any
+}
+
+export async function getReviewMaps(reviewId: string): Promise<any> {
+  return request.get(`/reviews/${reviewId}/maps`) as any
+}
+
+export async function getReviewMap(reviewId: string, mapId: string): Promise<any> {
+  return request.get(`/reviews/${reviewId}/maps/${mapId}`) as any
+}

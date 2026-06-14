@@ -3,11 +3,13 @@ package review
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
+	"github.com/yi-nology/code-review-service/internal/service/reviewmap"
 
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"github.com/oekit/pkg/slicex"
@@ -122,7 +124,11 @@ func (s *Service) run(ctx context.Context, id string, req Request, provider Prov
 
 	if callbackMode != "none" && callbackMode != "summary" {
 		if s.writeback != nil {
-			if err := s.writeback.PublishWithDiff(ctx, req, result, workspace.Diff); err != nil {
+			writebackReq := req
+			if workspace.OriginalHeadSHA != "" {
+				writebackReq.HeadSHA = workspace.OriginalHeadSHA
+			}
+			if err := s.writeback.PublishWithDiff(ctx, writebackReq, result, workspace.Diff); err != nil {
 				hlog.Warn("writeback publish failed, falling back to legacy publisher", "error", err)
 				if err := s.publisher.Publish(ctx, req, result); err != nil {
 					s.recordFailure(ctx, id, req, err)
@@ -137,6 +143,11 @@ func (s *Service) run(ctx context.Context, id string, req Request, provider Prov
 
 	if err := s.updateWithRawOCR(ctx, id, req, resp, result.RawOCR); err != nil {
 		return Response{}, err
+	}
+
+	// Generate Review Map if repo is available
+	if s.reviewMapRepo != nil && workspace.Diff != "" {
+		s.generateAndSaveReviewMap(ctx, id, req, workspace, result)
 	}
 
 	return resp, nil
@@ -159,5 +170,56 @@ func toPolicyFindings(findings []Finding) []policy.Finding {
 	return slicex.Map(findings, func(f Finding) policy.Finding {
 		return policy.Finding{Severity: string(f.Severity), Path: f.Path}
 	})
+}
+
+// generateAndSaveReviewMap generates a review map and saves it to the database
+func (s *Service) generateAndSaveReviewMap(ctx context.Context, id string, req Request, workspace Workspace, result Result) {
+	// Convert findings to reviewmap format
+	var findings []reviewmap.Finding
+	for i, f := range result.Findings {
+		findings = append(findings, reviewmap.Finding{
+			ID:         fmt.Sprintf("finding-%d", i),
+			Severity:   string(f.Severity),
+			Category:   f.Category,
+			Path:       f.Path,
+			Line:       f.Line,
+			EndLine:    f.EndLine,
+			Title:      f.Title,
+			Body:       f.Body,
+			Suggestion: f.SuggestionCode,
+			Confidence: 0.8,
+			Agents:     []string{"default"},
+		})
+	}
+
+	// Generate review map
+	generator := reviewmap.NewGenerator()
+	reviewMap, err := generator.Generate(id, workspace.Diff, findings)
+	if err != nil {
+		hlog.Warn("failed to generate review map", "review_id", id, "error", err)
+		return
+	}
+
+	// Save to database
+	dbMap := &models.ReviewMap{
+		MapID:          reviewMap.ID,
+		ReviewID:       id,
+		SessionID:      id, // Use review ID as session ID for single-agent mode
+		Title:          reviewMap.Title,
+		Description:    reviewMap.Description,
+		Sections:       mustMarshal(reviewMap.Sections),
+		Dependencies:   mustMarshal(reviewMap.Dependencies),
+		Summary:        reviewMap.Summary,
+		FileCount:      reviewMap.FileCount,
+		SectionCount:   reviewMap.SectionCount,
+		MermaidDiagram: reviewMap.ToMermaid(),
+	}
+
+	if err := s.reviewMapRepo.Create(ctx, dbMap); err != nil {
+		hlog.Warn("failed to save review map", "review_id", id, "error", err)
+		return
+	}
+
+	hlog.Info("review map generated and saved", "review_id", id, "map_id", reviewMap.ID, "sections", reviewMap.SectionCount, "files", reviewMap.FileCount)
 }
 

@@ -5,6 +5,7 @@
 *.so
 *.dylib
 review-service
+code-review-service
 
 # Go
 vendor/

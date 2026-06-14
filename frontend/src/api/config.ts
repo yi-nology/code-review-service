@@ -1,5 +1,5 @@
 import request from './request'
-import type { OCRSettings, ProjectPolicy, ProjectPolicyList, GitPlatform, GitPlatformList, GitTestResult, GlobalRules, TestLLMResult, PlatformRepo, PlatformBranch, PlatformPullRequest } from '@/types/config'
+import type { OCRSettings, ProjectPolicy, ProjectPolicyList, GitPlatform, GitPlatformList, GitTestResult, GlobalRules, TestLLMResult, PlatformRepo, PlatformBranch, PlatformPullRequest, ReviewerAgent } from '@/types/config'
 
 function parseIgnorePaths(raw: any): string[] {
   if (!raw) return []
@@ -110,4 +110,62 @@ export async function getProviderPulls(provider: string, owner: string, repo: st
 export async function getBranchSHA(provider: string, owner: string, repo: string, branch: string): Promise<string> {
   const resp: any = await request.get(`/platforms/${provider}/repos/${owner}/${repo}/branch-sha`, { params: { branch } })
   return resp?.sha ?? ''
+}
+
+export async function listReviewerAgents(): Promise<ReviewerAgent[]> {
+  const resp: any = await request.get('/settings/agents')
+  return resp?.agents ?? []
+}
+
+export async function createReviewerAgent(data: {
+  name: string
+  display_name: string
+  description?: string
+  background: string
+  enabled?: boolean
+  priority?: number
+  tags?: string[]
+}): Promise<ReviewerAgent> {
+  const resp: any = await request.post('/settings/agents', data)
+  return resp?.agent
+}
+
+export async function updateReviewerAgent(id: number, data: {
+  display_name?: string
+  description?: string
+  background?: string
+  enabled?: boolean
+  priority?: number
+  tags?: string[]
+}): Promise<ReviewerAgent> {
+  const resp: any = await request.put(`/settings/agents/${id}`, data)
+  return resp?.agent
+}
+
+export async function deleteReviewerAgent(id: number): Promise<void> {
+  return request.delete(`/settings/agents/${id}`) as any
+}
+
+export async function getProjectAgents(provider: string, repo: string): Promise<{ provider: string; repo: string; agents: any[] }> {
+  return request.get('/settings/project-agents', { params: { provider, repo } }) as any
+}
+
+export async function updateProjectAgent(provider: string, repo: string, data: {
+  agent_id: number
+  enabled: boolean
+  priority: number
+}): Promise<void> {
+  return request.put('/settings/project-agents', { ...data, provider, repo }) as any
+}
+
+export async function batchUpdateProjectAgents(provider: string, repo: string, agents: {
+  agent_id: number
+  enabled: boolean
+  priority: number
+}[]): Promise<void> {
+  return request.post('/settings/project-agents/batch', { provider, repo, agents }) as any
+}
+
+export async function deleteProjectAgent(provider: string, repo: string, agentId: number): Promise<void> {
+  return request.delete('/settings/project-agents', { data: { provider, repo, agent_id: agentId } }) as any
 }

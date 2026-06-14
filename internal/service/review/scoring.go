@@ -9,6 +9,24 @@ import (
 
 const scoreVersion = "severity-v2"
 
+const (
+	OCRStatusSuccess             = "success"
+	OCRStatusTimeout             = "timeout"
+	OCRStatusSkipped             = "skipped"
+	OCRStatusCompletedWithErrors = "completed_with_errors"
+)
+
+func isOCRComplete(status string) bool {
+	switch status {
+	case OCRStatusSuccess, OCRStatusSkipped, OCRStatusCompletedWithErrors:
+		return true
+	case "":
+		return false // 空状态视为未执行 OCR，不算完成
+	default:
+		return false
+	}
+}
+
 func BuildReport(result *Result) Report {
 	if result == nil {
 		return Report{}
@@ -66,10 +84,7 @@ func BuildReport(result *Result) Report {
 		}
 	}
 	if scoringWarnings > 0 {
-		points := scoringWarnings * 3
-		if points > 15 {
-			points = 15
-		}
+		points := mathx.Clamp(scoringWarnings*3, 0, 15)
 		value -= points
 		deductions = append(deductions, ScoreDeduction{
 			Reason: "OCR 审查警告",
@@ -78,7 +93,7 @@ func BuildReport(result *Result) Report {
 		})
 	}
 
-	complete := result.OCR.Status == "" || result.OCR.Status == "success" || result.OCR.Status == "skipped" || result.OCR.Status == "completed_with_errors"
+	complete := isOCRComplete(result.OCR.Status)
 	if !complete {
 		value -= 20
 		deductions = append(deductions, ScoreDeduction{
@@ -101,12 +116,7 @@ func BuildReport(result *Result) Report {
 		})
 	}
 
-	if value > 100 {
-		value = 100
-	}
-	if value < 0 {
-		value = 0
-	}
+	value = mathx.Clamp(value, 0, 100)
 
 	return Report{
 		OCR:      result.OCR,

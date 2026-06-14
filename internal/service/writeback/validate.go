@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/service/review"
+
+	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
 
 const reportMarker = "<!-- review-service:summary -->"
@@ -37,6 +39,12 @@ func ValidateFindings(findings []review.Finding, diffIndex *DiffIndex) []Validat
 			valid = diffIndex.Contains(path, comment.Range.Side, comment.Range.Start)
 		}
 
+		hlog.Info("validate finding",
+			"path", path,
+			"start", comment.Range.Start,
+			"end", comment.Range.End,
+			"valid", valid,
+		)
 		result = append(result, ValidatedComment{Comment: comment, ValidLocation: valid})
 	}
 	return result

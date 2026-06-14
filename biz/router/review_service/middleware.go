@@ -21,12 +21,37 @@ func _v1Mw() []app.HandlerFunc {
 	return nil
 }
 
+func _reviewsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
 func _listreviewsMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
 
-func _reviewsMw() []app.HandlerFunc {
+func _previewreviewMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _idMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _cancelreviewMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _rerunreviewMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _reviews0Mw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
@@ -41,68 +66,62 @@ func _getreviewMw() []app.HandlerFunc {
 	return nil
 }
 
-func _settingsMw() []app.HandlerFunc {
-	// your code...
-	return nil
-}
-
-func _getocrsettingsMw() []app.HandlerFunc {
-	// your code...
-	return nil
-}
-
-func _updateocrsettingsMw() []app.HandlerFunc {
-	// your code...
-	return nil
-}
-
 func _platformsMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
 
-func _deleteplatformMw() []app.HandlerFunc {
+func _providerMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
 
-func _testplatformMw() []app.HandlerFunc {
+func _reposMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
 
-func _listplatformsMw() []app.HandlerFunc {
+func _listproviderreposMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
 
-func _putplatformMw() []app.HandlerFunc {
+func _ownerMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
 
-func _deleteprojectpolicyMw() []app.HandlerFunc {
+func _repoMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
 
-func _listprojectpoliciesMw() []app.HandlerFunc {
+func _getbranchshaMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
 
-func _putprojectpolicyMw() []app.HandlerFunc {
+func _listproviderbranchesMw() []app.HandlerFunc {
+	// your code...
 	return nil
 }
 
-func _webhookMw() []app.HandlerFunc {
+func _listproviderpullsMw() []app.HandlerFunc {
+	// your code...
 	return nil
 }
 
-func _rerunreviewMw() []app.HandlerFunc {
+func _webhooksMw() []app.HandlerFunc {
+	// your code...
 	return nil
 }
 
-func _cancelreviewMw() []app.HandlerFunc {
+func _provider0Mw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _handlewebhookMw() []app.HandlerFunc {
+	// your code...
 	return nil
 }

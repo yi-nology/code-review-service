@@ -10,6 +10,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/vcs"
 
+	"github.com/oekit/pkg/convert"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
 
@@ -97,12 +98,13 @@ func (a *gitProviderAdapter) Prepare(ctx context.Context, req review.Request) (r
 	}
 
 	return review.Workspace{
-		Provider: a.platform,
-		Repo:     strings.TrimPrefix(req.Repo, "/"),
-		BaseSHA:  baseSHA,
-		HeadSHA:  headSHA,
-		Diff:     diff,
-		Dir:      dir,
+		Provider:        a.platform,
+		Repo:            strings.TrimPrefix(req.Repo, "/"),
+		BaseSHA:         baseSHA,
+		HeadSHA:         headSHA,
+		OriginalHeadSHA: req.HeadSHA,
+		Diff:            diff,
+		Dir:             dir,
 	}, nil
 }
 
@@ -143,7 +145,7 @@ func cloneAndResolvePR(
 		_ = git.Fetch(ctx, targetBranch+":"+targetBranch)
 	}
 
-	headRef := "pr-" + strconv.Itoa(prNumber)
+	headRef := "pr-" + convert.IntToStr(prNumber)
 	headSHA, err := git.RevParse(ctx, headRef)
 	if err != nil {
 		_ = os.RemoveAll(dir)
@@ -262,11 +264,9 @@ func cloneAndResolveSHA(ctx context.Context, cloneURL, token, baseSHA, headSHA s
 	}
 	defer git.Close()
 
-	for _, sha := range []string{baseSHA, headSHA} {
-		if err := git.Fetch(ctx, sha); err != nil {
-			_ = os.RemoveAll(dir)
-			return "", "", "", "", fmt.Errorf("git fetch SHA %s: %w", sha, err)
-		}
+	if err := git.FetchAll(ctx); err != nil {
+		_ = os.RemoveAll(dir)
+		return "", "", "", "", fmt.Errorf("git fetch: %w", err)
 	}
 
 	if err := git.Checkout(ctx, headSHA); err != nil {

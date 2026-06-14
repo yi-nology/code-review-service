@@ -283,14 +283,15 @@ type Detail struct {
 }
 
 type Workspace struct {
-	Provider string
-	Repo     string
-	BaseSHA  string
-	HeadSHA  string
-	Diff     string
-	Dir      string
-	Scope    ScopeMetadata
-	RulePath string
+	Provider        string
+	Repo            string
+	BaseSHA         string
+	HeadSHA         string
+	OriginalHeadSHA string
+	Diff            string
+	Dir             string
+	Scope           ScopeMetadata
+	RulePath        string
 }
 
 type Providers interface {

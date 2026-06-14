@@ -288,6 +288,37 @@
                 </el-timeline-item>
               </el-timeline>
             </el-card>
+
+            <el-card class="sessions-card" v-if="sessions.length > 0">
+              <template #header>
+                <div class="card-header">
+                  <span>审查会话</span>
+                  <el-tag size="small">{{ sessions.length }} 轮</el-tag>
+                </div>
+              </template>
+              <div class="session-list">
+                <div
+                  v-for="sess in sessions"
+                  :key="sess.session_id"
+                  class="session-item"
+                  @click="goToSession(sess)"
+                >
+                  <div class="session-info">
+                    <div class="session-header">
+                      <span class="session-round">第 {{ sess.round }} 轮</span>
+                      <el-tag :type="getSessionStatusType(sess.status)" size="small">
+                        {{ getSessionStatusLabel(sess.status) }}
+                      </el-tag>
+                    </div>
+                    <div class="session-phase">
+                      {{ getPhaseLabel(sess.phase) }}
+                    </div>
+                    <el-progress :percentage="sess.progress" :stroke-width="4" :show-text="false" />
+                  </div>
+                  <el-icon><ArrowRight /></el-icon>
+                </div>
+              </div>
+            </el-card>
           </el-col>
         </el-row>
       </template>
@@ -301,9 +332,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft, SuccessFilled, CircleCloseFilled, InfoFilled, Refresh } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, SuccessFilled, CircleCloseFilled, InfoFilled, Refresh } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { getReview } from '@/api/review'
+import { sessionApi, type ReviewSession } from '@/api/session'
 import { getProviderLabel } from '@/utils/url-parser'
 import { getStatusLabel, getStatusType, getSeverityType } from '@/utils/status'
 import type { ReviewDetail } from '@/types/review'
@@ -312,6 +344,7 @@ const router = useRouter()
 const route = useRoute()
 const loading = ref(false)
 const detail = ref<ReviewDetail | null>(null)
+const sessions = ref<ReviewSession[]>([])
 const showRawOcr = ref(false)
 const rawOcrActive = ref<string[]>([])
 const viewportWidth = ref(window.innerWidth)
@@ -347,11 +380,60 @@ async function fetchDetail(background = false) {
   if (!background) loading.value = true
   try {
     detail.value = await getReview(route.params.id as string)
+    await fetchSessions()
   } finally {
     fetchInFlight = false
     if (!background) loading.value = false
     schedulePolling()
   }
+}
+
+async function fetchSessions() {
+  try {
+    const response = await sessionApi.getSessions(route.params.id as string)
+    sessions.value = response.sessions || []
+  } catch (error) {
+    console.error('Failed to fetch sessions:', error)
+    sessions.value = []
+  }
+}
+
+function goToSession(sess: ReviewSession) {
+  router.push(`/reviews/${route.params.id}/sessions/${sess.session_id}`)
+}
+
+function getSessionStatusType(status: string): string {
+  switch (status) {
+    case 'active': return 'primary'
+    case 'completed': return 'success'
+    case 'failed': return 'danger'
+    case 'cancelled': return 'warning'
+    default: return 'info'
+  }
+}
+
+function getSessionStatusLabel(status: string): string {
+  switch (status) {
+    case 'active': return '进行中'
+    case 'completed': return '已完成'
+    case 'failed': return '失败'
+    case 'cancelled': return '已取消'
+    default: return status
+  }
+}
+
+function getPhaseLabel(phase: string): string {
+  const labels: Record<string, string> = {
+    'context': '上下文发现',
+    'change_context': '变更分析',
+    'analysis': '分析',
+    'reviews': '审查',
+    'aggregation': '聚合',
+    'discourse': '讨论',
+    'synthesis': '综合',
+    'complete': '完成',
+  }
+  return labels[phase] || phase
 }
 
 function getEventType(status: string) {
@@ -851,5 +933,57 @@ code {
     width: 100%;
     overflow-wrap: anywhere;
   }
+}
+
+.sessions-card {
+  margin-top: 16px;
+}
+
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.session-item:hover {
+  background: #ecf5ff;
+  transform: translateX(4px);
+}
+
+.session-info {
+  flex: 1;
+}
+
+.session-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.session-round {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.session-phase {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.session-item .el-icon {
+  color: #909399;
 }
 </style>

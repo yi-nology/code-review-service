@@ -255,3 +255,5 @@ The legacy `OCR_COMMAND` integration remains available when `OCR_ENABLED=false`.
 ```
 
 The command receives `REVIEW_PROVIDER`, `REVIEW_REPO`, `REVIEW_BASE_SHA`, `REVIEW_HEAD_SHA`, and `REVIEW_WORKSPACE_DIR` in its environment. The computed diff is passed on stdin.
+
+// test writeback at Sun Jun 14 06:38:16 CST 2026

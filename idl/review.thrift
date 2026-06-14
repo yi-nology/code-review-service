@@ -42,6 +42,8 @@ struct Score {
     2: string grade (api.body="grade")
     3: string version (api.body="version")
     4: optional list<ScoreDeduction> deductions (api.body="deductions")
+    5: optional i64 changed_lines (api.body="changed_lines")
+    6: optional double findings_density (api.body="findings_density")
 }
 
 struct OCRMetadata {
@@ -141,6 +143,9 @@ struct ReviewDetail {
     18: optional string error (api.body="error")
     19: optional string created_at (api.body="created_at")
     20: optional string updated_at (api.body="updated_at")
+    21: optional string author (api.body="author")
+    22: optional string author_name (api.body="author_name")
+    23: optional string author_avatar (api.body="author_avatar")
 }
 
 struct GetReviewResp {
@@ -168,6 +173,9 @@ struct ListItem {
     10: bool report_generated (api.body="report_generated")
     11: optional string created_at (api.body="created_at")
     12: optional string updated_at (api.body="updated_at")
+    13: optional string author (api.body="author")
+    14: optional string author_name (api.body="author_name")
+    15: optional string author_avatar (api.body="author_avatar")
 }
 
 struct ListStats {

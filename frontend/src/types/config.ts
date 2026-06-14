@@ -13,6 +13,7 @@ export interface OCRSettings {
   max_git_procs: number
   timeout_minutes: number
   max_tools: number
+  background?: string
 }
 
 export interface ReviewRule {
@@ -89,4 +90,17 @@ export interface PlatformPullRequest {
   }
   created_at: string
   updated_at: string
+}
+
+export interface ReviewerAgent {
+  ID: number
+  name: string
+  display_name: string
+  description: string
+  background: string
+  enabled: boolean
+  priority: number
+  tags: string[] | null
+  CreatedAt: string
+  UpdatedAt: string
 }
