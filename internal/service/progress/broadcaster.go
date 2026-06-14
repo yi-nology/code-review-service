@@ -1,7 +1,9 @@
 package progress
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
 
@@ -300,6 +302,60 @@ func (pt *ProgressTracker) Complete() {
 	}
 
 	pt.broadcaster.BroadcastEvent(pt.GetRoomID(), event)
+}
+
+// ReportProgress implements ProgressReporter interface
+func (pt *ProgressTracker) ReportProgress(message string, progress float64) {
+	pt.mu.Lock()
+	pt.progress.UpdatePhase(PhaseAnalysis, "active", progress, message)
+	pt.mu.Unlock()
+
+	event := ProgressEvent{
+		Type:     EventPhaseProgress,
+		Phase:    PhaseAnalysis,
+		Status:   "active",
+		Progress: progress,
+		Message:  message,
+	}
+	pt.broadcaster.BroadcastEvent(pt.GetRoomID(), event)
+}
+
+// ReportFileProgress implements ProgressReporter interface
+func (pt *ProgressTracker) ReportFileProgress(filename string, current, total int) {
+	progress := float64(current) / float64(total) * 100
+	message := fmt.Sprintf("Processing file %d/%d: %s", current, total, filename)
+	pt.ReportProgress(message, progress)
+}
+
+// ReportAgentStatus implements ProgressReporter interface
+func (pt *ProgressTracker) ReportAgentStatus(agentName, status, message string) {
+	pt.UpdateAgentStatus(agentName, status, 0, message)
+}
+
+// ProgressReporter is an interface for reporting OCR progress
+type ProgressReporter interface {
+	// ReportProgress reports OCR progress with a message and percentage
+	ReportProgress(message string, progress float64)
+	// ReportFileProgress reports progress for a specific file
+ ReportFileProgress(filename string, current, total int)
+	// ReportAgentStatus reports agent execution status
+	ReportAgentStatus(agentName, status, message string)
+}
+
+// context key for progress reporter
+type progressReporterKey struct{}
+
+// WithProgressReporter adds a ProgressReporter to the context
+func WithProgressReporter(ctx context.Context, reporter ProgressReporter) context.Context {
+	return context.WithValue(ctx, progressReporterKey{}, reporter)
+}
+
+// ProgressReporterFromContext extracts the ProgressReporter from context
+func ProgressReporterFromContext(ctx context.Context) ProgressReporter {
+	if reporter, ok := ctx.Value(progressReporterKey{}).(ProgressReporter); ok {
+		return reporter
+	}
+	return nil
 }
 
 // ProgressManager manages progress trackers for multiple reviews

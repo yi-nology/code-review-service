@@ -113,6 +113,9 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 		SummaryOnly: cfg.Policy.SummaryOnly,
 	})
 
+	// Initialize progress manager (used for OCR progress tracking)
+	progressManager := progress.NewProgressManager()
+
 	reviewService := svcReview.NewService(svcReview.ServiceConfig{
 		ReviewRepo:      repos.Review,
 		OCRSettingsRepo: repos.OCRSettings,
@@ -126,6 +129,7 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 		Publisher:       pub,
 		Writeback:       writeback.NewWritebackPublisherAdapter(writebackOrchestrator),
 		PreviewRunner:   ocrRunner,
+		ProgressManager: progressManager,
 	})
 
 	// Review handler (review + platform)
@@ -194,7 +198,6 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 	}
 
 	// Progress handler
-	progressManager := progress.NewProgressManager()
 	progress_service.InitHandler(progressManager)
 
 	// Review map handler

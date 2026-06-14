@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -14,6 +15,7 @@ import (
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/pkg/convert"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 )
 
@@ -85,6 +87,7 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 		"--concurrency", convert.IntToStr(r.config.Concurrency),
 		"--max-git-procs", convert.IntToStr(r.config.MaxGitProcs),
 		"--timeout", convert.IntToStr(r.config.TimeoutMinutes),
+		"--audience", "human", // Get progress output
 	}
 	rulePath := r.config.RulePath
 	if strings.TrimSpace(workspace.RulePath) != "" {
@@ -129,18 +132,38 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 	cmd.Env = env
 
 	var stdout bytes.Buffer
-	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+
+	// Create pipe for stderr to capture progress in real-time
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return review.Result{}, fmt.Errorf("failed to create stderr pipe: %w", err)
+	}
+
+	// Get progress reporter from context
+	progressReporter := progress.ProgressReporterFromContext(ctx)
 
 	// Start the process (don't block yet)
 	if err := cmd.Start(); err != nil {
 		return review.Result{}, fmt.Errorf("open-code-review start failed: %s", err.Error())
 	}
 
+	// Goroutine to read stderr and parse progress
+	var stderrLines []string
+	async.GoSafe(func() {
+		scanner := bufio.NewScanner(stderrPipe)
+		for scanner.Scan() {
+			line := scanner.Text()
+			stderrLines = append(stderrLines, line)
+
+			// Parse progress from stderr
+			if progressReporter != nil {
+				parseOCRProgress(line, progressReporter)
+			}
+		}
+	})
+
 	// Goroutine to kill process group when context times out.
-	// The done channel prevents killing the PID after normal exit
-	// (deferred cancel fires even on success, risking PID reuse).
 	done := make(chan struct{})
 	async.GoSafe(func() {
 		select {
@@ -152,14 +175,14 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 		}
 	})
 
-	err := cmd.Wait()
+	err = cmd.Wait()
 	close(done)
 	if err != nil {
-		// Kill the entire process group on error (covers child processes)
 		if cmd.Process != nil {
 			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 		}
-		message := strings.TrimSpace(stderr.String())
+		message := strings.Join(stderrLines, "\n")
+		message = strings.TrimSpace(message)
 		if message == "" {
 			message = err.Error()
 		}
@@ -167,6 +190,88 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 	}
 
 	return ParseOpenCodeReviewOutput(stdout.Bytes(), r.config.DefaultSeverity)
+}
+
+// parseOCRProgress parses stderr lines for progress information
+func parseOCRProgress(line string, reporter progress.ProgressReporter) {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return
+	}
+
+	// Look for file processing patterns like:
+	// "Processing file 3/10: path/to/file.go"
+	// "[3/10] Analyzing path/to/file.go"
+	// "✓ file.go (3/10)"
+	if strings.Contains(line, "/") && (strings.Contains(line, "Processing") || strings.Contains(line, "Analyzing") || strings.Contains(line, "file")) {
+		// Try to extract current/total pattern
+		parts := strings.Split(line, "/")
+		if len(parts) >= 2 {
+			// Try to find numbers
+			for i, part := range parts {
+				part = strings.TrimSpace(part)
+				// Extract number from the part
+				numStr := ""
+				for _, c := range part {
+					if c >= '0' && c <= '9' {
+						numStr += string(c)
+					}
+				}
+				if numStr != "" {
+					current := convert.Str2Int(numStr, 0)
+					if current > 0 && i < len(parts)-1 {
+						// Try to get total from next part
+						totalStr := ""
+						for _, c := range parts[i+1] {
+							if c >= '0' && c <= '9' {
+								totalStr += string(c)
+							} else if len(totalStr) > 0 {
+								break
+							}
+						}
+						if totalStr != "" {
+							total := convert.Str2Int(totalStr, 0)
+							if total > 0 {
+								reporter.ReportFileProgress(line, current, total)
+								return
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Look for agent status patterns like:
+	// "Agent frontend: analyzing..."
+	// "✓ frontend: complete"
+	if strings.Contains(line, "Agent") || strings.Contains(line, "agent") {
+		reporter.ReportAgentStatus("ocr", "active", line)
+	}
+
+	// Look for general progress patterns
+	if strings.Contains(line, "%") {
+		// Try to extract percentage
+		idx := strings.Index(line, "%")
+		if idx > 0 {
+			// Look backwards for the number
+			numStr := ""
+			for i := idx - 1; i >= 0; i-- {
+				c := line[i]
+				if c >= '0' && c <= '9' || c == '.' {
+					numStr = string(c) + numStr
+				} else if len(numStr) > 0 {
+					break
+				}
+			}
+			if numStr != "" {
+				progressVal := convert.Str2Float64(numStr, 0)
+				if progressVal > 0 && progressVal <= 100 {
+					reporter.ReportProgress(line, progressVal)
+				}
+			}
+		}
+	}
 }
 
 type OCRSettingsSource interface {

@@ -17,6 +17,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
+	"github.com/yi-nology/code-review-service/internal/service/progress"
 
 	"github.com/oekit/gormx"
 	"github.com/oekit/pkg/ptrx"
@@ -59,6 +60,7 @@ type ServiceConfig struct {
 	Publisher       Publisher
 	Writeback       WritebackPublisher
 	PreviewRunner   PreviewRunner
+	ProgressManager *progress.ProgressManager
 }
 
 type Service struct {
@@ -74,6 +76,7 @@ type Service struct {
 	publisher       Publisher
 	writeback       WritebackPublisher
 	previewRunner   PreviewRunner
+	progressManager *progress.ProgressManager
 	inFlight        sync.WaitGroup
 }
 
@@ -91,6 +94,7 @@ func NewService(cfg ServiceConfig) *Service {
 		publisher:       cfg.Publisher,
 		writeback:       cfg.Writeback,
 		previewRunner:   cfg.PreviewRunner,
+		progressManager: cfg.ProgressManager,
 	}
 }
 
@@ -176,7 +180,7 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 		return queued, nil
 	}
 
-	return s.run(ctx, id, req, provider)
+	return s.run(ctx, id, req, provider, nil)
 }
 
 func (s *Service) findActiveReview(ctx context.Context, req Request) *Response {

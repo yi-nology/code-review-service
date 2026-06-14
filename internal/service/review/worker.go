@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/concurrency/group"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
@@ -102,7 +103,16 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 		s.inFlight.Add(1)
 		go func() {
 			defer s.inFlight.Done()
-			if _, err := s.run(ctx, review.ReviewID, req, provider); err != nil && ctx.Err() == nil {
+
+			// Create progress tracker for this review
+			var progressReporter progress.ProgressReporter
+			if s.progressManager != nil {
+				tracker := s.progressManager.CreateTracker(review.ReviewID, review.ReviewID, 1)
+				progressReporter = tracker
+				defer s.progressManager.RemoveTracker(review.ReviewID)
+			}
+
+			if _, err := s.run(ctx, review.ReviewID, req, provider, progressReporter); err != nil && ctx.Err() == nil {
 				hlog.Error("async review failed", "worker_id", workerID, "review_id", review.ReviewID, "error", err)
 			}
 		}()

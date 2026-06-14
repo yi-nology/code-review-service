@@ -9,15 +9,21 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
+	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/reviewmap"
 
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"github.com/oekit/pkg/slicex"
 )
 
-func (s *Service) run(ctx context.Context, id string, req Request, provider Provider) (Response, error) {
+func (s *Service) run(ctx context.Context, id string, req Request, provider Provider, progressReporter progress.ProgressReporter) (Response, error) {
 	if err := s.updateStatus(ctx, id, "running"); err != nil {
 		return Response{}, err
+	}
+
+	// Inject progress reporter into context for the runner
+	if progressReporter != nil {
+		ctx = progress.WithProgressReporter(ctx, progressReporter)
 	}
 
 	workspace, err := provider.Prepare(ctx, req)
