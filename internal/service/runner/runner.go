@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -17,6 +18,12 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
+)
+
+const (
+	// ocrAudience defines the output audience for OCR tool
+	// "human" outputs progress lines, "agent" outputs summary only
+	ocrAudience = "human"
 )
 
 type OpenCodeReviewConfig struct {
@@ -87,7 +94,7 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 		"--concurrency", convert.IntToStr(r.config.Concurrency),
 		"--max-git-procs", convert.IntToStr(r.config.MaxGitProcs),
 		"--timeout", convert.IntToStr(r.config.TimeoutMinutes),
-		"--audience", "human", // Get progress output
+		"--audience", ocrAudience,
 	}
 	rulePath := r.config.RulePath
 	if strings.TrimSpace(workspace.RulePath) != "" {
@@ -150,16 +157,23 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 
 	// Goroutine to read stderr and parse progress
 	var stderrLines []string
+	var stderrMu sync.Mutex
 	async.GoSafe(func() {
 		scanner := bufio.NewScanner(stderrPipe)
 		for scanner.Scan() {
 			line := scanner.Text()
+			stderrMu.Lock()
 			stderrLines = append(stderrLines, line)
+			stderrMu.Unlock()
 
 			// Parse progress from stderr
 			if progressReporter != nil {
 				parseOCRProgress(line, progressReporter)
 			}
+		}
+		if err := scanner.Err(); err != nil {
+			// Log scanner error but don't fail the process
+			_ = err
 		}
 	})
 
@@ -181,7 +195,9 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 		if cmd.Process != nil {
 			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 		}
+		stderrMu.Lock()
 		message := strings.Join(stderrLines, "\n")
+		stderrMu.Unlock()
 		message = strings.TrimSpace(message)
 		if message == "" {
 			message = err.Error()
@@ -199,18 +215,36 @@ func parseOCRProgress(line string, reporter progress.ProgressReporter) {
 		return
 	}
 
+	// Look for percentage patterns like "50%", "Progress: 50%", "50.5%"
+	if idx := strings.Index(line, "%"); idx > 0 {
+		// Look backwards for the number
+		numStr := ""
+		for i := idx - 1; i >= 0; i-- {
+			c := line[i]
+			if (c >= '0' && c <= '9') || c == '.' {
+				numStr = string(c) + numStr
+			} else if len(numStr) > 0 {
+				break
+			}
+		}
+		if numStr != "" {
+			progressVal := convert.Str2Float64(numStr, -1)
+			if progressVal >= 0 && progressVal <= 100 {
+				reporter.ReportProgress(line, progressVal)
+				return
+			}
+		}
+	}
+
 	// Look for file processing patterns like:
 	// "Processing file 3/10: path/to/file.go"
 	// "[3/10] Analyzing path/to/file.go"
 	// "✓ file.go (3/10)"
-	if strings.Contains(line, "/") && (strings.Contains(line, "Processing") || strings.Contains(line, "Analyzing") || strings.Contains(line, "file")) {
-		// Try to extract current/total pattern
+	if strings.Contains(line, "/") {
 		parts := strings.Split(line, "/")
 		if len(parts) >= 2 {
-			// Try to find numbers
 			for i, part := range parts {
 				part = strings.TrimSpace(part)
-				// Extract number from the part
 				numStr := ""
 				for _, c := range part {
 					if c >= '0' && c <= '9' {
@@ -220,7 +254,6 @@ func parseOCRProgress(line string, reporter progress.ProgressReporter) {
 				if numStr != "" {
 					current := convert.Str2Int(numStr, 0)
 					if current > 0 && i < len(parts)-1 {
-						// Try to get total from next part
 						totalStr := ""
 						for _, c := range parts[i+1] {
 							if c >= '0' && c <= '9' {
@@ -242,35 +275,9 @@ func parseOCRProgress(line string, reporter progress.ProgressReporter) {
 		}
 	}
 
-	// Look for agent status patterns like:
-	// "Agent frontend: analyzing..."
-	// "✓ frontend: complete"
+	// Look for agent status patterns
 	if strings.Contains(line, "Agent") || strings.Contains(line, "agent") {
 		reporter.ReportAgentStatus("ocr", "active", line)
-	}
-
-	// Look for general progress patterns
-	if strings.Contains(line, "%") {
-		// Try to extract percentage
-		idx := strings.Index(line, "%")
-		if idx > 0 {
-			// Look backwards for the number
-			numStr := ""
-			for i := idx - 1; i >= 0; i-- {
-				c := line[i]
-				if c >= '0' && c <= '9' || c == '.' {
-					numStr = string(c) + numStr
-				} else if len(numStr) > 0 {
-					break
-				}
-			}
-			if numStr != "" {
-				progressVal := convert.Str2Float64(numStr, 0)
-				if progressVal > 0 && progressVal <= 100 {
-					reporter.ReportProgress(line, progressVal)
-				}
-			}
-		}
 	}
 }
 

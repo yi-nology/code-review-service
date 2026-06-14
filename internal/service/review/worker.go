@@ -109,11 +109,30 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 			if s.progressManager != nil {
 				tracker := s.progressManager.CreateTracker(review.ReviewID, review.ReviewID, 1)
 				progressReporter = tracker
-				defer s.progressManager.RemoveTracker(review.ReviewID)
+				defer func() {
+					if r := recover(); r != nil {
+						// If there's a panic, report error to tracker
+						if tracker != nil {
+							tracker.SetError(fmt.Sprintf("panic: %v", r))
+						}
+						s.progressManager.RemoveTracker(review.ReviewID)
+						panic(r) // re-panic
+					}
+				}()
 			}
 
 			if _, err := s.run(ctx, review.ReviewID, req, provider, progressReporter); err != nil && ctx.Err() == nil {
 				hlog.Error("async review failed", "worker_id", workerID, "review_id", review.ReviewID, "error", err)
+				// Report error to progress tracker
+				if progressReporter != nil {
+					if tracker, ok := progressReporter.(*progress.ProgressTracker); ok {
+						tracker.SetError(err.Error())
+					}
+				}
+			}
+			// Remove tracker after review completes (success or failure)
+			if s.progressManager != nil {
+				s.progressManager.RemoveTracker(review.ReviewID)
 			}
 		}()
 		timer.Reset(0)
