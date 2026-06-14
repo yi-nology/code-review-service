@@ -35,6 +35,10 @@ func registerGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 		h.Use(m)
 	}
 
+	// Rate limiting middleware
+	h.Use(middleware.RateLimitMiddleware(100, 200))
+	hlog.Infof("rate limiting middleware enabled (100 req/s, burst 200)")
+
 	if cfg.Auth.Token != "" {
 		h.Use(middleware.BearerTokenAuth(cfg.Auth.Token))
 		hlog.Infof("auth middleware enabled")
@@ -43,7 +47,7 @@ func registerGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 	h.Use(middleware.SecurityHeaders())
 }
 
-func registerCustomRoutes(h *server.Hertz, cfg *config.Config, db *gormDB.DB, handler *review_service.ReviewHandler, webhookHandler *review_service.WebhookHandler, statsHandler *review_service.StatsHandler) {
+func registerCustomRoutes(h *server.Hertz, cfg *config.Config, db *gormDB.DB, handler *review_service.ReviewHandler, webhookHandler *review_service.WebhookHandler, statsHandler *review_service.StatsHandler, sessionHandler *review_service.SessionHandler, progressWSHandler *review_service.ProgressWSHandler, reviewMapHandler *review_service.ReviewMapHandler, publisherHandler *review_service.PublisherHandler, projectAgentHandler *review_service.ProjectAgentHandler) {
 	hlog.Infof("[routes] registering custom routes...")
 
 	healthOpts := []health.Option{}
@@ -63,5 +67,55 @@ func registerCustomRoutes(h *server.Hertz, cfg *config.Config, db *gormDB.DB, ha
 		stats.GET("/contributors/:author", statsHandler.GetContributor)
 		stats.GET("/contributors/:author/trend", statsHandler.GetContributorTrend)
 		stats.GET("/contributors/:author/categories", statsHandler.GetContributorCategories)
+
+		// Session routes
+		reviews := v1.Group("/reviews")
+		{
+			reviews.GET("/:id/sessions", sessionHandler.GetSessions)
+			reviews.POST("/:id/sessions", sessionHandler.CreateSession)
+			reviews.GET("/:id/sessions/active", sessionHandler.GetActiveSession)
+			reviews.GET("/:id/sessions/:sessionId", sessionHandler.GetSession)
+			reviews.PUT("/:id/sessions/:sessionId/phase", sessionHandler.UpdateSessionPhase)
+			reviews.PUT("/:id/sessions/:sessionId/status", sessionHandler.UpdateSessionStatus)
+			reviews.PUT("/:id/sessions/:sessionId/agent-results", sessionHandler.UpdateSessionAgentResults)
+			reviews.PUT("/:id/sessions/:sessionId/discussion", sessionHandler.UpdateSessionDiscussion)
+			reviews.PUT("/:id/sessions/:sessionId/final-report", sessionHandler.UpdateSessionFinalReport)
+			reviews.POST("/:id/sessions/:sessionId/complete", sessionHandler.CompleteSession)
+			reviews.POST("/:id/sessions/:sessionId/fail", sessionHandler.FailSession)
+			reviews.POST("/:id/sessions/:sessionId/cancel", sessionHandler.CancelSession)
+
+			// Progress WebSocket route
+			reviews.GET("/:id/progress", progressWSHandler.HandleProgressWS)
+			reviews.GET("/:id/progress/status", progressWSHandler.GetProgress)
+
+			// Review Maps routes
+			reviews.POST("/:id/maps", reviewMapHandler.GenerateMap)
+			reviews.GET("/:id/maps", reviewMapHandler.GetMaps)
+			reviews.GET("/:id/maps/:mapId", reviewMapHandler.GetMap)
+			reviews.POST("/:id/maps/preview", reviewMapHandler.PreviewMap)
+
+			// Session Map route
+			reviews.GET("/:id/sessions/:sessionId/map", reviewMapHandler.GetSessionMap)
+
+			// Publisher routes
+			reviews.POST("/:id/publish", publisherHandler.PublishReview)
+			reviews.GET("/:id/preview", publisherHandler.PreviewComment)
+			reviews.PUT("/:id/publish", publisherHandler.UpdatePublishedComment)
+		}
+
+		// Active reviews progress
+		v1.GET("/progress/active", progressWSHandler.GetActiveReviews)
+
+		// Sessions list
+		v1.GET("/sessions", sessionHandler.ListSessions)
+
+		// Project Agent configuration routes
+		settings := v1.Group("/settings")
+		{
+			settings.GET("/projects/:provider/:repo/agents", projectAgentHandler.GetProjectAgents)
+			settings.PUT("/projects/:provider/:repo/agents", projectAgentHandler.UpdateProjectAgent)
+			settings.POST("/projects/:provider/:repo/agents/batch", projectAgentHandler.BatchUpdateProjectAgents)
+			settings.DELETE("/projects/:provider/:repo/agents/:agentId", projectAgentHandler.DeleteProjectAgent)
+		}
 	}
 }

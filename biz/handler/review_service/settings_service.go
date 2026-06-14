@@ -270,6 +270,7 @@ func dbOCRSettingsToAPI(s *models.OCRSettings) *modelSettings.OCRSettings {
 		MaxGitProcs:    ptrx.Of(int64(s.MaxGitProcs)),
 		TimeoutMinutes: ptrx.Of(int64(s.TimeoutMinutes)),
 		MaxTools:       ptrx.Of(int64(s.MaxTools)),
+		Background:     strPtr(s.Background),
 	}
 }
 
@@ -291,6 +292,7 @@ func apiOCRSettingsToDB(s *modelSettings.OCRSettings) *models.OCRSettings {
 	db.MaxGitProcs = int(ptrx.Deref(s.MaxGitProcs, 0))
 	db.TimeoutMinutes = int(ptrx.Deref(s.TimeoutMinutes, 0))
 	db.MaxTools = int(ptrx.Deref(s.MaxTools, 0))
+	db.Background = ptrx.Deref(s.Background, "")
 	if s.IsSetExtraBody() && s.ExtraBody != nil && *s.ExtraBody != "" {
 		db.ExtraBody = datatypes.JSON(*s.ExtraBody)
 	}
@@ -610,4 +612,140 @@ func (h *ReviewHandler) GetBranchSHA(ctx context.Context, c *hertzApp.RequestCon
 	c.JSON(consts.StatusOK, map[string]any{
 		"sha": sha,
 	})
+}
+
+func (h *ReviewHandler) ListReviewerAgents(ctx context.Context, c *hertzApp.RequestContext) {
+	agents, err := h.agentRepo.List(ctx)
+	if err != nil {
+		fail(c, err)
+		return
+	}
+	c.JSON(consts.StatusOK, map[string]any{
+		"agents": agents,
+	})
+}
+
+func (h *ReviewHandler) CreateReviewerAgent(ctx context.Context, c *hertzApp.RequestContext) {
+	var req struct {
+		Name        string   `json:"name" binding:"required"`
+		DisplayName string   `json:"display_name" binding:"required"`
+		Description string   `json:"description"`
+		Background  string   `json:"background" binding:"required"`
+		Enabled     *bool    `json:"enabled"`
+		Priority    *int64   `json:"priority"`
+		Tags        []string `json:"tags"`
+	}
+	if err := c.BindAndValidate(&req); err != nil {
+		fail(c, badRequest(err.Error()))
+		return
+	}
+
+	agent := &models.ReviewerAgent{
+		Name:        req.Name,
+		DisplayName: req.DisplayName,
+		Description: req.Description,
+		Background:  req.Background,
+		Enabled:     true,
+	}
+	if req.Enabled != nil {
+		agent.Enabled = *req.Enabled
+	}
+	if req.Priority != nil {
+		agent.Priority = int(*req.Priority)
+	}
+	if len(req.Tags) > 0 {
+		agent.Tags = datatypes.JSON(mustMarshalJSON(req.Tags))
+	}
+
+	if err := h.agentRepo.Create(ctx, agent); err != nil {
+		fail(c, err)
+		return
+	}
+
+	c.JSON(consts.StatusOK, map[string]any{
+		"agent": agent,
+	})
+}
+
+func (h *ReviewHandler) UpdateReviewerAgent(ctx context.Context, c *hertzApp.RequestContext) {
+	idStr := c.Param("id")
+	id, err := parseUintID(idStr)
+	if err != nil {
+		fail(c, badRequest("invalid agent id"))
+		return
+	}
+
+	existing, err := h.agentRepo.GetByID(ctx, id)
+	if err != nil {
+		fail(c, notFound("agent not found"))
+		return
+	}
+
+	var req struct {
+		DisplayName *string  `json:"display_name"`
+		Description *string  `json:"description"`
+		Background  *string  `json:"background"`
+		Enabled     *bool    `json:"enabled"`
+		Priority    *int64   `json:"priority"`
+		Tags        []string `json:"tags"`
+	}
+	if err := c.BindAndValidate(&req); err != nil {
+		fail(c, badRequest(err.Error()))
+		return
+	}
+
+	if req.DisplayName != nil {
+		existing.DisplayName = *req.DisplayName
+	}
+	if req.Description != nil {
+		existing.Description = *req.Description
+	}
+	if req.Background != nil {
+		existing.Background = *req.Background
+	}
+	if req.Enabled != nil {
+		existing.Enabled = *req.Enabled
+	}
+	if req.Priority != nil {
+		existing.Priority = int(*req.Priority)
+	}
+	if req.Tags != nil {
+		existing.Tags = datatypes.JSON(mustMarshalJSON(req.Tags))
+	}
+
+	if err := h.agentRepo.Update(ctx, existing); err != nil {
+		fail(c, err)
+		return
+	}
+
+	c.JSON(consts.StatusOK, map[string]any{
+		"agent": existing,
+	})
+}
+
+func (h *ReviewHandler) DeleteReviewerAgent(ctx context.Context, c *hertzApp.RequestContext) {
+	idStr := c.Param("id")
+	id, err := parseUintID(idStr)
+	if err != nil {
+		fail(c, badRequest("invalid agent id"))
+		return
+	}
+
+	if err := h.agentRepo.Delete(ctx, id); err != nil {
+		fail(c, err)
+		return
+	}
+
+	c.JSON(consts.StatusOK, map[string]any{})
+}
+
+func parseUintID(s string) (uint, error) {
+	var id uint64
+	_, err := fmt.Sscanf(s, "%d", &id)
+	return uint(id), err
+}
+
+func mustMarshalJSON(v any) []byte {
+	b, _ := json.Marshal(v)
+	return b
 }

@@ -16,6 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type mockReviewRepo struct {
@@ -122,7 +123,7 @@ func (m *mockReviewRepo) UpdateInTransaction(_ context.Context, reviewID string,
 			return fn(r)
 		}
 	}
-	return errors.New("review not found")
+	return gorm.ErrRecordNotFound
 }
 
 func (m *mockReviewRepo) snapshot() []*models.Review {

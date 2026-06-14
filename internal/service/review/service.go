@@ -21,6 +21,7 @@ import (
 	"github.com/oekit/gormx"
 	"github.com/oekit/pkg/ptrx"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"gorm.io/gorm"
 )
 
 var gitObjectIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{7,64}$`)
@@ -50,6 +51,7 @@ type ServiceConfig struct {
 	OCRSettingsRepo repository.OCRSettingsRepository
 	ProjectRepo     repository.ProjectPolicyRepository
 	GlobalRulesRepo repository.GlobalRulesRepository
+	ReviewMapRepo   repository.ReviewMapRepository
 	Policy          *policy.Engine
 	Providers       Providers
 	GitProvider     GitProvider
@@ -64,6 +66,7 @@ type Service struct {
 	ocrSettingsRepo repository.OCRSettingsRepository
 	projectRepo     repository.ProjectPolicyRepository
 	globalRulesRepo repository.GlobalRulesRepository
+	reviewMapRepo   repository.ReviewMapRepository
 	policy          *policy.Engine
 	providers       Providers
 	gitProvider     GitProvider
@@ -80,6 +83,7 @@ func NewService(cfg ServiceConfig) *Service {
 		ocrSettingsRepo: cfg.OCRSettingsRepo,
 		projectRepo:     cfg.ProjectRepo,
 		globalRulesRepo: cfg.GlobalRulesRepo,
+		reviewMapRepo:   cfg.ReviewMapRepo,
 		policy:          cfg.Policy,
 		providers:       cfg.Providers,
 		gitProvider:     cfg.GitProvider,
@@ -437,6 +441,9 @@ func (s *Service) Requeue(ctx context.Context, reviewID string) (Response, error
 		return nil
 	})
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return Response{}, fmt.Errorf("%w: %s", ErrNotFound, reviewID)
+		}
 		return Response{}, err
 	}
 	return resultResp, nil
@@ -471,6 +478,9 @@ func (s *Service) Cancel(ctx context.Context, reviewID string) (Response, error)
 		return nil
 	})
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return Response{}, fmt.Errorf("%w: %s", ErrNotFound, reviewID)
+		}
 		return Response{}, err
 	}
 	return resultResp, nil

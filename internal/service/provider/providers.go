@@ -263,11 +263,9 @@ func cloneAndResolveSHA(ctx context.Context, cloneURL, token, baseSHA, headSHA s
 	}
 	defer git.Close()
 
-	for _, sha := range []string{baseSHA, headSHA} {
-		if err := git.Fetch(ctx, sha); err != nil {
-			_ = os.RemoveAll(dir)
-			return "", "", "", "", fmt.Errorf("git fetch SHA %s: %w", sha, err)
-		}
+	if err := git.FetchAll(ctx); err != nil {
+		_ = os.RemoveAll(dir)
+		return "", "", "", "", fmt.Errorf("git fetch: %w", err)
 	}
 
 	if err := git.Checkout(ctx, headSHA); err != nil {

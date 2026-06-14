@@ -21,6 +21,7 @@ type OCRSettings struct {
 	MaxGitProcs    int            `gorm:"not null;default:4" json:"max_git_procs"`
 	TimeoutMinutes int            `gorm:"not null;default:10" json:"timeout_minutes"`
 	MaxTools       int            `gorm:"not null;default:0" json:"max_tools"`
+	Background     string         `gorm:"type:text" json:"background,omitempty"`
 }
 
 func (OCRSettings) TableName() string {

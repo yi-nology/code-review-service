@@ -41,6 +41,10 @@ func Register(r *server.Hertz, h *rsHandler.ReviewHandler, wh *rsHandler.Webhook
 				_settings.PUT("/projects", append(_putprojectpolicyMw(), h.PutProjectPolicy)...)
 				_settings.GET("/rules/global", append(_getocrsettingsMw(), h.GetGlobalRules)...)
 				_settings.PUT("/rules/global", append(_updateocrsettingsMw(), h.UpdateGlobalRules)...)
+				_settings.GET("/agents", h.ListReviewerAgents)
+				_settings.POST("/agents", h.CreateReviewerAgent)
+				_settings.PUT("/agents/:id", h.UpdateReviewerAgent)
+				_settings.DELETE("/agents/:id", h.DeleteReviewerAgent)
 			}
 		}
 	}

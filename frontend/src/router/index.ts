@@ -19,6 +19,11 @@ const router = createRouter({
       component: () => import('@/views/ReviewDetail.vue'),
     },
     {
+      path: '/reviews/:reviewId/sessions/:sessionId',
+      name: 'SessionDetail',
+      component: () => import('@/views/SessionDetail.vue'),
+    },
+    {
       path: '/contributors',
       name: 'Contributors',
       component: () => import('@/views/Contributors.vue'),
@@ -47,6 +52,11 @@ const router = createRouter({
       path: '/settings/rules',
       name: 'RuleSettings',
       component: () => import('@/views/RuleSettings.vue'),
+    },
+    {
+      path: '/settings/agents',
+      name: 'AgentSettings',
+      component: () => import('@/views/AgentSettings.vue'),
     },
   ],
 })

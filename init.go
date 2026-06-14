@@ -3,17 +3,21 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/yi-nology/code-review-service/biz/handler/review_service"
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
+	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/publisher"
 	"github.com/yi-nology/code-review-service/internal/service/runner"
 	svcReview "github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/session"
 	statsSvc "github.com/yi-nology/code-review-service/internal/service/stats"
 	"github.com/yi-nology/code-review-service/internal/service/webhook"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
@@ -74,6 +78,7 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 		OCRSettingsRepo: repos.OCRSettings,
 		ProjectRepo:     repos.ProjectPolicy,
 		GlobalRulesRepo: repos.GlobalRules,
+		ReviewMapRepo:   repos.ReviewMap,
 		Policy:          policy.NewEngine(cfg.GetPolicyConfig()),
 		Providers:       gitProvider.NewGitProviderProviders(gitProviderSvc, int64(cfg.Review.MaxDiffBytes)),
 		GitProvider:     gitProvider.NewGitProviderAdapter(gitProviderSvc),
@@ -89,6 +94,7 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 		repos.ProjectPolicy,
 		repos.GitPlatform,
 		repos.GlobalRules,
+		repos.ReviewerAgent,
 		gitProviderSvc,
 		ocrRunner,
 	)
@@ -113,10 +119,61 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 	statsService := statsSvc.NewService(repos.ContributorStats)
 	statsHandler := review_service.NewStatsHandler(statsService)
 
+	// Initialize session service
+	sessionRepo := postgres.NewPostgresSessionRepository(db)
+	sessionService := session.NewSessionService(sessionRepo)
+	sessionHandler := review_service.NewSessionHandler(sessionService)
+
+	// Initialize agent manager and load agents from database
+	agentManager := agent.NewAgentManager(agent.DefaultManagerConfig(), agent.NewDefaultAggregator(agent.DefaultAggregatorConfig()))
+
+	// Create runner factory
+	runnerBaseConfig := runner.OpenCodeReviewConfig{
+		Binary:          cfg.OCR.Binary,
+		RulePath:        cfg.OCR.Rule,
+		DefaultSeverity: "major",
+		Concurrency:     2,
+		MaxGitProcs:     4,
+		TimeoutMinutes:  10,
+	}
+	runnerFactory := agent.NewOCRRunnerFactory(runnerBaseConfig)
+	agentLoader := agent.NewAgentLoader(agentManager, runnerFactory, 10*time.Minute)
+
+	// Load agents from database
+	enabledAgents, err := repos.ReviewerAgent.ListEnabled(ctx)
+	if err != nil {
+		hlog.Warnf("failed to load agents from database: %v", err)
+	} else if len(enabledAgents) > 0 {
+		if err := agentLoader.LoadFromDB(ctx, enabledAgents); err != nil {
+			hlog.Warnf("failed to load agents: %v", err)
+		}
+	} else {
+		// Load default agent with OCRSettings background
+		ocrSettings, err := repos.OCRSettings.Get(ctx)
+		if err == nil && ocrSettings != nil && ocrSettings.Background != "" {
+			agentLoader.LoadDefaultAgent(ocrSettings.Background)
+		} else {
+			agentLoader.LoadDefaultAgent("")
+		}
+	}
+
+	// Initialize progress manager
+	progressManager := progress.NewProgressManager()
+	progressWSHandler := review_service.NewProgressWSHandler(progressManager)
+
+	// Initialize review map handler
+	reviewMapHandler := review_service.NewReviewMapHandler(sessionService, repos.ReviewMap)
+
+	// Initialize publisher handler
+	publisherHandler := review_service.NewPublisherHandler(writebackOrchestrator)
+
+	// Initialize project agent handler
+	projectAgentHandler := review_service.NewProjectAgentHandler(repos.ProjectAgent, repos.ReviewerAgent)
+
 	h := createServer(cfg)
 	registerGlobalMiddleware(h, cfg)
 
-	registerCustomRoutes(h, cfg, db, handler, webhookHandler, statsHandler)
+	registerCustomRoutes(h, cfg, db, handler, webhookHandler, statsHandler, sessionHandler, progressWSHandler, reviewMapHandler, publisherHandler, projectAgentHandler)
 
 	app.GoBackground("review-workers", func(workerCtx context.Context) {
 		reviewService.RunWorkers(
@@ -130,6 +187,11 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 
 	app.AddResource("hertz", func(ctx context.Context) error {
 		return h.Shutdown(ctx)
+	})
+
+	app.AddResource("progress-manager", func(ctx context.Context) error {
+		progressManager.Close()
+		return nil
 	})
 
 	hlog.Infof("review service starting on port %d", cfg.Port)

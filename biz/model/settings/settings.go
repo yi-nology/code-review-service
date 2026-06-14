@@ -22,6 +22,7 @@ type OCRSettings struct {
 	MaxGitProcs    *int64  `thrift:"max_git_procs,12,optional" form:"max_git_procs" json:"max_git_procs,omitempty"`
 	TimeoutMinutes *int64  `thrift:"timeout_minutes,13,optional" form:"timeout_minutes" json:"timeout_minutes,omitempty"`
 	MaxTools       *int64  `thrift:"max_tools,14,optional" form:"max_tools" json:"max_tools,omitempty"`
+	Background     *string `thrift:"background,15,optional" form:"background" json:"background,omitempty"`
 }
 
 func NewOCRSettings() *OCRSettings {

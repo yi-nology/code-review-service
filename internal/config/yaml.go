@@ -16,6 +16,7 @@ type Config struct {
 	OCR      OCRConfig       `yaml:"ocr"`
 	Policy   PolicyConfig    `yaml:"policy"`
 	Git      GitConfig       `yaml:"git"`
+	Agents   AgentsConfig    `yaml:"agents"`
 }
 
 type AuthConfig struct {
@@ -57,4 +58,40 @@ type GitPlatformConfig struct {
 	Enabled bool   `yaml:"enabled"`
 	BaseURL string `yaml:"base_url"`
 	Token   string `yaml:"token"`
+}
+
+type AgentsConfig struct {
+	Enabled         bool              `yaml:"enabled"`
+	MaxConcurrency  int               `yaml:"max_concurrency"`
+	AgentTimeout    string            `yaml:"agent_timeout"`
+	TotalTimeout    string            `yaml:"total_timeout"`
+	DefaultTeam     []AgentTeamMember `yaml:"default_team"`
+	Discussion      DiscussionConfig  `yaml:"discussion"`
+	Requirements    RequirementsConfig `yaml:"requirements"`
+	ReviewMap       ReviewMapConfig   `yaml:"review_map"`
+}
+
+type AgentTeamMember struct {
+	Name      string   `yaml:"name"`
+	Count     int      `yaml:"count"`
+	Focus     []string `yaml:"focus"`
+	Enabled   bool     `yaml:"enabled"`
+	Priority  int      `yaml:"priority"`
+	AutoDetect bool    `yaml:"auto_detect,omitempty"`
+	Triggers  []string `yaml:"triggers,omitempty"`
+}
+
+type DiscussionConfig struct {
+	Enabled   bool `yaml:"enabled"`
+	MaxRounds int  `yaml:"max_rounds"`
+	MinAgents int  `yaml:"min_agents"`
+}
+
+type RequirementsConfig struct {
+	Enabled bool `yaml:"enabled"`
+}
+
+type ReviewMapConfig struct {
+	Enabled  bool `yaml:"enabled"`
+	MinFiles int  `yaml:"min_files"`
 }

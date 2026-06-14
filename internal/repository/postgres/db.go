@@ -33,6 +33,10 @@ func InitDB(cfg *config.DatabaseConfig) (*gormDB.DB, error) {
 		&models.ChangeRevision{},
 		&models.WritebackItem{},
 		&models.GlobalRules{},
+		&models.ReviewSession{},
+		&models.ReviewerAgent{},
+		&models.ProjectAgent{},
+		&models.ReviewMap{},
 	); err != nil {
 		return nil, fmt.Errorf("auto migrate: %w", err)
 	}

@@ -4,13 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	modelReview "github.com/yi-nology/code-review-service/biz/model/review"
+	"github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 
 	"github.com/oekit/pkg/ptrx"
 	hertzApp "github.com/cloudwego/hertz/pkg/app"
+	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	gormLib "gorm.io/gorm"
 )
@@ -44,6 +47,8 @@ func (h *ReviewHandler) CreateReview(ctx context.Context, c *hertzApp.RequestCon
 		CallbackMode:    ptrx.Deref(req.CallbackMode, ""),
 		Wait:            ptrx.Deref(req.Wait, false),
 	}
+
+	h.fillAuthorInfo(ctx, &svcReq)
 
 	idempotencyKey := string(c.GetHeader("Idempotency-Key"))
 	resp, err := h.reviewSvc.Create(ctx, svcReq, idempotencyKey)
@@ -235,4 +240,43 @@ func (h *ReviewHandler) CancelReview(ctx context.Context, c *hertzApp.RequestCon
 	c.JSON(consts.StatusOK, &modelReview.CreateReviewResp{
 		Review: &converted,
 	})
+}
+
+func (h *ReviewHandler) fillAuthorInfo(ctx context.Context, req *review.Request) {
+	if req.Author != "" {
+		return
+	}
+	prID := req.PullRequestID
+	if prID == "" {
+		prID = req.MergeRequestIID
+	}
+	if prID == "" {
+		return
+	}
+	number, err := strconv.Atoi(prID)
+	if err != nil || number <= 0 {
+		return
+	}
+	if h.gitMgr == nil || !h.gitMgr.HasProvider(req.Provider) {
+		return
+	}
+	owner, repo, err := provider.ParseRepoPath(req.Repo)
+	if err != nil {
+		return
+	}
+	cr, err := h.gitMgr.GetCR(ctx, req.Provider, owner, repo, number)
+	if err != nil {
+		hlog.CtxWarnf(ctx, "fillAuthorInfo: failed to get CR for %s/%s #%d: %v", owner, repo, number, err)
+		return
+	}
+	if cr == nil || cr.Author == nil {
+		return
+	}
+	req.Author = cr.Author.Username
+	if cr.Author.Name != "" {
+		req.AuthorName = cr.Author.Name
+	} else {
+		req.AuthorName = cr.Author.Username
+	}
+	req.AuthorAvatar = cr.Author.AvatarURL
 }

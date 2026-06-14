@@ -31,6 +31,7 @@ type OpenCodeReviewConfig struct {
 	UseAnthropic    bool
 	ExtraBody       string
 	Language        string
+	Background      string
 }
 
 type OpenCodeReviewRunner struct {
@@ -93,6 +94,9 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 	}
 	if r.config.MaxTools > 0 {
 		args = append(args, "--max-tools", fmt.Sprintf("%d", r.config.MaxTools))
+	}
+	if strings.TrimSpace(r.config.Background) != "" {
+		args = append(args, "--background", r.config.Background)
 	}
 
 	cmd := exec.CommandContext(ctx, r.config.Binary, args...)
@@ -614,6 +618,7 @@ func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings) OpenCod
 		ExtraBody:       string(s.ExtraBody),
 		Language:        s.Language,
 		MaxTools:        s.MaxTools,
+		Background:      s.Background,
 	}
 	if s.Concurrency > 0 {
 		cfg.Concurrency = s.Concurrency

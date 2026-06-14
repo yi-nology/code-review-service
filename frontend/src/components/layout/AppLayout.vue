@@ -42,6 +42,10 @@
           <el-icon><Connection /></el-icon>
           <span>Git 平台</span>
         </router-link>
+        <router-link to="/settings/agents" class="nav-item">
+          <el-icon><User /></el-icon>
+          <span>代理设置</span>
+        </router-link>
       </nav>
 
       <div class="sidebar-footer">
@@ -83,6 +87,7 @@ import {
   List,
   Menu,
   SwitchButton,
+  User,
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 

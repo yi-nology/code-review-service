@@ -22,6 +22,7 @@ type ReviewHandler struct {
 	project         repository.ProjectPolicyRepository
 	platform        repository.GitPlatformRepository
 	globalRules     repository.GlobalRulesRepository
+	agentRepo       repository.ReviewerAgentRepository
 	gitMgr          app.GitProviderManager
 	llmTester       review.LLMTester
 }
@@ -32,6 +33,7 @@ func NewReviewHandler(
 	project repository.ProjectPolicyRepository,
 	platform repository.GitPlatformRepository,
 	globalRules repository.GlobalRulesRepository,
+	agentRepo repository.ReviewerAgentRepository,
 	gitMgr app.GitProviderManager,
 	llmTester review.LLMTester,
 ) *ReviewHandler {
@@ -41,6 +43,7 @@ func NewReviewHandler(
 		project:    project,
 		platform:   platform,
 		globalRules: globalRules,
+		agentRepo:  agentRepo,
 		gitMgr:     gitMgr,
 		llmTester:  llmTester,
 	}

@@ -9,6 +9,24 @@ import (
 
 const scoreVersion = "severity-v2"
 
+const (
+	OCRStatusSuccess             = "success"
+	OCRStatusTimeout             = "timeout"
+	OCRStatusSkipped             = "skipped"
+	OCRStatusCompletedWithErrors = "completed_with_errors"
+)
+
+func isOCRComplete(status string) bool {
+	switch status {
+	case OCRStatusSuccess, OCRStatusSkipped, OCRStatusCompletedWithErrors:
+		return true
+	case "":
+		return false // 空状态视为未执行 OCR，不算完成
+	default:
+		return false
+	}
+}
+
 func BuildReport(result *Result) Report {
 	if result == nil {
 		return Report{}
@@ -78,7 +96,7 @@ func BuildReport(result *Result) Report {
 		})
 	}
 
-	complete := result.OCR.Status == "" || result.OCR.Status == "success" || result.OCR.Status == "skipped" || result.OCR.Status == "completed_with_errors"
+	complete := isOCRComplete(result.OCR.Status)
 	if !complete {
 		value -= 20
 		deductions = append(deductions, ScoreDeduction{
