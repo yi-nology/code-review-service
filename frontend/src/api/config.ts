@@ -147,7 +147,7 @@ export async function deleteReviewerAgent(id: number): Promise<void> {
 }
 
 export async function getProjectAgents(provider: string, repo: string): Promise<{ provider: string; repo: string; agents: any[] }> {
-  return request.get(`/settings/projects/${provider}/${repo}/agents`) as any
+  return request.get('/settings/project-agents', { params: { provider, repo } }) as any
 }
 
 export async function updateProjectAgent(provider: string, repo: string, data: {
@@ -155,7 +155,7 @@ export async function updateProjectAgent(provider: string, repo: string, data: {
   enabled: boolean
   priority: number
 }): Promise<void> {
-  return request.put(`/settings/projects/${provider}/${repo}/agents`, data) as any
+  return request.put('/settings/project-agents', { ...data, provider, repo }) as any
 }
 
 export async function batchUpdateProjectAgents(provider: string, repo: string, agents: {
@@ -163,9 +163,9 @@ export async function batchUpdateProjectAgents(provider: string, repo: string, a
   enabled: boolean
   priority: number
 }[]): Promise<void> {
-  return request.post(`/settings/projects/${provider}/${repo}/agents/batch`, { agents }) as any
+  return request.post('/settings/project-agents/batch', { provider, repo, agents }) as any
 }
 
 export async function deleteProjectAgent(provider: string, repo: string, agentId: number): Promise<void> {
-  return request.delete(`/settings/projects/${provider}/${repo}/agents/${agentId}`) as any
+  return request.delete('/settings/project-agents', { data: { provider, repo, agent_id: agentId } }) as any
 }

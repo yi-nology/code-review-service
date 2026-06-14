@@ -2,18 +2,20 @@ package review_service
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/oekit/pkg/convert"
+	"github.com/oekit/pkg/ptrx"
+	"github.com/oekit/pkg/slicex"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
 
 // ProjectAgentHandler handles project agent configuration requests
 type ProjectAgentHandler struct {
-	projectAgentRepo repository.ProjectAgentRepository
+	projectAgentRepo  repository.ProjectAgentRepository
 	reviewerAgentRepo repository.ReviewerAgentRepository
 }
 
@@ -30,8 +32,8 @@ func NewProjectAgentHandler(
 
 // GetProjectAgents returns agent configuration for a project
 func (h *ProjectAgentHandler) GetProjectAgents(ctx context.Context, c *app.RequestContext) {
-	provider := c.Param("provider")
-	repo := c.Param("repo")
+	provider := c.Query("provider")
+	repo := c.Query("repo")
 
 	if provider == "" || repo == "" {
 		c.JSON(http.StatusBadRequest, map[string]interface{}{
@@ -85,8 +87,7 @@ func (h *ProjectAgentHandler) GetProjectAgents(ctx context.Context, c *app.Reque
 		ProjectPriority int    `json:"project_priority"`
 	}
 
-	var agents []AgentWithProjectConfig
-	for _, a := range allAgents {
+	agents := slicex.Map(allAgents, func(a models.ReviewerAgent) AgentWithProjectConfig {
 		agent := AgentWithProjectConfig{
 			AgentID:         a.ID,
 			Name:            a.Name,
@@ -102,8 +103,8 @@ func (h *ProjectAgentHandler) GetProjectAgents(ctx context.Context, c *app.Reque
 			agent.ProjectEnabled = pa.Enabled
 			agent.ProjectPriority = pa.Priority
 		}
-		agents = append(agents, agent)
-	}
+		return agent
+	})
 
 	c.JSON(http.StatusOK, map[string]interface{}{
 		"provider": provider,
@@ -114,27 +115,26 @@ func (h *ProjectAgentHandler) GetProjectAgents(ctx context.Context, c *app.Reque
 
 // UpdateProjectAgentRequest represents the request to update project agent config
 type UpdateProjectAgentRequest struct {
-	AgentID  uint `json:"agent_id" binding:"required"`
-	Enabled  bool `json:"enabled"`
-	Priority int  `json:"priority"`
+	Provider string `json:"provider" binding:"required"`
+	Repo     string `json:"repo" binding:"required"`
+	AgentID  uint   `json:"agent_id" binding:"required"`
+	Enabled  bool   `json:"enabled"`
+	Priority int    `json:"priority"`
 }
 
 // UpdateProjectAgent updates agent configuration for a project
 func (h *ProjectAgentHandler) UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
-	provider := c.Param("provider")
-	repo := c.Param("repo")
-
-	if provider == "" || repo == "" {
-		c.JSON(http.StatusBadRequest, map[string]interface{}{
-			"error": "provider and repo are required",
-		})
-		return
-	}
-
 	var req UpdateProjectAgentRequest
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, map[string]interface{}{
 			"error": "invalid request body",
+		})
+		return
+	}
+
+	if req.Provider == "" || req.Repo == "" {
+		c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"error": "provider and repo are required",
 		})
 		return
 	}
@@ -150,8 +150,8 @@ func (h *ProjectAgentHandler) UpdateProjectAgent(ctx context.Context, c *app.Req
 
 	// Upsert project agent
 	pa := &models.ProjectAgent{
-		Provider: provider,
-		Repo:     repo,
+		Provider: req.Provider,
+		Repo:     req.Repo,
 		AgentID:  req.AgentID,
 		Enabled:  req.Enabled,
 		Priority: req.Priority,
@@ -172,21 +172,20 @@ func (h *ProjectAgentHandler) UpdateProjectAgent(ctx context.Context, c *app.Req
 
 // BatchUpdateProjectAgentsRequest represents the request to batch update project agents
 type BatchUpdateProjectAgentsRequest struct {
-	Agents []UpdateProjectAgentRequest `json:"agents" binding:"required"`
+	Provider string                    `json:"provider" binding:"required"`
+	Repo     string                    `json:"repo" binding:"required"`
+	Agents   []UpdateProjectAgentData  `json:"agents" binding:"required"`
+}
+
+// UpdateProjectAgentData represents agent data for batch update
+type UpdateProjectAgentData struct {
+	AgentID  uint `json:"agent_id" binding:"required"`
+	Enabled  bool `json:"enabled"`
+	Priority int  `json:"priority"`
 }
 
 // BatchUpdateProjectAgents batch updates agent configuration for a project
 func (h *ProjectAgentHandler) BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
-	provider := c.Param("provider")
-	repo := c.Param("repo")
-
-	if provider == "" || repo == "" {
-		c.JSON(http.StatusBadRequest, map[string]interface{}{
-			"error": "provider and repo are required",
-		})
-		return
-	}
-
 	var req BatchUpdateProjectAgentsRequest
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, map[string]interface{}{
@@ -195,8 +194,15 @@ func (h *ProjectAgentHandler) BatchUpdateProjectAgents(ctx context.Context, c *a
 		return
 	}
 
+	if req.Provider == "" || req.Repo == "" {
+		c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"error": "provider and repo are required",
+		})
+		return
+	}
+
 	// Delete existing associations
-	if err := h.projectAgentRepo.DeleteByProject(ctx, provider, repo); err != nil {
+	if err := h.projectAgentRepo.DeleteByProject(ctx, req.Provider, req.Repo); err != nil {
 		hlog.Errorf("delete project agents failed: %v", err)
 		c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"error": "failed to update project agents",
@@ -207,8 +213,8 @@ func (h *ProjectAgentHandler) BatchUpdateProjectAgents(ctx context.Context, c *a
 	// Create new associations
 	for _, agentReq := range req.Agents {
 		pa := &models.ProjectAgent{
-			Provider: provider,
-			Repo:     repo,
+			Provider: req.Provider,
+			Repo:     req.Repo,
 			AgentID:  agentReq.AgentID,
 			Enabled:  agentReq.Enabled,
 			Priority: agentReq.Priority,
@@ -224,28 +230,31 @@ func (h *ProjectAgentHandler) BatchUpdateProjectAgents(ctx context.Context, c *a
 	})
 }
 
+// DeleteProjectAgentRequest represents the request to delete a project agent
+type DeleteProjectAgentRequest struct {
+	Provider string `json:"provider" binding:"required"`
+	Repo     string `json:"repo" binding:"required"`
+	AgentID  uint   `json:"agent_id" binding:"required"`
+}
+
 // DeleteProjectAgent removes an agent from a project
 func (h *ProjectAgentHandler) DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
-	provider := c.Param("provider")
-	repo := c.Param("repo")
-	agentID := c.Param("agentId")
+	var req DeleteProjectAgentRequest
+	if err := c.BindJSON(&req); err != nil {
+		// Try query params
+		req.Provider = c.Query("provider")
+		req.Repo = c.Query("repo")
+		req.AgentID = uint(convert.Str2Int(c.Query("agent_id"), 0))
+	}
 
-	if provider == "" || repo == "" || agentID == "" {
+	if req.Provider == "" || req.Repo == "" || req.AgentID == 0 {
 		c.JSON(http.StatusBadRequest, map[string]interface{}{
-			"error": "provider, repo, and agentId are required",
+			"error": "provider, repo, and agent_id are required",
 		})
 		return
 	}
 
-	var id uint
-	if _, err := fmt.Sscanf(agentID, "%d", &id); err != nil {
-		c.JSON(http.StatusBadRequest, map[string]interface{}{
-			"error": "invalid agent id",
-		})
-		return
-	}
-
-	if err := h.projectAgentRepo.Delete(ctx, provider, repo, id); err != nil {
+	if err := h.projectAgentRepo.Delete(ctx, req.Provider, req.Repo, req.AgentID); err != nil {
 		hlog.Errorf("delete project agent failed: %v", err)
 		c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"error": "failed to delete project agent",
@@ -261,4 +270,9 @@ func (h *ProjectAgentHandler) DeleteProjectAgent(ctx context.Context, c *app.Req
 // GetProjectAgentConfig returns the full agent configuration for a project (used internally)
 func (h *ProjectAgentHandler) GetProjectAgentConfig(ctx context.Context, provider, repo string) ([]models.ProjectAgent, error) {
 	return h.projectAgentRepo.GetEnabledByProject(ctx, provider, repo)
+}
+
+// Helper function
+func uintPtr(v uint) *uint {
+	return ptrx.Of(v)
 }

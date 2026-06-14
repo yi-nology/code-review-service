@@ -2,10 +2,11 @@ package review_service
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/session"
+	"github.com/oekit/pkg/convert"
+	"github.com/oekit/pkg/mathx"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -383,8 +384,8 @@ func (h *SessionHandler) CancelSession(ctx context.Context, c *app.RequestContex
 
 // ListSessions returns sessions with pagination
 func (h *SessionHandler) ListSessions(ctx context.Context, c *app.RequestContext) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page := mathx.Clamp(convert.Str2Int(c.DefaultQuery("page", "1"), 1), 1, 999999)
+	pageSize := mathx.Clamp(convert.Str2Int(c.DefaultQuery("page_size", "20"), 20), 1, 200)
 
 	sessions, total, err := h.sessionService.ListSessions(ctx, page, pageSize)
 	if err != nil {
@@ -396,10 +397,10 @@ func (h *SessionHandler) ListSessions(ctx context.Context, c *app.RequestContext
 	}
 
 	c.JSON(consts.StatusOK, map[string]interface{}{
-		"sessions":   sessions,
-		"total":      total,
-		"page":       page,
-		"page_size":  pageSize,
+		"sessions":    sessions,
+		"total":       total,
+		"page":        page,
+		"page_size":   pageSize,
 		"total_pages": (total + int64(pageSize) - 1) / int64(pageSize),
 	})
 }

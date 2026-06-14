@@ -13,7 +13,6 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"github.com/oekit/pkg/slicex"
-	"gorm.io/datatypes"
 )
 
 func (s *Service) run(ctx context.Context, id string, req Request, provider Provider) (Response, error) {
@@ -208,8 +207,8 @@ func (s *Service) generateAndSaveReviewMap(ctx context.Context, id string, req R
 		SessionID:      id, // Use review ID as session ID for single-agent mode
 		Title:          reviewMap.Title,
 		Description:    reviewMap.Description,
-		Sections:       marshalToJSON(reviewMap.Sections),
-		Dependencies:   marshalToJSON(reviewMap.Dependencies),
+		Sections:       mustMarshal(reviewMap.Sections),
+		Dependencies:   mustMarshal(reviewMap.Dependencies),
 		Summary:        reviewMap.Summary,
 		FileCount:      reviewMap.FileCount,
 		SectionCount:   reviewMap.SectionCount,
@@ -222,14 +221,5 @@ func (s *Service) generateAndSaveReviewMap(ctx context.Context, id string, req R
 	}
 
 	hlog.Info("review map generated and saved", "review_id", id, "map_id", reviewMap.ID, "sections", reviewMap.SectionCount, "files", reviewMap.FileCount)
-}
-
-// marshalToJSON marshals data to datatypes.JSON
-func marshalToJSON(data interface{}) datatypes.JSON {
-	result, err := json.Marshal(data)
-	if err != nil {
-		return datatypes.JSON([]byte("{}"))
-	}
-	return datatypes.JSON(result)
 }
 

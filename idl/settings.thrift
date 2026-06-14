@@ -43,6 +43,7 @@ struct OCRSettings {
     12: optional i64 max_git_procs (api.body="max_git_procs")
     13: optional i64 timeout_minutes (api.body="timeout_minutes")
     14: optional i64 max_tools (api.body="max_tools")
+    15: optional string background (api.body="background")
 }
 
 struct GetOCRSettingsResp {
@@ -62,7 +63,7 @@ struct ProjectPolicy {
     2: string repo (api.body="repo")
     3: string fail_on (api.body="fail_on")
     4: optional string ignore_paths (api.body="ignore_paths")
-    5: optional list<ReviewRule> rules (api.body="rules")
+    5: optional string rules (api.body="rules")
 }
 
 struct ListProjectPoliciesResp {
@@ -130,3 +131,52 @@ struct GitTestResult {
 struct TestPlatformResp {
     1: GitTestResult result (api.body="result")
 }
+
+struct ReviewerAgentInfo {
+    1: i64 id (api.body="id")
+    2: string name (api.body="name")
+    3: string display_name (api.body="display_name")
+    4: optional string description (api.body="description")
+    5: optional string background (api.body="background")
+    6: bool enabled (api.body="enabled")
+    7: i64 priority (api.body="priority")
+    8: optional string tags (api.body="tags")
+}
+
+struct ListReviewerAgentsResp {
+    1: list<ReviewerAgentInfo> agents (api.body="agents")
+}
+
+struct CreateReviewerAgentReq {
+    1: string name (api.body="name")
+    2: string display_name (api.body="display_name")
+    3: optional string description (api.body="description")
+    4: string background (api.body="background")
+    5: optional bool enabled (api.body="enabled")
+    6: optional i64 priority (api.body="priority")
+    7: optional list<string> tags (api.body="tags")
+}
+
+struct CreateReviewerAgentResp {
+    1: ReviewerAgentInfo agent (api.body="agent")
+}
+
+struct UpdateReviewerAgentReq {
+    1: string id (api.path="id")
+    2: optional string display_name (api.body="display_name")
+    3: optional string description (api.body="description")
+    4: optional string background (api.body="background")
+    5: optional bool enabled (api.body="enabled")
+    6: optional i64 priority (api.body="priority")
+    7: optional list<string> tags (api.body="tags")
+}
+
+struct UpdateReviewerAgentResp {
+    1: ReviewerAgentInfo agent (api.body="agent")
+}
+
+struct DeleteReviewerAgentReq {
+    1: string id (api.path="id")
+}
+
+struct DeleteReviewerAgentResp {}

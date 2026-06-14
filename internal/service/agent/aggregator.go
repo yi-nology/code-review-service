@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/oekit/pkg/slicex"
 	"github.com/google/uuid"
 )
 
@@ -96,10 +97,9 @@ func (a *DefaultAggregator) Aggregate(results []AgentResult) AggregatedResult {
 	})
 
 	// Convert to final findings
-	findings := make([]Finding, len(deduplicated))
-	for i, f := range deduplicated {
-		findings[i] = f.Finding
-	}
+	findings := slicex.Map(deduplicated, func(f FindingWithAgent) Finding {
+		return f.Finding
+	})
 
 	// Calculate overall confidence
 	overallConfidence := a.calculateOverallConfidence(findings, len(results))

@@ -84,10 +84,7 @@ func BuildReport(result *Result) Report {
 		}
 	}
 	if scoringWarnings > 0 {
-		points := scoringWarnings * 3
-		if points > 15 {
-			points = 15
-		}
+		points := mathx.Clamp(scoringWarnings*3, 0, 15)
 		value -= points
 		deductions = append(deductions, ScoreDeduction{
 			Reason: "OCR 审查警告",
@@ -119,12 +116,7 @@ func BuildReport(result *Result) Report {
 		})
 	}
 
-	if value > 100 {
-		value = 100
-	}
-	if value < 0 {
-		value = 0
-	}
+	value = mathx.Clamp(value, 0, 100)
 
 	return Report{
 		OCR:      result.OCR,

@@ -313,15 +313,6 @@ func (h *ReviewMapHandler) convertSessionFindings(sess *models.ReviewSession) []
 	return findings
 }
 
-// marshalJSON marshals data to JSON, returns nil on error
-func marshalJSON(data interface{}) json.RawMessage {
-	result, err := json.Marshal(data)
-	if err != nil {
-		return nil
-	}
-	return result
-}
-
 // marshalJSONToDatatypes marshals data to datatypes.JSON
 func marshalJSONToDatatypes(data interface{}) datatypes.JSON {
 	result, err := json.Marshal(data)

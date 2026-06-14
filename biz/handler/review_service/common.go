@@ -2,12 +2,15 @@ package review_service
 
 import (
 	"errors"
-	"strconv"
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/app"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/review"
+
+	"github.com/oekit/pkg/convert"
+	"github.com/oekit/pkg/mathx"
+	"github.com/oekit/pkg/ptrx"
 
 	mw "github.com/oekit/middleware"
 
@@ -17,14 +20,14 @@ import (
 )
 
 type ReviewHandler struct {
-	reviewSvc       app.ReviewService
-	ocrRepo         repository.OCRSettingsRepository
-	project         repository.ProjectPolicyRepository
-	platform        repository.GitPlatformRepository
-	globalRules     repository.GlobalRulesRepository
-	agentRepo       repository.ReviewerAgentRepository
-	gitMgr          app.GitProviderManager
-	llmTester       review.LLMTester
+	reviewSvc   app.ReviewService
+	ocrRepo     repository.OCRSettingsRepository
+	project     repository.ProjectPolicyRepository
+	platform    repository.GitPlatformRepository
+	globalRules repository.GlobalRulesRepository
+	agentRepo   repository.ReviewerAgentRepository
+	gitMgr      app.GitProviderManager
+	llmTester   review.LLMTester
 }
 
 func NewReviewHandler(
@@ -39,13 +42,13 @@ func NewReviewHandler(
 ) *ReviewHandler {
 	return &ReviewHandler{
 		reviewSvc:   svc,
-		ocrRepo:    ocrRepo,
-		project:    project,
-		platform:   platform,
+		ocrRepo:     ocrRepo,
+		project:     project,
+		platform:    platform,
 		globalRules: globalRules,
-		agentRepo:  agentRepo,
-		gitMgr:     gitMgr,
-		llmTester:  llmTester,
+		agentRepo:   agentRepo,
+		gitMgr:      gitMgr,
+		llmTester:   llmTester,
 	}
 }
 
@@ -64,30 +67,29 @@ func fail(c *hertzApp.RequestContext, err error) {
 }
 
 func badRequest(msg string) error {
-	return &mw.BizError{Code: 400, Message: msg}
+	return mw.NewBadRequestError(msg)
 }
 
 func notFound(msg string) error {
-	return &mw.BizError{Code: 404, Message: msg}
+	return mw.NewNotFoundError(msg)
 }
 
 func bizErr(code int, msg string) error {
-	return &mw.BizError{Code: code, Message: msg}
+	return mw.NewBizError(code, msg)
 }
 
 func pageParams(pageStr, pageSizeStr string) (int, int) {
-	const maxPageSize = 200
-	page, _ := strconv.Atoi(pageStr)
+	const (
+		defaultPage     = 1
+		defaultPageSize = 20
+		maxPageSize     = 200
+	)
+	page := convert.Str2Int(pageStr, defaultPage)
 	if page <= 0 {
-		page = 1
+		page = defaultPage
 	}
-	pageSize, _ := strconv.Atoi(pageSizeStr)
-	if pageSize <= 0 {
-		pageSize = 20
-	}
-	if pageSize > maxPageSize {
-		pageSize = maxPageSize
-	}
+	pageSize := convert.Str2Int(pageSizeStr, defaultPageSize)
+	pageSize = mathx.Clamp(pageSize, 1, maxPageSize)
 	return page, pageSize
 }
 
@@ -102,13 +104,21 @@ func maskWebhookSecret(secret string) *string {
 	if secret == "" {
 		return nil
 	}
-	return strPtr("***")
+	return ptrx.Of("***")
 }
 
-func strPtr(s string) *string        { if s == "" { return nil }; return &s }
+func strPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
 
 func cleanQuery(s string) string {
 	return strings.TrimSpace(s)
 }
+
+func toInt64Ptr(v int64) *int64   { return ptrx.Of(v) }
+func toFloat64Ptr(v float64) *float64 { return ptrx.Of(v) }
 
 const timeFormat = "2006-01-02T15:04:05Z"

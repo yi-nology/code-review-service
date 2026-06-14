@@ -9,6 +9,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/webhook"
 
+	"github.com/oekit/pkg/convert"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
@@ -115,8 +116,8 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 		Provider:        event.Provider,
 		Repo:            event.Repository,
 		ProjectID:       event.RepositoryID,
-		PullRequestID:   fmt.Sprintf("%d", event.Number),
-		MergeRequestIID: fmt.Sprintf("%d", event.Number),
+		PullRequestID:   convert.IntToStr(event.Number),
+		MergeRequestIID: convert.IntToStr(event.Number),
 		BaseSHA:         event.BaseSHA,
 		HeadSHA:         event.HeadSHA,
 		CallbackMode:    "comment",

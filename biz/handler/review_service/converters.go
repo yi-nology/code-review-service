@@ -7,6 +7,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review"
 
 	"github.com/oekit/pkg/ptrx"
+	"github.com/oekit/pkg/slicex"
 )
 
 func convertGate(g review.Gate) *modelReview.Gate {
@@ -51,9 +52,9 @@ func convertDetail(r review.Record) modelReview.ReviewDetail {
 		Report:          convertReport(r.Response.Report),
 		RawOcr:          strPtr(string(r.RawOCR)),
 		Error:           strPtr(r.Response.Error),
-		Author:          r.Request.Author,
-		AuthorName:      r.Request.AuthorName,
-		AuthorAvatar:    r.Request.AuthorAvatar,
+		Author:          strPtr(r.Request.Author),
+		AuthorName:      strPtr(r.Request.AuthorName),
+		AuthorAvatar:    strPtr(r.Request.AuthorAvatar),
 		CreatedAt:       strPtr(r.CreatedAt.Format(timeFormat)),
 		UpdatedAt:       strPtr(r.UpdatedAt.Format(timeFormat)),
 	}
@@ -67,8 +68,8 @@ func convertReport(r review.Report) *modelReview.Report {
 			Value:           int64(r.Score.Value),
 			Grade:           r.Score.Grade,
 			Version:         r.Score.Version,
-			ChangedLines:    int64(r.Score.ChangedLines),
-			FindingsDensity: r.Score.FindingsDensity,
+			ChangedLines:    toInt64Ptr(int64(r.Score.ChangedLines)),
+			FindingsDensity: toFloat64Ptr(r.Score.FindingsDensity),
 		},
 		Counts: &modelReview.SeverityCounts{
 			Critical: int64(r.Counts.Critical),
@@ -118,30 +119,27 @@ func convertEvents(events []review.Event) []*modelReview.Event {
 	if len(events) == 0 {
 		return nil
 	}
-	out := make([]*modelReview.Event, 0, len(events))
-	for _, e := range events {
+	return slicex.Map(events, func(e review.Event) *modelReview.Event {
 		details := make(map[string]string, len(e.Details))
 		for k, v := range e.Details {
 			details[k] = fmt.Sprintf("%v", v)
 		}
-		out = append(out, &modelReview.Event{
+		return &modelReview.Event{
 			Stage:     e.Stage,
 			Status:    e.Status,
 			Message:   e.Message,
 			Details:   details,
 			CreatedAt: strPtr(e.CreatedAt.Format(timeFormat)),
-		})
-	}
-	return out
+		}
+	})
 }
 
 func convertFindings(findings []review.Finding) []*modelReview.Finding {
 	if len(findings) == 0 {
 		return nil
 	}
-	out := make([]*modelReview.Finding, 0, len(findings))
-	for _, f := range findings {
-		out = append(out, &modelReview.Finding{
+	return slicex.Map(findings, func(f review.Finding) *modelReview.Finding {
+		return &modelReview.Finding{
 			Severity:       string(f.Severity),
 			Category:       strPtr(f.Category),
 			Path:           strPtr(f.Path),
@@ -152,7 +150,6 @@ func convertFindings(findings []review.Finding) []*modelReview.Finding {
 			Body:           f.Body,
 			ExistingCode:   strPtr(f.ExistingCode),
 			SuggestionCode: strPtr(f.SuggestionCode),
-		})
-	}
-	return out
+		}
+	})
 }

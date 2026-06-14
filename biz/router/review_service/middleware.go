@@ -21,12 +21,167 @@ func _v1Mw() []app.HandlerFunc {
 	return nil
 }
 
+func _reviewsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
 func _listreviewsMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
 
-func _reviewsMw() []app.HandlerFunc {
+func _previewreviewMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _idMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _cancelreviewMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _mapsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getmapsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getmapMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _previewmapMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _generatemapMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _previewcommentMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _progressMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _handleprogresswsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getprogressMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _publishreviewMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _updatepublishedcommentMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _rerunreviewMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _sessionsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getsessionsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getactivesessionMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _sessionidMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getsessionMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _updatesessionagentresultsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _cancelsessionMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _completesessionMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _updatesessiondiscussionMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _failsessionMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _updatesessionfinalreportMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getsessionmapMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _updatesessionphaseMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _updatesessionstatusMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _createsessionMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _reviews0Mw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
@@ -41,7 +196,97 @@ func _getreviewMw() []app.HandlerFunc {
 	return nil
 }
 
+func _listsessionsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _platformsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _providerMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _reposMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _listproviderreposMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _ownerMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _repoMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getbranchshaMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _listproviderbranchesMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _listproviderpullsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _progress0Mw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getactivereviewsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
 func _settingsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _agentsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _listrevieweragentsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _deleterevieweragentMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _updaterevieweragentMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _createrevieweragentMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _ocrMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
@@ -51,12 +296,17 @@ func _getocrsettingsMw() []app.HandlerFunc {
 	return nil
 }
 
+func _testllmMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
 func _updateocrsettingsMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
 
-func _platformsMw() []app.HandlerFunc {
+func _platforms0Mw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
@@ -81,6 +331,31 @@ func _putplatformMw() []app.HandlerFunc {
 	return nil
 }
 
+func _deleteprojectagentMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _project_agentsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getprojectagentsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _batchupdateprojectagentsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _updateprojectagentMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
 func _deleteprojectpolicyMw() []app.HandlerFunc {
 	// your code...
 	return nil
@@ -92,17 +367,71 @@ func _listprojectpoliciesMw() []app.HandlerFunc {
 }
 
 func _putprojectpolicyMw() []app.HandlerFunc {
+	// your code...
 	return nil
 }
 
-func _webhookMw() []app.HandlerFunc {
+func _rulesMw() []app.HandlerFunc {
+	// your code...
 	return nil
 }
 
-func _rerunreviewMw() []app.HandlerFunc {
+func _getglobalrulesMw() []app.HandlerFunc {
+	// your code...
 	return nil
 }
 
-func _cancelreviewMw() []app.HandlerFunc {
+func _updateglobalrulesMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _statsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _contributorsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _listcontributorsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _authorMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getcontributorMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getcontributorcategoriesMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getcontributortrendMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _webhooksMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _provider0Mw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _handlewebhookMw() []app.HandlerFunc {
+	// your code...
 	return nil
 }
