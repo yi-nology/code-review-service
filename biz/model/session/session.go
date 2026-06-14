@@ -7,6 +7,856 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 )
 
+type ReviewSession struct {
+	ID           int64   `thrift:"id,1" form:"id" json:"id"`
+	SessionID    string  `thrift:"session_id,2" form:"session_id" json:"session_id"`
+	ReviewID     string  `thrift:"review_id,3" form:"review_id" json:"review_id"`
+	Round        int64   `thrift:"round,4" form:"round" json:"round"`
+	Phase        string  `thrift:"phase,5" form:"phase" json:"phase"`
+	Status       string  `thrift:"status,6" form:"status" json:"status"`
+	Progress     float64 `thrift:"progress,7" form:"progress" json:"progress"`
+	AgentResults *string `thrift:"agent_results,8,optional" form:"agent_results" json:"agent_results,omitempty"`
+	Discussion   *string `thrift:"discussion,9,optional" form:"discussion" json:"discussion,omitempty"`
+	FinalReport  *string `thrift:"final_report,10,optional" form:"final_report" json:"final_report,omitempty"`
+	Requirements *string `thrift:"requirements,11,optional" form:"requirements" json:"requirements,omitempty"`
+	Metadata     *string `thrift:"metadata,12,optional" form:"metadata" json:"metadata,omitempty"`
+	CompletedAt  *string `thrift:"completed_at,13,optional" form:"completed_at" json:"completed_at,omitempty"`
+	CreatedAt    string  `thrift:"created_at,14" form:"created_at" json:"created_at"`
+	UpdatedAt    string  `thrift:"updated_at,15" form:"updated_at" json:"updated_at"`
+}
+
+func NewReviewSession() *ReviewSession {
+	return &ReviewSession{}
+}
+
+func (p *ReviewSession) InitDefault() {
+}
+
+func (p *ReviewSession) GetID() (v int64) {
+	return p.ID
+}
+
+func (p *ReviewSession) GetSessionID() (v string) {
+	return p.SessionID
+}
+
+func (p *ReviewSession) GetReviewID() (v string) {
+	return p.ReviewID
+}
+
+func (p *ReviewSession) GetRound() (v int64) {
+	return p.Round
+}
+
+func (p *ReviewSession) GetPhase() (v string) {
+	return p.Phase
+}
+
+func (p *ReviewSession) GetStatus() (v string) {
+	return p.Status
+}
+
+func (p *ReviewSession) GetProgress() (v float64) {
+	return p.Progress
+}
+
+var ReviewSession_AgentResults_DEFAULT string
+
+func (p *ReviewSession) GetAgentResults() (v string) {
+	if !p.IsSetAgentResults() {
+		return ReviewSession_AgentResults_DEFAULT
+	}
+	return *p.AgentResults
+}
+
+var ReviewSession_Discussion_DEFAULT string
+
+func (p *ReviewSession) GetDiscussion() (v string) {
+	if !p.IsSetDiscussion() {
+		return ReviewSession_Discussion_DEFAULT
+	}
+	return *p.Discussion
+}
+
+var ReviewSession_FinalReport_DEFAULT string
+
+func (p *ReviewSession) GetFinalReport() (v string) {
+	if !p.IsSetFinalReport() {
+		return ReviewSession_FinalReport_DEFAULT
+	}
+	return *p.FinalReport
+}
+
+var ReviewSession_Requirements_DEFAULT string
+
+func (p *ReviewSession) GetRequirements() (v string) {
+	if !p.IsSetRequirements() {
+		return ReviewSession_Requirements_DEFAULT
+	}
+	return *p.Requirements
+}
+
+var ReviewSession_Metadata_DEFAULT string
+
+func (p *ReviewSession) GetMetadata() (v string) {
+	if !p.IsSetMetadata() {
+		return ReviewSession_Metadata_DEFAULT
+	}
+	return *p.Metadata
+}
+
+var ReviewSession_CompletedAt_DEFAULT string
+
+func (p *ReviewSession) GetCompletedAt() (v string) {
+	if !p.IsSetCompletedAt() {
+		return ReviewSession_CompletedAt_DEFAULT
+	}
+	return *p.CompletedAt
+}
+
+func (p *ReviewSession) GetCreatedAt() (v string) {
+	return p.CreatedAt
+}
+
+func (p *ReviewSession) GetUpdatedAt() (v string) {
+	return p.UpdatedAt
+}
+
+var fieldIDToName_ReviewSession = map[int16]string{
+	1:  "id",
+	2:  "session_id",
+	3:  "review_id",
+	4:  "round",
+	5:  "phase",
+	6:  "status",
+	7:  "progress",
+	8:  "agent_results",
+	9:  "discussion",
+	10: "final_report",
+	11: "requirements",
+	12: "metadata",
+	13: "completed_at",
+	14: "created_at",
+	15: "updated_at",
+}
+
+func (p *ReviewSession) IsSetAgentResults() bool {
+	return p.AgentResults != nil
+}
+
+func (p *ReviewSession) IsSetDiscussion() bool {
+	return p.Discussion != nil
+}
+
+func (p *ReviewSession) IsSetFinalReport() bool {
+	return p.FinalReport != nil
+}
+
+func (p *ReviewSession) IsSetRequirements() bool {
+	return p.Requirements != nil
+}
+
+func (p *ReviewSession) IsSetMetadata() bool {
+	return p.Metadata != nil
+}
+
+func (p *ReviewSession) IsSetCompletedAt() bool {
+	return p.CompletedAt != nil
+}
+
+func (p *ReviewSession) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField2(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 3:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField3(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 4:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField4(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 5:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField5(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 6:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField6(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 7:
+			if fieldTypeId == thrift.DOUBLE {
+				if err = p.ReadField7(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 8:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField8(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 9:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField9(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 10:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField10(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 11:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField11(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 12:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField12(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 13:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField13(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 14:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField14(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 15:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField15(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewSession[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *ReviewSession) ReadField1(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.ID = _field
+	return nil
+}
+func (p *ReviewSession) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.SessionID = _field
+	return nil
+}
+func (p *ReviewSession) ReadField3(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.ReviewID = _field
+	return nil
+}
+func (p *ReviewSession) ReadField4(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Round = _field
+	return nil
+}
+func (p *ReviewSession) ReadField5(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Phase = _field
+	return nil
+}
+func (p *ReviewSession) ReadField6(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Status = _field
+	return nil
+}
+func (p *ReviewSession) ReadField7(iprot thrift.TProtocol) error {
+
+	var _field float64
+	if v, err := iprot.ReadDouble(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Progress = _field
+	return nil
+}
+func (p *ReviewSession) ReadField8(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.AgentResults = _field
+	return nil
+}
+func (p *ReviewSession) ReadField9(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.Discussion = _field
+	return nil
+}
+func (p *ReviewSession) ReadField10(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.FinalReport = _field
+	return nil
+}
+func (p *ReviewSession) ReadField11(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.Requirements = _field
+	return nil
+}
+func (p *ReviewSession) ReadField12(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.Metadata = _field
+	return nil
+}
+func (p *ReviewSession) ReadField13(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.CompletedAt = _field
+	return nil
+}
+func (p *ReviewSession) ReadField14(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.CreatedAt = _field
+	return nil
+}
+func (p *ReviewSession) ReadField15(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.UpdatedAt = _field
+	return nil
+}
+
+func (p *ReviewSession) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("ReviewSession"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
+			goto WriteFieldError
+		}
+		if err = p.writeField3(oprot); err != nil {
+			fieldId = 3
+			goto WriteFieldError
+		}
+		if err = p.writeField4(oprot); err != nil {
+			fieldId = 4
+			goto WriteFieldError
+		}
+		if err = p.writeField5(oprot); err != nil {
+			fieldId = 5
+			goto WriteFieldError
+		}
+		if err = p.writeField6(oprot); err != nil {
+			fieldId = 6
+			goto WriteFieldError
+		}
+		if err = p.writeField7(oprot); err != nil {
+			fieldId = 7
+			goto WriteFieldError
+		}
+		if err = p.writeField8(oprot); err != nil {
+			fieldId = 8
+			goto WriteFieldError
+		}
+		if err = p.writeField9(oprot); err != nil {
+			fieldId = 9
+			goto WriteFieldError
+		}
+		if err = p.writeField10(oprot); err != nil {
+			fieldId = 10
+			goto WriteFieldError
+		}
+		if err = p.writeField11(oprot); err != nil {
+			fieldId = 11
+			goto WriteFieldError
+		}
+		if err = p.writeField12(oprot); err != nil {
+			fieldId = 12
+			goto WriteFieldError
+		}
+		if err = p.writeField13(oprot); err != nil {
+			fieldId = 13
+			goto WriteFieldError
+		}
+		if err = p.writeField14(oprot); err != nil {
+			fieldId = 14
+			goto WriteFieldError
+		}
+		if err = p.writeField15(oprot); err != nil {
+			fieldId = 15
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *ReviewSession) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("id", thrift.I64, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.ID); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *ReviewSession) writeField2(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("session_id", thrift.STRING, 2); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.SessionID); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
+func (p *ReviewSession) writeField3(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("review_id", thrift.STRING, 3); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.ReviewID); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 end error: ", p), err)
+}
+
+func (p *ReviewSession) writeField4(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("round", thrift.I64, 4); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.Round); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 end error: ", p), err)
+}
+
+func (p *ReviewSession) writeField5(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("phase", thrift.STRING, 5); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Phase); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 end error: ", p), err)
+}
+
+func (p *ReviewSession) writeField6(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("status", thrift.STRING, 6); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Status); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 6 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 6 end error: ", p), err)
+}
+
+func (p *ReviewSession) writeField7(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("progress", thrift.DOUBLE, 7); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteDouble(p.Progress); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 7 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 7 end error: ", p), err)
+}
+
+func (p *ReviewSession) writeField8(oprot thrift.TProtocol) (err error) {
+	if p.IsSetAgentResults() {
+		if err = oprot.WriteFieldBegin("agent_results", thrift.STRING, 8); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.AgentResults); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 8 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 8 end error: ", p), err)
+}
+
+func (p *ReviewSession) writeField9(oprot thrift.TProtocol) (err error) {
+	if p.IsSetDiscussion() {
+		if err = oprot.WriteFieldBegin("discussion", thrift.STRING, 9); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.Discussion); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 9 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 9 end error: ", p), err)
+}
+
+func (p *ReviewSession) writeField10(oprot thrift.TProtocol) (err error) {
+	if p.IsSetFinalReport() {
+		if err = oprot.WriteFieldBegin("final_report", thrift.STRING, 10); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.FinalReport); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 10 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 10 end error: ", p), err)
+}
+
+func (p *ReviewSession) writeField11(oprot thrift.TProtocol) (err error) {
+	if p.IsSetRequirements() {
+		if err = oprot.WriteFieldBegin("requirements", thrift.STRING, 11); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.Requirements); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 11 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 11 end error: ", p), err)
+}
+
+func (p *ReviewSession) writeField12(oprot thrift.TProtocol) (err error) {
+	if p.IsSetMetadata() {
+		if err = oprot.WriteFieldBegin("metadata", thrift.STRING, 12); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.Metadata); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 12 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 12 end error: ", p), err)
+}
+
+func (p *ReviewSession) writeField13(oprot thrift.TProtocol) (err error) {
+	if p.IsSetCompletedAt() {
+		if err = oprot.WriteFieldBegin("completed_at", thrift.STRING, 13); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.CompletedAt); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 13 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 13 end error: ", p), err)
+}
+
+func (p *ReviewSession) writeField14(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("created_at", thrift.STRING, 14); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.CreatedAt); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 14 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 14 end error: ", p), err)
+}
+
+func (p *ReviewSession) writeField15(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("updated_at", thrift.STRING, 15); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.UpdatedAt); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 15 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 15 end error: ", p), err)
+}
+
+func (p *ReviewSession) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("ReviewSession(%+v)", *p)
+
+}
+
 type GetSessionsReq struct {
 	ID string `thrift:"id,1" json:"id" path:"id"`
 }
@@ -148,7 +998,7 @@ func (p *GetSessionsReq) String() string {
 }
 
 type GetSessionsResp struct {
-	Sessions string `thrift:"sessions,1" form:"sessions" json:"sessions"`
+	Sessions []*ReviewSession `thrift:"sessions,1,default,list<ReviewSession>" form:"sessions" json:"sessions"`
 }
 
 func NewGetSessionsResp() *GetSessionsResp {
@@ -158,7 +1008,7 @@ func NewGetSessionsResp() *GetSessionsResp {
 func (p *GetSessionsResp) InitDefault() {
 }
 
-func (p *GetSessionsResp) GetSessions() (v string) {
+func (p *GetSessionsResp) GetSessions() (v []*ReviewSession) {
 	return p.Sessions
 }
 
@@ -186,7 +1036,7 @@ func (p *GetSessionsResp) Read(iprot thrift.TProtocol) (err error) {
 
 		switch fieldId {
 		case 1:
-			if fieldTypeId == thrift.STRING {
+			if fieldTypeId == thrift.LIST {
 				if err = p.ReadField1(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -223,12 +1073,24 @@ ReadStructEndError:
 }
 
 func (p *GetSessionsResp) ReadField1(iprot thrift.TProtocol) error {
-
-	var _field string
-	if v, err := iprot.ReadString(); err != nil {
+	_, size, err := iprot.ReadListBegin()
+	if err != nil {
 		return err
-	} else {
-		_field = v
+	}
+	_field := make([]*ReviewSession, 0, size)
+	values := make([]ReviewSession, size)
+	for i := 0; i < size; i++ {
+		_elem := &values[i]
+		_elem.InitDefault()
+
+		if err := _elem.Read(iprot); err != nil {
+			return err
+		}
+
+		_field = append(_field, _elem)
+	}
+	if err := iprot.ReadListEnd(); err != nil {
+		return err
 	}
 	p.Sessions = _field
 	return nil
@@ -263,10 +1125,18 @@ WriteStructEndError:
 }
 
 func (p *GetSessionsResp) writeField1(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("sessions", thrift.STRING, 1); err != nil {
+	if err = oprot.WriteFieldBegin("sessions", thrift.LIST, 1); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteString(p.Sessions); err != nil {
+	if err := oprot.WriteListBegin(thrift.STRUCT, len(p.Sessions)); err != nil {
+		return err
+	}
+	for _, v := range p.Sessions {
+		if err := v.Write(oprot); err != nil {
+			return err
+		}
+	}
+	if err := oprot.WriteListEnd(); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -428,7 +1298,7 @@ func (p *CreateSessionReq) String() string {
 }
 
 type CreateSessionResp struct {
-	Session string `thrift:"session,1" form:"session" json:"session"`
+	Session *ReviewSession `thrift:"session,1" form:"session" json:"session"`
 }
 
 func NewCreateSessionResp() *CreateSessionResp {
@@ -438,12 +1308,21 @@ func NewCreateSessionResp() *CreateSessionResp {
 func (p *CreateSessionResp) InitDefault() {
 }
 
-func (p *CreateSessionResp) GetSession() (v string) {
+var CreateSessionResp_Session_DEFAULT *ReviewSession
+
+func (p *CreateSessionResp) GetSession() (v *ReviewSession) {
+	if !p.IsSetSession() {
+		return CreateSessionResp_Session_DEFAULT
+	}
 	return p.Session
 }
 
 var fieldIDToName_CreateSessionResp = map[int16]string{
 	1: "session",
+}
+
+func (p *CreateSessionResp) IsSetSession() bool {
+	return p.Session != nil
 }
 
 func (p *CreateSessionResp) Read(iprot thrift.TProtocol) (err error) {
@@ -466,7 +1345,7 @@ func (p *CreateSessionResp) Read(iprot thrift.TProtocol) (err error) {
 
 		switch fieldId {
 		case 1:
-			if fieldTypeId == thrift.STRING {
+			if fieldTypeId == thrift.STRUCT {
 				if err = p.ReadField1(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -503,12 +1382,9 @@ ReadStructEndError:
 }
 
 func (p *CreateSessionResp) ReadField1(iprot thrift.TProtocol) error {
-
-	var _field string
-	if v, err := iprot.ReadString(); err != nil {
+	_field := NewReviewSession()
+	if err := _field.Read(iprot); err != nil {
 		return err
-	} else {
-		_field = v
 	}
 	p.Session = _field
 	return nil
@@ -543,10 +1419,10 @@ WriteStructEndError:
 }
 
 func (p *CreateSessionResp) writeField1(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("session", thrift.STRING, 1); err != nil {
+	if err = oprot.WriteFieldBegin("session", thrift.STRUCT, 1); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteString(p.Session); err != nil {
+	if err := p.Session.Write(oprot); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -708,7 +1584,7 @@ func (p *GetActiveSessionReq) String() string {
 }
 
 type GetActiveSessionResp struct {
-	Session string `thrift:"session,1" form:"session" json:"session"`
+	Session *ReviewSession `thrift:"session,1" form:"session" json:"session"`
 }
 
 func NewGetActiveSessionResp() *GetActiveSessionResp {
@@ -718,12 +1594,21 @@ func NewGetActiveSessionResp() *GetActiveSessionResp {
 func (p *GetActiveSessionResp) InitDefault() {
 }
 
-func (p *GetActiveSessionResp) GetSession() (v string) {
+var GetActiveSessionResp_Session_DEFAULT *ReviewSession
+
+func (p *GetActiveSessionResp) GetSession() (v *ReviewSession) {
+	if !p.IsSetSession() {
+		return GetActiveSessionResp_Session_DEFAULT
+	}
 	return p.Session
 }
 
 var fieldIDToName_GetActiveSessionResp = map[int16]string{
 	1: "session",
+}
+
+func (p *GetActiveSessionResp) IsSetSession() bool {
+	return p.Session != nil
 }
 
 func (p *GetActiveSessionResp) Read(iprot thrift.TProtocol) (err error) {
@@ -746,7 +1631,7 @@ func (p *GetActiveSessionResp) Read(iprot thrift.TProtocol) (err error) {
 
 		switch fieldId {
 		case 1:
-			if fieldTypeId == thrift.STRING {
+			if fieldTypeId == thrift.STRUCT {
 				if err = p.ReadField1(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -783,12 +1668,9 @@ ReadStructEndError:
 }
 
 func (p *GetActiveSessionResp) ReadField1(iprot thrift.TProtocol) error {
-
-	var _field string
-	if v, err := iprot.ReadString(); err != nil {
+	_field := NewReviewSession()
+	if err := _field.Read(iprot); err != nil {
 		return err
-	} else {
-		_field = v
 	}
 	p.Session = _field
 	return nil
@@ -823,10 +1705,10 @@ WriteStructEndError:
 }
 
 func (p *GetActiveSessionResp) writeField1(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("session", thrift.STRING, 1); err != nil {
+	if err = oprot.WriteFieldBegin("session", thrift.STRUCT, 1); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteString(p.Session); err != nil {
+	if err := p.Session.Write(oprot); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -1034,7 +1916,7 @@ func (p *GetSessionReq) String() string {
 }
 
 type GetSessionResp struct {
-	Session string `thrift:"session,1" form:"session" json:"session"`
+	Session *ReviewSession `thrift:"session,1" form:"session" json:"session"`
 }
 
 func NewGetSessionResp() *GetSessionResp {
@@ -1044,12 +1926,21 @@ func NewGetSessionResp() *GetSessionResp {
 func (p *GetSessionResp) InitDefault() {
 }
 
-func (p *GetSessionResp) GetSession() (v string) {
+var GetSessionResp_Session_DEFAULT *ReviewSession
+
+func (p *GetSessionResp) GetSession() (v *ReviewSession) {
+	if !p.IsSetSession() {
+		return GetSessionResp_Session_DEFAULT
+	}
 	return p.Session
 }
 
 var fieldIDToName_GetSessionResp = map[int16]string{
 	1: "session",
+}
+
+func (p *GetSessionResp) IsSetSession() bool {
+	return p.Session != nil
 }
 
 func (p *GetSessionResp) Read(iprot thrift.TProtocol) (err error) {
@@ -1072,7 +1963,7 @@ func (p *GetSessionResp) Read(iprot thrift.TProtocol) (err error) {
 
 		switch fieldId {
 		case 1:
-			if fieldTypeId == thrift.STRING {
+			if fieldTypeId == thrift.STRUCT {
 				if err = p.ReadField1(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -1109,12 +2000,9 @@ ReadStructEndError:
 }
 
 func (p *GetSessionResp) ReadField1(iprot thrift.TProtocol) error {
-
-	var _field string
-	if v, err := iprot.ReadString(); err != nil {
+	_field := NewReviewSession()
+	if err := _field.Read(iprot); err != nil {
 		return err
-	} else {
-		_field = v
 	}
 	p.Session = _field
 	return nil
@@ -1149,10 +2037,10 @@ WriteStructEndError:
 }
 
 func (p *GetSessionResp) writeField1(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("session", thrift.STRING, 1); err != nil {
+	if err = oprot.WriteFieldBegin("session", thrift.STRUCT, 1); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteString(p.Session); err != nil {
+	if err := p.Session.Write(oprot); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -4369,11 +5257,11 @@ func (p *ListSessionsReq) String() string {
 }
 
 type ListSessionsResp struct {
-	Sessions   string `thrift:"sessions,1" form:"sessions" json:"sessions"`
-	Total      int64  `thrift:"total,2" form:"total" json:"total"`
-	Page       int64  `thrift:"page,3" form:"page" json:"page"`
-	PageSize   int64  `thrift:"page_size,4" form:"page_size" json:"page_size"`
-	TotalPages int64  `thrift:"total_pages,5" form:"total_pages" json:"total_pages"`
+	Sessions   []*ReviewSession `thrift:"sessions,1,default,list<ReviewSession>" form:"sessions" json:"sessions"`
+	Total      int64            `thrift:"total,2" form:"total" json:"total"`
+	Page       int64            `thrift:"page,3" form:"page" json:"page"`
+	PageSize   int64            `thrift:"page_size,4" form:"page_size" json:"page_size"`
+	TotalPages int64            `thrift:"total_pages,5" form:"total_pages" json:"total_pages"`
 }
 
 func NewListSessionsResp() *ListSessionsResp {
@@ -4383,7 +5271,7 @@ func NewListSessionsResp() *ListSessionsResp {
 func (p *ListSessionsResp) InitDefault() {
 }
 
-func (p *ListSessionsResp) GetSessions() (v string) {
+func (p *ListSessionsResp) GetSessions() (v []*ReviewSession) {
 	return p.Sessions
 }
 
@@ -4431,7 +5319,7 @@ func (p *ListSessionsResp) Read(iprot thrift.TProtocol) (err error) {
 
 		switch fieldId {
 		case 1:
-			if fieldTypeId == thrift.STRING {
+			if fieldTypeId == thrift.LIST {
 				if err = p.ReadField1(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -4500,12 +5388,24 @@ ReadStructEndError:
 }
 
 func (p *ListSessionsResp) ReadField1(iprot thrift.TProtocol) error {
-
-	var _field string
-	if v, err := iprot.ReadString(); err != nil {
+	_, size, err := iprot.ReadListBegin()
+	if err != nil {
 		return err
-	} else {
-		_field = v
+	}
+	_field := make([]*ReviewSession, 0, size)
+	values := make([]ReviewSession, size)
+	for i := 0; i < size; i++ {
+		_elem := &values[i]
+		_elem.InitDefault()
+
+		if err := _elem.Read(iprot); err != nil {
+			return err
+		}
+
+		_field = append(_field, _elem)
+	}
+	if err := iprot.ReadListEnd(); err != nil {
+		return err
 	}
 	p.Sessions = _field
 	return nil
@@ -4600,10 +5500,18 @@ WriteStructEndError:
 }
 
 func (p *ListSessionsResp) writeField1(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("sessions", thrift.STRING, 1); err != nil {
+	if err = oprot.WriteFieldBegin("sessions", thrift.LIST, 1); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteString(p.Sessions); err != nil {
+	if err := oprot.WriteListBegin(thrift.STRUCT, len(p.Sessions)); err != nil {
+		return err
+	}
+	for _, v := range p.Sessions {
+		if err := v.Write(oprot); err != nil {
+			return err
+		}
+	}
+	if err := oprot.WriteListEnd(); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {

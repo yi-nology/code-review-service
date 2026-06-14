@@ -41,9 +41,10 @@ func (r *ProjectAgentRepo) GetEnabledByProject(ctx context.Context, provider, re
 
 // Upsert creates or updates a project agent association
 func (r *ProjectAgentRepo) Upsert(ctx context.Context, pa *models.ProjectAgent) error {
-	// Check if exists
+	// Check if exists (including soft-deleted records)
 	var existing models.ProjectAgent
 	err := r.db.WithContext(ctx).
+		Unscoped().
 		Where("provider = ? AND repo = ? AND agent_id = ?", pa.Provider, pa.Repo, pa.AgentID).
 		First(&existing).Error
 
@@ -53,6 +54,18 @@ func (r *ProjectAgentRepo) Upsert(ctx context.Context, pa *models.ProjectAgent) 
 	}
 	if err != nil {
 		return err
+	}
+
+	if existing.DeletedAt.Valid {
+		// Restore soft-deleted record
+		return r.db.WithContext(ctx).
+			Model(&existing).
+			Unscoped().
+			Updates(map[string]interface{}{
+				"deleted_at": nil,
+				"enabled":    pa.Enabled,
+				"priority":   pa.Priority,
+			}).Error
 	}
 
 	// Update existing

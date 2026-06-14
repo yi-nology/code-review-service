@@ -86,7 +86,7 @@ func GetSessions(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	common.Success(c, map[string]interface{}{
+	c.JSON(http.StatusOK, map[string]interface{}{
 		"sessions": sessions,
 	})
 }

@@ -7,6 +7,1160 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 )
 
+type ReviewMapSummary struct {
+	ID           string `thrift:"id,1" form:"id" json:"id"`
+	ReviewID     string `thrift:"review_id,2" form:"review_id" json:"review_id"`
+	SessionID    string `thrift:"session_id,3" form:"session_id" json:"session_id"`
+	Title        string `thrift:"title,4" form:"title" json:"title"`
+	Description  string `thrift:"description,5" form:"description" json:"description"`
+	Summary      string `thrift:"summary,6" form:"summary" json:"summary"`
+	FileCount    int64  `thrift:"file_count,7" form:"file_count" json:"file_count"`
+	SectionCount int64  `thrift:"section_count,8" form:"section_count" json:"section_count"`
+	CreatedAt    string `thrift:"created_at,9" form:"created_at" json:"created_at"`
+}
+
+func NewReviewMapSummary() *ReviewMapSummary {
+	return &ReviewMapSummary{}
+}
+
+func (p *ReviewMapSummary) InitDefault() {
+}
+
+func (p *ReviewMapSummary) GetID() (v string) {
+	return p.ID
+}
+
+func (p *ReviewMapSummary) GetReviewID() (v string) {
+	return p.ReviewID
+}
+
+func (p *ReviewMapSummary) GetSessionID() (v string) {
+	return p.SessionID
+}
+
+func (p *ReviewMapSummary) GetTitle() (v string) {
+	return p.Title
+}
+
+func (p *ReviewMapSummary) GetDescription() (v string) {
+	return p.Description
+}
+
+func (p *ReviewMapSummary) GetSummary() (v string) {
+	return p.Summary
+}
+
+func (p *ReviewMapSummary) GetFileCount() (v int64) {
+	return p.FileCount
+}
+
+func (p *ReviewMapSummary) GetSectionCount() (v int64) {
+	return p.SectionCount
+}
+
+func (p *ReviewMapSummary) GetCreatedAt() (v string) {
+	return p.CreatedAt
+}
+
+var fieldIDToName_ReviewMapSummary = map[int16]string{
+	1: "id",
+	2: "review_id",
+	3: "session_id",
+	4: "title",
+	5: "description",
+	6: "summary",
+	7: "file_count",
+	8: "section_count",
+	9: "created_at",
+}
+
+func (p *ReviewMapSummary) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField2(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 3:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField3(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 4:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField4(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 5:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField5(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 6:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField6(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 7:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField7(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 8:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField8(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 9:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField9(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewMapSummary[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *ReviewMapSummary) ReadField1(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.ID = _field
+	return nil
+}
+func (p *ReviewMapSummary) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.ReviewID = _field
+	return nil
+}
+func (p *ReviewMapSummary) ReadField3(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.SessionID = _field
+	return nil
+}
+func (p *ReviewMapSummary) ReadField4(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Title = _field
+	return nil
+}
+func (p *ReviewMapSummary) ReadField5(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Description = _field
+	return nil
+}
+func (p *ReviewMapSummary) ReadField6(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Summary = _field
+	return nil
+}
+func (p *ReviewMapSummary) ReadField7(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.FileCount = _field
+	return nil
+}
+func (p *ReviewMapSummary) ReadField8(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.SectionCount = _field
+	return nil
+}
+func (p *ReviewMapSummary) ReadField9(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.CreatedAt = _field
+	return nil
+}
+
+func (p *ReviewMapSummary) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("ReviewMapSummary"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
+			goto WriteFieldError
+		}
+		if err = p.writeField3(oprot); err != nil {
+			fieldId = 3
+			goto WriteFieldError
+		}
+		if err = p.writeField4(oprot); err != nil {
+			fieldId = 4
+			goto WriteFieldError
+		}
+		if err = p.writeField5(oprot); err != nil {
+			fieldId = 5
+			goto WriteFieldError
+		}
+		if err = p.writeField6(oprot); err != nil {
+			fieldId = 6
+			goto WriteFieldError
+		}
+		if err = p.writeField7(oprot); err != nil {
+			fieldId = 7
+			goto WriteFieldError
+		}
+		if err = p.writeField8(oprot); err != nil {
+			fieldId = 8
+			goto WriteFieldError
+		}
+		if err = p.writeField9(oprot); err != nil {
+			fieldId = 9
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *ReviewMapSummary) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("id", thrift.STRING, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.ID); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *ReviewMapSummary) writeField2(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("review_id", thrift.STRING, 2); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.ReviewID); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
+func (p *ReviewMapSummary) writeField3(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("session_id", thrift.STRING, 3); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.SessionID); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 end error: ", p), err)
+}
+
+func (p *ReviewMapSummary) writeField4(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("title", thrift.STRING, 4); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Title); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 end error: ", p), err)
+}
+
+func (p *ReviewMapSummary) writeField5(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("description", thrift.STRING, 5); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Description); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 end error: ", p), err)
+}
+
+func (p *ReviewMapSummary) writeField6(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("summary", thrift.STRING, 6); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Summary); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 6 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 6 end error: ", p), err)
+}
+
+func (p *ReviewMapSummary) writeField7(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("file_count", thrift.I64, 7); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.FileCount); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 7 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 7 end error: ", p), err)
+}
+
+func (p *ReviewMapSummary) writeField8(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("section_count", thrift.I64, 8); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.SectionCount); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 8 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 8 end error: ", p), err)
+}
+
+func (p *ReviewMapSummary) writeField9(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("created_at", thrift.STRING, 9); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.CreatedAt); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 9 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 9 end error: ", p), err)
+}
+
+func (p *ReviewMapSummary) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("ReviewMapSummary(%+v)", *p)
+
+}
+
+type ReviewMapDetail struct {
+	ID           string `thrift:"id,1" form:"id" json:"id"`
+	ReviewID     string `thrift:"review_id,2" form:"review_id" json:"review_id"`
+	SessionID    string `thrift:"session_id,3" form:"session_id" json:"session_id"`
+	Title        string `thrift:"title,4" form:"title" json:"title"`
+	Description  string `thrift:"description,5" form:"description" json:"description"`
+	Sections     string `thrift:"sections,6" form:"sections" json:"sections"`
+	Dependencies string `thrift:"dependencies,7" form:"dependencies" json:"dependencies"`
+	Summary      string `thrift:"summary,8" form:"summary" json:"summary"`
+	FileCount    int64  `thrift:"file_count,9" form:"file_count" json:"file_count"`
+	SectionCount int64  `thrift:"section_count,10" form:"section_count" json:"section_count"`
+	Mermaid      string `thrift:"mermaid,11" form:"mermaid" json:"mermaid"`
+	CreatedAt    string `thrift:"created_at,12" form:"created_at" json:"created_at"`
+}
+
+func NewReviewMapDetail() *ReviewMapDetail {
+	return &ReviewMapDetail{}
+}
+
+func (p *ReviewMapDetail) InitDefault() {
+}
+
+func (p *ReviewMapDetail) GetID() (v string) {
+	return p.ID
+}
+
+func (p *ReviewMapDetail) GetReviewID() (v string) {
+	return p.ReviewID
+}
+
+func (p *ReviewMapDetail) GetSessionID() (v string) {
+	return p.SessionID
+}
+
+func (p *ReviewMapDetail) GetTitle() (v string) {
+	return p.Title
+}
+
+func (p *ReviewMapDetail) GetDescription() (v string) {
+	return p.Description
+}
+
+func (p *ReviewMapDetail) GetSections() (v string) {
+	return p.Sections
+}
+
+func (p *ReviewMapDetail) GetDependencies() (v string) {
+	return p.Dependencies
+}
+
+func (p *ReviewMapDetail) GetSummary() (v string) {
+	return p.Summary
+}
+
+func (p *ReviewMapDetail) GetFileCount() (v int64) {
+	return p.FileCount
+}
+
+func (p *ReviewMapDetail) GetSectionCount() (v int64) {
+	return p.SectionCount
+}
+
+func (p *ReviewMapDetail) GetMermaid() (v string) {
+	return p.Mermaid
+}
+
+func (p *ReviewMapDetail) GetCreatedAt() (v string) {
+	return p.CreatedAt
+}
+
+var fieldIDToName_ReviewMapDetail = map[int16]string{
+	1:  "id",
+	2:  "review_id",
+	3:  "session_id",
+	4:  "title",
+	5:  "description",
+	6:  "sections",
+	7:  "dependencies",
+	8:  "summary",
+	9:  "file_count",
+	10: "section_count",
+	11: "mermaid",
+	12: "created_at",
+}
+
+func (p *ReviewMapDetail) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField2(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 3:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField3(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 4:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField4(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 5:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField5(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 6:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField6(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 7:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField7(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 8:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField8(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 9:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField9(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 10:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField10(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 11:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField11(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 12:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField12(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ReviewMapDetail[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *ReviewMapDetail) ReadField1(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.ID = _field
+	return nil
+}
+func (p *ReviewMapDetail) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.ReviewID = _field
+	return nil
+}
+func (p *ReviewMapDetail) ReadField3(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.SessionID = _field
+	return nil
+}
+func (p *ReviewMapDetail) ReadField4(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Title = _field
+	return nil
+}
+func (p *ReviewMapDetail) ReadField5(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Description = _field
+	return nil
+}
+func (p *ReviewMapDetail) ReadField6(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Sections = _field
+	return nil
+}
+func (p *ReviewMapDetail) ReadField7(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Dependencies = _field
+	return nil
+}
+func (p *ReviewMapDetail) ReadField8(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Summary = _field
+	return nil
+}
+func (p *ReviewMapDetail) ReadField9(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.FileCount = _field
+	return nil
+}
+func (p *ReviewMapDetail) ReadField10(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.SectionCount = _field
+	return nil
+}
+func (p *ReviewMapDetail) ReadField11(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Mermaid = _field
+	return nil
+}
+func (p *ReviewMapDetail) ReadField12(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.CreatedAt = _field
+	return nil
+}
+
+func (p *ReviewMapDetail) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("ReviewMapDetail"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
+			goto WriteFieldError
+		}
+		if err = p.writeField3(oprot); err != nil {
+			fieldId = 3
+			goto WriteFieldError
+		}
+		if err = p.writeField4(oprot); err != nil {
+			fieldId = 4
+			goto WriteFieldError
+		}
+		if err = p.writeField5(oprot); err != nil {
+			fieldId = 5
+			goto WriteFieldError
+		}
+		if err = p.writeField6(oprot); err != nil {
+			fieldId = 6
+			goto WriteFieldError
+		}
+		if err = p.writeField7(oprot); err != nil {
+			fieldId = 7
+			goto WriteFieldError
+		}
+		if err = p.writeField8(oprot); err != nil {
+			fieldId = 8
+			goto WriteFieldError
+		}
+		if err = p.writeField9(oprot); err != nil {
+			fieldId = 9
+			goto WriteFieldError
+		}
+		if err = p.writeField10(oprot); err != nil {
+			fieldId = 10
+			goto WriteFieldError
+		}
+		if err = p.writeField11(oprot); err != nil {
+			fieldId = 11
+			goto WriteFieldError
+		}
+		if err = p.writeField12(oprot); err != nil {
+			fieldId = 12
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *ReviewMapDetail) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("id", thrift.STRING, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.ID); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *ReviewMapDetail) writeField2(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("review_id", thrift.STRING, 2); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.ReviewID); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
+func (p *ReviewMapDetail) writeField3(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("session_id", thrift.STRING, 3); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.SessionID); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 end error: ", p), err)
+}
+
+func (p *ReviewMapDetail) writeField4(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("title", thrift.STRING, 4); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Title); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 end error: ", p), err)
+}
+
+func (p *ReviewMapDetail) writeField5(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("description", thrift.STRING, 5); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Description); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 end error: ", p), err)
+}
+
+func (p *ReviewMapDetail) writeField6(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("sections", thrift.STRING, 6); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Sections); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 6 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 6 end error: ", p), err)
+}
+
+func (p *ReviewMapDetail) writeField7(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("dependencies", thrift.STRING, 7); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Dependencies); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 7 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 7 end error: ", p), err)
+}
+
+func (p *ReviewMapDetail) writeField8(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("summary", thrift.STRING, 8); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Summary); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 8 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 8 end error: ", p), err)
+}
+
+func (p *ReviewMapDetail) writeField9(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("file_count", thrift.I64, 9); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.FileCount); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 9 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 9 end error: ", p), err)
+}
+
+func (p *ReviewMapDetail) writeField10(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("section_count", thrift.I64, 10); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.SectionCount); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 10 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 10 end error: ", p), err)
+}
+
+func (p *ReviewMapDetail) writeField11(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("mermaid", thrift.STRING, 11); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Mermaid); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 11 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 11 end error: ", p), err)
+}
+
+func (p *ReviewMapDetail) writeField12(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("created_at", thrift.STRING, 12); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.CreatedAt); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 12 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 12 end error: ", p), err)
+}
+
+func (p *ReviewMapDetail) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("ReviewMapDetail(%+v)", *p)
+
+}
+
 type GenerateMapReq struct {
 	ID        string  `thrift:"id,1" json:"id" path:"id"`
 	SessionID string  `thrift:"session_id,2" form:"session_id" json:"session_id"`
@@ -577,8 +1731,8 @@ func (p *GetMapsReq) String() string {
 }
 
 type GetMapsResp struct {
-	Maps  string `thrift:"maps,1" form:"maps" json:"maps"`
-	Total int64  `thrift:"total,2" form:"total" json:"total"`
+	Maps  []*ReviewMapSummary `thrift:"maps,1,default,list<ReviewMapSummary>" form:"maps" json:"maps"`
+	Total int64               `thrift:"total,2" form:"total" json:"total"`
 }
 
 func NewGetMapsResp() *GetMapsResp {
@@ -588,7 +1742,7 @@ func NewGetMapsResp() *GetMapsResp {
 func (p *GetMapsResp) InitDefault() {
 }
 
-func (p *GetMapsResp) GetMaps() (v string) {
+func (p *GetMapsResp) GetMaps() (v []*ReviewMapSummary) {
 	return p.Maps
 }
 
@@ -621,7 +1775,7 @@ func (p *GetMapsResp) Read(iprot thrift.TProtocol) (err error) {
 
 		switch fieldId {
 		case 1:
-			if fieldTypeId == thrift.STRING {
+			if fieldTypeId == thrift.LIST {
 				if err = p.ReadField1(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -666,12 +1820,24 @@ ReadStructEndError:
 }
 
 func (p *GetMapsResp) ReadField1(iprot thrift.TProtocol) error {
-
-	var _field string
-	if v, err := iprot.ReadString(); err != nil {
+	_, size, err := iprot.ReadListBegin()
+	if err != nil {
 		return err
-	} else {
-		_field = v
+	}
+	_field := make([]*ReviewMapSummary, 0, size)
+	values := make([]ReviewMapSummary, size)
+	for i := 0; i < size; i++ {
+		_elem := &values[i]
+		_elem.InitDefault()
+
+		if err := _elem.Read(iprot); err != nil {
+			return err
+		}
+
+		_field = append(_field, _elem)
+	}
+	if err := iprot.ReadListEnd(); err != nil {
+		return err
 	}
 	p.Maps = _field
 	return nil
@@ -721,10 +1887,18 @@ WriteStructEndError:
 }
 
 func (p *GetMapsResp) writeField1(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("maps", thrift.STRING, 1); err != nil {
+	if err = oprot.WriteFieldBegin("maps", thrift.LIST, 1); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteString(p.Maps); err != nil {
+	if err := oprot.WriteListBegin(thrift.STRUCT, len(p.Maps)); err != nil {
+		return err
+	}
+	for _, v := range p.Maps {
+		if err := v.Write(oprot); err != nil {
+			return err
+		}
+	}
+	if err := oprot.WriteListEnd(); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -949,7 +2123,7 @@ func (p *GetMapReq) String() string {
 }
 
 type GetMapResp struct {
-	MapData string `thrift:"map_data,1" form:"map_data" json:"map_data"`
+	MapData *ReviewMapDetail `thrift:"map_data,1" form:"map_data" json:"map_data"`
 }
 
 func NewGetMapResp() *GetMapResp {
@@ -959,12 +2133,21 @@ func NewGetMapResp() *GetMapResp {
 func (p *GetMapResp) InitDefault() {
 }
 
-func (p *GetMapResp) GetMapData() (v string) {
+var GetMapResp_MapData_DEFAULT *ReviewMapDetail
+
+func (p *GetMapResp) GetMapData() (v *ReviewMapDetail) {
+	if !p.IsSetMapData() {
+		return GetMapResp_MapData_DEFAULT
+	}
 	return p.MapData
 }
 
 var fieldIDToName_GetMapResp = map[int16]string{
 	1: "map_data",
+}
+
+func (p *GetMapResp) IsSetMapData() bool {
+	return p.MapData != nil
 }
 
 func (p *GetMapResp) Read(iprot thrift.TProtocol) (err error) {
@@ -987,7 +2170,7 @@ func (p *GetMapResp) Read(iprot thrift.TProtocol) (err error) {
 
 		switch fieldId {
 		case 1:
-			if fieldTypeId == thrift.STRING {
+			if fieldTypeId == thrift.STRUCT {
 				if err = p.ReadField1(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -1024,12 +2207,9 @@ ReadStructEndError:
 }
 
 func (p *GetMapResp) ReadField1(iprot thrift.TProtocol) error {
-
-	var _field string
-	if v, err := iprot.ReadString(); err != nil {
+	_field := NewReviewMapDetail()
+	if err := _field.Read(iprot); err != nil {
 		return err
-	} else {
-		_field = v
 	}
 	p.MapData = _field
 	return nil
@@ -1064,10 +2244,10 @@ WriteStructEndError:
 }
 
 func (p *GetMapResp) writeField1(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("map_data", thrift.STRING, 1); err != nil {
+	if err = oprot.WriteFieldBegin("map_data", thrift.STRUCT, 1); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteString(p.MapData); err != nil {
+	if err := p.MapData.Write(oprot); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -1601,7 +2781,7 @@ func (p *GetSessionMapReq) String() string {
 }
 
 type GetSessionMapResp struct {
-	MapData string `thrift:"map_data,1" form:"map_data" json:"map_data"`
+	MapData *ReviewMapDetail `thrift:"map_data,1" form:"map_data" json:"map_data"`
 }
 
 func NewGetSessionMapResp() *GetSessionMapResp {
@@ -1611,12 +2791,21 @@ func NewGetSessionMapResp() *GetSessionMapResp {
 func (p *GetSessionMapResp) InitDefault() {
 }
 
-func (p *GetSessionMapResp) GetMapData() (v string) {
+var GetSessionMapResp_MapData_DEFAULT *ReviewMapDetail
+
+func (p *GetSessionMapResp) GetMapData() (v *ReviewMapDetail) {
+	if !p.IsSetMapData() {
+		return GetSessionMapResp_MapData_DEFAULT
+	}
 	return p.MapData
 }
 
 var fieldIDToName_GetSessionMapResp = map[int16]string{
 	1: "map_data",
+}
+
+func (p *GetSessionMapResp) IsSetMapData() bool {
+	return p.MapData != nil
 }
 
 func (p *GetSessionMapResp) Read(iprot thrift.TProtocol) (err error) {
@@ -1639,7 +2828,7 @@ func (p *GetSessionMapResp) Read(iprot thrift.TProtocol) (err error) {
 
 		switch fieldId {
 		case 1:
-			if fieldTypeId == thrift.STRING {
+			if fieldTypeId == thrift.STRUCT {
 				if err = p.ReadField1(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -1676,12 +2865,9 @@ ReadStructEndError:
 }
 
 func (p *GetSessionMapResp) ReadField1(iprot thrift.TProtocol) error {
-
-	var _field string
-	if v, err := iprot.ReadString(); err != nil {
+	_field := NewReviewMapDetail()
+	if err := _field.Read(iprot); err != nil {
 		return err
-	} else {
-		_field = v
 	}
 	p.MapData = _field
 	return nil
@@ -1716,10 +2902,10 @@ WriteStructEndError:
 }
 
 func (p *GetSessionMapResp) writeField1(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("map_data", thrift.STRING, 1); err != nil {
+	if err = oprot.WriteFieldBegin("map_data", thrift.STRUCT, 1); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteString(p.MapData); err != nil {
+	if err := p.MapData.Write(oprot); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {

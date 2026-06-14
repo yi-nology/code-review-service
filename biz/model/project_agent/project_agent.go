@@ -7,6 +7,746 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 )
 
+type ProjectAgentItem struct {
+	AgentID  int64 `thrift:"agent_id,1" form:"agent_id" json:"agent_id"`
+	Enabled  bool  `thrift:"enabled,2" form:"enabled" json:"enabled"`
+	Priority int64 `thrift:"priority,3" form:"priority" json:"priority"`
+}
+
+func NewProjectAgentItem() *ProjectAgentItem {
+	return &ProjectAgentItem{}
+}
+
+func (p *ProjectAgentItem) InitDefault() {
+}
+
+func (p *ProjectAgentItem) GetAgentID() (v int64) {
+	return p.AgentID
+}
+
+func (p *ProjectAgentItem) GetEnabled() (v bool) {
+	return p.Enabled
+}
+
+func (p *ProjectAgentItem) GetPriority() (v int64) {
+	return p.Priority
+}
+
+var fieldIDToName_ProjectAgentItem = map[int16]string{
+	1: "agent_id",
+	2: "enabled",
+	3: "priority",
+}
+
+func (p *ProjectAgentItem) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.BOOL {
+				if err = p.ReadField2(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 3:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField3(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ProjectAgentItem[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *ProjectAgentItem) ReadField1(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.AgentID = _field
+	return nil
+}
+func (p *ProjectAgentItem) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field bool
+	if v, err := iprot.ReadBool(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Enabled = _field
+	return nil
+}
+func (p *ProjectAgentItem) ReadField3(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Priority = _field
+	return nil
+}
+
+func (p *ProjectAgentItem) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("ProjectAgentItem"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
+			goto WriteFieldError
+		}
+		if err = p.writeField3(oprot); err != nil {
+			fieldId = 3
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *ProjectAgentItem) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("agent_id", thrift.I64, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.AgentID); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *ProjectAgentItem) writeField2(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("enabled", thrift.BOOL, 2); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteBool(p.Enabled); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
+func (p *ProjectAgentItem) writeField3(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("priority", thrift.I64, 3); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.Priority); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 end error: ", p), err)
+}
+
+func (p *ProjectAgentItem) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("ProjectAgentItem(%+v)", *p)
+
+}
+
+type ProjectAgentConfig struct {
+	AgentID         int64  `thrift:"agent_id,1" form:"agent_id" json:"agent_id"`
+	Name            string `thrift:"name,2" form:"name" json:"name"`
+	DisplayName     string `thrift:"display_name,3" form:"display_name" json:"display_name"`
+	Description     string `thrift:"description,4" form:"description" json:"description"`
+	Background      string `thrift:"background,5" form:"background" json:"background"`
+	Enabled         bool   `thrift:"enabled,6" form:"enabled" json:"enabled"`
+	Priority        int64  `thrift:"priority,7" form:"priority" json:"priority"`
+	ProjectEnabled  bool   `thrift:"project_enabled,8" form:"project_enabled" json:"project_enabled"`
+	ProjectPriority int64  `thrift:"project_priority,9" form:"project_priority" json:"project_priority"`
+}
+
+func NewProjectAgentConfig() *ProjectAgentConfig {
+	return &ProjectAgentConfig{}
+}
+
+func (p *ProjectAgentConfig) InitDefault() {
+}
+
+func (p *ProjectAgentConfig) GetAgentID() (v int64) {
+	return p.AgentID
+}
+
+func (p *ProjectAgentConfig) GetName() (v string) {
+	return p.Name
+}
+
+func (p *ProjectAgentConfig) GetDisplayName() (v string) {
+	return p.DisplayName
+}
+
+func (p *ProjectAgentConfig) GetDescription() (v string) {
+	return p.Description
+}
+
+func (p *ProjectAgentConfig) GetBackground() (v string) {
+	return p.Background
+}
+
+func (p *ProjectAgentConfig) GetEnabled() (v bool) {
+	return p.Enabled
+}
+
+func (p *ProjectAgentConfig) GetPriority() (v int64) {
+	return p.Priority
+}
+
+func (p *ProjectAgentConfig) GetProjectEnabled() (v bool) {
+	return p.ProjectEnabled
+}
+
+func (p *ProjectAgentConfig) GetProjectPriority() (v int64) {
+	return p.ProjectPriority
+}
+
+var fieldIDToName_ProjectAgentConfig = map[int16]string{
+	1: "agent_id",
+	2: "name",
+	3: "display_name",
+	4: "description",
+	5: "background",
+	6: "enabled",
+	7: "priority",
+	8: "project_enabled",
+	9: "project_priority",
+}
+
+func (p *ProjectAgentConfig) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField2(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 3:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField3(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 4:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField4(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 5:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField5(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 6:
+			if fieldTypeId == thrift.BOOL {
+				if err = p.ReadField6(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 7:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField7(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 8:
+			if fieldTypeId == thrift.BOOL {
+				if err = p.ReadField8(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 9:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField9(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_ProjectAgentConfig[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *ProjectAgentConfig) ReadField1(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.AgentID = _field
+	return nil
+}
+func (p *ProjectAgentConfig) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Name = _field
+	return nil
+}
+func (p *ProjectAgentConfig) ReadField3(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.DisplayName = _field
+	return nil
+}
+func (p *ProjectAgentConfig) ReadField4(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Description = _field
+	return nil
+}
+func (p *ProjectAgentConfig) ReadField5(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Background = _field
+	return nil
+}
+func (p *ProjectAgentConfig) ReadField6(iprot thrift.TProtocol) error {
+
+	var _field bool
+	if v, err := iprot.ReadBool(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Enabled = _field
+	return nil
+}
+func (p *ProjectAgentConfig) ReadField7(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Priority = _field
+	return nil
+}
+func (p *ProjectAgentConfig) ReadField8(iprot thrift.TProtocol) error {
+
+	var _field bool
+	if v, err := iprot.ReadBool(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.ProjectEnabled = _field
+	return nil
+}
+func (p *ProjectAgentConfig) ReadField9(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.ProjectPriority = _field
+	return nil
+}
+
+func (p *ProjectAgentConfig) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("ProjectAgentConfig"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
+			goto WriteFieldError
+		}
+		if err = p.writeField3(oprot); err != nil {
+			fieldId = 3
+			goto WriteFieldError
+		}
+		if err = p.writeField4(oprot); err != nil {
+			fieldId = 4
+			goto WriteFieldError
+		}
+		if err = p.writeField5(oprot); err != nil {
+			fieldId = 5
+			goto WriteFieldError
+		}
+		if err = p.writeField6(oprot); err != nil {
+			fieldId = 6
+			goto WriteFieldError
+		}
+		if err = p.writeField7(oprot); err != nil {
+			fieldId = 7
+			goto WriteFieldError
+		}
+		if err = p.writeField8(oprot); err != nil {
+			fieldId = 8
+			goto WriteFieldError
+		}
+		if err = p.writeField9(oprot); err != nil {
+			fieldId = 9
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *ProjectAgentConfig) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("agent_id", thrift.I64, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.AgentID); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *ProjectAgentConfig) writeField2(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("name", thrift.STRING, 2); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Name); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
+func (p *ProjectAgentConfig) writeField3(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("display_name", thrift.STRING, 3); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.DisplayName); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 end error: ", p), err)
+}
+
+func (p *ProjectAgentConfig) writeField4(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("description", thrift.STRING, 4); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Description); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 end error: ", p), err)
+}
+
+func (p *ProjectAgentConfig) writeField5(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("background", thrift.STRING, 5); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Background); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 end error: ", p), err)
+}
+
+func (p *ProjectAgentConfig) writeField6(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("enabled", thrift.BOOL, 6); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteBool(p.Enabled); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 6 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 6 end error: ", p), err)
+}
+
+func (p *ProjectAgentConfig) writeField7(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("priority", thrift.I64, 7); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.Priority); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 7 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 7 end error: ", p), err)
+}
+
+func (p *ProjectAgentConfig) writeField8(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("project_enabled", thrift.BOOL, 8); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteBool(p.ProjectEnabled); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 8 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 8 end error: ", p), err)
+}
+
+func (p *ProjectAgentConfig) writeField9(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("project_priority", thrift.I64, 9); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.ProjectPriority); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 9 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 9 end error: ", p), err)
+}
+
+func (p *ProjectAgentConfig) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("ProjectAgentConfig(%+v)", *p)
+
+}
+
 type GetProjectAgentsReq struct {
 	Provider string `thrift:"provider,1" json:"provider" query:"provider"`
 	Repo     string `thrift:"repo,2" json:"repo" query:"repo"`
@@ -194,9 +934,9 @@ func (p *GetProjectAgentsReq) String() string {
 }
 
 type GetProjectAgentsResp struct {
-	Provider string `thrift:"provider,1" form:"provider" json:"provider"`
-	Repo     string `thrift:"repo,2" form:"repo" json:"repo"`
-	Agents   string `thrift:"agents,3" form:"agents" json:"agents"`
+	Provider string                `thrift:"provider,1" form:"provider" json:"provider"`
+	Repo     string                `thrift:"repo,2" form:"repo" json:"repo"`
+	Agents   []*ProjectAgentConfig `thrift:"agents,3,default,list<ProjectAgentConfig>" form:"agents" json:"agents"`
 }
 
 func NewGetProjectAgentsResp() *GetProjectAgentsResp {
@@ -214,7 +954,7 @@ func (p *GetProjectAgentsResp) GetRepo() (v string) {
 	return p.Repo
 }
 
-func (p *GetProjectAgentsResp) GetAgents() (v string) {
+func (p *GetProjectAgentsResp) GetAgents() (v []*ProjectAgentConfig) {
 	return p.Agents
 }
 
@@ -260,7 +1000,7 @@ func (p *GetProjectAgentsResp) Read(iprot thrift.TProtocol) (err error) {
 				goto SkipFieldError
 			}
 		case 3:
-			if fieldTypeId == thrift.STRING {
+			if fieldTypeId == thrift.LIST {
 				if err = p.ReadField3(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -319,12 +1059,24 @@ func (p *GetProjectAgentsResp) ReadField2(iprot thrift.TProtocol) error {
 	return nil
 }
 func (p *GetProjectAgentsResp) ReadField3(iprot thrift.TProtocol) error {
-
-	var _field string
-	if v, err := iprot.ReadString(); err != nil {
+	_, size, err := iprot.ReadListBegin()
+	if err != nil {
 		return err
-	} else {
-		_field = v
+	}
+	_field := make([]*ProjectAgentConfig, 0, size)
+	values := make([]ProjectAgentConfig, size)
+	for i := 0; i < size; i++ {
+		_elem := &values[i]
+		_elem.InitDefault()
+
+		if err := _elem.Read(iprot); err != nil {
+			return err
+		}
+
+		_field = append(_field, _elem)
+	}
+	if err := iprot.ReadListEnd(); err != nil {
+		return err
 	}
 	p.Agents = _field
 	return nil
@@ -401,10 +1153,18 @@ WriteFieldEndError:
 }
 
 func (p *GetProjectAgentsResp) writeField3(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("agents", thrift.STRING, 3); err != nil {
+	if err = oprot.WriteFieldBegin("agents", thrift.LIST, 3); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteString(p.Agents); err != nil {
+	if err := oprot.WriteListBegin(thrift.STRUCT, len(p.Agents)); err != nil {
+		return err
+	}
+	for _, v := range p.Agents {
+		if err := v.Write(oprot); err != nil {
+			return err
+		}
+	}
+	if err := oprot.WriteListEnd(); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -890,9 +1650,9 @@ func (p *UpdateProjectAgentResp) String() string {
 }
 
 type BatchUpdateProjectAgentsReq struct {
-	Provider string `thrift:"provider,1" form:"provider" json:"provider"`
-	Repo     string `thrift:"repo,2" form:"repo" json:"repo"`
-	Agents   string `thrift:"agents,3" form:"agents" json:"agents"`
+	Provider string              `thrift:"provider,1" form:"provider" json:"provider"`
+	Repo     string              `thrift:"repo,2" form:"repo" json:"repo"`
+	Agents   []*ProjectAgentItem `thrift:"agents,3,default,list<ProjectAgentItem>" form:"agents" json:"agents"`
 }
 
 func NewBatchUpdateProjectAgentsReq() *BatchUpdateProjectAgentsReq {
@@ -910,7 +1670,7 @@ func (p *BatchUpdateProjectAgentsReq) GetRepo() (v string) {
 	return p.Repo
 }
 
-func (p *BatchUpdateProjectAgentsReq) GetAgents() (v string) {
+func (p *BatchUpdateProjectAgentsReq) GetAgents() (v []*ProjectAgentItem) {
 	return p.Agents
 }
 
@@ -956,7 +1716,7 @@ func (p *BatchUpdateProjectAgentsReq) Read(iprot thrift.TProtocol) (err error) {
 				goto SkipFieldError
 			}
 		case 3:
-			if fieldTypeId == thrift.STRING {
+			if fieldTypeId == thrift.LIST {
 				if err = p.ReadField3(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -1015,12 +1775,24 @@ func (p *BatchUpdateProjectAgentsReq) ReadField2(iprot thrift.TProtocol) error {
 	return nil
 }
 func (p *BatchUpdateProjectAgentsReq) ReadField3(iprot thrift.TProtocol) error {
-
-	var _field string
-	if v, err := iprot.ReadString(); err != nil {
+	_, size, err := iprot.ReadListBegin()
+	if err != nil {
 		return err
-	} else {
-		_field = v
+	}
+	_field := make([]*ProjectAgentItem, 0, size)
+	values := make([]ProjectAgentItem, size)
+	for i := 0; i < size; i++ {
+		_elem := &values[i]
+		_elem.InitDefault()
+
+		if err := _elem.Read(iprot); err != nil {
+			return err
+		}
+
+		_field = append(_field, _elem)
+	}
+	if err := iprot.ReadListEnd(); err != nil {
+		return err
 	}
 	p.Agents = _field
 	return nil
@@ -1097,10 +1869,18 @@ WriteFieldEndError:
 }
 
 func (p *BatchUpdateProjectAgentsReq) writeField3(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("agents", thrift.STRING, 3); err != nil {
+	if err = oprot.WriteFieldBegin("agents", thrift.LIST, 3); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteString(p.Agents); err != nil {
+	if err := oprot.WriteListBegin(thrift.STRUCT, len(p.Agents)); err != nil {
+		return err
+	}
+	for _, v := range p.Agents {
+		if err := v.Write(oprot); err != nil {
+			return err
+		}
+	}
+	if err := oprot.WriteListEnd(); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {

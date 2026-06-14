@@ -3,6 +3,7 @@ package progress_service
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelProgress "github.com/yi-nology/code-review-service/biz/model/progress"
@@ -99,8 +100,22 @@ func GetProgress(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	progress := tracker.GetProgress()
-	c.JSON(http.StatusOK, progress)
+	p := tracker.GetProgress()
+	progress := &modelProgress.ReviewProgress{
+		ReviewID:  p.ReviewID,
+		SessionID: p.SessionID,
+		Round:     int64(p.Round),
+		Phase:     string(p.Phase),
+		Status:    p.Status,
+		Progress:  p.Progress,
+		StartTime: p.StartTime.Format(time.RFC3339),
+		UpdatedAt: p.UpdatedAt.Format(time.RFC3339),
+	}
+	if p.Error != "" {
+		progress.Error = &p.Error
+	}
+
+	c.JSON(http.StatusOK, &modelProgress.GetProgressResp{Progress: progress})
 }
 
 func GetActiveReviews(ctx context.Context, c *app.RequestContext) {
@@ -112,23 +127,23 @@ func GetActiveReviews(ctx context.Context, c *app.RequestContext) {
 
 	trackers := handlerInst.progressManager.GetActiveTrackers()
 
-	reviews := make([]map[string]interface{}, 0, len(trackers))
+	reviews := make([]*modelProgress.ActiveReviewItem, 0, len(trackers))
 	for _, tracker := range trackers {
-		progress := tracker.GetProgress()
-		reviews = append(reviews, map[string]interface{}{
-			"review_id":  progress.ReviewID,
-			"session_id": progress.SessionID,
-			"round":      progress.Round,
-			"phase":      progress.Phase,
-			"status":     progress.Status,
-			"progress":   progress.Progress,
-			"start_time": progress.StartTime,
-			"updated_at": progress.UpdatedAt,
+		p := tracker.GetProgress()
+		reviews = append(reviews, &modelProgress.ActiveReviewItem{
+			ReviewID:  p.ReviewID,
+			SessionID: p.SessionID,
+			Round:     int64(p.Round),
+			Phase:     string(p.Phase),
+			Status:    p.Status,
+			Progress:  p.Progress,
+			StartTime: p.StartTime.Format(time.RFC3339),
+			UpdatedAt: p.UpdatedAt.Format(time.RFC3339),
 		})
 	}
 
-	c.JSON(http.StatusOK, map[string]interface{}{
-		"reviews": reviews,
-		"total":   len(reviews),
+	c.JSON(http.StatusOK, &modelProgress.GetActiveReviewsResp{
+		Reviews: reviews,
+		Total:   int64(len(reviews)),
 	})
 }

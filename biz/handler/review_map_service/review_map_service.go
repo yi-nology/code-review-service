@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelReviewMap "github.com/yi-nology/code-review-service/biz/model/review_map"
@@ -108,23 +109,23 @@ func GetMaps(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	result := slicex.Map(maps, func(m models.ReviewMap) map[string]interface{} {
-		return map[string]interface{}{
-			"id":            m.MapID,
-			"review_id":     m.ReviewID,
-			"session_id":    m.SessionID,
-			"title":         m.Title,
-			"description":   m.Description,
-			"summary":       m.Summary,
-			"file_count":    m.FileCount,
-			"section_count": m.SectionCount,
-			"created_at":    m.CreatedAt,
+	result := slicex.Map(maps, func(m models.ReviewMap) *modelReviewMap.ReviewMapSummary {
+		return &modelReviewMap.ReviewMapSummary{
+			ID:           m.MapID,
+			ReviewID:     m.ReviewID,
+			SessionID:    m.SessionID,
+			Title:        m.Title,
+			Description:  m.Description,
+			Summary:      m.Summary,
+			FileCount:    int64(m.FileCount),
+			SectionCount: int64(m.SectionCount),
+			CreatedAt:    m.CreatedAt.Format(time.RFC3339),
 		}
 	})
 
-	c.JSON(http.StatusOK, map[string]interface{}{
-		"maps":  result,
-		"total": len(result),
+	c.JSON(http.StatusOK, &modelReviewMap.GetMapsResp{
+		Maps:  result,
+		Total: int64(len(result)),
 	})
 }
 

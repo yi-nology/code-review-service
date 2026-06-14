@@ -1,9 +1,27 @@
+struct ReviewSession {
+    1: i64 id (api.body="id")
+    2: string session_id (api.body="session_id")
+    3: string review_id (api.body="review_id")
+    4: i64 round (api.body="round")
+    5: string phase (api.body="phase")
+    6: string status (api.body="status")
+    7: double progress (api.body="progress")
+    8: optional string agent_results (api.body="agent_results")
+    9: optional string discussion (api.body="discussion")
+    10: optional string final_report (api.body="final_report")
+    11: optional string requirements (api.body="requirements")
+    12: optional string metadata (api.body="metadata")
+    13: optional string completed_at (api.body="completed_at")
+    14: string created_at (api.body="created_at")
+    15: string updated_at (api.body="updated_at")
+}
+
 struct GetSessionsReq {
     1: string id (api.path="id")
 }
 
 struct GetSessionsResp {
-    1: string sessions (api.body="sessions")
+    1: list<ReviewSession> sessions (api.body="sessions")
 }
 
 struct CreateSessionReq {
@@ -11,7 +29,7 @@ struct CreateSessionReq {
 }
 
 struct CreateSessionResp {
-    1: string session (api.body="session")
+    1: ReviewSession session (api.body="session")
 }
 
 struct GetActiveSessionReq {
@@ -19,7 +37,7 @@ struct GetActiveSessionReq {
 }
 
 struct GetActiveSessionResp {
-    1: string session (api.body="session")
+    1: ReviewSession session (api.body="session")
 }
 
 struct GetSessionReq {
@@ -28,7 +46,7 @@ struct GetSessionReq {
 }
 
 struct GetSessionResp {
-    1: string session (api.body="session")
+    1: ReviewSession session (api.body="session")
 }
 
 struct UpdateSessionPhaseReq {
@@ -117,7 +135,7 @@ struct ListSessionsReq {
 }
 
 struct ListSessionsResp {
-    1: string sessions (api.body="sessions")
+    1: list<ReviewSession> sessions (api.body="sessions")
     2: i64 total (api.body="total")
     3: i64 page (api.body="page")
     4: i64 page_size (api.body="page_size")
