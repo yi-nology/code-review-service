@@ -10,6 +10,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/vcs"
 
+	"github.com/oekit/pkg/convert"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
 
@@ -144,7 +145,7 @@ func cloneAndResolvePR(
 		_ = git.Fetch(ctx, targetBranch+":"+targetBranch)
 	}
 
-	headRef := "pr-" + strconv.Itoa(prNumber)
+	headRef := "pr-" + convert.IntToStr(prNumber)
 	headSHA, err := git.RevParse(ctx, headRef)
 	if err != nil {
 		_ = os.RemoveAll(dir)

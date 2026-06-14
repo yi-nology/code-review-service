@@ -38,7 +38,9 @@ struct UpdateSessionPhaseReq {
     4: optional double progress (api.body="progress")
 }
 
-struct UpdateSessionPhaseResp {}
+struct UpdateSessionPhaseResp {
+    1: string message (api.body="message")
+}
 
 struct UpdateSessionStatusReq {
     1: string id (api.path="id")
@@ -46,7 +48,9 @@ struct UpdateSessionStatusReq {
     3: string status (api.body="status")
 }
 
-struct UpdateSessionStatusResp {}
+struct UpdateSessionStatusResp {
+    1: string message (api.body="message")
+}
 
 struct UpdateSessionAgentResultsReq {
     1: string id (api.path="id")
@@ -54,7 +58,9 @@ struct UpdateSessionAgentResultsReq {
     3: string agent_results (api.body="agent_results")
 }
 
-struct UpdateSessionAgentResultsResp {}
+struct UpdateSessionAgentResultsResp {
+    1: string message (api.body="message")
+}
 
 struct UpdateSessionDiscussionReq {
     1: string id (api.path="id")
@@ -62,7 +68,9 @@ struct UpdateSessionDiscussionReq {
     3: string discussion (api.body="discussion")
 }
 
-struct UpdateSessionDiscussionResp {}
+struct UpdateSessionDiscussionResp {
+    1: string message (api.body="message")
+}
 
 struct UpdateSessionFinalReportReq {
     1: string id (api.path="id")
@@ -70,7 +78,9 @@ struct UpdateSessionFinalReportReq {
     3: string final_report (api.body="final_report")
 }
 
-struct UpdateSessionFinalReportResp {}
+struct UpdateSessionFinalReportResp {
+    1: string message (api.body="message")
+}
 
 struct CompleteSessionReq {
     1: string id (api.path="id")
@@ -78,7 +88,9 @@ struct CompleteSessionReq {
     3: string final_report (api.body="final_report")
 }
 
-struct CompleteSessionResp {}
+struct CompleteSessionResp {
+    1: string message (api.body="message")
+}
 
 struct FailSessionReq {
     1: string id (api.path="id")
@@ -86,14 +98,18 @@ struct FailSessionReq {
     3: string reason (api.body="reason")
 }
 
-struct FailSessionResp {}
+struct FailSessionResp {
+    1: string message (api.body="message")
+}
 
 struct CancelSessionReq {
     1: string id (api.path="id")
     2: string session_id (api.path="sessionId")
 }
 
-struct CancelSessionResp {}
+struct CancelSessionResp {
+    1: string message (api.body="message")
+}
 
 struct ListSessionsReq {
     1: optional i64 page (api.query="page")

@@ -27,38 +27,11 @@ func Register(r *server.Hertz) {
 			{
 				_id := _reviews.Group("/:id", _idMw()...)
 				_id.POST("/cancel", append(_cancelreviewMw(), review_service.CancelReview)...)
-				_id.GET("/maps", append(_getmapsMw(), review_service.GetMaps)...)
-				_maps := _id.Group("/maps", _mapsMw()...)
-				_maps.GET("/:mapId", append(_getmapMw(), review_service.GetMap)...)
-				_maps.POST("/preview", append(_previewmapMw(), review_service.PreviewMap)...)
-				_id.POST("/maps", append(_generatemapMw(), review_service.GenerateMap)...)
-				_id.GET("/preview", append(_previewcommentMw(), review_service.PreviewComment)...)
-				_id.GET("/progress", append(_handleprogresswsMw(), review_service.HandleProgressWS)...)
-				_progress := _id.Group("/progress", _progressMw()...)
-				_progress.GET("/status", append(_getprogressMw(), review_service.GetProgress)...)
-				_id.POST("/publish", append(_publishreviewMw(), review_service.PublishReview)...)
-				_id.PUT("/publish", append(_updatepublishedcommentMw(), review_service.UpdatePublishedComment)...)
 				_id.POST("/rerun", append(_rerunreviewMw(), review_service.RerunReview)...)
-				_id.GET("/sessions", append(_getsessionsMw(), review_service.GetSessions)...)
-				_sessions := _id.Group("/sessions", _sessionsMw()...)
-				_sessions.GET("/active", append(_getactivesessionMw(), review_service.GetActiveSession)...)
-				_sessions.GET("/:sessionId", append(_getsessionMw(), review_service.GetSession)...)
-				_sessionid := _sessions.Group("/:sessionId", _sessionidMw()...)
-				_sessionid.PUT("/agent-results", append(_updatesessionagentresultsMw(), review_service.UpdateSessionAgentResults)...)
-				_sessionid.POST("/cancel", append(_cancelsessionMw(), review_service.CancelSession)...)
-				_sessionid.POST("/complete", append(_completesessionMw(), review_service.CompleteSession)...)
-				_sessionid.PUT("/discussion", append(_updatesessiondiscussionMw(), review_service.UpdateSessionDiscussion)...)
-				_sessionid.POST("/fail", append(_failsessionMw(), review_service.FailSession)...)
-				_sessionid.PUT("/final-report", append(_updatesessionfinalreportMw(), review_service.UpdateSessionFinalReport)...)
-				_sessionid.GET("/map", append(_getsessionmapMw(), review_service.GetSessionMap)...)
-				_sessionid.PUT("/phase", append(_updatesessionphaseMw(), review_service.UpdateSessionPhase)...)
-				_sessionid.PUT("/status", append(_updatesessionstatusMw(), review_service.UpdateSessionStatus)...)
-				_id.POST("/sessions", append(_createsessionMw(), review_service.CreateSession)...)
 			}
 			_v1.POST("/reviews", append(_createreviewMw(), review_service.CreateReview)...)
 			_reviews0 := _v1.Group("/reviews", _reviews0Mw()...)
 			_reviews0.GET("/:id", append(_getreviewMw(), review_service.GetReview)...)
-			_v1.GET("/sessions", append(_listsessionsMw(), review_service.ListSessions)...)
 			{
 				_platforms := _v1.Group("/platforms", _platformsMw()...)
 				{
@@ -75,49 +48,6 @@ func Register(r *server.Hertz) {
 						}
 					}
 				}
-			}
-			{
-				_progress0 := _v1.Group("/progress", _progress0Mw()...)
-				_progress0.GET("/active", append(_getactivereviewsMw(), review_service.GetActiveReviews)...)
-			}
-			{
-				_settings := _v1.Group("/settings", _settingsMw()...)
-				_settings.GET("/agents", append(_listrevieweragentsMw(), review_service.ListReviewerAgents)...)
-				_agents := _settings.Group("/agents", _agentsMw()...)
-				_agents.DELETE("/:id", append(_deleterevieweragentMw(), review_service.DeleteReviewerAgent)...)
-				_agents.PUT("/:id", append(_updaterevieweragentMw(), review_service.UpdateReviewerAgent)...)
-				_settings.POST("/agents", append(_createrevieweragentMw(), review_service.CreateReviewerAgent)...)
-				_settings.GET("/ocr", append(_getocrsettingsMw(), review_service.GetOCRSettings)...)
-				_ocr := _settings.Group("/ocr", _ocrMw()...)
-				_ocr.POST("/test-llm", append(_testllmMw(), review_service.TestLLM)...)
-				_settings.PUT("/ocr", append(_updateocrsettingsMw(), review_service.UpdateOCRSettings)...)
-				_settings.DELETE("/platforms", append(_deleteplatformMw(), review_service.DeletePlatform)...)
-				_platforms0 := _settings.Group("/platforms", _platforms0Mw()...)
-				_platforms0.POST("/test", append(_testplatformMw(), review_service.TestPlatform)...)
-				_settings.GET("/platforms", append(_listplatformsMw(), review_service.ListPlatforms)...)
-				_settings.PUT("/platforms", append(_putplatformMw(), review_service.PutPlatform)...)
-				_settings.DELETE("/project-agents", append(_deleteprojectagentMw(), review_service.DeleteProjectAgent)...)
-				_settings.GET("/project-agents", append(_getprojectagentsMw(), review_service.GetProjectAgents)...)
-				_project_agents := _settings.Group("/project-agents", _project_agentsMw()...)
-				_project_agents.POST("/batch", append(_batchupdateprojectagentsMw(), review_service.BatchUpdateProjectAgents)...)
-				_settings.PUT("/project-agents", append(_updateprojectagentMw(), review_service.UpdateProjectAgent)...)
-				_settings.DELETE("/projects", append(_deleteprojectpolicyMw(), review_service.DeleteProjectPolicy)...)
-				_settings.GET("/projects", append(_listprojectpoliciesMw(), review_service.ListProjectPolicies)...)
-				_settings.PUT("/projects", append(_putprojectpolicyMw(), review_service.PutProjectPolicy)...)
-				{
-					_rules := _settings.Group("/rules", _rulesMw()...)
-					_rules.GET("/global", append(_getglobalrulesMw(), review_service.GetGlobalRules)...)
-					_rules.PUT("/global", append(_updateglobalrulesMw(), review_service.UpdateGlobalRules)...)
-				}
-			}
-			{
-				_stats := _v1.Group("/stats", _statsMw()...)
-				_stats.GET("/contributors", append(_listcontributorsMw(), review_service.ListContributors)...)
-				_contributors := _stats.Group("/contributors", _contributorsMw()...)
-				_contributors.GET("/:author", append(_getcontributorMw(), review_service.GetContributor)...)
-				_author := _contributors.Group("/:author", _authorMw()...)
-				_author.GET("/categories", append(_getcontributorcategoriesMw(), review_service.GetContributorCategories)...)
-				_author.GET("/trend", append(_getcontributortrendMw(), review_service.GetContributorTrend)...)
 			}
 			{
 				_webhooks := _v1.Group("/webhooks", _webhooksMw()...)

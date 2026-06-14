@@ -7,7 +7,6 @@ import (
 	"github.com/oekit/hertz/health"
 	emetrics "github.com/oekit/metrics"
 	mw "github.com/oekit/middleware"
-	"github.com/yi-nology/code-review-service/biz/handler/review_service"
 	"github.com/yi-nology/code-review-service/biz/router"
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/middleware"
@@ -35,7 +34,6 @@ func registerGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 		h.Use(m)
 	}
 
-	// Rate limiting middleware
 	h.Use(middleware.RateLimitMiddleware(100, 200))
 	hlog.Infof("rate limiting middleware enabled (100 req/s, burst 200)")
 
@@ -47,8 +45,8 @@ func registerGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 	h.Use(middleware.SecurityHeaders())
 }
 
-func registerCustomRoutes(h *server.Hertz, cfg *config.Config, db *gormDB.DB, handler *review_service.ReviewHandler, webhookHandler *review_service.WebhookHandler, statsHandler *review_service.StatsHandler, sessionHandler *review_service.SessionHandler, progressWSHandler *review_service.ProgressWSHandler, reviewMapHandler *review_service.ReviewMapHandler, publisherHandler *review_service.PublisherHandler, projectAgentHandler *review_service.ProjectAgentHandler) {
-	hlog.Infof("[routes] registering custom routes...")
+func registerRoutes(h *server.Hertz, db *gormDB.DB) {
+	hlog.Infof("[routes] registering routes...")
 
 	healthOpts := []health.Option{}
 	if sqlDB, err := db.DB(); err == nil {
@@ -58,5 +56,5 @@ func registerCustomRoutes(h *server.Hertz, cfg *config.Config, db *gormDB.DB, ha
 
 	swagger.RegisterRoutes(h)
 
-	router.GeneratedRegister(h, handler, webhookHandler, statsHandler, sessionHandler, progressWSHandler, reviewMapHandler, publisherHandler, projectAgentHandler)
+	router.GeneratedRegister(h)
 }
