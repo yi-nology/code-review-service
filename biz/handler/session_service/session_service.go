@@ -3,6 +3,7 @@ package session_service
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelSession "github.com/yi-nology/code-review-service/biz/model/session"
@@ -62,13 +63,12 @@ func ListSessions(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	sessionsJSON, _ := json.Marshal(sessions)
-	common.Success(c, &modelSession.ListSessionsResp{
-		Sessions:   string(sessionsJSON),
-		Total:      total,
-		Page:       int64(page),
-		PageSize:   int64(pageSize),
-		TotalPages: (total + int64(pageSize) - 1) / int64(pageSize),
+	c.JSON(http.StatusOK, map[string]interface{}{
+		"sessions":    sessions,
+		"total":       total,
+		"page":        page,
+		"page_size":   pageSize,
+		"total_pages": (total + int64(pageSize) - 1) / int64(pageSize),
 	})
 }
 

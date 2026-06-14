@@ -3,6 +3,7 @@ package project_agent_service
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelProjectAgent "github.com/yi-nology/code-review-service/biz/model/project_agent"
@@ -94,11 +95,10 @@ func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
 		return agent
 	})
 
-	agentsJSON, _ := json.Marshal(agents)
-	common.Success(c, &modelProjectAgent.GetProjectAgentsResp{
-		Provider: req.Provider,
-		Repo:     req.Repo,
-		Agents:   string(agentsJSON),
+	c.JSON(http.StatusOK, map[string]interface{}{
+		"provider": req.Provider,
+		"repo":     req.Repo,
+		"agents":   agents,
 	})
 }
 
