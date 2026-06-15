@@ -138,9 +138,11 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 	// Webhook handler
 	webhookSvc := webhook.NewService(webhook.ServiceConfig{
 		Normalizers: map[string]webhook.Normalizer{
-			"github": &webhook.GitHubNormalizer{},
-			"gitlab": &webhook.GitLabNormalizer{},
-			"gitea":  &webhook.GiteaNormalizer{},
+			"github":       &webhook.GitHubNormalizer{},
+			"gitlab":       &webhook.GitLabNormalizer{},
+			"gitea":        &webhook.GiteaNormalizer{},
+			"gitcode":      &webhook.GitCodeNormalizer{},
+			"tencent_code": &webhook.TencentCodeNormalizer{},
 		},
 		DeliveryRepo:       repos.WebhookDelivery,
 		ChangeRevisionRepo: repos.ChangeRevision,

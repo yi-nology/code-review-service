@@ -10,6 +10,57 @@ import (
 type GitLabNormalizer struct{}
 
 func (n *GitLabNormalizer) Normalize(rawBody []byte, eventType string) (*ChangeEvent, error) {
+	if eventType == "Push Hook" {
+		return n.normalizePush(rawBody)
+	}
+	if eventType == "Merge Request Hook" {
+		return n.normalizeMergeRequest(rawBody)
+	}
+	return nil, nil
+}
+
+func (n *GitLabNormalizer) normalizePush(rawBody []byte) (*ChangeEvent, error) {
+	var payload map[string]any
+	if err := json.Unmarshal(rawBody, &payload); err != nil {
+		return nil, fmt.Errorf("parse gitlab push payload: %w", err)
+	}
+
+	ref, _ := payload["ref"].(string)
+	if ref == "" {
+		return nil, nil
+	}
+	branch := strings.TrimPrefix(ref, "refs/heads/")
+	if branch == ref {
+		return nil, nil
+	}
+
+	var repoPath, repoID string
+	if proj, ok := payload["project"].(map[string]any); ok {
+		repoPath, _ = proj["path_with_namespace"].(string)
+		repoID = fmt.Sprintf("%v", proj["id"])
+	}
+
+	headSHA, _ := payload["after"].(string)
+
+	var sender string
+	if user, ok := payload["user_username"].(string); ok {
+		sender = user
+	} else if user, ok := payload["user"].(map[string]any); ok {
+		sender, _ = user["username"].(string)
+	}
+
+	return &ChangeEvent{
+		Provider:     "gitlab",
+		EventType:    "push",
+		Action:       "push",
+		RepositoryID: repoID,
+		Repository:   repoPath,
+		HeadSHA:      headSHA,
+		Sender:       sender,
+	}, nil
+}
+
+func (n *GitLabNormalizer) normalizeMergeRequest(rawBody []byte) (*ChangeEvent, error) {
 	var payload map[string]any
 	if err := json.Unmarshal(rawBody, &payload); err != nil {
 		return nil, fmt.Errorf("parse gitlab payload: %w", err)
@@ -104,7 +155,7 @@ func (n *GitLabNormalizer) VerifySignature(body []byte, signature string, secret
 }
 
 func (n *GitLabNormalizer) EventType(headerValue string) string {
-	return "merge_request"
+	return headerValue
 }
 
 func (n *GitLabNormalizer) DeliveryID(headerValue string) string {
