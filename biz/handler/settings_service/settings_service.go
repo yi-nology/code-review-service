@@ -179,6 +179,7 @@ func ListPlatforms(ctx context.Context, c *app.RequestContext) {
 			Provider: item.Provider, BaseURL: item.BaseURL,
 			Token: common.MaskToken(item.Token), Enabled: item.Enabled,
 			WebhookSecret: common.MaskWebhookSecret(item.WebhookSecret),
+			InstallationID: &item.InstallationID,
 		}
 	})
 
@@ -216,6 +217,7 @@ func PutPlatform(ctx context.Context, c *app.RequestContext) {
 	p := &models.GitPlatform{
 		Provider: req.Provider, BaseURL: ptrx.Deref(req.BaseURL, ""),
 		Token: token, WebhookSecret: ptrx.Deref(req.WebhookSecret, ""), Enabled: enabled,
+		InstallationID: ptrx.Deref(req.InstallationID, ""),
 	}
 	if err := handlerInst.platform.Save(ctx, p); err != nil {
 		common.Fail(c, common.BizErr(500, "保存平台配置失败"))

@@ -3589,11 +3589,12 @@ func (p *DeleteProjectPolicyResp) String() string {
 }
 
 type GitPlatformInfo struct {
-	Provider      string  `thrift:"provider,1" form:"provider" json:"provider"`
-	BaseURL       string  `thrift:"base_url,2" form:"base_url" json:"base_url"`
-	Token         string  `thrift:"token,3" form:"token" json:"token"`
-	Enabled       bool    `thrift:"enabled,4" form:"enabled" json:"enabled"`
-	WebhookSecret *string `thrift:"webhook_secret,5,optional" form:"webhook_secret" json:"webhook_secret,omitempty"`
+	Provider       string  `thrift:"provider,1" form:"provider" json:"provider"`
+	BaseURL        string  `thrift:"base_url,2" form:"base_url" json:"base_url"`
+	Token          string  `thrift:"token,3" form:"token" json:"token"`
+	Enabled        bool    `thrift:"enabled,4" form:"enabled" json:"enabled"`
+	WebhookSecret  *string `thrift:"webhook_secret,5,optional" form:"webhook_secret" json:"webhook_secret,omitempty"`
+	InstallationID *string `thrift:"installation_id,6,optional" form:"installation_id" json:"installation_id,omitempty"`
 }
 
 func NewGitPlatformInfo() *GitPlatformInfo {
@@ -4084,11 +4085,12 @@ func (p *ListPlatformsResp) String() string {
 }
 
 type PutPlatformReq struct {
-	Provider      string  `thrift:"provider,1" form:"provider" json:"provider"`
-	BaseURL       *string `thrift:"base_url,2,optional" form:"base_url" json:"base_url,omitempty"`
-	Token         *string `thrift:"token,3,optional" form:"token" json:"token,omitempty"`
-	Enabled       *bool   `thrift:"enabled,4,optional" form:"enabled" json:"enabled,omitempty"`
-	WebhookSecret *string `thrift:"webhook_secret,5,optional" form:"webhook_secret" json:"webhook_secret,omitempty"`
+	Provider       string  `thrift:"provider,1" form:"provider" json:"provider"`
+	BaseURL        *string `thrift:"base_url,2,optional" form:"base_url" json:"base_url,omitempty"`
+	Token          *string `thrift:"token,3,optional" form:"token" json:"token,omitempty"`
+	Enabled        *bool   `thrift:"enabled,4,optional" form:"enabled" json:"enabled,omitempty"`
+	WebhookSecret  *string `thrift:"webhook_secret,5,optional" form:"webhook_secret" json:"webhook_secret,omitempty"`
+	InstallationID *string `thrift:"installation_id,6,optional" form:"installation_id" json:"installation_id,omitempty"`
 }
 
 func NewPutPlatformReq() *PutPlatformReq {

@@ -91,6 +91,7 @@ struct GitPlatformInfo {
     3: string token (api.body="token")
     4: bool enabled (api.body="enabled")
     5: optional string webhook_secret (api.body="webhook_secret")
+    6: optional string installation_id (api.body="installation_id")
 }
 
 struct ListPlatformsResp {
@@ -103,6 +104,7 @@ struct PutPlatformReq {
     3: optional string token (api.body="token")
     4: optional bool enabled (api.body="enabled")
     5: optional string webhook_secret (api.body="webhook_secret")
+    6: optional string installation_id (api.body="installation_id")
 }
 
 struct PutPlatformResp {
