@@ -12,10 +12,55 @@ import (
 type GitHubNormalizer struct{}
 
 func (n *GitHubNormalizer) Normalize(rawBody []byte, eventType string) (*ChangeEvent, error) {
-	if eventType != "pull_request" {
+	if eventType == "push" {
+		return n.normalizePush(rawBody)
+	}
+	if eventType == "pull_request" {
+		return n.normalizePullRequest(rawBody)
+	}
+	return nil, nil
+}
+
+func (n *GitHubNormalizer) normalizePush(rawBody []byte) (*ChangeEvent, error) {
+	var payload map[string]any
+	if err := json.Unmarshal(rawBody, &payload); err != nil {
+		return nil, fmt.Errorf("parse github push payload: %w", err)
+	}
+
+	ref, _ := payload["ref"].(string)
+	if ref == "" {
+		return nil, nil
+	}
+	branch := strings.TrimPrefix(ref, "refs/heads/")
+	if branch == ref {
 		return nil, nil
 	}
 
+	var repoFullName, repoID string
+	if repo, ok := payload["repository"].(map[string]any); ok {
+		repoFullName, _ = repo["full_name"].(string)
+		repoID = fmt.Sprintf("%v", repo["id"])
+	}
+
+	headSHA, _ := payload["after"].(string)
+
+	var sender string
+	if s, ok := payload["sender"].(map[string]any); ok {
+		sender, _ = s["login"].(string)
+	}
+
+	return &ChangeEvent{
+		Provider:     "github",
+		EventType:    "push",
+		Action:       "push",
+		RepositoryID: repoID,
+		Repository:   repoFullName,
+		HeadSHA:      headSHA,
+		Sender:       sender,
+	}, nil
+}
+
+func (n *GitHubNormalizer) normalizePullRequest(rawBody []byte) (*ChangeEvent, error) {
 	var payload map[string]any
 	if err := json.Unmarshal(rawBody, &payload); err != nil {
 		return nil, fmt.Errorf("parse github payload: %w", err)
@@ -67,7 +112,7 @@ func (n *GitHubNormalizer) Normalize(rawBody []byte, eventType string) (*ChangeE
 	return &ChangeEvent{
 		Provider:       "github",
 		DeliveryID:     deliveryID,
-		EventType:      eventType,
+		EventType:      "pull_request",
 		Action:         action,
 		RepositoryID:   repoID,
 		Repository:     repoFullName,

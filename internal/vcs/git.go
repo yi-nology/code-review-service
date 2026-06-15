@@ -14,7 +14,7 @@ type Git struct {
 }
 
 func newBackend() gitbackend.GitBackend {
-	b, err := gitbackend.NewGitBackend(gitbackend.Options{Type: "gogit"})
+	b, err := gitbackend.NewGitBackend(gitbackend.Options{Type: "native"})
 	if err != nil {
 		b = gitbackend.NewGoGitBackend(gitbackend.Options{})
 	}
