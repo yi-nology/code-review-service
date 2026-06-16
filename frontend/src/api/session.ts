@@ -349,6 +349,16 @@ export const reviewMapApi = {
   generateMap(reviewId: string): Promise<ReviewMap> {
     return request.post(`/reviews/${reviewId}/maps`)
   },
+
+  // Update file reviewed status
+  updateFileReviewed(reviewId: string, mapId: string, filePath: string, reviewed: boolean): Promise<void> {
+    return request.put(`/reviews/${reviewId}/maps/${mapId}/files/${encodeURIComponent(filePath)}/reviewed`, { reviewed })
+  },
+
+  // Update all files in a section
+  updateSectionProgress(reviewId: string, mapId: string, sectionId: string, reviewed: boolean): Promise<void> {
+    return request.put(`/reviews/${reviewId}/maps/${mapId}/sections/${sectionId}/progress`, { reviewed })
+  },
 }
 
 // Persona API

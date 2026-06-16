@@ -24,28 +24,59 @@
           <el-icon><DataAnalysis /></el-icon>
           <span>开发者质量</span>
         </router-link>
+        <router-link to="/projects/reports" class="nav-item">
+          <el-icon><Notebook /></el-icon>
+          <span>项目报告</span>
+        </router-link>
 
         <p class="nav-label settings-label">配置中心</p>
-        <router-link to="/settings/ocr" class="nav-item">
-          <el-icon><Cpu /></el-icon>
-          <span>模型配置</span>
-        </router-link>
-        <router-link to="/settings/projects" class="nav-item">
-          <el-icon><FolderChecked /></el-icon>
-          <span>项目策略</span>
-        </router-link>
-        <router-link to="/settings/rules" class="nav-item">
-          <el-icon><List /></el-icon>
-          <span>审查规则</span>
-        </router-link>
-        <router-link to="/settings/platforms" class="nav-item">
-          <el-icon><Connection /></el-icon>
-          <span>Git 平台</span>
-        </router-link>
-        <router-link to="/settings/agents" class="nav-item">
-          <el-icon><User /></el-icon>
-          <span>代理设置</span>
-        </router-link>
+
+        <div class="nav-group">
+          <button class="nav-group-header" @click="toggleGroup('system')">
+            <span>系统设置</span>
+            <el-icon class="nav-group-arrow" :class="{ expanded: expandedGroups.system }"><ArrowRight /></el-icon>
+          </button>
+          <div v-show="expandedGroups.system" class="nav-group-items">
+            <router-link to="/settings/model" class="nav-item">
+              <el-icon><Cpu /></el-icon>
+              <span>模型配置</span>
+            </router-link>
+            <router-link to="/settings/platforms" class="nav-item">
+              <el-icon><Connection /></el-icon>
+              <span>Git 平台</span>
+            </router-link>
+            <router-link to="/settings/agents" class="nav-item">
+              <el-icon><User /></el-icon>
+              <span>审查代理</span>
+            </router-link>
+          </div>
+        </div>
+
+        <div class="nav-group">
+          <button class="nav-group-header" @click="toggleGroup('rules')">
+            <span>审查规则</span>
+            <el-icon class="nav-group-arrow" :class="{ expanded: expandedGroups.rules }"><ArrowRight /></el-icon>
+          </button>
+          <div v-show="expandedGroups.rules" class="nav-group-items">
+            <router-link to="/settings/rules" class="nav-item">
+              <el-icon><List /></el-icon>
+              <span>全局规则</span>
+            </router-link>
+          </div>
+        </div>
+
+        <div class="nav-group">
+          <button class="nav-group-header" @click="toggleGroup('project')">
+            <span>项目管理</span>
+            <el-icon class="nav-group-arrow" :class="{ expanded: expandedGroups.project }"><ArrowRight /></el-icon>
+          </button>
+          <div v-show="expandedGroups.project" class="nav-group-items">
+            <router-link to="/settings/projects" class="nav-item">
+              <el-icon><FolderChecked /></el-icon>
+              <span>项目策略</span>
+            </router-link>
+          </div>
+        </div>
       </nav>
 
       <div class="sidebar-footer">
@@ -75,8 +106,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import {
+  ArrowRight,
   Close,
   Connection,
   Cpu,
@@ -86,6 +118,7 @@ import {
   FolderChecked,
   List,
   Menu,
+  Notebook,
   SwitchButton,
   User,
 } from '@element-plus/icons-vue'
@@ -93,6 +126,16 @@ import { useAuthStore } from '@/stores/auth'
 
 const sidebarOpen = ref(false)
 const auth = useAuthStore()
+
+const expandedGroups = reactive({
+  system: true,
+  rules: true,
+  project: true,
+})
+
+function toggleGroup(group: 'system' | 'rules' | 'project') {
+  expandedGroups[group] = !expandedGroups[group]
+}
 
 function logout() {
   auth.clearToken()
@@ -180,6 +223,51 @@ function logout() {
 
 .settings-label {
   margin-top: 26px;
+}
+
+.nav-group {
+  margin-bottom: 4px;
+}
+
+.nav-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 8px;
+  color: #8991a8;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  background: transparent;
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.nav-group-header:hover {
+  color: #dfe4f2;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.nav-group-arrow {
+  font-size: 12px;
+  transition: transform 200ms ease;
+}
+
+.nav-group-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.nav-group-items {
+  padding-left: 4px;
+}
+
+.nav-group-items .nav-item {
+  min-height: 40px;
+  font-size: 13px;
 }
 
 .nav-item {

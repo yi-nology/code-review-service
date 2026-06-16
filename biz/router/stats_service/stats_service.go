@@ -23,6 +23,13 @@ func Register(r *server.Hertz) {
 			_v1 := _api.Group("/v1", _v1Mw()...)
 			{
 				_stats := _v1.Group("/stats", _statsMw()...)
+				_stats.GET("/projects", append(_listcontributorsMw(), stats_service.ListProjects)...)
+				_projects := _stats.Group("/projects", _contributorsMw()...)
+				_projects.GET("/detail", append(_getcontributorMw(), stats_service.GetProject)...)
+				_projects.GET("/trend", append(_getcontributortrendMw(), stats_service.GetProjectTrend)...)
+				_projects.GET("/categories", append(_getcontributorcategoriesMw(), stats_service.GetProjectCategories)...)
+				_projects.GET("/files", append(_getcontributorcategoriesMw(), stats_service.GetProjectFiles)...)
+				_projects.GET("/contributors", append(_listcontributorsMw(), stats_service.GetProjectContributors)...)
 				_stats.GET("/contributors", append(_listcontributorsMw(), stats_service.ListContributors)...)
 				_contributors := _stats.Group("/contributors", _contributorsMw()...)
 				_contributors.GET("/:author", append(_getcontributorMw(), stats_service.GetContributor)...)

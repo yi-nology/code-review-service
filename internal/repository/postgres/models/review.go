@@ -20,6 +20,7 @@ type Review struct {
 	Request            datatypes.JSON `gorm:"type:jsonb;not null" json:"request"`
 	Response           datatypes.JSON `gorm:"type:jsonb;not null" json:"response"`
 	RawOCR             datatypes.JSON `gorm:"type:jsonb" json:"raw_ocr,omitempty"`
+	RawOCRInput        datatypes.JSON `gorm:"type:jsonb" json:"raw_ocr_input,omitempty"`
 }
 
 func (Review) TableName() string {

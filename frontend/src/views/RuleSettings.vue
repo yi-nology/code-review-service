@@ -2,281 +2,437 @@
   <AppLayout>
     <div class="rule-settings-page">
       <header class="page-header">
-        <div class="eyebrow">REVIEW RULES</div>
-        <h1>审查规则管理</h1>
-        <p>配置全局审查规则和项目级规则，指导模型聚焦关键问题。项目规则优先级高于全局规则。</p>
+        <div>
+          <div class="eyebrow">REVIEW RULES</div>
+          <h1>审查规则</h1>
+          <p>全局规则会合并到每一次模型审查中；项目策略里的规则会与这里的规则一起生效。</p>
+        </div>
+        <div class="header-actions">
+          <el-button plain @click="fetchGlobalRules" :loading="globalLoading">
+            <el-icon><Refresh /></el-icon>
+            刷新
+          </el-button>
+          <el-button type="primary" @click="saveGlobalRules" :loading="globalSaving" :disabled="hasBlockingIssues">
+            保存规则
+          </el-button>
+        </div>
       </header>
 
-      <el-row :gutter="24">
-        <el-col :xs="24" :xl="12">
-          <el-card>
-            <template #header>
-              <div class="card-header">
-                <span>全局规则</span>
-              </div>
-            </template>
-            <div v-loading="globalLoading">
-              <div v-for="(rule, idx) in globalRules" :key="idx" class="rule-item">
-                <el-row :gutter="8" align="middle">
-                  <el-col :span="8">
-                    <el-input v-model="rule.path" placeholder="**/*.java" size="small" />
-                  </el-col>
-                  <el-col :span="14">
-                    <el-input v-model="rule.rule" placeholder="审查规则描述" size="small" />
-                  </el-col>
-                  <el-col :span="2">
-                    <el-button type="danger" size="small" circle @click="removeGlobalRule(idx)">
-                      <el-icon><Delete /></el-icon>
-                    </el-button>
-                  </el-col>
-                </el-row>
-              </div>
-              <el-button size="small" @click="addGlobalRule">+ 添加规则</el-button>
-              <div style="margin-top: 16px">
-                <el-button type="primary" @click="saveGlobalRules" :loading="globalSaving">保存全局规则</el-button>
+      <section class="summary-grid">
+        <div class="summary-card">
+          <span>规则总数</span>
+          <strong>{{ normalizedRules.length }}</strong>
+        </div>
+        <div class="summary-card">
+          <span>覆盖路径</span>
+          <strong>{{ coveredPathCount }}</strong>
+        </div>
+        <div class="summary-card warning" :class="{ active: validationIssues.length > 0 }">
+          <span>待处理问题</span>
+          <strong>{{ validationIssues.length }}</strong>
+        </div>
+      </section>
+
+      <div class="content-grid">
+        <el-card class="rules-card" v-loading="globalLoading">
+          <template #header>
+            <div class="card-header">
+              <div>
+                <strong>全局规则库</strong>
+                <span>{{ dirty ? '有未保存修改' : '当前配置已同步' }}</span>
               </div>
             </div>
-          </el-card>
-        </el-col>
+          </template>
 
-        <el-col :xs="24" :xl="12">
+          <RuleEditor
+            v-model="globalRules"
+            :issues="validationIssues"
+            :templates="ruleTemplates"
+            empty-description="暂无全局规则"
+          />
+        </el-card>
+
+        <aside class="side-panel">
           <el-card>
             <template #header>
-              <div class="card-header">
-                <span>项目级规则</span>
+              <div class="card-header compact">
+                <strong>规则模板</strong>
               </div>
             </template>
-            <el-form :model="projectForm" label-width="80px" size="small">
-              <el-form-item label="代码平台">
-                <el-select v-model="projectForm.provider">
-                  <el-option label="Gitea" value="gitea" />
-                  <el-option label="GitLab" value="gitlab" />
-                  <el-option label="GitHub" value="github" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="仓库">
-                <el-input v-model="projectForm.repo" placeholder="group/project" />
-              </el-form-item>
-              <el-form-item label="门禁级别">
-                <el-select v-model="projectForm.fail_on">
-                  <el-option label="严重问题" value="critical" />
-                  <el-option label="高风险及以上" value="major" />
-                  <el-option label="中风险及以上" value="minor" />
-                  <el-option label="所有问题" value="info" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="忽略路径">
-                <el-input v-model="projectIgnorePathsText" type="textarea" :rows="3" placeholder="vendor/**\ngenerated/**" />
-              </el-form-item>
-              <el-form-item label="审查规则">
-                <div v-for="(rule, idx) in projectForm.rules" :key="idx" class="rule-item">
-                  <el-row :gutter="8" align="middle">
-                    <el-col :span="8">
-                      <el-input v-model="rule.path" placeholder="**/*.java" size="small" />
-                    </el-col>
-                    <el-col :span="14">
-                      <el-input v-model="rule.rule" placeholder="审查规则描述" size="small" />
-                    </el-col>
-                    <el-col :span="2">
-                      <el-button type="danger" size="small" circle @click="removeProjectRule(idx)">
-                        <el-icon><Delete /></el-icon>
-                      </el-button>
-                    </el-col>
-                  </el-row>
-                </div>
-                <el-button size="small" @click="addProjectRule">+ 添加规则</el-button>
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" @click="saveProjectPolicy" :loading="projectSaving">保存项目策略</el-button>
-              </el-form-item>
-            </el-form>
-          </el-card>
-
-          <el-card style="margin-top: 16px">
-            <template #header>
-              <div class="card-header">
-                <span>已配置项目</span>
-                <el-button size="small" @click="fetchPolicies">刷新</el-button>
-              </div>
-            </template>
-            <div v-loading="policyLoading">
-              <div v-if="policies.length === 0" class="empty-state">暂无配置的项目策略</div>
-              <div v-else class="policy-list">
-                <div
-                  v-for="policy in policies"
-                  :key="`${policy.provider}:${policy.repo}`"
-                  class="policy-item"
-                  @click="editPolicy(policy)"
-                >
-                  <div class="policy-header">
-                    <el-tag size="small">{{ policy.provider }}</el-tag>
-                    <span class="policy-repo">{{ policy.repo }}</span>
-                  </div>
-                  <div class="policy-meta">
-                    门禁: {{ getFailOnLabel(policy.fail_on) }} |
-                    规则: {{ policy.rules?.length || 0 }} 条 |
-                    忽略: {{ policy.ignore_paths?.length || 0 }} 条
-                  </div>
-                  <el-button type="danger" size="small" class="delete-btn" @click.stop="deletePolicy(policy)">删除</el-button>
-                </div>
-              </div>
+            <div class="template-list">
+              <button
+                v-for="template in ruleTemplates"
+                :key="template.name"
+                class="template-item"
+                type="button"
+                @click="applyTemplate(template)"
+              >
+                <span>{{ template.name }}</span>
+                <small>{{ template.path }}</small>
+              </button>
             </div>
           </el-card>
-        </el-col>
-      </el-row>
+
+          <el-card>
+            <template #header>
+              <div class="card-header compact">
+                <strong>保存前检查</strong>
+              </div>
+            </template>
+            <div v-if="validationIssues.length === 0" class="check-ok">
+              <el-icon><CircleCheckFilled /></el-icon>
+              可以保存
+            </div>
+            <ul v-else class="issue-list">
+              <li v-for="issue in validationIssues" :key="issue">{{ issue }}</li>
+            </ul>
+          </el-card>
+
+          <el-card>
+            <template #header>
+              <div class="card-header compact">
+                <strong>生效预览</strong>
+              </div>
+            </template>
+            <pre class="preview-json">{{ previewJson }}</pre>
+          </el-card>
+        </aside>
+      </div>
     </div>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete } from '@element-plus/icons-vue'
+import { computed, onMounted, ref } from 'vue'
+import { ElMessage } from 'element-plus/es/components/message/index'
+import { CircleCheckFilled, Refresh } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import { getGlobalRules, updateGlobalRules, getProjectPolicies, putProjectPolicy, deleteProjectPolicy } from '@/api/config'
-import type { ProjectPolicy, ReviewRule } from '@/types/config'
+import RuleEditor from '@/components/RuleEditor.vue'
+import { getGlobalRules, updateGlobalRules } from '@/api/config'
+import type { ReviewRule } from '@/types/config'
+
+type RuleTemplate = ReviewRule & { name: string }
+
+const ruleTemplates: RuleTemplate[] = [
+  {
+    name: '通用安全检查',
+    path: '**/*',
+    rule: '重点检查鉴权绕过、越权访问、敏感信息泄露、未校验输入、SQL/命令注入和不安全的默认配置。',
+  },
+  {
+    name: 'Go 后端服务',
+    path: '**/*.go',
+    rule: '重点检查 context 传递、错误处理、并发安全、事务边界、资源释放、panic 风险和日志中的敏感信息。',
+  },
+  {
+    name: '前端交互',
+    path: '**/*.{vue,ts,tsx,js,jsx}',
+    rule: '重点检查接口错误处理、加载/空状态、权限态、表单校验、响应式布局和用户操作后的反馈。',
+  },
+  {
+    name: '数据库变更',
+    path: '**/*.{sql,go}',
+    rule: '重点检查迁移兼容性、索引缺失、N+1 查询、事务一致性、软删除条件和分页查询性能。',
+  },
+  {
+    name: '测试质量',
+    path: '**/*_test.go',
+    rule: '重点检查断言是否覆盖关键分支、边界条件、失败路径、并发行为和外部依赖隔离。',
+  },
+]
 
 const globalRules = ref<ReviewRule[]>([])
+const originalJson = ref('[]')
 const globalLoading = ref(false)
 const globalSaving = ref(false)
 
-const policies = ref<ProjectPolicy[]>([])
-const policyLoading = ref(false)
-const projectSaving = ref(false)
-
-const projectForm = reactive<{
-  provider: string
-  repo: string
-  fail_on: string
-  rules: ReviewRule[]
-}>({
-  provider: 'gitea',
-  repo: '',
-  fail_on: 'critical',
-  rules: [],
+const normalizedRules = computed(() => {
+  return globalRules.value
+    .map((rule) => ({
+      path: normalizePath(rule.path),
+      rule: rule.rule.trim(),
+    }))
+    .filter((rule) => rule.path || rule.rule)
 })
 
-const projectIgnorePathsText = ref('')
+const previewJson = computed(() => JSON.stringify({ rules: normalizedRules.value }, null, 2))
+const dirty = computed(() => JSON.stringify(normalizedRules.value) !== originalJson.value)
+const coveredPathCount = computed(() => new Set(normalizedRules.value.map((rule) => rule.path)).size)
+
+const validationIssues = computed(() => {
+  const issues: string[] = []
+  const seen = new Set<string>()
+
+  globalRules.value.forEach((rule, index) => {
+    const path = normalizePath(rule.path)
+    const text = rule.rule.trim()
+    if (!path && !text) return
+    if (!path) issues.push(`第 ${index + 1} 条缺少适用文件`)
+    if (!text) issues.push(`第 ${index + 1} 条缺少审查要求`)
+    if (text.length > 800) issues.push(`第 ${index + 1} 条审查要求过长`)
+
+    const key = `${path}::${text}`
+    if (path && text) {
+      if (seen.has(key)) issues.push(`第 ${index + 1} 条与已有规则重复`)
+      seen.add(key)
+    }
+  })
+
+  return issues
+})
+
+const hasBlockingIssues = computed(() => validationIssues.value.length > 0)
+
+function normalizePath(path: string) {
+  const value = path.trim()
+  return value || '**/*'
+}
 
 async function fetchGlobalRules() {
   globalLoading.value = true
   try {
     const data = await getGlobalRules()
-    globalRules.value = data?.rules || []
+    globalRules.value = (data?.rules || []).map((rule) => ({
+      path: normalizePath(rule.path || ''),
+      rule: rule.rule || '',
+    }))
+    originalJson.value = JSON.stringify(normalizedRules.value)
   } finally {
     globalLoading.value = false
   }
 }
 
 async function saveGlobalRules() {
+  if (hasBlockingIssues.value) {
+    ElMessage.warning('请先处理规则检查中的问题')
+    return
+  }
   globalSaving.value = true
   try {
-    await updateGlobalRules({ rules: globalRules.value.filter(r => r.path || r.rule) })
-    ElMessage.success('全局规则已保存')
+    await updateGlobalRules({ rules: normalizedRules.value })
+    originalJson.value = JSON.stringify(normalizedRules.value)
+    ElMessage.success('审查规则已保存')
   } finally {
     globalSaving.value = false
   }
 }
 
-function addGlobalRule() {
-  globalRules.value.push({ path: '', rule: '' })
+function applyTemplate(template: RuleTemplate) {
+  globalRules.value.push({ path: template.path, rule: template.rule })
 }
 
-function removeGlobalRule(idx: number) {
-  globalRules.value.splice(idx, 1)
-}
-
-async function fetchPolicies() {
-  policyLoading.value = true
-  try {
-    const result = await getProjectPolicies()
-    policies.value = result.items || []
-  } finally {
-    policyLoading.value = false
-  }
-}
-
-function addProjectRule() {
-  projectForm.rules.push({ path: '', rule: '' })
-}
-
-function removeProjectRule(idx: number) {
-  projectForm.rules.splice(idx, 1)
-}
-
-async function saveProjectPolicy() {
-  if (!projectForm.repo) {
-    ElMessage.warning('请输入仓库名称')
-    return
-  }
-  projectSaving.value = true
-  try {
-    const ignorePaths = projectIgnorePathsText.value
-      .split('\n')
-      .map(s => s.trim())
-      .filter(Boolean)
-    await putProjectPolicy({
-      provider: projectForm.provider,
-      repo: projectForm.repo,
-      fail_on: projectForm.fail_on,
-      ignore_paths: ignorePaths,
-      rules: projectForm.rules.filter(r => r.path || r.rule),
-    })
-    ElMessage.success('项目策略已保存')
-    fetchPolicies()
-  } finally {
-    projectSaving.value = false
-  }
-}
-
-function editPolicy(policy: ProjectPolicy) {
-  projectForm.provider = policy.provider
-  projectForm.repo = policy.repo
-  projectForm.fail_on = policy.fail_on
-  projectForm.rules = policy.rules ? [...policy.rules.map(r => ({ ...r }))] : []
-  projectIgnorePathsText.value = (policy.ignore_paths || []).join('\n')
-}
-
-async function deletePolicy(policy: ProjectPolicy) {
-  await ElMessageBox.confirm('确定删除该策略？', '确认')
-  try {
-    await deleteProjectPolicy(policy.provider, policy.repo)
-    ElMessage.success('已删除')
-    fetchPolicies()
-  } catch { /* cancel */ }
-}
-
-function getFailOnLabel(failOn: string) {
-  const map: Record<string, string> = { critical: '严重问题', major: '高风险及以上', minor: '中风险及以上', info: '所有问题' }
-  return map[failOn] || failOn
-}
-
-onMounted(() => {
-  fetchGlobalRules()
-  fetchPolicies()
-})
+onMounted(fetchGlobalRules)
 </script>
 
 <style scoped>
-.rule-settings-page { width: min(1320px, 100%); margin: 0 auto; padding: 34px 36px 48px; }
-.page-header { margin-bottom: 24px; }
-.page-header h1 { margin: 4px 0 8px; color: var(--app-text); font-size: 28px; }
-.page-header p { margin: 0; color: var(--app-muted); font-size: 14px; }
-.eyebrow { color: var(--app-primary); font-size: 10px; font-weight: 800; letter-spacing: 1.3px; }
-.card-header { display: flex; justify-content: space-between; align-items: center; }
-.rule-item { margin-bottom: 8px; }
-.empty-state { text-align: center; color: #999; padding: 40px 0; }
-.policy-item { padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; cursor: pointer; position: relative; }
-.policy-item:hover { background: #f5f5f5; }
-.policy-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-.policy-repo { font-weight: bold; }
-.policy-meta { font-size: 12px; color: #999; }
-.delete-btn { position: absolute; right: 12px; top: 12px; }
-@media (max-width: 1199px) {
-  .rule-settings-page :deep(.el-col + .el-col) { margin-top: 16px; }
+.rule-settings-page {
+  width: min(1320px, 100%);
+  margin: 0 auto;
+  padding: 34px 36px 48px;
 }
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 22px;
+}
+
+.page-header h1 {
+  margin: 4px 0 8px;
+  color: var(--app-text);
+  font-size: 30px;
+  letter-spacing: -0.6px;
+}
+
+.page-header p {
+  max-width: 680px;
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.eyebrow {
+  color: var(--app-primary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+}
+
+.header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.summary-card {
+  min-height: 92px;
+  padding: 18px 20px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+}
+
+.summary-card span,
+.card-header span {
+  display: block;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.summary-card strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--app-text);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.summary-card.warning.active strong {
+  color: var(--app-danger);
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 18px;
+  align-items: start;
+}
+
+.rules-card,
+.side-panel .el-card {
+  border-radius: 8px;
+  box-shadow: var(--app-shadow);
+}
+
+.rules-card :deep(.el-card__body) {
+  padding: 18px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-header strong {
+  display: block;
+  color: var(--app-text);
+  font-size: 15px;
+}
+
+.card-header.compact {
+  min-height: 28px;
+}
+
+.side-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.template-list {
+  display: grid;
+  gap: 8px;
+}
+
+.template-item {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #edf0f5;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--app-text);
+  text-align: left;
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.template-item:hover {
+  border-color: #cfd3ff;
+  background: #fbfbff;
+}
+
+.template-item span,
+.template-item small {
+  display: block;
+}
+
+.template-item span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.template-item small {
+  margin-top: 3px;
+  color: var(--app-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.check-ok {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--app-success);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.issue-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--app-danger);
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.preview-json {
+  max-height: 280px;
+  margin: 0;
+  overflow: auto;
+  color: #2d3748;
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 1040px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 720px) {
-  .rule-settings-page { padding: 22px 14px 36px; }
-  .page-header h1 { font-size: 24px; }
+  .rule-settings-page {
+    padding: 22px 14px 36px;
+  }
+
+  .page-header {
+    display: block;
+  }
+
+  .page-header h1 {
+    font-size: 24px;
+  }
+
+  .header-actions {
+    margin-top: 16px;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
 }
 </style>

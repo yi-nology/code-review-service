@@ -323,11 +323,7 @@ func ListReviewerAgents(ctx context.Context, c *app.RequestContext) {
 	}
 
 	items := slicex.Map(agents, func(a models.ReviewerAgent) *modelSettings.ReviewerAgentInfo {
-		return &modelSettings.ReviewerAgentInfo{
-			ID: int64(a.ID), Name: a.Name, DisplayName: a.DisplayName,
-			Description: common.StrPtr(a.Description), Background: common.StrPtr(a.Background),
-			Enabled: a.Enabled, Priority: int64(a.Priority),
-		}
+		return dbReviewerAgentToAPI(&a)
 	})
 	common.Success(c, &modelSettings.ListReviewerAgentsResp{Agents: items})
 }
@@ -359,11 +355,7 @@ func CreateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	}
 
 	common.Success(c, &modelSettings.CreateReviewerAgentResp{
-		Agent: &modelSettings.ReviewerAgentInfo{
-			ID: int64(agent.ID), Name: agent.Name, DisplayName: agent.DisplayName,
-			Description: common.StrPtr(agent.Description), Background: common.StrPtr(agent.Background),
-			Enabled: agent.Enabled, Priority: int64(agent.Priority),
-		},
+		Agent: dbReviewerAgentToAPI(agent),
 	})
 }
 
@@ -411,11 +403,7 @@ func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	}
 
 	common.Success(c, &modelSettings.UpdateReviewerAgentResp{
-		Agent: &modelSettings.ReviewerAgentInfo{
-			ID: int64(existing.ID), Name: existing.Name, DisplayName: existing.DisplayName,
-			Description: common.StrPtr(existing.Description), Background: common.StrPtr(existing.Background),
-			Enabled: existing.Enabled, Priority: int64(existing.Priority),
-		},
+		Agent: dbReviewerAgentToAPI(existing),
 	})
 }
 
@@ -545,6 +533,21 @@ func dbGlobalRulesToAPI(r *models.GlobalRules) *modelSettings.GlobalRules {
 		}
 	}
 	return &modelSettings.GlobalRules{Rules: entries}
+}
+
+func dbReviewerAgentToAPI(a *models.ReviewerAgent) *modelSettings.ReviewerAgentInfo {
+	if a == nil {
+		return nil
+	}
+	var tags string
+	if len(a.Tags) > 0 {
+		tags = string(a.Tags)
+	}
+	return &modelSettings.ReviewerAgentInfo{
+		ID: int64(a.ID), Name: a.Name, DisplayName: a.DisplayName,
+		Description: common.StrPtr(a.Description), Background: common.StrPtr(a.Background),
+		Enabled: a.Enabled, Priority: int64(a.Priority), Tags: common.StrPtr(tags),
+	}
 }
 
 func apiGlobalRulesToDB(g *modelSettings.GlobalRules) *models.GlobalRules {

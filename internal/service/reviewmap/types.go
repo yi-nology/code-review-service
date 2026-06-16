@@ -212,32 +212,48 @@ func (g *Generator) addFindingsToSections(sections []Section, findings []Finding
 // generateDependencies generates dependencies between files
 func (g *Generator) generateDependencies(files []File) []Dependency {
 	var dependencies []Dependency
+	seen := make(map[string]bool)
 
-	// Simple dependency detection based on file patterns
 	for i, file1 := range files {
 		for j, file2 := range files {
 			if i == j {
 				continue
 			}
 
-			// Check for imports
-			if g.hasImport(file1.Path, file2.Path) {
-				dependencies = append(dependencies, Dependency{
-					From:     file1.Path,
-					To:       file2.Path,
-					Type:     "imports",
-					Strength: "strong",
-				})
+			// Create edge key based on file paths
+			edgeKey := file1.Path + "->" + file2.Path
+			reverseKey := file2.Path + "->" + file1.Path
+			
+			// Skip if already seen (in either direction)
+			if seen[edgeKey] || seen[reverseKey] {
+				continue
 			}
 
-			// Check for same package
-			if g.samePackage(file1.Path, file2.Path) {
-				dependencies = append(dependencies, Dependency{
-					From:     file1.Path,
-					To:       file2.Path,
-					Type:     "same_package",
-					Strength: "weak",
-				})
+			dir1 := getDirectory(file1.Path)
+			dir2 := getDirectory(file2.Path)
+
+			// Same directory: show file-level dependency
+			if dir1 == dir2 {
+				if inferLanguage(file1.Path) == inferLanguage(file2.Path) {
+					dependencies = append(dependencies, Dependency{
+						From:     file1.Path,
+						To:       file2.Path,
+						Type:     "same_module",
+						Strength: "weak",
+					})
+					seen[edgeKey] = true
+				}
+			} else {
+				// Different directories: show directory-level dependency
+				if inferLanguage(file1.Path) == inferLanguage(file2.Path) {
+					dependencies = append(dependencies, Dependency{
+						From:     file1.Path,
+						To:       file2.Path,
+						Type:     "imports",
+						Strength: "strong",
+					})
+					seen[edgeKey] = true
+				}
 			}
 		}
 	}
@@ -291,19 +307,79 @@ func (m *ReviewMap) ToMermaid() string {
 
 	sb.WriteString("graph TD\n")
 
-	// Add nodes for each section
+	// Collect all unique directories and files
+	allDirs := make(map[string]bool)
+	allFiles := make(map[string]bool)
+	
 	for _, section := range m.Sections {
-		nodeID := sanitizeID(section.Title)
-		sb.WriteString(fmt.Sprintf("    %s[%s]\n", nodeID, section.Title))
+		for _, file := range section.Files {
+			dir := getDirectory(file.Path)
+			if dir != "" && dir != "." {
+				allDirs[dir] = true
+			}
+			allFiles[file.Path] = true
+		}
 	}
 
-	// Add edges for dependencies
-	for _, dep := range m.Dependencies {
-		fromID := sanitizeID(getDirectory(dep.From))
-		toID := sanitizeID(getDirectory(dep.To))
-		if fromID != toID {
-			sb.WriteString(fmt.Sprintf("    %s --> %s\n", fromID, toID))
+	// Determine if we should show file-level or directory-level
+	// If all files are in same directory, show file-level
+	// Otherwise show directory-level
+	dirCount := len(allDirs)
+	
+	if dirCount <= 1 {
+		// File-level diagram
+		for filePath := range allFiles {
+			nodeID := sanitizeID(filePath)
+			parts := strings.Split(filePath, "/")
+			displayName := parts[len(parts)-1]
+			sb.WriteString(fmt.Sprintf("    %s[\"%s\"]\n", nodeID, displayName))
 		}
+
+		// Add file-level edges
+		seen := make(map[string]bool)
+		for _, dep := range m.Dependencies {
+			fromID := sanitizeID(dep.From)
+			toID := sanitizeID(dep.To)
+			edgeKey := fromID + "->" + toID
+			if fromID != toID && !seen[edgeKey] {
+				sb.WriteString(fmt.Sprintf("    %s --> %s\n", fromID, toID))
+				seen[edgeKey] = true
+			}
+		}
+	} else {
+		// Directory-level diagram
+		for dir := range allDirs {
+			nodeID := sanitizeID(dir)
+			displayName := dir
+			parts := strings.Split(dir, "/")
+			if len(parts) > 3 {
+				displayName = ".../" + strings.Join(parts[len(parts)-2:], "/")
+			}
+			sb.WriteString(fmt.Sprintf("    %s[\"%s\"]\n", nodeID, displayName))
+		}
+
+		// Add directory-level edges (aggregate)
+		seen := make(map[string]bool)
+		for _, dep := range m.Dependencies {
+			fromDir := getDirectory(dep.From)
+			toDir := getDirectory(dep.To)
+			if fromDir == toDir {
+				continue
+			}
+			fromID := sanitizeID(fromDir)
+			toID := sanitizeID(toDir)
+			edgeKey := fromID + "->" + toID
+			if !seen[edgeKey] {
+				sb.WriteString(fmt.Sprintf("    %s --> %s\n", fromID, toID))
+				seen[edgeKey] = true
+			}
+		}
+	}
+
+	// If no edges, add a note
+	hasEdges := strings.Contains(sb.String(), "-->")
+	if !hasEdges {
+		sb.WriteString("    note[\"No dependencies detected\"]\n")
 	}
 
 	return sb.String()
@@ -314,6 +390,7 @@ func sanitizeID(s string) string {
 	s = strings.ReplaceAll(s, " ", "_")
 	s = strings.ReplaceAll(s, "/", "_")
 	s = strings.ReplaceAll(s, ".", "_")
+	s = strings.ReplaceAll(s, "-", "_")
 	return s
 }
 

@@ -3,176 +3,321 @@
     <div class="agent-settings-page">
       <header class="page-header">
         <div>
-          <div class="eyebrow">AGENT SETTINGS</div>
-          <h1>代理设置</h1>
-          <p>配置审查代理团队，每个代理拥有独立的审查侧重点，审查时并行运行。</p>
+          <div class="eyebrow">REVIEWER AGENTS</div>
+          <h1>审查员</h1>
+          <p>维护全局审查员能力库。项目未配置团队时，会使用所有启用的审查员；项目策略可覆盖启用范围和优先级。</p>
+        </div>
+        <div class="header-actions">
+          <el-button plain @click="startCreate">
+            <el-icon><Plus /></el-icon>
+            新建审查员
+          </el-button>
+          <el-button type="primary" @click="handleSave" :loading="submitting" :disabled="validationIssues.length > 0">
+            保存审查员
+          </el-button>
         </div>
       </header>
 
-      <el-row :gutter="20">
-        <el-col :span="16">
-          <el-card>
+      <section class="summary-grid">
+        <div class="summary-card">
+          <span>审查员总数</span>
+          <strong>{{ agents.length }}</strong>
+        </div>
+        <div class="summary-card">
+          <span>全局启用</span>
+          <strong>{{ enabledCount }}</strong>
+        </div>
+        <div class="summary-card">
+          <span>能力标签</span>
+          <strong>{{ tagCount }}</strong>
+        </div>
+        <div class="summary-card warning" :class="{ active: validationIssues.length > 0 }">
+          <span>待处理问题</span>
+          <strong>{{ validationIssues.length }}</strong>
+        </div>
+      </section>
+
+      <div class="content-grid">
+        <aside class="agent-sidebar">
+          <el-card class="panel-card">
             <template #header>
               <div class="card-header">
-                <h3>代理团队</h3>
-                <el-button type="primary" @click="openDialog()">
-                  <el-icon><Plus /></el-icon>
-                  添加代理
+                <div>
+                  <strong>审查员池</strong>
+                  <span>按优先级从小到大执行</span>
+                </div>
+                <el-button text @click="fetchAgents" :loading="loading">
+                  <el-icon><Refresh /></el-icon>
                 </el-button>
               </div>
             </template>
 
-            <div v-if="loading" class="loading">
-              <el-skeleton :rows="5" animated />
-            </div>
+            <el-input v-model="keyword" class="agent-search" clearable placeholder="搜索名称、标识或标签">
+              <template #prefix><el-icon><Search /></el-icon></template>
+            </el-input>
 
-            <div v-else-if="agents.length === 0" class="empty">
-              <el-empty description="暂无代理配置，点击上方按钮添加">
-                <el-button type="primary" @click="openPresetDialog">从预设创建</el-button>
-              </el-empty>
-            </div>
+            <el-empty v-if="!loading && filteredAgents.length === 0" description="暂无审查员">
+              <el-button type="primary" @click="applyPreset(presets[0])">从推荐模板开始</el-button>
+            </el-empty>
 
-            <div v-else class="agent-list">
-              <div v-for="agent in agents" :key="agent.ID" class="agent-item" :class="{ disabled: !agent.enabled }">
-                <div class="agent-info">
-                  <div class="agent-header">
-                    <h4>{{ agent.display_name }}</h4>
-                    <el-tag v-if="!agent.enabled" type="info" size="small">已禁用</el-tag>
-                    <el-tag v-else type="success" size="small">启用中</el-tag>
-                  </div>
-                  <p v-if="agent.description" class="agent-desc">{{ agent.description }}</p>
-                  <div class="agent-background">
-                    <el-text class="background-text" truncated :title="agent.background">
-                      {{ agent.background }}
-                    </el-text>
-                  </div>
-                  <div v-if="agent.tags && agent.tags.length" class="agent-tags">
-                    <el-tag v-for="tag in agent.tags" :key="tag" size="small" type="info" effect="plain">
-                      {{ tag }}
-                    </el-tag>
-                  </div>
-                </div>
-                <div class="agent-actions">
-                  <el-switch v-model="agent.enabled" @change="toggleAgent(agent)" />
-                  <el-button size="small" @click="openDialog(agent)">编辑</el-button>
-                  <el-popconfirm title="确定删除此代理？" @confirm="handleDelete(agent)">
-                    <template #reference>
-                      <el-button size="small" type="danger">删除</el-button>
-                    </template>
-                  </el-popconfirm>
-                </div>
-              </div>
+            <div v-else v-loading="loading" class="agent-list">
+              <button
+                v-for="agent in filteredAgents"
+                :key="agent.ID"
+                class="agent-item"
+                :class="{ active: selectedAgent?.ID === agent.ID, disabled: !agent.enabled }"
+                type="button"
+                @click="editAgent(agent)"
+              >
+                <span class="agent-title">
+                  <strong>{{ agent.display_name }}</strong>
+                  <span class="priority-badge">P{{ agent.priority ?? 0 }}</span>
+                </span>
+                <span class="agent-meta">
+                  {{ agent.name }} / {{ agent.enabled ? '启用' : '禁用' }}
+                </span>
+                <span v-if="agent.tags?.length" class="tag-row">
+                  <span v-for="tag in agent.tags.slice(0, 3)" :key="tag">{{ tag }}</span>
+                </span>
+              </button>
             </div>
           </el-card>
-        </el-col>
+        </aside>
 
-        <el-col :span="8">
-          <el-card>
+        <main class="editor-column">
+          <el-card class="panel-card">
             <template #header>
-              <h3>预设模板</h3>
+              <div class="card-header">
+                <div>
+                  <strong>{{ selectedAgent ? '编辑审查员' : '新建审查员' }}</strong>
+                  <span>{{ dirty ? '有未保存修改' : '当前表单已同步' }}</span>
+                </div>
+                <el-switch
+                  v-model="form.enabled"
+                  inline-prompt
+                  active-text="启用"
+                  inactive-text="禁用"
+                />
+              </div>
+            </template>
+
+            <div class="editor-layout">
+              <section class="form-section">
+                <div class="section-title">
+                  <strong>1. 基本信息</strong>
+                  <span>标识名创建后不可修改，用于项目配置和审查结果归档</span>
+                </div>
+                <div class="field-grid two-columns">
+                  <label class="field-block">
+                    <span>标识名</span>
+                    <el-input v-model="form.name" placeholder="security" :disabled="!!selectedAgent" />
+                  </label>
+                  <label class="field-block">
+                    <span>显示名称</span>
+                    <el-input v-model="form.display_name" placeholder="安全审查员" />
+                  </label>
+                </div>
+                <label class="field-block full">
+                  <span>职责描述</span>
+                  <el-input v-model="form.description" placeholder="说明这个审查员负责什么风险面" />
+                </label>
+              </section>
+
+              <section class="form-section">
+                <div class="section-title">
+                  <strong>2. 执行策略</strong>
+                  <span>全局优先级用于默认团队；项目策略里可单独覆盖</span>
+                </div>
+                <div class="field-grid two-columns">
+                  <label class="field-block">
+                    <span>全局优先级</span>
+                    <el-input-number v-model="form.priority" :min="0" :max="100" />
+                  </label>
+                  <label class="field-block">
+                    <span>能力标签</span>
+                    <div class="tags-input">
+                      <el-tag
+                        v-for="tag in form.tags"
+                        :key="tag"
+                        closable
+                        @close="removeTag(tag)"
+                      >
+                        {{ tag }}
+                      </el-tag>
+                      <el-input
+                        v-if="tagInputVisible"
+                        ref="tagInputRef"
+                        v-model="tagInputValue"
+                        size="small"
+                        class="tag-input"
+                        @keyup.enter="addTag"
+                        @blur="addTag"
+                      />
+                      <el-button v-else size="small" @click="showTagInput">添加标签</el-button>
+                    </div>
+                  </label>
+                </div>
+              </section>
+
+              <section class="form-section">
+                <div class="section-title">
+                  <strong>3. 审查侧重点</strong>
+                  <span>这段内容会作为模型审查背景，决定审查员从哪个角度看代码</span>
+                </div>
+                <el-input
+                  v-model="form.background"
+                  type="textarea"
+                  :rows="9"
+                  placeholder="例如：重点关注鉴权绕过、越权访问、敏感信息泄露、输入校验和不安全配置。"
+                />
+              </section>
+            </div>
+          </el-card>
+        </main>
+
+        <aside class="inspector-column">
+          <el-card class="panel-card">
+            <template #header>
+              <div class="card-header compact">
+                <strong>保存前检查</strong>
+              </div>
+            </template>
+            <div v-if="validationIssues.length === 0" class="check-ok">
+              <el-icon><CircleCheckFilled /></el-icon>
+              可以保存
+            </div>
+            <ul v-else class="issue-list">
+              <li v-for="issue in validationIssues" :key="issue">{{ issue }}</li>
+            </ul>
+          </el-card>
+
+          <el-card class="panel-card">
+            <template #header>
+              <div class="card-header compact">
+                <strong>预设模板</strong>
+              </div>
             </template>
             <div class="preset-list">
-              <div v-for="preset in presets" :key="preset.name" class="preset-item">
-                <h4>{{ preset.display_name }}</h4>
-                <p>{{ preset.description }}</p>
-                <el-button size="small" type="primary" plain @click="createFromPreset(preset)">一键创建</el-button>
-              </div>
+              <button
+                v-for="preset in presets"
+                :key="preset.name"
+                type="button"
+                class="preset-item"
+                @click="applyPreset(preset)"
+              >
+                <strong>{{ preset.display_name }}</strong>
+                <span>{{ preset.description }}</span>
+              </button>
             </div>
           </el-card>
 
-          <el-card class="mt-20">
+          <el-card class="panel-card">
             <template #header>
-              <h3>说明</h3>
+              <div class="card-header compact">
+                <strong>生效说明</strong>
+              </div>
             </template>
             <div class="help-content">
-              <h4>什么是代理？</h4>
-              <p>每个代理代表一个独立的审查视角。审查时，系统会为每个启用的代理分别运行一次 OCR，各自使用不同的审查侧重点（<code>--background</code> 参数）。</p>
-              <h4>如何使用？</h4>
-              <p>创建代理后，系统在审查时会自动并行运行所有启用的代理，最终聚合各方发现。</p>
-              <h4>审查侧重点</h4>
-              <p>填写的内容会作为 OCR 的 <code>--background</code> 参数传入，引导 AI 从特定角度审查代码。例如："重点关注前端组件的可维护性和 CSS 规范"。</p>
+              <p>没有项目团队配置时，系统会使用所有全局启用的审查员。</p>
+              <p>项目策略配置审查员后，只运行项目中启用的审查员。</p>
+              <p>优先级数字越小越靠前；项目优先级会覆盖这里的全局优先级。</p>
             </div>
           </el-card>
-        </el-col>
-      </el-row>
 
-      <el-dialog
-        v-model="dialogVisible"
-        :title="editingAgent ? '编辑代理' : '添加代理'"
-        width="600px"
-        :close-on-click-modal="false"
-      >
-        <el-form :model="form" label-width="100px" :rules="rules" ref="formRef">
-          <el-form-item label="标识名" prop="name">
-            <el-input v-model="form.name" placeholder="如 frontend、security" :disabled="!!editingAgent" />
-            <div class="form-tip">唯一标识，创建后不可修改</div>
-          </el-form-item>
-          <el-form-item label="显示名称" prop="display_name">
-            <el-input v-model="form.display_name" placeholder="如 前端审查员、安全审查员" />
-          </el-form-item>
-          <el-form-item label="描述">
-            <el-input v-model="form.description" placeholder="简要描述此代理的职责" />
-          </el-form-item>
-          <el-form-item label="审查侧重点" prop="background">
-            <el-input
-              v-model="form.background"
-              type="textarea"
-              :rows="6"
-              placeholder="例如：重点关注前端代码质量，包括 Vue 组件设计、CSS 样式规范、响应式设计"
-            />
-            <div class="form-tip">此内容将作为 OCR 的 --background 参数，引导 AI 从特定角度审查代码</div>
-          </el-form-item>
-          <el-form-item label="标签">
-            <div class="tags-input">
-              <el-tag
-                v-for="tag in form.tags"
-                :key="tag"
-                closable
-                @close="removeTag(tag)"
-                class="tag-item"
-              >{{ tag }}</el-tag>
-              <el-input
-                v-if="tagInputVisible"
-                ref="tagInputRef"
-                v-model="tagInputValue"
-                size="small"
-                style="width: 100px"
-                @keyup.enter="addTag"
-                @blur="addTag"
-              />
-              <el-button v-else size="small" @click="showTagInput">+ 标签</el-button>
-            </div>
-          </el-form-item>
-          <el-form-item label="启用">
-            <el-switch v-model="form.enabled" />
-          </el-form-item>
-        </el-form>
-        <template #footer>
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSubmit" :loading="submitting">
-            {{ editingAgent ? '保存' : '创建' }}
-          </el-button>
-        </template>
-      </el-dialog>
+          <el-card v-if="selectedAgent" class="panel-card danger-card">
+            <template #header>
+              <div class="card-header compact">
+                <strong>危险操作</strong>
+              </div>
+            </template>
+            <p>删除后，项目中引用该审查员的配置将无法继续创建对应审查角色。</p>
+            <el-button type="danger" plain @click="handleDeleteSelected">删除当前审查员</el-button>
+          </el-card>
+        </aside>
+      </div>
     </div>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, nextTick } from 'vue'
-import { Plus } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { CircleCheckFilled, Plus, Refresh, Search } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus/es/components/message/index'
+import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { listReviewerAgents, createReviewerAgent, updateReviewerAgent, deleteReviewerAgent } from '@/api/config'
 import type { ReviewerAgent } from '@/types/config'
 
+type AgentPreset = {
+  name: string
+  display_name: string
+  description: string
+  background: string
+  tags: string[]
+  priority: number
+}
+
+const presets: AgentPreset[] = [
+  {
+    name: 'security',
+    display_name: '安全审查员',
+    description: '关注权限、输入校验、敏感数据与常见漏洞',
+    background: `重点关注安全问题：
+- SQL 注入、XSS、CSRF、SSRF 等常见漏洞
+- 认证与授权机制是否存在绕过
+- 输入验证、输出编码与数据净化
+- 密码、Token、密钥等敏感数据处理
+- 越权访问和不安全默认配置`,
+    tags: ['security', 'auth', 'risk'],
+    priority: 10,
+  },
+  {
+    name: 'backend',
+    display_name: '后端审查员',
+    description: '关注 API、数据库、事务、错误处理和并发安全',
+    background: `重点关注后端代码质量：
+- API 设计一致性和错误语义
+- 数据库查询性能、索引和 N+1 问题
+- 事务边界、并发安全和资源释放
+- 日志、监控和可观测性
+- 边界条件与失败路径处理`,
+    tags: ['backend', 'api', 'database'],
+    priority: 20,
+  },
+  {
+    name: 'frontend',
+    display_name: '前端审查员',
+    description: '关注组件设计、交互状态、响应式和可维护性',
+    background: `重点关注前端代码质量：
+- Vue/React 组件职责划分和可维护性
+- 表单校验、加载态、空状态和错误反馈
+- 响应式布局、可访问性和用户体验
+- 状态管理、接口调用和缓存策略
+- 前端性能和代码分割`,
+    tags: ['frontend', 'ux', 'vue'],
+    priority: 30,
+  },
+  {
+    name: 'performance',
+    display_name: '性能审查员',
+    description: '关注性能瓶颈、缓存、内存和扩展性',
+    background: `重点关注性能问题：
+- 算法复杂度和热点路径
+- 内存使用、泄漏风险和资源释放
+- 缓存策略、批处理和异步执行
+- 数据库索引与慢查询风险
+- 高并发场景下的扩展性`,
+    tags: ['performance', 'scalability'],
+    priority: 40,
+  },
+]
+
 const loading = ref(true)
 const submitting = ref(false)
 const agents = ref<ReviewerAgent[]>([])
-const dialogVisible = ref(false)
-const editingAgent = ref<ReviewerAgent | null>(null)
-const formRef = ref<FormInstance>()
+const selectedAgent = ref<ReviewerAgent | null>(null)
+const keyword = ref('')
+const originalJson = ref('')
 const tagInputVisible = ref(false)
 const tagInputValue = ref('')
 const tagInputRef = ref()
@@ -183,70 +328,66 @@ const form = reactive({
   description: '',
   background: '',
   enabled: true,
+  priority: 20,
   tags: [] as string[],
 })
 
-const rules: FormRules = {
-  name: [{ required: true, message: '请输入标识名', trigger: 'blur' }],
-  display_name: [{ required: true, message: '请输入显示名称', trigger: 'blur' }],
-  background: [{ required: true, message: '请输入审查侧重点', trigger: 'blur' }],
-}
+const enabledCount = computed(() => agents.value.filter((agent) => agent.enabled).length)
+const tagCount = computed(() => new Set(agents.value.flatMap((agent) => agent.tags || [])).size)
+const dirty = computed(() => JSON.stringify(payload.value) !== originalJson.value)
 
-const presets = [
-  {
-    name: 'frontend',
-    display_name: '前端审查员',
-    description: '关注 Vue/React 组件设计、CSS 样式、响应式设计',
-    background: `重点关注前端代码质量：
-- Vue/React 组件设计与可维护性
-- CSS/样式规范与响应式设计
-- 用户交互体验与无障碍访问
-- 前端性能优化（懒加载、代码分割）
-- 状态管理的合理性`,
-    tags: ['frontend', 'vue', 'css'],
-  },
-  {
-    name: 'backend',
-    display_name: '后端审查员',
-    description: '关注 API 设计、数据库查询、错误处理',
-    background: `重点关注后端代码质量：
-- API 接口设计规范与一致性
-- 数据库查询性能与 N+1 问题
-- 错误处理与边界条件覆盖
-- 日志记录与可观测性
-- 并发安全与资源泄漏`,
-    tags: ['backend', 'api', 'database'],
-  },
-  {
-    name: 'security',
-    display_name: '安全审查员',
-    description: '关注安全漏洞、权限控制、数据保护',
-    background: `重点关注安全问题：
-- SQL 注入、XSS、CSRF 等常见漏洞
-- 认证与授权机制的正确性
-- 输入验证与数据净化
-- 敏感数据处理（密码、Token、密钥）
-- 权限控制与越权访问风险`,
-    tags: ['security', 'auth', 'vulnerability'],
-  },
-  {
-    name: 'performance',
-    display_name: '性能审查员',
-    description: '关注性能瓶颈、资源使用、可扩展性',
-    background: `重点关注性能问题：
-- 算法复杂度与性能瓶颈
-- 内存使用与泄漏风险
-- 数据库索引与查询优化
-- 缓存策略的合理性
-- 异步处理与并发性能`,
-    tags: ['performance', 'optimization'],
-  },
-]
+const filteredAgents = computed(() => {
+  const value = keyword.value.trim().toLowerCase()
+  const sorted = [...agents.value].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0) || a.ID - b.ID)
+  if (!value) return sorted
+  return sorted.filter((agent) => {
+    return [
+      agent.name,
+      agent.display_name,
+      agent.description,
+      ...(agent.tags || []),
+    ].some((part) => String(part || '').toLowerCase().includes(value))
+  })
+})
+
+const payload = computed(() => ({
+  name: form.name.trim(),
+  display_name: form.display_name.trim(),
+  description: form.description.trim(),
+  background: form.background.trim(),
+  enabled: form.enabled,
+  priority: form.priority,
+  tags: form.tags.map((tag) => tag.trim()).filter(Boolean),
+}))
+
+const validationIssues = computed(() => {
+  const issues: string[] = []
+  if (!payload.value.name) issues.push('请输入标识名')
+  if (payload.value.name && !/^[a-z][a-z0-9_-]*$/.test(payload.value.name)) {
+    issues.push('标识名只能使用小写字母、数字、下划线和短横线，并以字母开头')
+  }
+  if (!payload.value.display_name) issues.push('请输入显示名称')
+  if (!payload.value.background) issues.push('请输入审查侧重点')
+  if (payload.value.background.length > 2000) issues.push('审查侧重点过长，请控制在 2000 字以内')
+  const duplicatedName = agents.value.some((agent) => {
+    return agent.name === payload.value.name && agent.ID !== selectedAgent.value?.ID
+  })
+  if (duplicatedName) issues.push('标识名已存在')
+  return issues
+})
 
 async function fetchAgents() {
   loading.value = true
   try {
     agents.value = await listReviewerAgents()
+    if (selectedAgent.value) {
+      const latest = agents.value.find((agent) => agent.ID === selectedAgent.value?.ID)
+      if (latest) editAgent(latest)
+    } else if (agents.value.length > 0) {
+      editAgent(filteredAgents.value[0])
+    } else {
+      startCreate()
+    }
   } catch (e) {
     console.error('Failed to load agents:', e)
   } finally {
@@ -254,106 +395,89 @@ async function fetchAgents() {
   }
 }
 
-function openDialog(agent?: ReviewerAgent) {
-  editingAgent.value = agent || null
-  if (agent) {
-    form.name = agent.name
-    form.display_name = agent.display_name
-    form.description = agent.description || ''
-    form.background = agent.background
-    form.enabled = agent.enabled
-    form.tags = agent.tags ? [...agent.tags] : []
-  } else {
-    form.name = ''
-    form.display_name = ''
-    form.description = ''
-    form.background = ''
-    form.enabled = true
-    form.tags = []
+function editAgent(agent: ReviewerAgent) {
+  selectedAgent.value = agent
+  form.name = agent.name
+  form.display_name = agent.display_name
+  form.description = agent.description || ''
+  form.background = agent.background || ''
+  form.enabled = agent.enabled
+  form.priority = agent.priority ?? 20
+  form.tags = agent.tags ? [...agent.tags] : []
+  syncOriginal()
+}
+
+function startCreate() {
+  selectedAgent.value = null
+  form.name = ''
+  form.display_name = ''
+  form.description = ''
+  form.background = ''
+  form.enabled = true
+  form.priority = 20
+  form.tags = []
+  syncOriginal()
+}
+
+function applyPreset(preset: AgentPreset) {
+  selectedAgent.value = null
+  form.name = preset.name
+  form.display_name = preset.display_name
+  form.description = preset.description
+  form.background = preset.background
+  form.enabled = true
+  form.priority = preset.priority
+  form.tags = [...preset.tags]
+  syncOriginal()
+}
+
+async function handleSave() {
+  if (validationIssues.value.length > 0) {
+    ElMessage.warning('请先处理保存前检查中的问题')
+    return
   }
-  dialogVisible.value = true
-}
-
-function openPresetDialog() {
-  dialogVisible.value = false
-}
-
-async function handleSubmit() {
-  if (!formRef.value) return
-  await formRef.value.validate()
   submitting.value = true
   try {
-    if (editingAgent.value) {
-      await updateReviewerAgent(editingAgent.value.ID, {
-        display_name: form.display_name,
-        description: form.description,
-        background: form.background,
-        enabled: form.enabled,
-        tags: form.tags,
+    let saved: ReviewerAgent
+    if (selectedAgent.value) {
+      saved = await updateReviewerAgent(selectedAgent.value.ID, {
+        display_name: payload.value.display_name,
+        description: payload.value.description,
+        background: payload.value.background,
+        enabled: payload.value.enabled,
+        priority: payload.value.priority,
+        tags: payload.value.tags,
       })
-      ElMessage.success('代理已更新')
+      ElMessage.success('审查员已更新')
     } else {
-      await createReviewerAgent({
-        name: form.name,
-        display_name: form.display_name,
-        description: form.description,
-        background: form.background,
-        enabled: form.enabled,
-        tags: form.tags,
-      })
-      ElMessage.success('代理已创建')
+      saved = await createReviewerAgent(payload.value)
+      ElMessage.success('审查员已创建')
     }
-    dialogVisible.value = false
     await fetchAgents()
+    const latest = agents.value.find((agent) => agent.ID === saved.ID || agent.name === saved.name)
+    if (latest) editAgent(latest)
   } catch (e: any) {
-    ElMessage.error(e?.message || '操作失败')
+    ElMessage.error(e?.message || '保存失败')
   } finally {
     submitting.value = false
   }
 }
 
-async function toggleAgent(agent: ReviewerAgent) {
+async function handleDeleteSelected() {
+  if (!selectedAgent.value) return
   try {
-    await updateReviewerAgent(agent.ID, { enabled: agent.enabled })
-    ElMessage.success(agent.enabled ? '已启用' : '已禁用')
-  } catch (e: any) {
-    agent.enabled = !agent.enabled
-    ElMessage.error(e?.message || '操作失败')
-  }
-}
-
-async function handleDelete(agent: ReviewerAgent) {
-  try {
-    await deleteReviewerAgent(agent.ID)
-    ElMessage.success('已删除')
+    await ElMessageBox.confirm(`确定删除 ${selectedAgent.value.display_name}？`, '确认删除')
+    await deleteReviewerAgent(selectedAgent.value.ID)
+    ElMessage.success('审查员已删除')
+    selectedAgent.value = null
     await fetchAgents()
-  } catch (e: any) {
-    ElMessage.error(e?.message || '删除失败')
-  }
-}
-
-async function createFromPreset(preset: typeof presets[0]) {
-  submitting.value = true
-  try {
-    await createReviewerAgent({
-      name: preset.name,
-      display_name: preset.display_name,
-      description: preset.description,
-      background: preset.background,
-      enabled: true,
-      tags: preset.tags,
-    })
-    ElMessage.success(`已创建 ${preset.display_name}`)
-    await fetchAgents()
-  } catch (e: any) {
-    ElMessage.error(e?.message || '创建失败')
-  } finally {
-    submitting.value = false
+  } catch {
+    // 用户取消
   }
 }
 
 function removeTag(tag: string) {
-  form.tags = form.tags.filter(t => t !== tag)
+  form.tags = form.tags.filter((item) => item !== tag)
 }
 
 function showTagInput() {
@@ -362,11 +486,16 @@ function showTagInput() {
 }
 
 function addTag() {
-  if (tagInputValue.value && !form.tags.includes(tagInputValue.value)) {
-    form.tags.push(tagInputValue.value)
+  const value = tagInputValue.value.trim()
+  if (value && !form.tags.includes(value)) {
+    form.tags.push(value)
   }
   tagInputVisible.value = false
   tagInputValue.value = ''
+}
+
+function syncOriginal() {
+  originalJson.value = JSON.stringify(payload.value)
 }
 
 onMounted(fetchAgents)
@@ -374,188 +503,344 @@ onMounted(fetchAgents)
 
 <style scoped>
 .agent-settings-page {
-  width: min(1200px, 100%);
+  width: min(1480px, 100%);
   margin: 0 auto;
   padding: 34px 36px 48px;
 }
 
 .page-header {
-  margin-bottom: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 22px;
 }
 
 .page-header h1 {
   margin: 4px 0 8px;
   color: var(--app-text);
-  font-size: 28px;
+  font-size: 30px;
+  letter-spacing: -0.6px;
 }
 
 .page-header p {
+  max-width: 760px;
   margin: 0;
   color: var(--app-muted);
   font-size: 14px;
+  line-height: 1.7;
 }
 
 .eyebrow {
   color: var(--app-primary);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: 1.3px;
+  letter-spacing: 1.4px;
+}
+
+.header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.summary-card {
+  min-height: 92px;
+  padding: 18px 20px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+}
+
+.summary-card span,
+.card-header span,
+.section-title span {
+  display: block;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.summary-card strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--app-text);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.summary-card.warning.active strong {
+  color: var(--app-danger);
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: 330px minmax(0, 1fr) 340px;
+  gap: 18px;
+  align-items: start;
+}
+
+.panel-card {
+  border-radius: 8px;
+  box-shadow: var(--app-shadow);
 }
 
 .card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-}
-
-.card-header h3 {
-  margin: 0;
-}
-
-.mt-20 {
-  margin-top: 20px;
-}
-
-.loading {
-  padding: 20px;
-}
-
-.empty {
-  padding: 40px;
-}
-
-.agent-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.agent-item {
-  display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  padding: 16px;
-  background: #f5f7fa;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  transition: all 0.2s;
+  gap: 12px;
 }
 
-.agent-item:hover {
-  border-color: #dcdfe6;
-}
-
-.agent-item.disabled {
-  opacity: 0.6;
-}
-
-.agent-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.agent-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.agent-header h4 {
-  margin: 0;
+.card-header strong {
+  display: block;
+  color: var(--app-text);
   font-size: 15px;
 }
 
-.agent-desc {
-  margin: 0 0 8px;
-  color: #666;
-  font-size: 13px;
+.card-header.compact {
+  min-height: 28px;
 }
 
-.agent-background {
-  margin-bottom: 8px;
+.agent-search {
+  margin-bottom: 12px;
 }
 
-.background-text {
-  font-size: 12px;
-  color: #909399;
-  max-width: 500px;
+.agent-list {
+  display: grid;
+  gap: 8px;
+  max-height: 680px;
+  overflow: auto;
 }
 
-.agent-tags {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
+.agent-item,
+.preset-item {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid #edf0f5;
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: 160ms ease;
 }
 
-.agent-actions {
+.agent-item:hover,
+.agent-item.active,
+.preset-item:hover {
+  border-color: #cfd3ff;
+  background: #fbfbff;
+}
+
+.agent-item.disabled {
+  opacity: 0.62;
+}
+
+.agent-title {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  flex-shrink: 0;
-  margin-left: 16px;
 }
 
-.preset-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.preset-item {
-  padding: 14px;
-  background: #f5f7fa;
-  border-radius: 8px;
-}
-
-.preset-item h4 {
-  margin: 0 0 6px;
-  font-size: 14px;
-}
-
-.preset-item p {
-  margin: 0 0 10px;
-  color: #666;
-  font-size: 12px;
-}
-
-.help-content h4 {
-  margin: 16px 0 8px;
-  font-size: 14px;
-}
-
-.help-content h4:first-child {
-  margin-top: 0;
-}
-
-.help-content p {
-  margin: 0;
-  color: #666;
+.agent-title strong {
+  overflow: hidden;
+  color: var(--app-text);
   font-size: 13px;
-  line-height: 1.6;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.help-content code {
-  background: #f0f0f0;
-  padding: 1px 4px;
-  border-radius: 3px;
+.priority-badge {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  padding: 0 7px;
+  border-radius: 6px;
+  color: #5656c5;
+  background: #f0f1ff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.agent-meta {
+  display: block;
+  margin-top: 6px;
+  color: var(--app-muted);
   font-size: 12px;
 }
 
-.form-tip {
-  font-size: 12px;
-  color: #999;
-  margin-top: 4px;
-}
-
+.tag-row,
 .tags-input {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  align-items: center;
 }
 
-.tag-item {
+.tag-row {
+  margin-top: 8px;
+}
+
+.tag-row span {
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: #4c5570;
+  background: #f2f4f8;
+  font-size: 11px;
+}
+
+.editor-layout {
+  display: grid;
+  gap: 24px;
+}
+
+.form-section {
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.form-section:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.section-title {
+  margin-bottom: 14px;
+}
+
+.section-title strong {
+  display: block;
+  color: var(--app-text);
+  font-size: 15px;
+}
+
+.section-title span {
+  margin-top: 3px;
+}
+
+.field-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.field-grid.two-columns {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field-block {
+  display: grid;
+  gap: 8px;
+}
+
+.field-block.full {
+  margin-top: 14px;
+}
+
+.field-block > span {
+  color: #4b5568;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tag-input {
+  width: 120px;
+}
+
+.check-ok {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--app-success);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.issue-list {
   margin: 0;
+  padding-left: 18px;
+  color: var(--app-danger);
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.preset-list {
+  display: grid;
+  gap: 8px;
+}
+
+.preset-item strong,
+.preset-item span {
+  display: block;
+}
+
+.preset-item strong {
+  color: var(--app-text);
+  font-size: 13px;
+}
+
+.preset-item span {
+  margin-top: 5px;
+  color: var(--app-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.help-content {
+  display: grid;
+  gap: 10px;
+}
+
+.help-content p,
+.danger-card p {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.danger-card p {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 1280px) {
+  .content-grid {
+    grid-template-columns: 310px minmax(0, 1fr);
+  }
+
+  .inspector-column {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  .page-header {
+    display: block;
+  }
+
+  .header-actions {
+    margin-top: 16px;
+  }
+
+  .summary-grid,
+  .content-grid,
+  .field-grid.two-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .agent-settings-page {
+    padding: 22px 14px 36px;
+  }
+
+  .page-header h1 {
+    font-size: 24px;
+  }
 }
 </style>

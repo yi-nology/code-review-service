@@ -97,6 +97,107 @@ func (s *Service) GetContributorCategories(ctx context.Context, author, provider
 	return out, nil
 }
 
+func (s *Service) ListProjects(ctx context.Context, provider, repo, from, to, sort, order string, page, pageSize int) (*ProjectListResult, error) {
+	result, err := s.repo.ListProjects(ctx, models.ProjectStatsOptions{
+		Provider: provider,
+		Repo:     repo,
+		From:     parseTime(from),
+		To:       parseTime(to),
+		Sort:     sort,
+		Order:    order,
+		Page:     page,
+		PageSize: pageSize,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return toProjectListResult(result), nil
+}
+
+func (s *Service) GetProject(ctx context.Context, provider, repo, from, to string) (*ProjectDetail, error) {
+	detail, err := s.repo.GetProject(ctx, models.ProjectStatsOptions{
+		Provider: provider,
+		Repo:     repo,
+		From:     parseTime(from),
+		To:       parseTime(to),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if detail == nil {
+		return nil, nil
+	}
+	return toProjectDetail(detail), nil
+}
+
+func (s *Service) GetProjectTrend(ctx context.Context, provider, repo, from, to string) ([]ProjectTrendPoint, error) {
+	points, err := s.repo.GetProjectTrend(ctx, models.ProjectStatsOptions{
+		Provider: provider,
+		Repo:     repo,
+		From:     parseTime(from),
+		To:       parseTime(to),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ProjectTrendPoint, len(points))
+	for i, p := range points {
+		out[i] = ProjectTrendPoint(p)
+	}
+	return out, nil
+}
+
+func (s *Service) GetProjectCategories(ctx context.Context, provider, repo, from, to string) ([]CategoryStat, error) {
+	cats, err := s.repo.GetProjectCategories(ctx, models.ProjectStatsOptions{
+		Provider: provider,
+		Repo:     repo,
+		From:     parseTime(from),
+		To:       parseTime(to),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]CategoryStat, len(cats))
+	for i, c := range cats {
+		out[i] = CategoryStat(c)
+	}
+	return out, nil
+}
+
+func (s *Service) GetProjectFiles(ctx context.Context, provider, repo, from, to string) ([]FileRiskStat, error) {
+	files, err := s.repo.GetProjectFiles(ctx, models.ProjectStatsOptions{
+		Provider: provider,
+		Repo:     repo,
+		From:     parseTime(from),
+		To:       parseTime(to),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]FileRiskStat, len(files))
+	for i, f := range files {
+		out[i] = FileRiskStat(f)
+	}
+	return out, nil
+}
+
+func (s *Service) GetProjectContributors(ctx context.Context, provider, repo, from, to string, limit int) ([]ContributorSummary, error) {
+	contributors, err := s.repo.GetProjectContributors(ctx, models.ProjectStatsOptions{
+		Provider: provider,
+		Repo:     repo,
+		From:     parseTime(from),
+		To:       parseTime(to),
+	}, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ContributorSummary, len(contributors))
+	for i, c := range contributors {
+		out[i] = toContributorSummary(c)
+	}
+	return out, nil
+}
+
 func toContributorSummary(s models.ContributorSummary) ContributorSummary {
 	return ContributorSummary{
 		Author:        s.Author,
@@ -136,5 +237,46 @@ func toContributorListResult(r *models.ContributorListResult) *ContributorListRe
 		Total:        r.Total,
 		Page:         r.Page,
 		PageSize:     r.PageSize,
+	}
+}
+
+func toProjectSummary(s models.ProjectSummary) ProjectSummary {
+	return ProjectSummary{
+		Provider:      s.Provider,
+		Repo:          s.Repo,
+		ReviewCount:   s.ReviewCount,
+		AvgScore:      s.AvgScore,
+		PassRate:      s.PassRate,
+		TotalFindings: s.TotalFindings,
+		CriticalCount: s.CriticalCount,
+		MajorCount:    s.MajorCount,
+		MinorCount:    s.MinorCount,
+		InfoCount:     s.InfoCount,
+		LastReviewAt:  s.LastReviewAt,
+	}
+}
+
+func toProjectDetail(d *models.ProjectDetail) *ProjectDetail {
+	return &ProjectDetail{
+		ProjectSummary:    toProjectSummary(d.ProjectSummary),
+		MedianScore:       d.MedianScore,
+		MaxScore:          d.MaxScore,
+		MinScore:          d.MinScore,
+		GradeDistribution: d.GradeDistribution,
+		AvgFindings:       d.AvgFindings,
+		AvgChangedLines:   d.AvgChangedLines,
+	}
+}
+
+func toProjectListResult(r *models.ProjectListResult) *ProjectListResult {
+	projects := make([]ProjectSummary, len(r.Projects))
+	for i, p := range r.Projects {
+		projects[i] = toProjectSummary(p)
+	}
+	return &ProjectListResult{
+		Projects: projects,
+		Total:    r.Total,
+		Page:     r.Page,
+		PageSize: r.PageSize,
 	}
 }

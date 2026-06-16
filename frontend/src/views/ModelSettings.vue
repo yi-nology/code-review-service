@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="ocr-settings-page">
+    <div class="model-settings-page">
       <header class="page-header">
         <div class="eyebrow">MODEL SETTINGS</div>
         <h1>模型配置</h1>
@@ -100,7 +100,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from 'element-plus/es/components/message/index'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { getOCRSettings, updateOCRSettings, testLLM } from '@/api/config'
 import type { OCRSettings } from '@/types/config'
@@ -181,7 +181,7 @@ onMounted(fetchSettings)
 </script>
 
 <style scoped>
-.ocr-settings-page {
+.model-settings-page {
   width: min(960px, 100%);
   margin: 0 auto;
   padding: 34px 36px 48px;
@@ -217,7 +217,7 @@ onMounted(fetchSettings)
 }
 
 @media (max-width: 720px) {
-  .ocr-settings-page {
+  .model-settings-page {
     padding: 22px 14px 36px;
   }
 

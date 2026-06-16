@@ -270,6 +270,7 @@ func (s *Service) Get(ctx context.Context, reviewID string) (Record, bool, error
 		Request:            req,
 		Response:           resp,
 		RawOCR:             json.RawMessage(review.RawOCR),
+		RawOCRInput:        json.RawMessage(review.RawOCRInput),
 		CreatedAt:          review.CreatedAt,
 		UpdatedAt:          review.UpdatedAt,
 	}, true, nil

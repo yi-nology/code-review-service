@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	ekitGorm "github.com/oekit/gormx"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	ekitGorm "github.com/oekit/gormx"
 
 	gormDB "gorm.io/gorm"
 )
@@ -75,6 +75,12 @@ type ContributorStatsRepository interface {
 	GetContributor(ctx context.Context, opts models.ContributorStatsOptions) (*models.ContributorDetail, error)
 	GetContributorTrend(ctx context.Context, opts models.ContributorStatsOptions) ([]models.TrendPoint, error)
 	GetContributorCategories(ctx context.Context, opts models.ContributorStatsOptions) ([]models.CategoryStat, error)
+	ListProjects(ctx context.Context, opts models.ProjectStatsOptions) (*models.ProjectListResult, error)
+	GetProject(ctx context.Context, opts models.ProjectStatsOptions) (*models.ProjectDetail, error)
+	GetProjectTrend(ctx context.Context, opts models.ProjectStatsOptions) ([]models.ProjectTrendPoint, error)
+	GetProjectCategories(ctx context.Context, opts models.ProjectStatsOptions) ([]models.CategoryStat, error)
+	GetProjectFiles(ctx context.Context, opts models.ProjectStatsOptions) ([]models.FileRiskStat, error)
+	GetProjectContributors(ctx context.Context, opts models.ProjectStatsOptions, limit int) ([]models.ContributorSummary, error)
 }
 
 type ReviewerAgentRepository interface {
@@ -104,6 +110,8 @@ type ReviewMapRepository interface {
 	Update(ctx context.Context, m *models.ReviewMap) error
 	Delete(ctx context.Context, mapID string) error
 	DeleteByReviewID(ctx context.Context, reviewID string) error
+	UpdateFileReviewed(ctx context.Context, mapID, filePath string, reviewed bool) error
+	UpdateSectionFilesReviewed(ctx context.Context, mapID, sectionID string, reviewed bool) error
 }
 
 type RepoContainer struct {

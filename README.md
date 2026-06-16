@@ -7,7 +7,7 @@ Minimal service-shaped code review gateway for GitHub, GitLab, and Gitea CI.
 ```sh
 DATABASE_URL='postgres://review_service:review_service@localhost:5432/review_service?sslmode=disable' \
 REVIEW_TOKEN=dev-token \
-go run ./cmd/review-service
+go run .
 ```
 
 Enable Alibaba Open Code Review:
@@ -17,7 +17,7 @@ OCR_ENABLED=true \
 OCR_BINARY=ocr \
 REVIEW_TOKEN=dev-token \
 DATABASE_URL='postgres://review_service:review_service@localhost:5432/review_service?sslmode=disable' \
-go run ./cmd/review-service
+go run .
 ```
 
 The `ocr` binary must be available in `PATH` when `OCR_ENABLED=true`. The Docker image installs it from the official Alibaba Open Code Review GitHub release.
@@ -37,6 +37,12 @@ Run the frontend dev server alongside the Go service:
 
 ```sh
 cd frontend && npm install && npm run dev
+```
+
+The frontend dev proxy targets `http://localhost:8081` by default, matching `etc/config-local.yaml`. If you start the Go service on another port, override it before running Vite:
+
+```sh
+VITE_API_PROXY_TARGET=http://localhost:8080 npm run dev
 ```
 
 Open `http://localhost:3000/` and connect with the value of `REVIEW_TOKEN`.
@@ -205,7 +211,7 @@ Direct URLs, SSH URLs, local paths, and `file://` repositories are rejected by d
 For local-only testing with filesystem repositories:
 
 ```sh
-GIT_ALLOW_LOCAL_REPOS=true go run ./cmd/review-service
+GIT_ALLOW_LOCAL_REPOS=true go run .
 ```
 
 Do not enable local repositories on a shared or internet-accessible service.

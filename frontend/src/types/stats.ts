@@ -50,3 +50,65 @@ export interface ContributorListOptions {
   page?: number
   page_size?: number
 }
+
+export interface ProjectSummary {
+  provider: string
+  repo: string
+  review_count: number
+  avg_score: number
+  pass_rate: number
+  total_findings: number
+  critical_count: number
+  major_count: number
+  minor_count: number
+  info_count: number
+  last_review_at: string
+}
+
+export interface ProjectDetail extends ProjectSummary {
+  median_score: number
+  max_score: number
+  min_score: number
+  grade_distribution: Record<string, number>
+  avg_findings: number
+  avg_changed_lines: number
+}
+
+export interface ProjectTrendPoint {
+  period: string
+  avg_score: number
+  review_count: number
+  total_findings: number
+}
+
+export interface FileRiskStat {
+  path: string
+  count: number
+  critical_count: number
+  major_count: number
+}
+
+export interface ProjectListResult {
+  projects: ProjectSummary[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export interface ProjectListOptions {
+  provider?: string
+  repo?: string
+  from?: string
+  to?: string
+  sort?: string
+  order?: string
+  page?: number
+  page_size?: number
+}
+
+export interface ProjectReportParams {
+  provider: string
+  repo: string
+  from?: string
+  to?: string
+}

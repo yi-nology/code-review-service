@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
@@ -24,6 +25,21 @@ func (s *Service) run(ctx context.Context, id string, req Request, provider Prov
 	// Inject progress reporter into context for the runner
 	if progressReporter != nil {
 		ctx = progress.WithProgressReporter(ctx, progressReporter)
+	}
+
+	// Save initial OCR input (will be updated with workspace info later)
+	initialInput := OCRInput{
+		Binary: "ocr",
+		Workspace: WorkspaceInfo{
+			Provider: req.Provider,
+			Repo:     req.Repo,
+			BaseSHA:  req.BaseSHA,
+			HeadSHA:  req.HeadSHA,
+		},
+		StartedAt: time.Now().UTC(),
+	}
+	if err := s.updateWithOCRInput(ctx, id, initialInput); err != nil {
+		hlog.Warn("failed to save initial OCR input", "review_id", id, "error", err)
 	}
 
 	workspace, err := provider.Prepare(ctx, req)
@@ -88,6 +104,12 @@ func (s *Service) run(ctx context.Context, id string, req Request, provider Prov
 				hlog.Warn("failed to remove review workspace", "dir", workspace.Dir, "error", err)
 			}
 		}()
+	}
+
+	// Update OCR input with full workspace info
+	ocrInput := buildOCRInput(workspace, req)
+	if err := s.updateWithOCRInput(ctx, id, ocrInput); err != nil {
+		hlog.Warn("failed to update OCR input", "review_id", id, "error", err)
 	}
 
 	s.appendHistory(ctx, id, "ocr", "running", "code review model invoked", nil)
@@ -227,5 +249,27 @@ func (s *Service) generateAndSaveReviewMap(ctx context.Context, id string, req R
 	}
 
 	hlog.Info("review map generated and saved", "review_id", id, "map_id", reviewMap.ID, "sections", reviewMap.SectionCount, "files", reviewMap.FileCount)
+}
+
+func buildOCRInput(workspace Workspace, req Request) OCRInput {
+	return OCRInput{
+		Binary: "ocr",
+		Args: []string{
+			"review",
+			"--repo", workspace.Dir,
+			"--from", workspace.BaseSHA,
+			"--to", workspace.HeadSHA,
+			"--format", "json",
+		},
+		Workspace: WorkspaceInfo{
+			Provider: req.Provider,
+			Repo:     req.Repo,
+			BaseSHA:  workspace.BaseSHA,
+			HeadSHA:  workspace.HeadSHA,
+			Dir:      workspace.Dir,
+		},
+		RulePath:  workspace.RulePath,
+		StartedAt: time.Now().UTC(),
+	}
 }
 

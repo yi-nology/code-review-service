@@ -10,10 +10,20 @@
           <h1>{{ detail?.repo || '审查详情' }}</h1>
           <p v-if="detail">{{ getProviderLabel(detail.provider) }} · {{ detail.review_id }}</p>
         </div>
-        <el-button v-if="detail" plain @click="fetchDetail">
-          <el-icon><Refresh /></el-icon>
-          刷新
-        </el-button>
+        <div class="header-actions">
+          <el-button 
+            :type="debugMode ? 'warning' : 'default'" 
+            plain 
+            size="small"
+            @click="toggleDebugMode"
+          >
+            {{ debugMode ? 'Debug ON' : 'Debug OFF' }}
+          </el-button>
+          <el-button v-if="detail" plain @click="fetchDetail">
+            <el-icon><Refresh /></el-icon>
+            刷新
+          </el-button>
+        </div>
       </header>
 
       <template v-if="detail">
@@ -26,6 +36,9 @@
           show-icon
           :closable="false"
         />
+
+        <!-- 实时进度追踪器 -->
+        <ProgressTracker v-if="showProgressTracker" :review-id="detail.review_id" />
 
         <section class="summary-strip">
           <div class="summary-result" :class="getSummaryClass(detail)">
@@ -240,19 +253,53 @@
               </div>
             </el-card>
 
-            <!-- Raw OCR 输出 -->
-            <el-card class="raw-ocr-card" v-if="detail.raw_ocr">
+            <!-- 代码审查地图 -->
+            <el-card class="review-map-card" v-if="reviewMaps.length > 0">
               <template #header>
                 <div class="card-header">
-                  <span>OCR 原始输出</span>
-                  <el-button size="small" @click="showRawOcr = !showRawOcr">
-                    {{ showRawOcr ? '收起' : '展开' }}
+                  <span>代码审查地图</span>
+                  <el-tag size="small">{{ reviewMaps.length }} 个</el-tag>
+                </div>
+              </template>
+              <ReviewMap v-for="map in reviewMaps" :key="map.id" :map="map" style="margin-bottom: 16px;" />
+            </el-card>
+
+            <!-- Debug 区域 - OCR 原始输入 -->
+            <el-card class="debug-card" v-if="debugMode && detail.raw_ocr_input">
+              <template #header>
+                <div class="card-header">
+                  <span>
+                    <el-tag type="warning" size="small" style="margin-right: 8px;">DEBUG</el-tag>
+                    OCR 原始输入
+                  </span>
+                  <el-button size="small" @click="showOcrInput = !showOcrInput">
+                    {{ showOcrInput ? '收起' : '展开' }}
                   </el-button>
                 </div>
               </template>
-              <el-collapse v-model="rawOcrActive">
-                <el-collapse-item title="查看完整 JSON" name="raw">
-                  <pre class="raw-ocr-json">{{ JSON.stringify(detail.raw_ocr, null, 2) }}</pre>
+              <el-collapse v-model="ocrInputActive">
+                <el-collapse-item title="查看完整 JSON" name="input">
+                  <pre class="debug-json">{{ formatJson(detail.raw_ocr_input) }}</pre>
+                </el-collapse-item>
+              </el-collapse>
+            </el-card>
+
+            <!-- Debug 区域 - OCR 原始输出 -->
+            <el-card class="debug-card" v-if="debugMode && detail.raw_ocr">
+              <template #header>
+                <div class="card-header">
+                  <span>
+                    <el-tag type="warning" size="small" style="margin-right: 8px;">DEBUG</el-tag>
+                    OCR 原始输出
+                  </span>
+                  <el-button size="small" @click="showOcrOutput = !showOcrOutput">
+                    {{ showOcrOutput ? '收起' : '展开' }}
+                  </el-button>
+                </div>
+              </template>
+              <el-collapse v-model="ocrOutputActive">
+                <el-collapse-item title="查看完整 JSON" name="output">
+                  <pre class="debug-json">{{ formatJson(detail.raw_ocr) }}</pre>
                 </el-collapse-item>
               </el-collapse>
             </el-card>
@@ -334,7 +381,9 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, ArrowRight, SuccessFilled, CircleCloseFilled, InfoFilled, Refresh } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import { getReview } from '@/api/review'
+import ReviewMap from '@/components/ReviewMap.vue'
+import ProgressTracker from '@/components/ProgressTracker.vue'
+import { getReview, getReviewMaps, getReviewMap } from '@/api/review'
 import { sessionApi, type ReviewSession } from '@/api/session'
 import { getProviderLabel } from '@/utils/url-parser'
 import { getStatusLabel, getStatusType, getSeverityType } from '@/utils/status'
@@ -345,6 +394,7 @@ const route = useRoute()
 const loading = ref(false)
 const detail = ref<ReviewDetail | null>(null)
 const sessions = ref<ReviewSession[]>([])
+const reviewMaps = ref<any[]>([])
 const showRawOcr = ref(false)
 const rawOcrActive = ref<string[]>([])
 const viewportWidth = ref(window.innerWidth)
@@ -352,6 +402,31 @@ let pollTimer: ReturnType<typeof setTimeout> | null = null
 let fetchInFlight = false
 const descriptionColumns = computed(() => viewportWidth.value < 720 ? 1 : 2)
 const ocrDescriptionColumns = computed(() => viewportWidth.value < 720 ? 1 : 3)
+const showProgressTracker = computed(() => detail.value && ['queued', 'running'].includes(detail.value.status))
+
+// Debug mode
+const debugMode = ref(localStorage.getItem('review-debug-mode') === 'true')
+const showOcrInput = ref(false)
+const showOcrOutput = ref(false)
+const ocrInputActive = ref<string[]>([])
+const ocrOutputActive = ref<string[]>([])
+
+function toggleDebugMode() {
+  debugMode.value = !debugMode.value
+  localStorage.setItem('review-debug-mode', String(debugMode.value))
+}
+
+function formatJson(data: any): string {
+  if (!data) return ''
+  try {
+    if (typeof data === 'string') {
+      return JSON.stringify(JSON.parse(data), null, 2)
+    }
+    return JSON.stringify(data, null, 2)
+  } catch {
+    return String(data)
+  }
+}
 
 function updateViewportWidth() {
   viewportWidth.value = window.innerWidth
@@ -380,7 +455,7 @@ async function fetchDetail(background = false) {
   if (!background) loading.value = true
   try {
     detail.value = await getReview(route.params.id as string)
-    await fetchSessions()
+    await Promise.all([fetchSessions(), fetchReviewMaps()])
   } finally {
     fetchInFlight = false
     if (!background) loading.value = false
@@ -395,6 +470,21 @@ async function fetchSessions() {
   } catch (error) {
     console.error('Failed to fetch sessions:', error)
     sessions.value = []
+  }
+}
+
+async function fetchReviewMaps() {
+  try {
+    const response = await getReviewMaps(route.params.id as string)
+    const mapList = response.maps || response || []
+    // 获取每个 map 的完整数据
+    const fullMaps = await Promise.all(
+      mapList.map((m: any) => getReviewMap(route.params.id as string, m.id).catch(() => m))
+    )
+    reviewMaps.value = fullMaps
+  } catch (error) {
+    console.error('Failed to fetch review maps:', error)
+    reviewMaps.value = []
   }
 }
 
@@ -629,7 +719,9 @@ function schedulePolling() {
 .warnings-card,
 .analysis-card,
 .findings-card,
+.review-map-card,
 .raw-ocr-card,
+.debug-card,
 .gate-card,
 .history-card {
   margin-bottom: 16px;
@@ -837,6 +929,37 @@ code {
   padding: 12px;
   border-radius: 4px;
   margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.debug-card {
+  border: 1px dashed #e6a23c;
+  background: #fdf6ec;
+}
+
+.debug-card :deep(.el-card__header) {
+  background: #faecd8;
+  border-bottom: 1px dashed #e6a23c;
+}
+
+.debug-json {
+  font-family: 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  max-height: 600px;
+  overflow: auto;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 16px;
+  border-radius: 6px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .gate-status {
