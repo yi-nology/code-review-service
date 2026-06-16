@@ -44,6 +44,9 @@ struct OCRSettings {
     13: optional i64 timeout_minutes (api.body="timeout_minutes")
     14: optional i64 max_tools (api.body="max_tools")
     15: optional string background (api.body="background")
+    16: optional string binary (api.body="binary")
+    17: optional string audience (api.body="audience")
+    18: optional string default_severity (api.body="default_severity")
 }
 
 struct GetOCRSettingsResp {

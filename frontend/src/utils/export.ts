@@ -159,7 +159,7 @@ export function exportAsHTML(report: ReviewReport, options: ExportOptions): stri
   const markdown = exportAsMarkdown(report, options)
   
   // Simple markdown to HTML conversion
-  let html = markdown
+  const html = markdown
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
     .replace(/^## (.+)$/gm, '<h2>$1</h2>')
     .replace(/^# (.+)$/gm, '<h1>$1</h1>')

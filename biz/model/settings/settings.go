@@ -1146,21 +1146,24 @@ func (p *TestLLMResult) String() string {
 }
 
 type OCRSettings struct {
-	Enabled        bool    `thrift:"enabled,1" form:"enabled" json:"enabled"`
-	Provider       *string `thrift:"provider,2,optional" form:"provider" json:"provider,omitempty"`
-	Plan           *string `thrift:"plan,3,optional" form:"plan" json:"plan,omitempty"`
-	URL            *string `thrift:"url,4,optional" form:"url" json:"url,omitempty"`
-	AuthToken      *string `thrift:"auth_token,5,optional" form:"auth_token" json:"auth_token,omitempty"`
-	AuthHeader     *string `thrift:"auth_header,6,optional" form:"auth_header" json:"auth_header,omitempty"`
-	Model          *string `thrift:"model,7,optional" form:"model" json:"model,omitempty"`
-	UseAnthropic   *bool   `thrift:"use_anthropic,8,optional" form:"use_anthropic" json:"use_anthropic,omitempty"`
-	ExtraBody      *string `thrift:"extra_body,9,optional" form:"extra_body" json:"extra_body,omitempty"`
-	Language       *string `thrift:"language,10,optional" form:"language" json:"language,omitempty"`
-	Concurrency    *int64  `thrift:"concurrency,11,optional" form:"concurrency" json:"concurrency,omitempty"`
-	MaxGitProcs    *int64  `thrift:"max_git_procs,12,optional" form:"max_git_procs" json:"max_git_procs,omitempty"`
-	TimeoutMinutes *int64  `thrift:"timeout_minutes,13,optional" form:"timeout_minutes" json:"timeout_minutes,omitempty"`
-	MaxTools       *int64  `thrift:"max_tools,14,optional" form:"max_tools" json:"max_tools,omitempty"`
-	Background     *string `thrift:"background,15,optional" form:"background" json:"background,omitempty"`
+	Enabled         bool    `thrift:"enabled,1" form:"enabled" json:"enabled"`
+	Provider        *string `thrift:"provider,2,optional" form:"provider" json:"provider,omitempty"`
+	Plan            *string `thrift:"plan,3,optional" form:"plan" json:"plan,omitempty"`
+	URL             *string `thrift:"url,4,optional" form:"url" json:"url,omitempty"`
+	AuthToken       *string `thrift:"auth_token,5,optional" form:"auth_token" json:"auth_token,omitempty"`
+	AuthHeader      *string `thrift:"auth_header,6,optional" form:"auth_header" json:"auth_header,omitempty"`
+	Model           *string `thrift:"model,7,optional" form:"model" json:"model,omitempty"`
+	UseAnthropic    *bool   `thrift:"use_anthropic,8,optional" form:"use_anthropic" json:"use_anthropic,omitempty"`
+	ExtraBody       *string `thrift:"extra_body,9,optional" form:"extra_body" json:"extra_body,omitempty"`
+	Language        *string `thrift:"language,10,optional" form:"language" json:"language,omitempty"`
+	Concurrency     *int64  `thrift:"concurrency,11,optional" form:"concurrency" json:"concurrency,omitempty"`
+	MaxGitProcs     *int64  `thrift:"max_git_procs,12,optional" form:"max_git_procs" json:"max_git_procs,omitempty"`
+	TimeoutMinutes  *int64  `thrift:"timeout_minutes,13,optional" form:"timeout_minutes" json:"timeout_minutes,omitempty"`
+	MaxTools        *int64  `thrift:"max_tools,14,optional" form:"max_tools" json:"max_tools,omitempty"`
+	Background      *string `thrift:"background,15,optional" form:"background" json:"background,omitempty"`
+	Binary          *string `thrift:"binary,16,optional" form:"binary" json:"binary,omitempty"`
+	Audience        *string `thrift:"audience,17,optional" form:"audience" json:"audience,omitempty"`
+	DefaultSeverity *string `thrift:"default_severity,18,optional" form:"default_severity" json:"default_severity,omitempty"`
 }
 
 func NewOCRSettings() *OCRSettings {

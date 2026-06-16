@@ -25,11 +25,14 @@ func (r *OCRSettingsRepo) Get(ctx context.Context) (*models.OCRSettings, error) 
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return &models.OCRSettings{
-				Enabled:        false,
-				Language:       "Chinese",
-				Concurrency:    2,
-				MaxGitProcs:    4,
-				TimeoutMinutes: 10,
+				Enabled:         false,
+				Binary:          "ocr",
+				Audience:        "human",
+				DefaultSeverity: "major",
+				Language:        "Chinese",
+				Concurrency:     2,
+				MaxGitProcs:     4,
+				TimeoutMinutes:  10,
 			}, nil
 		}
 		return nil, err

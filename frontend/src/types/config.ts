@@ -1,5 +1,8 @@
 export interface OCRSettings {
   enabled: boolean
+  binary?: string
+  audience?: 'human' | 'agent'
+  default_severity?: 'critical' | 'major' | 'minor' | 'info'
   provider?: string
   plan?: string
   url: string

@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
+	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
 	svcApp "github.com/yi-nology/code-review-service/internal/app"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 
@@ -77,6 +78,10 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 	}
 
 	dbSettings := apiOCRSettingsToDB(req.Settings)
+	if err := validateOCRSettings(dbSettings); err != nil {
+		common.Fail(c, common.BadRequest(err.Error()))
+		return
+	}
 	if dbSettings.AuthToken == "" || dbSettings.AuthToken == "***" {
 		existing, err := handlerInst.ocrRepo.Get(ctx)
 		if err == nil && existing != nil {
@@ -95,6 +100,45 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 	}
 
 	common.Success(c, &modelSettings.UpdateOCRSettingsResp{Settings: resp})
+}
+
+func validateOCRSettings(s *models.OCRSettings) error {
+	if s == nil {
+		return fmt.Errorf("OCR 配置不能为空")
+	}
+	if strings.TrimSpace(s.Binary) == "" {
+		s.Binary = "ocr"
+	}
+	if strings.TrimSpace(s.Audience) == "" {
+		s.Audience = "human"
+	}
+	if s.Audience != "human" && s.Audience != "agent" {
+		return fmt.Errorf("audience 仅支持 human 或 agent")
+	}
+	if strings.TrimSpace(s.DefaultSeverity) == "" {
+		s.DefaultSeverity = "major"
+	}
+	switch s.DefaultSeverity {
+	case "critical", "major", "minor", "info":
+	default:
+		return fmt.Errorf("默认严重级别仅支持 critical、major、minor、info")
+	}
+	if s.Concurrency < 0 || s.Concurrency > 32 {
+		return fmt.Errorf("模型并发数需在 0 到 32 之间")
+	}
+	if s.MaxGitProcs < 0 || s.MaxGitProcs > 64 {
+		return fmt.Errorf("Git 并发数需在 0 到 64 之间")
+	}
+	if s.TimeoutMinutes < 0 || s.TimeoutMinutes > 120 {
+		return fmt.Errorf("超时时间需在 0 到 120 分钟之间")
+	}
+	if s.MaxTools < 0 || s.MaxTools > 100 {
+		return fmt.Errorf("最大工具轮次需在 0 到 100 之间")
+	}
+	if len(s.ExtraBody) > 0 && !json.Valid(s.ExtraBody) {
+		return fmt.Errorf("额外请求体必须是合法 JSON")
+	}
+	return nil
 }
 
 func TestLLM(ctx context.Context, c *app.RequestContext) {
@@ -178,7 +222,7 @@ func ListPlatforms(ctx context.Context, c *app.RequestContext) {
 		return &modelSettings.GitPlatformInfo{
 			Provider: item.Provider, BaseURL: item.BaseURL,
 			Token: common.MaskToken(item.Token), Enabled: item.Enabled,
-			WebhookSecret: common.MaskWebhookSecret(item.WebhookSecret),
+			WebhookSecret:  common.MaskWebhookSecret(item.WebhookSecret),
 			InstallationID: &item.InstallationID,
 		}
 	})
@@ -457,6 +501,8 @@ func dbOCRSettingsToAPI(s *models.OCRSettings) *modelSettings.OCRSettings {
 		Language: common.StrPtr(s.Language), Concurrency: ptrx.Of(int64(s.Concurrency)),
 		MaxGitProcs: ptrx.Of(int64(s.MaxGitProcs)), TimeoutMinutes: ptrx.Of(int64(s.TimeoutMinutes)),
 		MaxTools: ptrx.Of(int64(s.MaxTools)), Background: common.StrPtr(s.Background),
+		Binary: common.StrPtr(s.Binary), Audience: common.StrPtr(s.Audience),
+		DefaultSeverity: common.StrPtr(s.DefaultSeverity),
 	}
 }
 
@@ -466,6 +512,9 @@ func apiOCRSettingsToDB(s *modelSettings.OCRSettings) *models.OCRSettings {
 		return db
 	}
 	db.Enabled = s.Enabled
+	db.Binary = ptrx.Deref(s.Binary, "")
+	db.Audience = ptrx.Deref(s.Audience, "")
+	db.DefaultSeverity = ptrx.Deref(s.DefaultSeverity, "")
 	db.Provider = ptrx.Deref(s.Provider, "")
 	db.Plan = ptrx.Deref(s.Plan, "")
 	db.URL = ptrx.Deref(s.URL, "")

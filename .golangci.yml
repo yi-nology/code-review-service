@@ -1,0 +1,71 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  relative-path-mode: gomod
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - copyloopvar
+    - errcheck
+    - errorlint
+    - gocritic
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - nilerr
+    - revive
+    - staticcheck
+    - unconvert
+    - unused
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+    gosec:
+      excludes:
+        - G104
+        - G204
+        - G304
+    revive:
+      severity: warning
+      rules:
+        - name: context-as-argument
+        - name: error-return
+        - name: error-strings
+        - name: exported
+          disabled: true
+        - name: if-return
+        - name: indent-error-flow
+        - name: receiver-naming
+        - name: var-naming
+  exclusions:
+    generated: lax
+    paths:
+      - ^biz/model/
+      - ^swagger/
+      - ^frontend/node_modules/
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+      - path: ^biz/
+        linters:
+          - revive
+
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - ^biz/model/
+      - ^swagger/
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
