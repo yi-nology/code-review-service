@@ -70,6 +70,12 @@ export async function putProjectPolicy(data: ProjectPolicy): Promise<ProjectPoli
     fail_on: data.fail_on,
     ignore_paths: JSON.stringify(data.ignore_paths || []),
     rules: JSON.stringify(data.rules || []),
+    ocr_enabled: data.ocr_enabled,
+    ocr_concurrency: data.ocr_concurrency || 0,
+    ocr_timeout_minutes: data.ocr_timeout_minutes || 0,
+    ocr_max_tools: data.ocr_max_tools || 0,
+    ocr_default_severity: data.ocr_default_severity || '',
+    ocr_background: data.ocr_background || '',
   }
   const resp: any = await request.put('/settings/projects', { policy: payload })
   return parsePolicy(resp?.policy ?? resp)

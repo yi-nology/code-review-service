@@ -81,7 +81,6 @@ func ErrorGate(reason string) Gate {
 	return Gate{Status: GateError, Passed: ptrx.Of(false), Reason: reason}
 }
 
-
 type Record struct {
 	ID                 string          `json:"id"`
 	IdempotencyKey     string          `json:"idempotency_key,omitempty"`
@@ -190,12 +189,12 @@ type ScoreDeduction struct {
 }
 
 type Score struct {
-	Value      int              `json:"value"`
-	Grade      string           `json:"grade"`
-	Version    string           `json:"version"`
-	Deductions []ScoreDeduction `json:"deductions"`
-	ChangedLines      int     `json:"changed_lines,omitempty"`
-	FindingsDensity   float64 `json:"findings_density,omitempty"`
+	Value           int              `json:"value"`
+	Grade           string           `json:"grade"`
+	Version         string           `json:"version"`
+	Deductions      []ScoreDeduction `json:"deductions"`
+	ChangedLines    int              `json:"changed_lines,omitempty"`
+	FindingsDensity float64          `json:"findings_density,omitempty"`
 }
 
 type SeverityCounts struct {
@@ -293,6 +292,16 @@ type Workspace struct {
 	Dir             string
 	Scope           ScopeMetadata
 	RulePath        string
+	OCR             OCROverrides
+}
+
+type OCROverrides struct {
+	Enabled         *bool
+	Concurrency     int
+	TimeoutMinutes  int
+	MaxTools        int
+	DefaultSeverity string
+	Background      string
 }
 
 type Providers interface {

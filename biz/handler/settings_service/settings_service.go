@@ -184,12 +184,50 @@ func PutProjectPolicy(ctx context.Context, c *app.RequestContext) {
 	}
 
 	dbPolicy := apiProjectPolicyToDB(req.Policy)
+	if err := validateProjectPolicy(dbPolicy); err != nil {
+		common.Fail(c, common.BadRequest(err.Error()))
+		return
+	}
 	if err := handlerInst.project.Save(ctx, dbPolicy); err != nil {
 		common.Fail(c, common.BadRequest(err.Error()))
 		return
 	}
 
 	common.Success(c, &modelSettings.PutProjectPolicyResp{Policy: dbProjectPolicyToAPI(dbPolicy)})
+}
+
+func validateProjectPolicy(p *models.ProjectPolicy) error {
+	if p == nil {
+		return fmt.Errorf("项目策略不能为空")
+	}
+	if strings.TrimSpace(p.Provider) == "" {
+		return fmt.Errorf("代码平台不能为空")
+	}
+	if strings.TrimSpace(p.Repo) == "" {
+		return fmt.Errorf("仓库不能为空")
+	}
+	switch p.FailOn {
+	case "critical", "major", "minor", "info":
+	default:
+		return fmt.Errorf("门禁级别仅支持 critical、major、minor、info")
+	}
+	if p.OCRConcurrency < 0 || p.OCRConcurrency > 32 {
+		return fmt.Errorf("项目 OCR 并发数需在 0 到 32 之间")
+	}
+	if p.OCRTimeoutMinutes < 0 || p.OCRTimeoutMinutes > 120 {
+		return fmt.Errorf("项目 OCR 超时时间需在 0 到 120 分钟之间")
+	}
+	if p.OCRMaxTools < 0 || p.OCRMaxTools > 100 {
+		return fmt.Errorf("项目 OCR 最大工具轮次需在 0 到 100 之间")
+	}
+	if strings.TrimSpace(p.OCRDefaultSeverity) != "" {
+		switch p.OCRDefaultSeverity {
+		case "critical", "major", "minor", "info":
+		default:
+			return fmt.Errorf("项目默认严重级别仅支持 critical、major、minor、info")
+		}
+	}
+	return nil
 }
 
 func DeleteProjectPolicy(ctx context.Context, c *app.RequestContext) {
@@ -545,6 +583,9 @@ func dbProjectPolicyToAPI(p *models.ProjectPolicy) *modelSettings.ProjectPolicy 
 	return &modelSettings.ProjectPolicy{
 		Provider: p.Provider, Repo: p.Repo, FailOn: p.FailOn,
 		IgnorePaths: common.StrPtr(ignorePaths), Rules: common.StrPtr(rules),
+		OCREnabled: p.OCREnabled, OCRConcurrency: ptrx.Of(int64(p.OCRConcurrency)),
+		OCRTimeoutMinutes: ptrx.Of(int64(p.OCRTimeoutMinutes)), OCRMaxTools: ptrx.Of(int64(p.OCRMaxTools)),
+		OCRDefaultSeverity: common.StrPtr(p.OCRDefaultSeverity), OCRBackground: common.StrPtr(p.OCRBackground),
 	}
 }
 
@@ -556,6 +597,12 @@ func apiProjectPolicyToDB(p *modelSettings.ProjectPolicy) *models.ProjectPolicy 
 	db.Provider = p.Provider
 	db.Repo = p.Repo
 	db.FailOn = p.FailOn
+	db.OCREnabled = p.OCREnabled
+	db.OCRConcurrency = int(ptrx.Deref(p.OCRConcurrency, 0))
+	db.OCRTimeoutMinutes = int(ptrx.Deref(p.OCRTimeoutMinutes, 0))
+	db.OCRMaxTools = int(ptrx.Deref(p.OCRMaxTools, 0))
+	db.OCRDefaultSeverity = ptrx.Deref(p.OCRDefaultSeverity, "")
+	db.OCRBackground = ptrx.Deref(p.OCRBackground, "")
 	if p.IsSetIgnorePaths() && p.IgnorePaths != nil && *p.IgnorePaths != "" {
 		db.IgnorePaths = datatypes.JSON(*p.IgnorePaths)
 	}

@@ -78,7 +78,7 @@ func (g *Git) FetchAll(ctx context.Context) error {
 	}
 	branches, branchErr := g.backend.ListRemoteBranches(ctx, g.dir, "origin")
 	if branchErr != nil {
-		return nil
+		return fmt.Errorf("list remote branches: %w", branchErr)
 	}
 	for _, branch := range branches {
 		_, _ = g.backend.Fetch(ctx, gitbackend.FetchOptions{

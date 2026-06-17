@@ -16,6 +16,7 @@ import { ElInput } from 'element-plus/es/components/input/index'
 import { ElInputNumber } from 'element-plus/es/components/input-number/index'
 import { ElLoading } from 'element-plus/es/components/loading/index'
 import { ElOption, ElSelect } from 'element-plus/es/components/select/index'
+import { ElSegmented } from 'element-plus/es/components/segmented/index'
 import { ElPagination } from 'element-plus/es/components/pagination/index'
 import { ElPopconfirm } from 'element-plus/es/components/popconfirm/index'
 import { ElProgress } from 'element-plus/es/components/progress/index'
@@ -64,6 +65,7 @@ import 'element-plus/theme-chalk/el-row.css'
 import 'element-plus/theme-chalk/el-scrollbar.css'
 import 'element-plus/theme-chalk/el-select.css'
 import 'element-plus/theme-chalk/el-select-dropdown.css'
+import 'element-plus/theme-chalk/el-segmented.css'
 import 'element-plus/theme-chalk/el-skeleton.css'
 import 'element-plus/theme-chalk/el-switch.css'
 import 'element-plus/theme-chalk/el-tab-pane.css'
@@ -103,6 +105,7 @@ const components = [
   ElRadioGroup,
   ElRow,
   ElSelect,
+  ElSegmented,
   ElSkeleton,
   ElSwitch,
   ElTabPane,

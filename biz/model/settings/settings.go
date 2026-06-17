@@ -2525,11 +2525,17 @@ func (p *UpdateOCRSettingsResp) String() string {
 }
 
 type ProjectPolicy struct {
-	Provider    string  `thrift:"provider,1" form:"provider" json:"provider"`
-	Repo        string  `thrift:"repo,2" form:"repo" json:"repo"`
-	FailOn      string  `thrift:"fail_on,3" form:"fail_on" json:"fail_on"`
-	IgnorePaths *string `thrift:"ignore_paths,4,optional" form:"ignore_paths" json:"ignore_paths,omitempty"`
-	Rules       *string `thrift:"rules,5,optional" form:"rules" json:"rules,omitempty"`
+	Provider           string  `thrift:"provider,1" form:"provider" json:"provider"`
+	Repo               string  `thrift:"repo,2" form:"repo" json:"repo"`
+	FailOn             string  `thrift:"fail_on,3" form:"fail_on" json:"fail_on"`
+	IgnorePaths        *string `thrift:"ignore_paths,4,optional" form:"ignore_paths" json:"ignore_paths,omitempty"`
+	Rules              *string `thrift:"rules,5,optional" form:"rules" json:"rules,omitempty"`
+	OCREnabled         *bool   `thrift:"ocr_enabled,6,optional" form:"ocr_enabled" json:"ocr_enabled,omitempty"`
+	OCRConcurrency     *int64  `thrift:"ocr_concurrency,7,optional" form:"ocr_concurrency" json:"ocr_concurrency,omitempty"`
+	OCRTimeoutMinutes  *int64  `thrift:"ocr_timeout_minutes,8,optional" form:"ocr_timeout_minutes" json:"ocr_timeout_minutes,omitempty"`
+	OCRMaxTools        *int64  `thrift:"ocr_max_tools,9,optional" form:"ocr_max_tools" json:"ocr_max_tools,omitempty"`
+	OCRDefaultSeverity *string `thrift:"ocr_default_severity,10,optional" form:"ocr_default_severity" json:"ocr_default_severity,omitempty"`
+	OCRBackground      *string `thrift:"ocr_background,11,optional" form:"ocr_background" json:"ocr_background,omitempty"`
 }
 
 func NewProjectPolicy() *ProjectPolicy {

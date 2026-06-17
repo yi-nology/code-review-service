@@ -2,6 +2,7 @@ package common
 
 import (
 	"errors"
+	"time"
 
 	"github.com/oekit/pkg/convert"
 	"github.com/oekit/pkg/mathx"
@@ -81,3 +82,10 @@ func StrPtr(s string) *string {
 }
 
 const TimeFormat = "2006-01-02T15:04:05Z"
+
+func FormatTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format(TimeFormat)
+}

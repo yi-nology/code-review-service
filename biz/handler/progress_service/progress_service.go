@@ -101,21 +101,7 @@ func GetProgress(ctx context.Context, c *app.RequestContext) {
 	}
 
 	p := tracker.GetProgress()
-	progress := &modelProgress.ReviewProgress{
-		ReviewID:  p.ReviewID,
-		SessionID: p.SessionID,
-		Round:     int64(p.Round),
-		Phase:     string(p.Phase),
-		Status:    p.Status,
-		Progress:  p.Progress,
-		StartTime: p.StartTime.Format(time.RFC3339),
-		UpdatedAt: p.UpdatedAt.Format(time.RFC3339),
-	}
-	if p.Error != "" {
-		progress.Error = &p.Error
-	}
-
-	c.JSON(http.StatusOK, &modelProgress.GetProgressResp{Progress: progress})
+	c.JSON(http.StatusOK, &modelProgress.GetProgressResp{Progress: convertProgress(p)})
 }
 
 func GetActiveReviews(ctx context.Context, c *app.RequestContext) {
@@ -146,4 +132,75 @@ func GetActiveReviews(ctx context.Context, c *app.RequestContext) {
 		Reviews: reviews,
 		Total:   int64(len(reviews)),
 	})
+}
+
+func convertProgress(p *progress.ReviewProgress) *modelProgress.ReviewProgress {
+	progress := &modelProgress.ReviewProgress{
+		ReviewID:    p.ReviewID,
+		SessionID:   p.SessionID,
+		Round:       int64(p.Round),
+		Phase:       string(p.Phase),
+		Status:      p.Status,
+		Progress:    p.Progress,
+		Phases:      convertPhases(p.Phases),
+		AgentStatus: convertAgentStatus(p.AgentStatus),
+		StartTime:   p.StartTime.Format(time.RFC3339),
+		UpdatedAt:   p.UpdatedAt.Format(time.RFC3339),
+	}
+	if p.Error != "" {
+		progress.Error = &p.Error
+	}
+	return progress
+}
+
+func convertPhases(phases []progress.PhaseInfo) []*modelProgress.PhaseInfo {
+	items := make([]*modelProgress.PhaseInfo, 0, len(phases))
+	for _, phase := range phases {
+		item := &modelProgress.PhaseInfo{
+			Name:        phase.Name,
+			Title:       phase.Title,
+			Description: phase.Description,
+			Status:      phase.Status,
+			Progress:    phase.Progress,
+		}
+		if !phase.StartTime.IsZero() {
+			startTime := phase.StartTime.Format(time.RFC3339)
+			item.StartTime = &startTime
+		}
+		if !phase.EndTime.IsZero() {
+			endTime := phase.EndTime.Format(time.RFC3339)
+			item.EndTime = &endTime
+		}
+		if phase.Duration > 0 {
+			duration := phase.Duration
+			item.DurationMs = &duration
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func convertAgentStatus(status map[string]progress.AgentStatus) map[string]*modelProgress.AgentStatus {
+	if len(status) == 0 {
+		return nil
+	}
+	items := make(map[string]*modelProgress.AgentStatus, len(status))
+	for key, agent := range status {
+		item := &modelProgress.AgentStatus{
+			Name:     agent.Name,
+			Status:   agent.Status,
+			Progress: agent.Progress,
+			Message:  agent.Message,
+		}
+		if agent.Duration > 0 {
+			duration := agent.Duration
+			item.DurationMs = &duration
+		}
+		if agent.Error != "" {
+			errMessage := agent.Error
+			item.Error = &errMessage
+		}
+		items[key] = item
+	}
+	return items
 }

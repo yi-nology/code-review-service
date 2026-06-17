@@ -21,39 +21,6 @@ func FormatSuggestion(code string, path string, line int) string {
 	return fmt.Sprintf("```suggestion\n%s\n```\n\n📍 `%s:%d`", code, path, line)
 }
 
-// getSeverityBadge returns a badge for the severity
-func getSeverityBadge(severity review.Severity) string {
-	switch severity {
-	case review.SeverityCritical:
-		return "🔴 **CRITICAL**"
-	case review.SeverityMajor:
-		return "🟠 **MAJOR**"
-	case review.SeverityMinor:
-		return "🟡 **MINOR**"
-	case review.SeverityInfo:
-		return "🔵 **INFO**"
-	default:
-		return "⚪ **UNKNOWN**"
-	}
-}
-
-// countBySeverity counts findings by severity
-func countBySeverity(findings []review.Finding) (critical, major, minor, info int) {
-	for _, f := range findings {
-		switch f.Severity {
-		case review.SeverityCritical:
-			critical++
-		case review.SeverityMajor:
-			major++
-		case review.SeverityMinor:
-			minor++
-		case review.SeverityInfo:
-			info++
-		}
-	}
-	return
-}
-
 // TranslateToHumanReadable translates technical findings to human-readable format
 func TranslateToHumanReadable(findings []review.Finding) []TranslatedFinding {
 	var translated []TranslatedFinding

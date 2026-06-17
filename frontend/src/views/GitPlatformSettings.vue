@@ -1,24 +1,102 @@
 <template>
   <AppLayout>
     <div class="platform-settings-page">
-      <header class="page-header">
-        <div class="eyebrow">INTEGRATIONS</div>
-        <h1>Git 平台配置</h1>
-        <p>管理代码平台的连接信息，用于访问私有仓库和发布审查评论。修改后立即生效，无需重启服务。</p>
-      </header>
+      <section class="page-hero">
+        <div>
+          <div class="eyebrow">INTEGRATIONS</div>
+          <h1>Git 平台配置</h1>
+          <p>集中管理代码平台凭证、API 地址和启用状态，供仓库同步、审查创建和评论写回使用。</p>
+        </div>
+        <div class="hero-actions">
+          <el-button :icon="Refresh" :loading="loading" @click="fetchPlatforms">刷新</el-button>
+          <el-button type="primary" :icon="Plus" @click="resetForm">新增平台</el-button>
+        </div>
+      </section>
 
-      <el-row :gutter="24">
-        <el-col :xs="24" :xl="12">
-          <el-card>
-            <template #header>
-              <div class="card-header">
-                <span>{{ editing ? '编辑平台' : '添加平台' }}</span>
-                <el-button v-if="editing" @click="resetForm" size="small">取消编辑</el-button>
-              </div>
-            </template>
-            <el-form :model="form" label-width="100px">
+      <section class="metric-strip">
+        <div class="metric-item">
+          <span>已配置</span>
+          <strong>{{ platforms.length }}</strong>
+        </div>
+        <div class="metric-item">
+          <span>启用中</span>
+          <strong>{{ enabledCount }}</strong>
+        </div>
+        <div class="metric-item">
+          <span>未启用</span>
+          <strong>{{ disabledCount }}</strong>
+        </div>
+        <div class="metric-item">
+          <span>当前编辑</span>
+          <strong>{{ editing ? getProviderLabel(form.provider) : '新平台' }}</strong>
+        </div>
+      </section>
+
+      <section class="workspace-grid">
+        <aside class="platform-panel">
+          <div class="panel-heading">
+            <div>
+              <h2>平台列表</h2>
+              <p>{{ platforms.length ? `显示 ${filteredPlatforms.length} / ${platforms.length}` : '还没有保存的平台' }}</p>
+            </div>
+          </div>
+
+          <div class="list-tools">
+            <el-input v-model="keyword" clearable placeholder="搜索平台或地址">
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+            <el-segmented v-model="statusFilter" :options="statusOptions" block />
+          </div>
+
+          <div v-loading="loading" class="platform-list">
+            <button
+              v-for="p in filteredPlatforms"
+              :key="platformKey(p)"
+              type="button"
+              class="platform-row"
+              :class="{ active: editing && form.provider === p.provider, disabled: !p.enabled }"
+              @click="handleEdit(p)"
+            >
+              <span class="provider-mark">{{ providerInitial(p.provider) }}</span>
+              <span class="platform-main">
+                <strong>{{ getProviderLabel(p.provider) }}</strong>
+                <small>{{ p.base_url || '未配置 API 地址' }}</small>
+              </span>
+              <span class="platform-state" :class="{ enabled: p.enabled }">
+                {{ p.enabled ? '启用' : '禁用' }}
+              </span>
+            </button>
+
+            <div v-if="!loading && platforms.length === 0" class="empty-state">
+              <el-icon><Connection /></el-icon>
+              <strong>暂无平台</strong>
+              <span>添加第一个 Git 平台后即可选择仓库并写回审查评论。</span>
+            </div>
+            <div v-else-if="!loading && filteredPlatforms.length === 0" class="empty-state compact">
+              <el-icon><Search /></el-icon>
+              <strong>没有匹配结果</strong>
+              <span>换个关键词或状态筛选再试。</span>
+            </div>
+          </div>
+        </aside>
+
+        <main class="config-panel">
+          <div class="panel-heading form-heading">
+            <div>
+              <h2>{{ editing ? '编辑平台' : '新增平台' }}</h2>
+              <p>{{ editing ? 'Token 留空时会保留现有密钥' : '保存前可以先测试连接' }}</p>
+            </div>
+            <el-tag :type="form.enabled ? 'success' : 'info'" effect="plain">
+              {{ form.enabled ? '启用' : '禁用' }}
+            </el-tag>
+          </div>
+
+          <el-form :model="form" label-position="top" class="platform-form">
+            <div class="form-grid">
               <el-form-item label="代码平台" required>
-                <el-select v-model="form.provider" :disabled="editing" style="width: 100%">
+                <el-select v-model="form.provider" :disabled="editing" class="full-control" @change="handleProviderChange">
                   <el-option label="GitHub" value="github" />
                   <el-option label="GitLab" value="gitlab" />
                   <el-option label="Gitea" value="gitea" />
@@ -27,92 +105,88 @@
                   <el-option label="Tencent Code" value="tencent_code" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="API 地址" required>
-                <el-input v-model="form.base_url" placeholder="https://api.github.com" />
+
+              <el-form-item label="启用状态">
+                <div class="switch-line">
+                  <el-switch v-model="form.enabled" />
+                  <span>{{ form.enabled ? '参与仓库访问和写回' : '暂不参与自动流程' }}</span>
+                </div>
               </el-form-item>
-              <el-form-item :label="editing ? 'Token (留空不修改)' : 'Token'" :required="!editing">
-                <el-input
-                  v-model="form.token"
-                  type="password"
-                  show-password
-                  :placeholder="editing ? '留空则保留原 Token' : 'ghp_xxx 或 glpat-xxx'"
-                />
-              </el-form-item>
-              <el-form-item label="启用">
-                <el-switch v-model="form.enabled" />
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" @click="handleSave" :loading="saving">
-                  {{ editing ? '更新配置' : '添加平台' }}
+            </div>
+
+            <div class="provider-hint">
+              <span class="hint-label">{{ getProviderLabel(form.provider) }}</span>
+              <span>{{ providerHint }}</span>
+            </div>
+
+            <el-form-item label="API 地址" required>
+              <el-input v-model="form.base_url" :placeholder="baseUrlPlaceholder" />
+            </el-form-item>
+
+            <el-form-item :label="editing ? 'Token（留空不修改）' : 'Token'" :required="!editing">
+              <el-input
+                v-model="form.token"
+                type="password"
+                show-password
+                :placeholder="editing ? '留空则保留原 Token' : 'ghp_xxx 或 glpat-xxx'"
+              />
+            </el-form-item>
+
+            <div v-if="editing && selectedPlatform" class="saved-credential">
+              <span>已保存 Token</span>
+              <strong>{{ selectedPlatform.token || '已保存' }}</strong>
+            </div>
+
+            <div class="action-bar">
+              <div class="left-actions">
+                <el-button type="primary" :icon="Check" :loading="saving" @click="handleSave">
+                  {{ editing ? '保存修改' : '添加平台' }}
                 </el-button>
-                <el-button @click="handleTest" :loading="testing" :disabled="!form.provider || !form.token">
+                <el-button :icon="Connection" :loading="testing" :disabled="!canTest" @click="handleTest">
                   测试连接
                 </el-button>
-              </el-form-item>
-            </el-form>
-
-            <div v-if="testResult" class="test-result" :class="testResult.connected ? 'success' : 'fail'">
-              <el-tag :type="testResult.connected ? 'success' : 'danger'" size="small">
-                {{ testResult.connected ? '连接成功' : '连接失败' }}
-              </el-tag>
-              <span v-if="testResult.user_name">用户: {{ testResult.user_name }}</span>
-              <span v-if="testResult.message">{{ testResult.message }}</span>
-            </div>
-          </el-card>
-        </el-col>
-
-        <el-col :xs="24" :xl="12">
-          <el-card>
-            <template #header>
-              <div class="card-header">
-                <span>已配置平台</span>
-                <el-button @click="fetchPlatforms" size="small">刷新</el-button>
               </div>
-            </template>
-            <div v-loading="loading">
-              <div v-if="platforms.length === 0" class="empty-state">
-                暂无配置的 Git 平台
-              </div>
-              <div v-else class="platform-list">
-                <div
-                  v-for="p in platforms"
-                  :key="p.provider"
-                  class="platform-item"
-                  :class="{ disabled: !p.enabled }"
-                  @click="handleEdit(p)"
-                >
-                  <div class="platform-header">
-                    <el-tag :type="p.enabled ? 'success' : 'info'" size="small">
-                      {{ p.enabled ? '启用' : '禁用' }}
-                    </el-tag>
-                    <span class="platform-name">{{ getProviderLabel(p.provider) }}</span>
-                  </div>
-                  <div class="platform-meta">
-                    {{ p.base_url }}<br>
-                    Token: {{ p.token }}
-                  </div>
-                  <el-button
-                    type="danger"
-                    size="small"
-                    class="delete-btn"
-                    @click.stop="handleDelete(p)"
-                  >
-                    删除
-                  </el-button>
-                </div>
+              <div class="right-actions">
+                <el-button v-if="editing" @click="resetForm">取消编辑</el-button>
+                <el-button v-if="editing" type="danger" plain :icon="Delete" @click="handleDeleteSelected">
+                  删除平台
+                </el-button>
               </div>
             </div>
-          </el-card>
-        </el-col>
-      </el-row>
+          </el-form>
+
+          <div v-if="testResult" class="test-result" :class="testResult.connected ? 'success' : 'fail'">
+            <el-icon>
+              <CircleCheckFilled v-if="testResult.connected" />
+              <CircleCloseFilled v-else />
+            </el-icon>
+            <div>
+              <strong>{{ testResult.connected ? '连接成功' : '连接失败' }}</strong>
+              <span>
+                {{ testResult.user_name ? `用户 ${testResult.user_name}` : testResult.message || '未返回额外信息' }}
+              </span>
+            </div>
+          </div>
+        </main>
+      </section>
     </div>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, reactive, ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
+import {
+  Check,
+  CircleCheckFilled,
+  CircleCloseFilled,
+  Connection,
+  Delete,
+  Plus,
+  Refresh,
+  Search,
+} from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { getGitPlatforms, saveGitPlatform, deleteGitPlatform, testGitPlatform } from '@/api/config'
 import { getProviderLabel } from '@/utils/url-parser'
@@ -122,14 +196,50 @@ const loading = ref(false)
 const saving = ref(false)
 const testing = ref(false)
 const editing = ref(false)
+const keyword = ref('')
+const statusFilter = ref<'all' | 'enabled' | 'disabled'>('all')
 const platforms = ref<GitPlatform[]>([])
 const testResult = ref<GitTestResult | null>(null)
+
+const providerDefaults: Record<string, { baseUrl: string; hint: string }> = {
+  github: { baseUrl: 'https://api.github.com', hint: '适用于 GitHub Cloud；企业版请填写对应 API 地址。' },
+  gitlab: { baseUrl: 'https://gitlab.com', hint: '支持 GitLab.com 和自建 GitLab，通常填写站点根地址。' },
+  gitea: { baseUrl: '', hint: '填写 Gitea/Forgejo 站点根地址，例如 https://git.example.com。' },
+  gitcode: { baseUrl: 'https://api.gitcode.com/api/v5', hint: '适用于 GitCode API v5。' },
+  gitee: { baseUrl: 'https://gitee.com', hint: '适用于 Gitee 公开云服务或兼容部署。' },
+  tencent_code: { baseUrl: '', hint: '填写腾讯工蜂/代码平台服务地址。' },
+}
+
+const statusOptions = [
+  { label: '全部', value: 'all' },
+  { label: '启用', value: 'enabled' },
+  { label: '禁用', value: 'disabled' },
+] as const
 
 const form = reactive<GitPlatform>({
   provider: 'github',
   base_url: '',
   token: '',
   enabled: true,
+})
+
+const enabledCount = computed(() => platforms.value.filter((p) => p.enabled).length)
+const disabledCount = computed(() => platforms.value.length - enabledCount.value)
+const canTest = computed(() => Boolean(form.provider && form.base_url && form.token))
+const baseUrlPlaceholder = computed(() => providerDefaults[form.provider]?.baseUrl || 'https://git.example.com')
+const providerHint = computed(() => providerDefaults[form.provider]?.hint || '填写平台 API 或站点地址。')
+const selectedPlatform = computed(() => platforms.value.find((p) => platformKey(p) === platformKey(form)))
+const filteredPlatforms = computed(() => {
+  const query = keyword.value.trim().toLowerCase()
+  return platforms.value.filter((p) => {
+    const matchesStatus =
+      statusFilter.value === 'all' ||
+      (statusFilter.value === 'enabled' && p.enabled) ||
+      (statusFilter.value === 'disabled' && !p.enabled)
+    if (!matchesStatus) return false
+    if (!query) return true
+    return `${getProviderLabel(p.provider)} ${p.provider} ${p.base_url}`.toLowerCase().includes(query)
+  })
 })
 
 async function fetchPlatforms() {
@@ -157,13 +267,18 @@ async function handleSave() {
     await saveGitPlatform({ ...form })
     ElMessage.success(editing.value ? '平台配置已更新' : '平台已添加')
     resetForm()
-    fetchPlatforms()
+    await fetchPlatforms()
   } finally {
     saving.value = false
   }
 }
 
 async function handleTest() {
+  if (!canTest.value) {
+    ElMessage.warning('请填写平台、API 地址和 Token')
+    return
+  }
+
   testing.value = true
   testResult.value = null
   try {
@@ -195,47 +310,78 @@ function handleEdit(p: GitPlatform) {
 function resetForm() {
   editing.value = false
   form.provider = 'github'
-  form.base_url = ''
+  form.base_url = providerDefaults.github.baseUrl
   form.token = ''
   form.enabled = true
   testResult.value = null
 }
 
-async function handleDelete(p: GitPlatform) {
-  await ElMessageBox.confirm(`确定删除 ${getProviderLabel(p.provider)} 平台配置？`, '确认')
-  try {
-    await deleteGitPlatform(p.provider)
-    ElMessage.success('已删除')
-    fetchPlatforms()
-  } catch {
-    // 用户取消
+function handleProviderChange(value: string) {
+  const nextDefault = providerDefaults[value]?.baseUrl || ''
+  if (!editing.value && (!form.base_url || Object.values(providerDefaults).some((item) => item.baseUrl === form.base_url))) {
+    form.base_url = nextDefault
   }
 }
 
-onMounted(fetchPlatforms)
+async function handleDeleteSelected() {
+  const platform = platforms.value.find((p) => p.provider === form.provider)
+  if (platform) await handleDelete(platform)
+}
+
+async function handleDelete(p: GitPlatform) {
+  try {
+    await ElMessageBox.confirm(`确定删除 ${getProviderLabel(p.provider)} 平台配置？`, '确认删除')
+    await deleteGitPlatform(p.provider)
+    ElMessage.success('已删除')
+    resetForm()
+    await fetchPlatforms()
+  } catch {
+    // User cancelled or request failed; request failures are surfaced by the global interceptor.
+  }
+}
+
+function providerInitial(provider: string) {
+  return getProviderLabel(provider).slice(0, 1).toUpperCase()
+}
+
+function platformKey(platform: GitPlatform) {
+  return `${platform.provider}:${platform.base_url}`
+}
+
+onMounted(() => {
+  resetForm()
+  fetchPlatforms()
+})
 </script>
 
 <style scoped>
 .platform-settings-page {
-  width: min(1320px, 100%);
+  width: min(1360px, 100%);
   margin: 0 auto;
-  padding: 34px 36px 48px;
+  padding: 32px 36px 48px;
 }
 
-.page-header {
-  margin-bottom: 24px;
+.page-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
 }
 
-.page-header h1 {
+.page-hero h1 {
   margin: 4px 0 8px;
   color: var(--app-text);
   font-size: 28px;
+  letter-spacing: 0;
 }
 
-.page-header p {
+.page-hero p {
+  max-width: 720px;
   margin: 0;
   color: var(--app-muted);
   font-size: 14px;
+  line-height: 1.7;
 }
 
 .eyebrow {
@@ -245,76 +391,364 @@ onMounted(fetchPlatforms)
   letter-spacing: 1.3px;
 }
 
-.card-header {
+.hero-actions,
+.action-bar,
+.left-actions,
+.right-actions {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 10px;
 }
 
-.empty-state {
-  text-align: center;
-  color: #999;
-  padding: 40px 0;
-}
-
-.platform-item {
-  padding: 12px;
-  border: 1px solid #eee;
+.metric-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 22px;
+  border: 1px solid var(--app-border);
   border-radius: 8px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  position: relative;
+  background: var(--app-surface);
 }
 
-.platform-item:hover {
-  background: #f5f5f5;
+.metric-item {
+  min-width: 0;
+  padding: 16px 18px;
+  border-right: 1px solid var(--app-border);
 }
 
-.platform-item.disabled {
-  opacity: 0.6;
+.metric-item:last-child {
+  border-right: 0;
 }
 
-.platform-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.platform-name {
-  font-weight: bold;
-  font-size: 16px;
-}
-
-.platform-meta {
+.metric-item span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--app-muted);
   font-size: 12px;
-  color: #999;
-  font-family: monospace;
 }
 
-.delete-btn {
-  position: absolute;
-  right: 12px;
-  top: 12px;
+.metric-item strong {
+  display: block;
+  overflow: hidden;
+  color: var(--app-text);
+  font-size: 24px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.test-result {
-  margin-top: 16px;
-  padding: 12px;
-  border-radius: 6px;
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.platform-panel,
+.config-panel {
+  min-width: 0;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+}
+
+.platform-panel {
+  overflow: hidden;
+}
+
+.config-panel {
+  padding: 22px;
+}
+
+.panel-heading {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.form-heading {
+  padding: 0 0 18px;
+  margin-bottom: 20px;
+}
+
+.panel-heading h2 {
+  margin: 0 0 4px;
+  color: var(--app-text);
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.panel-heading p {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.platform-list {
+  min-height: 260px;
+  padding: 10px;
+}
+
+.list-tools {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.list-tools :deep(.el-segmented) {
+  --el-segmented-item-selected-bg-color: var(--app-primary);
+  --el-segmented-item-selected-color: #fff;
+}
+
+.platform-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  width: 100%;
+  min-height: 74px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.platform-row:hover,
+.platform-row.active {
+  border-color: color-mix(in srgb, var(--app-primary) 30%, transparent);
+  background: color-mix(in srgb, var(--app-primary) 8%, transparent);
+}
+
+.platform-row.disabled {
+  opacity: 0.68;
+}
+
+.provider-mark {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 8px;
+  background: #101828;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.platform-main {
+  min-width: 0;
+}
+
+.platform-main strong,
+.platform-main small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-main strong {
+  color: var(--app-text);
   font-size: 14px;
 }
 
-.test-result.success {
-  background: #f0f9eb;
+.platform-main small {
+  margin-top: 4px;
+  color: var(--app-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
 }
 
-@media (max-width: 1199px) {
-  .platform-settings-page :deep(.el-col + .el-col) {
-    margin-top: 16px;
+.platform-state {
+  min-width: 46px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 12px;
+  text-align: center;
+}
+
+.platform-state.enabled {
+  background: #e8f7ef;
+  color: #138a4b;
+}
+
+.empty-state {
+  display: grid;
+  min-height: 210px;
+  place-items: center;
+  padding: 32px;
+  color: var(--app-muted);
+  text-align: center;
+}
+
+.empty-state :deep(.el-icon) {
+  margin-bottom: 8px;
+  color: var(--app-primary);
+  font-size: 28px;
+}
+
+.empty-state strong {
+  color: var(--app-text);
+  font-size: 15px;
+}
+
+.empty-state span {
+  max-width: 260px;
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.empty-state.compact {
+  min-height: 150px;
+}
+
+.platform-form {
+  max-width: 820px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 18px;
+}
+
+.full-control {
+  width: 100%;
+}
+
+.switch-line {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 10px;
+  color: var(--app-muted);
+  font-size: 13px;
+}
+
+.provider-hint,
+.saved-credential {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -2px 0 18px;
+  padding: 10px 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #52627a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.hint-label,
+.saved-credential span {
+  flex: 0 0 auto;
+  color: var(--app-primary);
+  font-weight: 700;
+}
+
+.saved-credential {
+  justify-content: space-between;
+  margin: -4px 0 18px;
+  border-color: var(--app-border);
+  background: #fafafa;
+}
+
+.saved-credential strong {
+  overflow: hidden;
+  color: var(--app-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action-bar {
+  justify-content: space-between;
+  margin-top: 4px;
+  padding-top: 18px;
+  border-top: 1px solid var(--app-border);
+}
+
+.test-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 14px 16px;
+  border: 1px solid;
+  border-radius: 8px;
+}
+
+.test-result :deep(.el-icon) {
+  flex: 0 0 auto;
+  font-size: 22px;
+}
+
+.test-result strong,
+.test-result span {
+  display: block;
+}
+
+.test-result strong {
+  color: var(--app-text);
+  font-size: 14px;
+}
+
+.test-result span {
+  margin-top: 2px;
+  color: var(--app-muted);
+  font-size: 13px;
+}
+
+.test-result.success {
+  border-color: #b9ebcf;
+  background: #f0fbf5;
+}
+
+.test-result.success :deep(.el-icon) {
+  color: #139b55;
+}
+
+.test-result.fail {
+  border-color: #f8c7c7;
+  background: #fff5f5;
+}
+
+.test-result.fail :deep(.el-icon) {
+  color: #d93434;
+}
+
+@media (max-width: 1080px) {
+  .page-hero,
+  .action-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .metric-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metric-item:nth-child(2) {
+    border-right: 0;
+  }
+
+  .metric-item:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--app-border);
+  }
+
+  .workspace-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -323,12 +757,39 @@ onMounted(fetchPlatforms)
     padding: 22px 14px 36px;
   }
 
-  .page-header h1 {
+  .page-hero h1 {
     font-size: 24px;
   }
-}
 
-.test-result.fail {
-  background: #fef0f0;
+  .hero-actions,
+  .left-actions,
+  .right-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .form-grid,
+  .metric-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-item {
+    border-right: 0;
+    border-bottom: 1px solid var(--app-border);
+  }
+
+  .metric-item:last-child {
+    border-bottom: 0;
+  }
+
+  .config-panel {
+    padding: 18px;
+  }
+
+  .provider-hint,
+  .saved-credential {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 </style>

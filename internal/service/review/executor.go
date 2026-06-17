@@ -13,8 +13,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/reviewmap"
 
-	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"github.com/oekit/pkg/slicex"
+	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
 
 func (s *Service) run(ctx context.Context, id string, req Request, provider Provider, progressReporter progress.ProgressReporter) (Response, error) {
@@ -66,6 +66,7 @@ func (s *Service) run(ctx context.Context, id string, req Request, provider Prov
 			projectPolicy = *policy
 		}
 	}
+	workspace.OCR = projectPolicyOCROverrides(projectPolicy)
 
 	var ignorePaths []string
 	if len(projectPolicy.IgnorePaths) > 0 {
@@ -181,6 +182,17 @@ func (s *Service) run(ctx context.Context, id string, req Request, provider Prov
 	return resp, nil
 }
 
+func projectPolicyOCROverrides(policy models.ProjectPolicy) OCROverrides {
+	return OCROverrides{
+		Enabled:         policy.OCREnabled,
+		Concurrency:     policy.OCRConcurrency,
+		TimeoutMinutes:  policy.OCRTimeoutMinutes,
+		MaxTools:        policy.OCRMaxTools,
+		DefaultSeverity: policy.OCRDefaultSeverity,
+		Background:      policy.OCRBackground,
+	}
+}
+
 func (s *Service) recordFailure(ctx context.Context, id string, req Request, runErr error) {
 	response := Response{
 		ReviewID: id,
@@ -272,4 +284,3 @@ func buildOCRInput(workspace Workspace, req Request) OCRInput {
 		StartedAt: time.Now().UTC(),
 	}
 }
-

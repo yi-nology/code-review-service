@@ -67,6 +67,12 @@ struct ProjectPolicy {
     3: string fail_on (api.body="fail_on")
     4: optional string ignore_paths (api.body="ignore_paths")
     5: optional string rules (api.body="rules")
+    6: optional bool ocr_enabled (api.body="ocr_enabled")
+    7: optional i64 ocr_concurrency (api.body="ocr_concurrency")
+    8: optional i64 ocr_timeout_minutes (api.body="ocr_timeout_minutes")
+    9: optional i64 ocr_max_tools (api.body="ocr_max_tools")
+    10: optional string ocr_default_severity (api.body="ocr_default_severity")
+    11: optional string ocr_background (api.body="ocr_background")
 }
 
 struct ListProjectPoliciesResp {

@@ -337,7 +337,7 @@ type ProgressReporter interface {
 	// ReportProgress reports OCR progress with a message and percentage
 	ReportProgress(message string, progress float64)
 	// ReportFileProgress reports progress for a specific file
- ReportFileProgress(filename string, current, total int)
+	ReportFileProgress(filename string, current, total int)
 	// ReportAgentStatus reports agent execution status
 	ReportAgentStatus(agentName, status, message string)
 }
@@ -364,6 +364,8 @@ type ProgressManager struct {
 	trackers    map[string]*ProgressTracker
 	mu          sync.RWMutex
 }
+
+const completedTrackerRetention = 10 * time.Minute
 
 // NewProgressManager creates a new progress manager
 func NewProgressManager() *ProgressManager {
@@ -405,8 +407,30 @@ func (pm *ProgressManager) CreateTracker(reviewID, sessionID string, round int) 
 // RemoveTracker removes a progress tracker
 func (pm *ProgressManager) RemoveTracker(reviewID string) {
 	pm.mu.Lock()
-	defer pm.mu.Unlock()
+	tracker, ok := pm.trackers[reviewID]
+	if ok {
+		if tracker.GetProgress().IsActive() {
+			tracker.Complete()
+		}
+		hlog.Infof("retired progress tracker for review: %s", reviewID)
+	}
+	pm.mu.Unlock()
 
+	if !ok {
+		return
+	}
+
+	time.AfterFunc(completedTrackerRetention, func() {
+		pm.mu.Lock()
+		defer pm.mu.Unlock()
+		if pm.trackers[reviewID] == tracker {
+			delete(pm.trackers, reviewID)
+			hlog.Infof("removed retained progress tracker for review: %s", reviewID)
+		}
+	})
+}
+
+func (pm *ProgressManager) removeTrackerNow(reviewID string) {
 	if tracker, ok := pm.trackers[reviewID]; ok {
 		tracker.Complete()
 		delete(pm.trackers, reviewID)

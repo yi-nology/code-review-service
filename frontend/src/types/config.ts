@@ -30,6 +30,12 @@ export interface ProjectPolicy {
   fail_on: string
   ignore_paths: string[]
   rules?: ReviewRule[]
+  ocr_enabled?: boolean | null
+  ocr_concurrency?: number
+  ocr_timeout_minutes?: number
+  ocr_max_tools?: number
+  ocr_default_severity?: 'critical' | 'major' | 'minor' | 'info' | ''
+  ocr_background?: string
 }
 
 export interface ProjectPolicyList {

@@ -141,8 +141,8 @@ func ListReviews(ctx context.Context, c *app.RequestContext) {
 			Author:          common.StrPtr(item.Author),
 			AuthorName:      common.StrPtr(item.AuthorName),
 			AuthorAvatar:    common.StrPtr(item.AuthorAvatar),
-			CreatedAt:       common.StrPtr(item.CreatedAt.Format(common.TimeFormat)),
-			UpdatedAt:       common.StrPtr(item.UpdatedAt.Format(common.TimeFormat)),
+			CreatedAt:       common.StrPtr(common.FormatTime(item.CreatedAt)),
+			UpdatedAt:       common.StrPtr(common.FormatTime(item.UpdatedAt)),
 		}
 	})
 
@@ -329,7 +329,7 @@ func ListProviderPulls(ctx context.Context, c *app.RequestContext) {
 			Number: int64(cr.Number), Title: cr.Title, State: string(cr.State),
 			SourceBranch: cr.SourceBranch, TargetBranch: cr.TargetBranch,
 			HeadSha: common.StrPtr(cr.HeadSHA), BaseSha: common.StrPtr(cr.BaseSHA),
-			WebURL: common.StrPtr(cr.WebURL), CreatedAt: common.StrPtr(cr.CreatedAt.Format(common.TimeFormat)), UpdatedAt: common.StrPtr(cr.UpdatedAt.Format(common.TimeFormat)),
+			WebURL: common.StrPtr(cr.WebURL), CreatedAt: common.StrPtr(common.FormatTime(cr.CreatedAt)), UpdatedAt: common.StrPtr(common.FormatTime(cr.UpdatedAt)),
 		}
 		if cr.Author != nil {
 			item.Author = &modelPlatform.PRAuthor{
@@ -426,10 +426,10 @@ func convertDetail(r review.Record) modelReview.ReviewDetail {
 		History: convertEvents(r.Response.History), Findings: convertFindings(r.Response.Findings),
 		Report: convertReport(r.Response.Report), RawOcr: common.StrPtr(string(r.RawOCR)),
 		RawOcrInput: common.StrPtr(string(r.RawOCRInput)),
-		Error: common.StrPtr(r.Response.Error), Author: common.StrPtr(r.Request.Author),
+		Error:       common.StrPtr(r.Response.Error), Author: common.StrPtr(r.Request.Author),
 		AuthorName: common.StrPtr(r.Request.AuthorName), AuthorAvatar: common.StrPtr(r.Request.AuthorAvatar),
-		CreatedAt: common.StrPtr(r.CreatedAt.Format(common.TimeFormat)),
-		UpdatedAt: common.StrPtr(r.UpdatedAt.Format(common.TimeFormat)),
+		CreatedAt: common.StrPtr(common.FormatTime(r.CreatedAt)),
+		UpdatedAt: common.StrPtr(common.FormatTime(r.UpdatedAt)),
 	}
 }
 
@@ -483,7 +483,7 @@ func convertEvents(events []review.Event) []*modelReview.Event {
 		}
 		return &modelReview.Event{
 			Stage: e.Stage, Status: e.Status, Message: e.Message, Details: details,
-			CreatedAt: common.StrPtr(e.CreatedAt.Format(common.TimeFormat)),
+			CreatedAt: common.StrPtr(common.FormatTime(e.CreatedAt)),
 		}
 	})
 }

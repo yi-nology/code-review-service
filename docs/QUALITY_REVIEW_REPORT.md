@@ -32,14 +32,14 @@ The strict lint profile is intentionally separated as `make lint-strict`. It cur
 
 ### P2
 
-- `make lint-strict` reports 102 issues in the current codebase:
-  - 14 unchecked error returns.
-  - 12 direct error comparisons that should use `errors.Is`.
-  - 44 gofmt issues.
-  - 13 staticcheck issues, including possible nil pointer dereferences in `internal/service/workflow/workflow.go`.
+- `make lint-strict` reports 91 issues in the current codebase after the first remediation pass:
+  - 12 unchecked error returns.
+  - 11 direct error comparisons that should use `errors.Is`.
+  - 42 gofmt issues.
+  - 9 staticcheck issues.
   - 6 integer conversion warnings from gosec.
-  - 6 unused symbols.
-  - 2 `nilerr` findings where a non-nil error path returns nil.
+  - 4 unused symbols.
+- The first remediation pass fixed the strict-lint `nilerr` findings, removed the possible nil dereference in `internal/service/workflow/workflow.go`, checked ignored git close paths, wrapped the Gitea review/fallback-note double failure with `errors.Join`, and removed unused writeback formatter helpers.
 - Installing frontend dependencies creates `frontend/node_modules` with a Go package inside a dependency. The Makefile now excludes `frontend/node_modules` from Go package discovery so local checks do not accidentally test dependency internals.
 
 ### P3
@@ -51,10 +51,10 @@ The strict lint profile is intentionally separated as `make lint-strict`. It cur
 
 1. Handle the breaking Vite/esbuild advisory in a dedicated frontend dependency upgrade.
 2. Run `make fmt` in a dedicated formatting PR, then make gofmt a hard CI check.
-3. Fix `nilerr` and possible nil dereference findings first; they are more likely to be real runtime bugs.
-4. Fix unchecked database/websocket/close errors where the failure affects correctness or observability.
-5. Replace direct `gorm.ErrRecordNotFound` comparisons with `errors.Is`.
-6. Remove or wire unused handlers/helpers.
+3. Fix unchecked database/websocket/close errors where the failure affects correctness or observability.
+4. Replace direct `gorm.ErrRecordNotFound` comparisons with `errors.Is`.
+5. Remove or wire unused handlers/helpers.
+6. Address gosec integer conversion warnings at API boundaries.
 7. Gradually move frontend from error-only lint to `npm run lint:strict`.
 
 ## Commands

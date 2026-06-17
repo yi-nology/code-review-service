@@ -18,6 +18,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/pkg/convert"
+	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
 
 type OpenCodeReviewConfig struct {
@@ -28,6 +29,7 @@ type OpenCodeReviewConfig struct {
 	Concurrency     int
 	MaxGitProcs     int
 	TimeoutMinutes  int
+	MaxRetries      int
 	MaxTools        int
 	URL             string
 	Model           string
@@ -65,6 +67,8 @@ func NewOpenCodeReviewRunner(config OpenCodeReviewConfig) *OpenCodeReviewRunner 
 	return &OpenCodeReviewRunner{config: config}
 }
 
+const defaultOCRMaxRetries = 1
+
 func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspace) (review.Result, error) {
 	if strings.TrimSpace(workspace.Dir) == "" {
 		return review.Result{}, fmt.Errorf("open-code-review requires a checked out workspace")
@@ -74,9 +78,48 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 	if timeout <= 0 {
 		timeout = 10 * time.Minute
 	}
-	ctx, cancel := context.WithTimeout(ctx, timeout+30*time.Second)
-	defer cancel()
 
+	maxRetries := r.config.MaxRetries
+	if maxRetries <= 0 {
+		maxRetries = defaultOCRMaxRetries
+	}
+	attempts := maxRetries + 1
+
+	reporter := progress.ProgressReporterFromContext(ctx)
+
+	var lastErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return review.Result{}, err
+		}
+
+		attemptCtx, cancel := context.WithTimeout(ctx, timeout+30*time.Second)
+		if reporter != nil {
+			attemptCtx = progress.WithProgressReporter(attemptCtx, reporter)
+		}
+
+		if attempt > 1 {
+			hlog.CtxWarnf(ctx, "ocr run failed, retrying attempt %d/%d: %v", attempt-1, maxRetries, lastErr)
+			if reporter != nil {
+				reporter.ReportAgentStatus("ocr", "retrying", fmt.Sprintf("重试第 %d 次", attempt-1))
+			}
+		}
+
+		result, err := r.runOnce(attemptCtx, workspace)
+		cancel()
+		if err == nil {
+			return result, nil
+		}
+		lastErr = err
+
+		if ctx.Err() != nil {
+			break
+		}
+	}
+	return review.Result{}, lastErr
+}
+
+func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Workspace) (review.Result, error) {
 	fromRef := workspace.BaseSHA
 	toRef := workspace.HeadSHA
 	if fromRef == "" {
@@ -297,11 +340,15 @@ func (r *DynamicOpenCodeReviewRunner) Run(ctx context.Context, workspace review.
 	if err != nil {
 		return review.Result{}, fmt.Errorf("读取 OCR 配置失败: %w", err)
 	}
-	if !s.Enabled {
+	enabled := s.Enabled
+	if workspace.OCR.Enabled != nil {
+		enabled = *workspace.OCR.Enabled
+	}
+	if !enabled {
 		return review.Result{}, fmt.Errorf("代码评审未启用，请先在 OCR 配置页面启用并测试模型连接")
 	}
 
-	cfg := r.buildConfig(s)
+	cfg := r.buildConfig(s, workspace.OCR)
 	ocr := &OpenCodeReviewRunner{config: cfg}
 	return ocr.Run(ctx, workspace)
 }
@@ -587,7 +634,7 @@ func (r *DynamicOpenCodeReviewRunner) TestLLM(ctx context.Context) (*review.LLMT
 		return &review.LLMTestResult{Success: false, Message: "OCR 未启用"}, nil
 	}
 
-	cfg := r.buildConfig(s)
+	cfg := r.buildConfig(s, review.OCROverrides{})
 
 	args := []string{"llm", "test"}
 	cmd := exec.CommandContext(ctx, cfg.Binary, args...)
@@ -626,7 +673,7 @@ func (r *DynamicOpenCodeReviewRunner) Preview(ctx context.Context, workspace rev
 		return nil, fmt.Errorf("代码评审未启用，请先在 OCR 配置页面启用并测试模型连接")
 	}
 
-	cfg := r.buildConfig(s)
+	cfg := r.buildConfig(s, workspace.OCR)
 	if strings.TrimSpace(workspace.Dir) == "" {
 		return nil, fmt.Errorf("需要已检出的工作区")
 	}
@@ -716,12 +763,12 @@ func (r *DynamicOpenCodeReviewRunner) Preview(ctx context.Context, workspace rev
 	return &review.PreviewResult{Files: files}, nil
 }
 
-func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings) OpenCodeReviewConfig {
+func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings, overrides review.OCROverrides) OpenCodeReviewConfig {
 	cfg := OpenCodeReviewConfig{
 		Binary:          firstNonBlank(s.Binary, r.fallback.config.Binary),
 		Audience:        firstNonBlank(s.Audience, r.fallback.config.Audience, "human"),
 		RulePath:        r.fallback.config.RulePath,
-		DefaultSeverity: firstNonBlank(s.DefaultSeverity, r.fallback.config.DefaultSeverity, string(review.SeverityMajor)),
+		DefaultSeverity: firstNonBlank(overrides.DefaultSeverity, s.DefaultSeverity, r.fallback.config.DefaultSeverity, string(review.SeverityMajor)),
 		URL:             s.URL,
 		Model:           s.ModelName,
 		AuthToken:       s.AuthToken,
@@ -729,10 +776,12 @@ func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings) OpenCod
 		UseAnthropic:    s.UseAnthropic,
 		ExtraBody:       string(s.ExtraBody),
 		Language:        s.Language,
-		MaxTools:        s.MaxTools,
-		Background:      s.Background,
+		MaxTools:        firstPositive(overrides.MaxTools, s.MaxTools),
+		Background:      firstNonBlank(overrides.Background, s.Background),
 	}
-	if s.Concurrency > 0 {
+	if overrides.Concurrency > 0 {
+		cfg.Concurrency = overrides.Concurrency
+	} else if s.Concurrency > 0 {
 		cfg.Concurrency = s.Concurrency
 	} else {
 		cfg.Concurrency = r.fallback.config.Concurrency
@@ -742,12 +791,23 @@ func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings) OpenCod
 	} else {
 		cfg.MaxGitProcs = r.fallback.config.MaxGitProcs
 	}
-	if s.TimeoutMinutes > 0 {
+	if overrides.TimeoutMinutes > 0 {
+		cfg.TimeoutMinutes = overrides.TimeoutMinutes
+	} else if s.TimeoutMinutes > 0 {
 		cfg.TimeoutMinutes = s.TimeoutMinutes
 	} else {
 		cfg.TimeoutMinutes = r.fallback.config.TimeoutMinutes
 	}
 	return cfg
+}
+
+func firstPositive(values ...int) int {
+	for _, value := range values {
+		if value > 0 {
+			return value
+		}
+	}
+	return 0
 }
 
 func firstNonBlank(values ...string) string {

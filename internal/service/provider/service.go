@@ -282,9 +282,10 @@ func (s *GitProviderService) TestWithToken(ctx context.Context, platform, baseUR
 	if err != nil {
 		return &models.GitTestResult{Connected: false, Platform: platform, Message: fmt.Sprintf("初始化失败: %v", err)}, nil
 	}
-	result, err := p.TestConnection(ctx)
-	if err != nil {
-		return &models.GitTestResult{Connected: false, Platform: platform, Message: err.Error()}, nil
+	result, connErr := p.TestConnection(ctx)
+	if connErr != nil {
+		//nolint:nilerr // Connection test failures are represented in the response payload.
+		return &models.GitTestResult{Connected: false, Platform: platform, Message: connErr.Error()}, nil
 	}
 	return &models.GitTestResult{
 		Connected: result.Connected,

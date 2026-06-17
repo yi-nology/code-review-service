@@ -2,6 +2,7 @@ package writeback
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	gitprovider "github.com/yi-nology/code-review-service/internal/service/provider"
@@ -79,7 +80,7 @@ func (a *GiteaAdapter) Publish(ctx context.Context, rev Review) (Result, error) 
 		hlog.Warn("create review failed, falling back to note", "error", err)
 		summaryID, noteErr := p.CreateNote(ctx, owner, repo, rev.ChangeRequest.Number, rev.Summary)
 		if noteErr != nil {
-			return Result{}, fmt.Errorf("review failed: %v; note fallback: %v", err, noteErr)
+			return Result{}, fmt.Errorf("create review and fallback note failed: %w", errors.Join(err, noteErr))
 		}
 		return Result{SummaryID: summaryID}, nil
 	}

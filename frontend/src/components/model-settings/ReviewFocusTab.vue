@@ -1,0 +1,31 @@
+<template>
+  <el-form :model="form" label-width="120px" :disabled="saving">
+    <el-form-item label="审查背景">
+      <el-input
+        v-model="form.background"
+        type="textarea"
+        :rows="6"
+        placeholder="默认的审查侧重点，例如：这是一个电商项目，重点关注支付流程的安全性和性能"
+      />
+      <div class="form-tip">当未配置代理团队时，使用此默认背景进行审查。配置代理后，各代理使用各自的审查侧重点。</div>
+    </el-form-item>
+
+    <el-form-item>
+      <el-button type="primary" @click="save" :loading="saving">保存配置</el-button>
+    </el-form-item>
+  </el-form>
+</template>
+
+<script setup lang="ts">
+import { useModelSettings } from './context'
+
+const { form, saving, save } = useModelSettings()
+</script>
+
+<style scoped>
+.form-tip {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+}
+</style>

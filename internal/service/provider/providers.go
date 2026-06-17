@@ -65,13 +65,13 @@ func (a *gitProviderAdapter) Prepare(ctx context.Context, req review.Request) (r
 			return review.Workspace{}, fmt.Errorf("get diff via API: %w", err)
 		}
 
-	cr, crErr := a.svc.GetCR(ctx, a.platform, owner, repoName, prNumber)
-	if crErr == nil && cr != nil {
-		targetBranch = cr.TargetBranch
-		sourceBranch = cr.SourceBranch
-		headSHAFromAPI = cr.HeadSHA
-		baseSHAFromAPI = cr.BaseSHA
-	}
+		cr, crErr := a.svc.GetCR(ctx, a.platform, owner, repoName, prNumber)
+		if crErr == nil && cr != nil {
+			targetBranch = cr.TargetBranch
+			sourceBranch = cr.SourceBranch
+			headSHAFromAPI = cr.HeadSHA
+			baseSHAFromAPI = cr.BaseSHA
+		}
 	}
 
 	if a.maxDiffBytes > 0 && int64(len(diff)) > a.maxDiffBytes {
@@ -124,7 +124,7 @@ func cloneAndResolvePR(
 		_ = os.RemoveAll(dir)
 		return "", "", "", err
 	}
-	defer git.Close()
+	defer func() { _ = git.Close() }()
 
 	fetchErrors := make([]string, 0)
 	fetched := false
@@ -262,7 +262,7 @@ func cloneAndResolveSHA(ctx context.Context, cloneURL, token, baseSHA, headSHA s
 		_ = os.RemoveAll(dir)
 		return "", "", "", "", err
 	}
-	defer git.Close()
+	defer func() { _ = git.Close() }()
 
 	if err := git.FetchAll(ctx); err != nil {
 		_ = os.RemoveAll(dir)

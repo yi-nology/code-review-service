@@ -6,12 +6,18 @@ import (
 )
 
 type ProjectPolicy struct {
-	gorm.Model  `json:"-"`
-	Provider    string         `gorm:"type:text;not null;uniqueIndex:idx_provider_repo" json:"provider"`
-	Repo        string         `gorm:"type:text;not null;uniqueIndex:idx_provider_repo" json:"repo"`
-	FailOn      string         `gorm:"type:text;not null;default:'critical'" json:"fail_on"`
-	IgnorePaths datatypes.JSON `gorm:"type:jsonb" json:"ignore_paths"`
-	Rules       datatypes.JSON `gorm:"type:jsonb" json:"rules"`
+	gorm.Model         `json:"-"`
+	Provider           string         `gorm:"type:text;not null;uniqueIndex:idx_provider_repo" json:"provider"`
+	Repo               string         `gorm:"type:text;not null;uniqueIndex:idx_provider_repo" json:"repo"`
+	FailOn             string         `gorm:"type:text;not null;default:'critical'" json:"fail_on"`
+	IgnorePaths        datatypes.JSON `gorm:"type:jsonb" json:"ignore_paths"`
+	Rules              datatypes.JSON `gorm:"type:jsonb" json:"rules"`
+	OCREnabled         *bool          `gorm:"type:boolean" json:"ocr_enabled,omitempty"`
+	OCRConcurrency     int            `gorm:"not null;default:0" json:"ocr_concurrency,omitempty"`
+	OCRTimeoutMinutes  int            `gorm:"not null;default:0" json:"ocr_timeout_minutes,omitempty"`
+	OCRMaxTools        int            `gorm:"not null;default:0" json:"ocr_max_tools,omitempty"`
+	OCRDefaultSeverity string         `gorm:"type:text" json:"ocr_default_severity,omitempty"`
+	OCRBackground      string         `gorm:"type:text" json:"ocr_background,omitempty"`
 }
 
 func (ProjectPolicy) TableName() string {
