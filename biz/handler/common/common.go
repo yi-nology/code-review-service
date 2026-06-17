@@ -4,6 +4,8 @@ import (
 	"errors"
 	"time"
 
+	appErrors "github.com/yi-nology/code-review-service/internal/errors"
+
 	"github.com/oekit/pkg/convert"
 	"github.com/oekit/pkg/mathx"
 	"github.com/oekit/pkg/ptrx"
@@ -16,6 +18,11 @@ import (
 )
 
 func Fail(c *hertzApp.RequestContext, err error) {
+	var appErr *appErrors.AppError
+	if errors.As(err, &appErr) {
+		mw.ErrorResp(c, int(appErr.Code), appErr.Message)
+		return
+	}
 	var bizErr *mw.BizError
 	if errors.As(err, &bizErr) {
 		mw.ErrorResp(c, bizErr.Code, bizErr.Message)

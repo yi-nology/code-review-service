@@ -96,6 +96,29 @@
             </template>
             <pre class="preview-json">{{ previewJson }}</pre>
           </el-card>
+
+          <el-card>
+            <template #header>
+              <div class="card-header compact">
+                <strong>规则验证</strong>
+              </div>
+            </template>
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <el-input
+                v-model="checkPath"
+                placeholder="src/auth/handler.go"
+                size="small"
+                @keyup.enter="handleRulesCheck"
+              />
+              <el-button size="small" type="primary" @click="handleRulesCheck" :loading="checking">检查</el-button>
+            </div>
+            <div v-if="checkResult !== null">
+              <el-tag v-if="checkResult.applicable" type="success">匹配</el-tag>
+              <el-tag v-else type="info">不匹配</el-tag>
+              <div v-if="checkResult.rule" style="margin-top: 8px; font-size: 12px; color: #606266; white-space: pre-wrap;">{{ checkResult.rule }}</div>
+              <div v-if="checkResult.message" style="margin-top: 4px; font-size: 12px; color: #909399;">{{ checkResult.message }}</div>
+            </div>
+          </el-card>
         </aside>
       </div>
     </div>
@@ -108,8 +131,8 @@ import { ElMessage } from 'element-plus/es/components/message/index'
 import { CircleCheckFilled, Refresh } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import RuleEditor from '@/components/RuleEditor.vue'
-import { getGlobalRules, updateGlobalRules } from '@/api/config'
-import type { ReviewRule } from '@/types/config'
+import { getGlobalRules, updateGlobalRules, rulesCheck } from '@/api/config'
+import type { ReviewRule, RulesCheckResult } from '@/types/config'
 
 type RuleTemplate = ReviewRule & { name: string }
 
@@ -145,6 +168,9 @@ const globalRules = ref<ReviewRule[]>([])
 const originalJson = ref('[]')
 const globalLoading = ref(false)
 const globalSaving = ref(false)
+const checkPath = ref('')
+const checkResult = ref<RulesCheckResult | null>(null)
+const checking = ref(false)
 
 const normalizedRules = computed(() => {
   return globalRules.value
@@ -219,6 +245,18 @@ async function saveGlobalRules() {
 
 function applyTemplate(template: RuleTemplate) {
   globalRules.value.push({ path: template.path, rule: template.rule })
+}
+
+async function handleRulesCheck() {
+  if (!checkPath.value.trim()) return
+  checking.value = true
+  try {
+    checkResult.value = await rulesCheck(checkPath.value.trim())
+  } catch (e: any) {
+    checkResult.value = { applicable: false, message: e.message || '检查失败' }
+  } finally {
+    checking.value = false
+  }
 }
 
 onMounted(fetchGlobalRules)

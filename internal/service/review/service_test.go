@@ -9,10 +9,11 @@ import (
 	"testing"
 	"time"
 
-	ekitGorm "github.com/oekit/gormx"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
+	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
+	ekitGorm "github.com/oekit/gormx"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/datatypes"
@@ -229,10 +230,82 @@ func (s staticRunner) Run(_ context.Context, _ review.Workspace) (review.Result,
 	return s.result, nil
 }
 
-type noopPublisher struct{}
+type mockExecutor struct {
+	runner review.Runner
+	repo   reviewUpdater
+}
 
-func (noopPublisher) Publish(_ context.Context, _ review.Request, _ review.Result) error {
-	return nil
+type reviewUpdater interface {
+	updateReviewStatus(id, status string)
+}
+
+func (e mockExecutor) Execute(ctx context.Context, id string, req review.Request, provider review.Provider, _ progress.ProgressReporter) (review.Response, error) {
+	workspace, err := provider.Prepare(ctx, req)
+	if err != nil {
+		if e.repo != nil {
+			e.repo.updateReviewStatus(id, "failed")
+		}
+		return review.Response{ReviewID: id, Status: "failed", Error: err.Error()}, err
+	}
+
+	result, err := e.runner.Run(ctx, workspace)
+	if err != nil {
+		if e.repo != nil {
+			e.repo.updateReviewStatus(id, "failed")
+		}
+		return review.Response{ReviewID: id, Status: "failed", Error: err.Error(), Gate: review.ErrorGate("review execution failed")}, err
+	}
+
+	result.Scope = workspace.Scope
+	report := review.BuildReport(&result)
+	analysis := review.BuildAnalysis(result)
+
+	gate := policy.NewEngine(policy.Config{FailOn: "critical"}).Evaluate(toPolicyFindings(result.Findings))
+
+	resp := review.Response{
+		ReviewID: id,
+		Status:   "success",
+		Summary:  result.Summary,
+		Report:   report,
+		Analysis: analysis,
+		Findings: result.Findings,
+		Gate:     review.CompletedGate(gate.Passed, gate.Reason),
+	}
+
+	if e.repo != nil {
+		e.repo.updateReviewStatus(id, "success")
+	}
+	return resp, nil
+}
+
+func (m *mockReviewRepo) updateReviewStatus(id, status string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, r := range m.reviews {
+		if r.ReviewID == id {
+			r.Status = status
+			break
+		}
+	}
+}
+
+func (m *mockReviewRepoWithActive) updateReviewStatus(id, status string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, r := range m.reviews {
+		if r.ReviewID == id {
+			r.Status = status
+			break
+		}
+	}
+}
+
+func toPolicyFindings(findings []review.Finding) []policy.Finding {
+	result := make([]policy.Finding, len(findings))
+	for i, f := range findings {
+		result[i] = policy.Finding{Severity: string(f.Severity), Path: f.Path}
+	}
+	return result
 }
 
 func newTestService(repo *mockReviewRepo, runner review.Runner) *review.Service {
@@ -247,17 +320,17 @@ func newTestServiceWithPolicy(repo *mockReviewRepo, runner review.Runner, policy
 		Policy:          policy.NewEngine(policyCfg),
 		Providers:       newTestProviders(testProvider{name: "github"}),
 		Runner:          runner,
-		Publisher:       noopPublisher{},
+		Executor:        mockExecutor{runner: runner, repo: repo},
 	})
 }
 
 func validRequest() review.Request {
 	return review.Request{
-		Provider:  "github",
-		Repo:      "acme/app",
-		BaseSHA:   "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
-		HeadSHA:   "f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5",
-		Wait:      true,
+		Provider: "github",
+		Repo:     "acme/app",
+		BaseSHA:  "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+		HeadSHA:  "f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5",
+		Wait:     true,
 	}
 }
 
@@ -828,7 +901,7 @@ func TestFindActiveReviewReturnsExisting(t *testing.T) {
 		Policy:          policy.NewEngine(policy.Config{FailOn: "critical"}),
 		Providers:       newTestProviders(testProvider{name: "github"}),
 		Runner:          &countingRunner{},
-		Publisher:       noopPublisher{},
+		Executor:        mockExecutor{runner: &countingRunner{}, repo: activeRepo},
 	})
 
 	resp, err := svc.Create(context.Background(), req, "")

@@ -31,22 +31,26 @@ struct TestLLMResult {
 struct OCRSettings {
     1: bool enabled (api.body="enabled")
     2: optional string provider (api.body="provider")
-    3: optional string plan (api.body="plan")
-    4: optional string url (api.body="url")
-    5: optional string auth_token (api.body="auth_token")
-    6: optional string auth_header (api.body="auth_header")
-    7: optional string model (api.body="model")
-    8: optional bool use_anthropic (api.body="use_anthropic")
-    9: optional string extra_body (api.body="extra_body")
-    10: optional string language (api.body="language")
-    11: optional i64 concurrency (api.body="concurrency")
-    12: optional i64 max_git_procs (api.body="max_git_procs")
-    13: optional i64 timeout_minutes (api.body="timeout_minutes")
-    14: optional i64 max_tools (api.body="max_tools")
-    15: optional string background (api.body="background")
-    16: optional string binary (api.body="binary")
-    17: optional string audience (api.body="audience")
-    18: optional string default_severity (api.body="default_severity")
+    3: optional string url (api.body="url")
+    4: optional string auth_token (api.body="auth_token")
+    5: optional string auth_header (api.body="auth_header")
+    6: optional string model (api.body="model")
+    7: optional bool use_anthropic (api.body="use_anthropic")
+    8: optional string extra_body (api.body="extra_body")
+    9: optional string language (api.body="language")
+    10: optional i64 concurrency (api.body="concurrency")
+    11: optional i64 max_git_procs (api.body="max_git_procs")
+    12: optional i64 timeout_minutes (api.body="timeout_minutes")
+    13: optional i64 max_tools (api.body="max_tools")
+    14: optional string background (api.body="background")
+    15: optional string binary (api.body="binary")
+    16: optional string audience (api.body="audience")
+    17: optional string default_severity (api.body="default_severity")
+    18: optional string tools_path (api.body="tools_path")
+    19: optional bool telemetry_enabled (api.body="telemetry_enabled")
+    20: optional string telemetry_exporter (api.body="telemetry_exporter")
+    21: optional string telemetry_otlp_endpoint (api.body="telemetry_otlp_endpoint")
+    22: optional bool telemetry_content_logging (api.body="telemetry_content_logging")
 }
 
 struct GetOCRSettingsResp {
@@ -61,6 +65,107 @@ struct UpdateOCRSettingsResp {
     1: OCRSettings settings (api.body="settings")
 }
 
+struct LLMProvider {
+    1: string name (api.body="name")
+    2: string protocol (api.body="protocol")
+    3: optional string base_url (api.body="base_url")
+    4: optional list<string> default_model (api.body="default_model")
+}
+
+struct ListLLMProvidersResp {
+    1: list<LLMProvider> built_in (api.body="built_in")
+}
+
+struct CustomProvider {
+    1: i64 id (api.body="id")
+    2: string name (api.body="name")
+    3: string protocol (api.body="protocol")
+    4: optional string url (api.body="url")
+    5: optional string api_key (api.body="api_key")
+    6: optional string model (api.body="model")
+    7: optional string auth_header (api.body="auth_header")
+    8: optional string extra_body (api.body="extra_body")
+    9: bool enabled (api.body="enabled")
+}
+
+struct ListCustomProvidersResp {
+    1: list<CustomProvider> items (api.body="items")
+}
+
+struct CreateCustomProviderReq {
+    1: string name (api.body="name")
+    2: string protocol (api.body="protocol")
+    3: optional string url (api.body="url")
+    4: optional string api_key (api.body="api_key")
+    5: optional string model (api.body="model")
+    6: optional string auth_header (api.body="auth_header")
+    7: optional string extra_body (api.body="extra_body")
+    8: optional bool enabled (api.body="enabled")
+}
+
+struct CreateCustomProviderResp {
+    1: CustomProvider provider (api.body="provider")
+}
+
+struct UpdateCustomProviderReq {
+    1: i64 id (api.path="id")
+    2: optional string name (api.body="name")
+    3: optional string protocol (api.body="protocol")
+    4: optional string url (api.body="url")
+    5: optional string api_key (api.body="api_key")
+    6: optional string model (api.body="model")
+    7: optional string auth_header (api.body="auth_header")
+    8: optional string extra_body (api.body="extra_body")
+    9: optional bool enabled (api.body="enabled")
+}
+
+struct UpdateCustomProviderResp {
+    1: CustomProvider provider (api.body="provider")
+}
+
+struct DeleteCustomProviderReq {
+    1: i64 id (api.path="id")
+}
+
+struct DeleteCustomProviderResp {}
+
+struct RulesCheckReq {
+    1: string path (api.body="path")
+}
+
+struct RulesCheckResult {
+    1: bool applicable (api.body="applicable")
+    2: optional string rule (api.body="rule")
+    3: optional string message (api.body="message")
+}
+
+struct RulesCheckResp {
+    1: RulesCheckResult result (api.body="result")
+}
+
+struct OCRVersionResp {
+    1: string version (api.body="version")
+    2: optional string commit (api.body="commit")
+    3: optional string platform (api.body="platform")
+    4: optional string build_time (api.body="build_time")
+}
+
+struct ViewerStatusResp {
+    1: bool running (api.body="running")
+    2: optional string addr (api.body="addr")
+    3: optional string message (api.body="message")
+}
+
+struct StartViewerReq {
+    1: optional string addr (api.body="addr")
+}
+
+struct StartViewerResp {
+    1: bool running (api.body="running")
+    2: optional string addr (api.body="addr")
+    3: optional string message (api.body="message")
+}
+
 struct ProjectPolicy {
     1: string provider (api.body="provider")
     2: string repo (api.body="repo")
@@ -73,6 +178,20 @@ struct ProjectPolicy {
     9: optional i64 ocr_max_tools (api.body="ocr_max_tools")
     10: optional string ocr_default_severity (api.body="ocr_default_severity")
     11: optional string ocr_background (api.body="ocr_background")
+    12: optional string ocr_audience (api.body="ocr_audience")
+    13: optional string ocr_provider (api.body="ocr_provider")
+    14: optional string ocr_url (api.body="ocr_url")
+    15: optional string ocr_model (api.body="ocr_model")
+    16: optional i64 ocr_max_git_procs (api.body="ocr_max_git_procs")
+    17: optional bool ocr_use_anthropic (api.body="ocr_use_anthropic")
+    18: optional string ocr_extra_body (api.body="ocr_extra_body")
+    19: optional string ocr_language (api.body="ocr_language")
+    20: optional string ocr_binary (api.body="ocr_binary")
+    21: optional string ocr_tools_path (api.body="ocr_tools_path")
+    22: optional bool ocr_telemetry_enabled (api.body="ocr_telemetry_enabled")
+    23: optional string ocr_telemetry_exporter (api.body="ocr_telemetry_exporter")
+    24: optional string ocr_telemetry_otlp_endpoint (api.body="ocr_telemetry_otlp_endpoint")
+    25: optional bool ocr_telemetry_content_logging (api.body="ocr_telemetry_content_logging")
 }
 
 struct ListProjectPoliciesResp {

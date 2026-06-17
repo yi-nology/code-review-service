@@ -69,8 +69,8 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 		return
 	}
 
-	normalizer := getNormalizer(req.Provider)
-	if normalizer == nil {
+	normalizer, ok := h.webhookSvc.GetNormalizer(req.Provider)
+	if !ok {
 		common.Fail(c, common.BadRequest(fmt.Sprintf("unsupported provider %q", req.Provider)))
 		return
 	}
@@ -141,22 +141,6 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 		Status:   "accepted",
 		ReviewID: &resp.ReviewID,
 	})
-}
-
-func getNormalizer(provider string) webhook.Normalizer {
-	switch strings.ToLower(provider) {
-	case "github":
-		return &webhook.GitHubNormalizer{}
-	case "gitlab":
-		return &webhook.GitLabNormalizer{}
-	case "gitea":
-		return &webhook.GiteaNormalizer{}
-	case "gitcode":
-		return &webhook.GitCodeNormalizer{}
-	case "tencent_code":
-		return &webhook.TencentCodeNormalizer{}
-	}
-	return nil
 }
 
 func normalizerEventTypeHeader(provider string) string {

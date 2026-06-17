@@ -30,8 +30,8 @@ var gitObjectIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{7,64}$`)
 var errIdempotencyKeyTooLong = errors.New("idempotency key too long")
 
 var (
-	ErrNotFound      = errors.New("review not found")
-	ErrInvalidState  = errors.New("invalid review state")
+	ErrNotFound     = errors.New("review not found")
+	ErrInvalidState = errors.New("invalid review state")
 )
 
 const (
@@ -47,6 +47,10 @@ const (
 	StageCancelled = "cancelled"
 )
 
+type Executor interface {
+	Execute(ctx context.Context, id string, req Request, provider Provider, progressReporter progress.ProgressReporter) (Response, error)
+}
+
 type ServiceConfig struct {
 	ReviewRepo      repository.ReviewRepository
 	OCRSettingsRepo repository.OCRSettingsRepository
@@ -57,10 +61,9 @@ type ServiceConfig struct {
 	Providers       Providers
 	GitProvider     GitProvider
 	Runner          Runner
-	Publisher       Publisher
-	Writeback       WritebackPublisher
 	PreviewRunner   PreviewRunner
 	ProgressManager *progress.ProgressManager
+	Executor        Executor
 }
 
 type Service struct {
@@ -73,10 +76,9 @@ type Service struct {
 	providers       Providers
 	gitProvider     GitProvider
 	runner          Runner
-	publisher       Publisher
-	writeback       WritebackPublisher
 	previewRunner   PreviewRunner
 	progressManager *progress.ProgressManager
+	executor        Executor
 	inFlight        sync.WaitGroup
 }
 
@@ -91,10 +93,9 @@ func NewService(cfg ServiceConfig) *Service {
 		providers:       cfg.Providers,
 		gitProvider:     cfg.GitProvider,
 		runner:          cfg.Runner,
-		publisher:       cfg.Publisher,
-		writeback:       cfg.Writeback,
 		previewRunner:   cfg.PreviewRunner,
 		progressManager: cfg.ProgressManager,
+		executor:        cfg.Executor,
 	}
 }
 
@@ -180,7 +181,7 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 		return queued, nil
 	}
 
-	return s.run(ctx, id, req, provider, nil)
+	return s.executor.Execute(ctx, id, req, provider, nil)
 }
 
 func (s *Service) findActiveReview(ctx context.Context, req Request) *Response {

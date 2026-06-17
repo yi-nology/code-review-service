@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"time"
+
+	"github.com/yi-nology/code-review-service/internal/service/types"
 )
 
 // ReviewAgent defines the interface for review agents
@@ -41,20 +43,8 @@ type AgentResult struct {
 	Warnings   []Warning     `json:"warnings"`
 }
 
-// Finding represents a code review finding
-type Finding struct {
-	ID         string   `json:"id"`
-	Severity   string   `json:"severity"`
-	Category   string   `json:"category"`
-	Path       string   `json:"path"`
-	Line       int      `json:"line"`
-	EndLine    int      `json:"end_line"`
-	Title      string   `json:"title"`
-	Body       string   `json:"body"`
-	Suggestion string   `json:"suggestion"`
-	Confidence float64  `json:"confidence"`
-	Agents     []string `json:"agents"`
-}
+// Finding is an alias for the canonical types.Finding
+type Finding = types.Finding
 
 // Warning represents a review warning
 type Warning struct {

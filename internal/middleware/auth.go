@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/oekit/pkg/slicex"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
@@ -131,10 +132,5 @@ func BearerTokenAuth(token string) app.HandlerFunc {
 
 func isHealthOrMetricsPath(path string) bool {
 	healthPaths := []string{"/ping", "/healthz", "/metrics", "/health", "/ready"}
-	for _, hp := range healthPaths {
-		if path == hp {
-			return true
-		}
-	}
-	return false
+	return slicex.Contains(healthPaths, path)
 }

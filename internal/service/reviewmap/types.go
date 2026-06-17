@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/yi-nology/code-review-service/internal/service/types"
 )
 
 // ReviewMap represents a code review map
@@ -394,32 +396,10 @@ func sanitizeID(s string) string {
 	return s
 }
 
+// Finding is an alias for the canonical types.Finding
+type Finding = types.Finding
+
 // generateID generates a unique ID
 func generateID() string {
-	return time.Now().Format("20060102150405") + "-" + randomString(6)
-}
-
-// randomString generates a random string of specified length
-func randomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-	result := make([]byte, length)
-	for i := range result {
-		result[i] = charset[time.Now().UnixNano()%int64(len(charset))]
-	}
-	return string(result)
-}
-
-// Finding represents a finding for review map generation
-type Finding struct {
-	ID         string   `json:"id"`
-	Severity   string   `json:"severity"`
-	Category   string   `json:"category"`
-	Path       string   `json:"path"`
-	Line       int      `json:"line"`
-	EndLine    int      `json:"end_line"`
-	Title      string   `json:"title"`
-	Body       string   `json:"body"`
-	Suggestion string   `json:"suggestion"`
-	Confidence float64  `json:"confidence"`
-	Agents     []string `json:"agents"`
+	return types.GenerateID()
 }

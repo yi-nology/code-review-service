@@ -54,6 +54,11 @@ func (s *Service) MaxPayloadBytes() int64 {
 	return s.maxPayloadBytes
 }
 
+func (s *Service) GetNormalizer(provider string) (Normalizer, bool) {
+	n, ok := s.normalizers[provider]
+	return n, ok
+}
+
 func (s *Service) HandleWebhook(provider, installationID string, rawBody []byte, eventType, deliveryID, signature string, secret string) (*HandleResult, error) {
 	normalizer, ok := s.normalizers[provider]
 	if !ok {

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/yi-nology/code-review-service/internal/service/types"
 )
 
 // ReviewerPersona represents a reviewer persona
@@ -442,15 +444,5 @@ func (s *PersonaService) GetPersonaPrompt(id string) (string, error) {
 
 // generateID generates a unique ID
 func generateID() string {
-	return time.Now().Format("20060102150405") + "-" + randomString(6)
-}
-
-// randomString generates a random string of specified length
-func randomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-	result := make([]byte, length)
-	for i := range result {
-		result[i] = charset[time.Now().UnixNano()%int64(len(charset))]
-	}
-	return string(result)
+	return types.GenerateID()
 }

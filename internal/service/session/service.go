@@ -8,6 +8,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/oekit/pkg/slicex"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
@@ -300,11 +301,5 @@ func isValidPhaseTransition(from, to models.SessionPhase) bool {
 		return false
 	}
 
-	for _, phase := range allowed {
-		if phase == to {
-			return true
-		}
-	}
-
-	return false
+	return slicex.Contains(allowed, to)
 }

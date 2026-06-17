@@ -2,6 +2,8 @@ package discussion
 
 import (
 	"time"
+
+	"github.com/yi-nology/code-review-service/internal/service/types"
 )
 
 // ResponseType represents the type of discussion response
@@ -69,20 +71,8 @@ type AgentPosition struct {
 	Confidence float64 `json:"confidence"`
 }
 
-// Finding represents a finding for discussion
-type Finding struct {
-	ID         string   `json:"id"`
-	Severity   string   `json:"severity"`
-	Category   string   `json:"category"`
-	Path       string   `json:"path"`
-	Line       int      `json:"line"`
-	EndLine    int      `json:"end_line"`
-	Title      string   `json:"title"`
-	Body       string   `json:"body"`
-	Suggestion string   `json:"suggestion"`
-	Confidence float64  `json:"confidence"`
-	Agents     []string `json:"agents"`
-}
+// Finding is an alias for the canonical types.Finding
+type Finding = types.Finding
 
 // DiscussionPrompt represents a prompt for discussion
 type DiscussionPrompt struct {

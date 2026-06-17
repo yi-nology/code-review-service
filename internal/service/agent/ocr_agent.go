@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/google/uuid"
 )
 
@@ -139,80 +140,32 @@ func inferCategoryFromReview(f ReviewFinding) string {
 	body := f.Body
 
 	// Security related
-	if containsAny(title, body, "security", "vulnerability", "injection", "xss", "csrf", "auth") {
+	if types.ContainsAny(title, body, "security", "vulnerability", "injection", "xss", "csrf", "auth") {
 		return "security"
 	}
 
 	// Performance related
-	if containsAny(title, body, "performance", "slow", "memory", "leak", "optimize") {
+	if types.ContainsAny(title, body, "performance", "slow", "memory", "leak", "optimize") {
 		return "performance"
 	}
 
 	// Bug related
-	if containsAny(title, body, "bug", "error", "crash", "null", "nil", "undefined") {
+	if types.ContainsAny(title, body, "bug", "error", "crash", "null", "nil", "undefined") {
 		return "bug"
 	}
 
 	// Style related
-	if containsAny(title, body, "style", "format", "lint", "convention") {
+	if types.ContainsAny(title, body, "style", "format", "lint", "convention") {
 		return "style"
 	}
 
 	// Documentation related
-	if containsAny(title, body, "doc", "comment", "readme", "documentation") {
+	if types.ContainsAny(title, body, "doc", "comment", "readme", "documentation") {
 		return "documentation"
 	}
 
 	// Default category
 	return "code_quality"
-}
-
-// containsAny checks if any of the keywords appear in the text
-func containsAny(texts ...string) bool {
-	if len(texts) < 2 {
-		return false
-	}
-
-	keywords := texts[1:]
-	for _, text := range texts[:1] {
-		for _, keyword := range keywords {
-			if containsIgnoreCase(text, keyword) {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-// containsIgnoreCase checks if substr is in s (case insensitive)
-func containsIgnoreCase(s, substr string) bool {
-	if len(substr) > len(s) {
-		return false
-	}
-
-	for i := 0; i <= len(s)-len(substr); i++ {
-		match := true
-		for j := 0; j < len(substr); j++ {
-			if toLower(s[i+j]) != toLower(substr[j]) {
-				match = false
-				break
-			}
-		}
-		if match {
-			return true
-		}
-	}
-
-	return false
-}
-
-// toLower converts a byte to lowercase
-func toLower(b byte) byte {
-	if b >= 'A' && b <= 'Z' {
-		return b + 32
-	}
-	return b
 }
 
 // MultiOCRAgent creates multiple OCR agents with different configurations

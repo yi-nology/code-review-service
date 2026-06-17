@@ -5,10 +5,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 )
+
+// Ensure MockSessionService implements sessionService interface
+var _ sessionService = (*MockSessionService)(nil)
 
 // MockSessionService is a mock implementation of session.Service
 type MockSessionService struct {
@@ -175,15 +178,15 @@ func TestReviewWorkflow(t *testing.T) {
 	// Create mock services
 	sessionService := NewMockSessionService()
 	progressManager := progress.NewProgressManager()
-	
+
 	// Create agent manager
 	aggregator := agent.NewDefaultAggregator(agent.DefaultAggregatorConfig())
 	agentManager := agent.NewAgentManager(agent.DefaultManagerConfig(), aggregator)
-	
+
 	// Register mock agents
 	agentManager.RegisterAgent(NewMockAgent("principal", []string{"architecture"}, 1))
 	agentManager.RegisterAgent(NewMockAgent("quality", []string{"code_style"}, 2))
-	
+
 	// Create workflow
 	workflow := NewReviewWorkflow(
 		agentManager,
@@ -191,7 +194,7 @@ func TestReviewWorkflow(t *testing.T) {
 		progressManager,
 		DefaultWorkflowConfig(),
 	)
-	
+
 	// Create review request
 	request := ReviewRequest{
 		ReviewID: "test-review-id",
@@ -203,35 +206,35 @@ func TestReviewWorkflow(t *testing.T) {
 		Dir:      "/tmp/test",
 		Round:    1,
 	}
-	
+
 	// Run review
 	ctx := context.Background()
 	result, err := workflow.RunReview(ctx, request)
 	if err != nil {
 		t.Fatalf("RunReview failed: %v", err)
 	}
-	
+
 	// Verify result
 	if result == nil {
 		t.Fatal("result is nil")
 	}
-	
+
 	if result.SessionID == "" {
 		t.Error("session ID is empty")
 	}
-	
+
 	if result.Round != 1 {
 		t.Errorf("expected round 1, got %d", result.Round)
 	}
-	
+
 	if len(result.AgentResults) != 2 {
 		t.Errorf("expected 2 agent results, got %d", len(result.AgentResults))
 	}
-	
+
 	if result.FinalReport.Score < 0 || result.FinalReport.Score > 100 {
 		t.Errorf("invalid score: %d", result.FinalReport.Score)
 	}
-	
+
 	t.Logf("Review completed with score: %d", result.FinalReport.Score)
 	t.Logf("Verdict: %s", result.FinalReport.Verdict)
 	t.Logf("Findings: %d", len(result.AgentResults[0].Findings)+len(result.AgentResults[1].Findings))

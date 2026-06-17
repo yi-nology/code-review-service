@@ -296,12 +296,26 @@ type Workspace struct {
 }
 
 type OCROverrides struct {
-	Enabled         *bool
-	Concurrency     int
-	TimeoutMinutes  int
-	MaxTools        int
-	DefaultSeverity string
-	Background      string
+	Enabled                 *bool
+	Concurrency             int
+	TimeoutMinutes          int
+	MaxTools                int
+	DefaultSeverity         string
+	Background              string
+	Audience                string
+	Provider                string
+	URL                     string
+	Model                   string
+	MaxGitProcs             int
+	UseAnthropic            bool
+	ExtraBody               string
+	Language                string
+	Binary                  string
+	ToolsPath               string
+	TelemetryEnabled        bool
+	TelemetryExporter       string
+	TelemetryOTLPEndpoint   string
+	TelemetryContentLogging bool
 }
 
 type Providers interface {
@@ -322,10 +336,6 @@ type Runner interface {
 	Run(context.Context, Workspace) (Result, error)
 }
 
-type Publisher interface {
-	Publish(context.Context, Request, Result) error
-}
-
 type WritebackPublisher interface {
 	PublishWithDiff(ctx context.Context, req Request, result Result, diff string) error
 }
@@ -336,6 +346,50 @@ type PreviewRunner interface {
 
 type LLMTester interface {
 	TestLLM(ctx context.Context) (*LLMTestResult, error)
+}
+
+type LLMProvider struct {
+	Name         string   `json:"name"`
+	Protocol     string   `json:"protocol"`
+	BaseURL      string   `json:"base_url,omitempty"`
+	DefaultModel []string `json:"default_model,omitempty"`
+}
+
+type LLMProviderLister interface {
+	ListLLMProviders(ctx context.Context) ([]LLMProvider, error)
+}
+
+type RulesCheckResult struct {
+	Applicable bool   `json:"applicable"`
+	Rule       string `json:"rule,omitempty"`
+	Message    string `json:"message,omitempty"`
+}
+
+type RulesChecker interface {
+	RulesCheck(ctx context.Context, path string) (*RulesCheckResult, error)
+}
+
+type OCRVersion struct {
+	Version   string `json:"version"`
+	Commit    string `json:"commit,omitempty"`
+	Platform  string `json:"platform,omitempty"`
+	BuildTime string `json:"build_time,omitempty"`
+}
+
+type OCRVersioner interface {
+	OCRVersion(ctx context.Context) (*OCRVersion, error)
+}
+
+type ViewerStatus struct {
+	Running bool   `json:"running"`
+	Addr    string `json:"addr,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+type ViewerManager interface {
+	ViewerStatus(ctx context.Context) (*ViewerStatus, error)
+	StartViewer(ctx context.Context, addr string) (*ViewerStatus, error)
+	StopViewer(ctx context.Context) (*ViewerStatus, error)
 }
 
 type PreviewResult struct {

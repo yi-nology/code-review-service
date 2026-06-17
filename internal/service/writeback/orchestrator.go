@@ -8,6 +8,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/types"
 
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
@@ -47,7 +48,7 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 		return fmt.Errorf("no writeback adapter for provider %q", req.Provider)
 	}
 
-	number := resolveNumber(req)
+	number := types.ResolvePRNumber(req.Provider, req.PullRequestID, req.MergeRequestIID)
 	if number == 0 {
 		return fmt.Errorf("cannot determine PR/MR number for writeback")
 	}
@@ -162,19 +163,6 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 		"comments", len(comments),
 	)
 	return nil
-}
-
-func resolveNumber(req review.Request) int {
-	s := strings.TrimSpace(req.PullRequestID)
-	if s == "" {
-		s = strings.TrimSpace(req.MergeRequestIID)
-	}
-	if s == "" {
-		return 0
-	}
-	var n int
-	_, _ = fmt.Sscanf(s, "%d", &n)
-	return n
 }
 
 func findSeverity(findings []review.Finding, i int) review.Severity {

@@ -1,30 +1,27 @@
-package main
+package modules
 
 import (
-	"fmt"
-	"time"
-
-	"github.com/oekit/hertz/health"
-	emetrics "github.com/oekit/metrics"
-	mw "github.com/oekit/middleware"
 	"github.com/yi-nology/code-review-service/biz/router"
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/middleware"
 	"github.com/yi-nology/code-review-service/swagger"
 
+	"github.com/oekit/hertz/health"
+	mw "github.com/oekit/middleware"
+	emetrics "github.com/oekit/metrics"
+
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
-	gormDB "gorm.io/gorm"
+	"go.uber.org/fx"
+	"gorm.io/gorm"
 )
 
-func createServer(cfg *config.Config) *server.Hertz {
-	return server.Default(
-		server.WithHostPorts(fmt.Sprintf(":%d", cfg.Port)),
-		server.WithExitWaitTime(15*time.Second),
-	)
-}
+var ServerModule = fx.Options(
+	fx.Invoke(RegisterGlobalMiddleware),
+	fx.Invoke(RegisterRoutes),
+)
 
-func registerGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
+func RegisterGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 	stack := mw.DefaultMiddleware(mw.StackConfig{
 		ServiceName: "review-service",
 		SkipPaths:   []string{"/metrics", "/ping", "/health", "/buildVersion", "/swagger"},
@@ -45,7 +42,7 @@ func registerGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 	h.Use(middleware.SecurityHeaders())
 }
 
-func registerRoutes(h *server.Hertz, db *gormDB.DB) {
+func RegisterRoutes(h *server.Hertz, db *gorm.DB) {
 	hlog.Infof("[routes] registering routes...")
 
 	healthOpts := []health.Option{}

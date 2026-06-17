@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/yi-nology/code-review-service/internal/service/types"
 )
 
 // Requirements represents review requirements
@@ -54,7 +56,7 @@ func NewParser() *Parser {
 // Parse parses requirements from inline text
 func (p *Parser) Parse(inline []string) (*Requirements, error) {
 	requirements := &Requirements{
-		ID:        generateID(),
+		ID:        types.GenerateID(),
 		Inline:    inline,
 		Context:   make(map[string]string),
 		CreatedAt: time.Now(),
@@ -101,7 +103,7 @@ func (p *Parser) ParseRequirements(text string) []Requirement {
 		// Check if line is a requirement (starts with - or *)
 		if strings.HasPrefix(line, "-") || strings.HasPrefix(line, "*") {
 			req := Requirement{
-				ID:       generateID(),
+				ID:       types.GenerateID(),
 				Text:     strings.TrimLeft(line, "-* "),
 				Category: inferCategory(line),
 				Priority: inferPriority(line),
@@ -118,22 +120,22 @@ func (p *Parser) ParseRequirements(text string) []Requirement {
 func inferCategory(text string) string {
 	text = strings.ToLower(text)
 
-	if containsAny(text, "security", "auth", "permission", "access") {
+	if types.ContainsAny(text, "security", "auth", "permission", "access") {
 		return "security"
 	}
-	if containsAny(text, "performance", "speed", "fast", "optimize") {
+	if types.ContainsAny(text, "performance", "speed", "fast", "optimize") {
 		return "performance"
 	}
-	if containsAny(text, "test", "coverage", "quality") {
+	if types.ContainsAny(text, "test", "coverage", "quality") {
 		return "testing"
 	}
-	if containsAny(text, "document", "readme", "comment") {
+	if types.ContainsAny(text, "document", "readme", "comment") {
 		return "documentation"
 	}
-	if containsAny(text, "ui", "interface", "user", "frontend") {
+	if types.ContainsAny(text, "ui", "interface", "user", "frontend") {
 		return "ui"
 	}
-	if containsAny(text, "api", "endpoint", "request", "response") {
+	if types.ContainsAny(text, "api", "endpoint", "request", "response") {
 		return "api"
 	}
 
@@ -144,42 +146,17 @@ func inferCategory(text string) string {
 func inferPriority(text string) string {
 	text = strings.ToLower(text)
 
-	if containsAny(text, "must", "critical", "important", "required") {
+	if types.ContainsAny(text, "must", "critical", "important", "required") {
 		return "high"
 	}
-	if containsAny(text, "should", "recommended") {
+	if types.ContainsAny(text, "should", "recommended") {
 		return "medium"
 	}
-	if containsAny(text, "could", "optional", "nice") {
+	if types.ContainsAny(text, "could", "optional", "nice") {
 		return "low"
 	}
 
 	return "medium"
-}
-
-// containsAny checks if any of the keywords appear in the text
-func containsAny(text string, keywords ...string) bool {
-	for _, keyword := range keywords {
-		if strings.Contains(text, keyword) {
-			return true
-		}
-	}
-	return false
-}
-
-// generateID generates a unique ID
-func generateID() string {
-	return time.Now().Format("20060102150405") + "-" + randomString(6)
-}
-
-// randomString generates a random string of specified length
-func randomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-	result := make([]byte, length)
-	for i := range result {
-		result[i] = charset[time.Now().UnixNano()%int64(len(charset))]
-	}
-	return string(result)
 }
 
 // Evaluator evaluates findings against requirements
@@ -334,17 +311,5 @@ func pluralizeWord(count int, word string) string {
 	return word + "s"
 }
 
-// Finding represents a finding for requirements evaluation
-type Finding struct {
-	ID         string   `json:"id"`
-	Severity   string   `json:"severity"`
-	Category   string   `json:"category"`
-	Path       string   `json:"path"`
-	Line       int      `json:"line"`
-	EndLine    int      `json:"end_line"`
-	Title      string   `json:"title"`
-	Body       string   `json:"body"`
-	Suggestion string   `json:"suggestion"`
-	Confidence float64  `json:"confidence"`
-	Agents     []string `json:"agents"`
-}
+// Finding is an alias for the canonical types.Finding
+type Finding = types.Finding

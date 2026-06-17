@@ -232,8 +232,22 @@
                 </label>
 
                 <label class="field-block">
+                  <span>输出受众</span>
+                  <el-select v-model="form.ocr_audience" clearable placeholder="继承全局">
+                    <el-option label="人工可读" value="human" />
+                    <el-option label="Agent 精简" value="agent" />
+                  </el-select>
+                </label>
+
+                <label class="field-block">
                   <span>模型并发数</span>
                   <el-input-number v-model="form.ocr_concurrency" :min="0" :max="32" />
+                  <small>0 表示继承全局默认。</small>
+                </label>
+
+                <label class="field-block">
+                  <span>Git 并发数</span>
+                  <el-input-number v-model="form.ocr_max_git_procs" :min="0" :max="64" />
                   <small>0 表示继承全局默认。</small>
                 </label>
 
@@ -248,6 +262,42 @@
                   <el-input-number v-model="form.ocr_max_tools" :min="0" :max="100" />
                   <small>0 表示继承全局或 OCR 内置默认值。</small>
                 </label>
+
+                <label class="field-block">
+                  <span>请求协议</span>
+                  <el-select v-model="form.ocr_use_anthropic" clearable placeholder="继承全局">
+                    <el-option label="OpenAI 兼容" :value="false" />
+                    <el-option label="Anthropic" :value="true" />
+                  </el-select>
+                </label>
+
+                <label class="field-block">
+                  <span>输出语言</span>
+                  <el-select v-model="form.ocr_language" clearable placeholder="继承全局">
+                    <el-option label="中文" value="Chinese" />
+                    <el-option label="English" value="English" />
+                  </el-select>
+                </label>
+
+                <label class="field-block">
+                  <span>模型接口地址</span>
+                  <el-input v-model="form.ocr_url" placeholder="继承全局" clearable />
+                </label>
+
+                <label class="field-block">
+                  <span>模型名称</span>
+                  <el-input v-model="form.ocr_model" placeholder="继承全局" clearable />
+                </label>
+
+                <label class="field-block">
+                  <span>OCR 二进制路径</span>
+                  <el-input v-model="form.ocr_binary" placeholder="继承全局" clearable />
+                </label>
+
+                <label class="field-block">
+                  <span>工具白名单</span>
+                  <el-input v-model="form.ocr_tools_path" placeholder="继承全局" clearable />
+                </label>
               </div>
 
               <label class="field-block full-width">
@@ -259,6 +309,49 @@
                   placeholder="该仓库的业务背景、重点风险、审查偏好；留空继承全局默认"
                 />
               </label>
+
+              <label class="field-block full-width">
+                <span>额外请求体</span>
+                <el-input
+                  v-model="form.ocr_extra_body"
+                  type="textarea"
+                  :rows="2"
+                  placeholder='继承全局。可选 JSON 对象，如 {"temperature":0.2}'
+                />
+              </label>
+
+              <div class="field-grid two-columns">
+                <label class="field-block">
+                  <span>遥测启用</span>
+                  <el-select v-model="form.ocr_telemetry_enabled" clearable placeholder="继承全局">
+                    <el-option label="继承全局" :value="null" />
+                    <el-option label="启用" :value="true" />
+                    <el-option label="禁用" :value="false" />
+                  </el-select>
+                </label>
+
+                <label class="field-block">
+                  <span>遥测导出器</span>
+                  <el-select v-model="form.ocr_telemetry_exporter" clearable placeholder="继承全局">
+                    <el-option label="OTLP" value="otlp" />
+                    <el-option label="Stdout" value="stdout" />
+                  </el-select>
+                </label>
+
+                <label class="field-block">
+                  <span>OTLP 端点</span>
+                  <el-input v-model="form.ocr_telemetry_otlp_endpoint" placeholder="继承全局" clearable />
+                </label>
+
+                <label class="field-block">
+                  <span>遥测内容日志</span>
+                  <el-select v-model="form.ocr_telemetry_content_logging" clearable placeholder="继承全局">
+                    <el-option label="继承全局" :value="null" />
+                    <el-option label="启用" :value="true" />
+                    <el-option label="禁用" :value="false" />
+                  </el-select>
+                </label>
+              </div>
             </section>
 
             <section class="form-section">
@@ -408,6 +501,20 @@ const form = reactive<ProjectPolicyForm>({
   ocr_max_tools: 0,
   ocr_default_severity: '',
   ocr_background: '',
+  ocr_audience: '',
+  ocr_provider: '',
+  ocr_url: '',
+  ocr_model: '',
+  ocr_max_git_procs: 0,
+  ocr_use_anthropic: null as any,
+  ocr_extra_body: '',
+  ocr_language: '',
+  ocr_binary: '',
+  ocr_tools_path: '',
+  ocr_telemetry_enabled: null as any,
+  ocr_telemetry_exporter: '',
+  ocr_telemetry_otlp_endpoint: '',
+  ocr_telemetry_content_logging: null as any,
 })
 
 const ignorePathsText = ref('')
@@ -437,6 +544,20 @@ const payloadPreview = computed<ProjectPolicy>(() => ({
   ocr_max_tools: form.ocr_max_tools || 0,
   ocr_default_severity: form.ocr_default_severity || '',
   ocr_background: form.ocr_background?.trim() || '',
+  ocr_audience: form.ocr_audience || '',
+  ocr_provider: form.ocr_provider?.trim() || '',
+  ocr_url: form.ocr_url?.trim() || '',
+  ocr_model: form.ocr_model?.trim() || '',
+  ocr_max_git_procs: form.ocr_max_git_procs || 0,
+  ocr_use_anthropic: form.ocr_use_anthropic as any,
+  ocr_extra_body: form.ocr_extra_body?.trim() || '',
+  ocr_language: form.ocr_language || '',
+  ocr_binary: form.ocr_binary?.trim() || '',
+  ocr_tools_path: form.ocr_tools_path?.trim() || '',
+  ocr_telemetry_enabled: form.ocr_telemetry_enabled as any,
+  ocr_telemetry_exporter: form.ocr_telemetry_exporter || '',
+  ocr_telemetry_otlp_endpoint: form.ocr_telemetry_otlp_endpoint?.trim() || '',
+  ocr_telemetry_content_logging: form.ocr_telemetry_content_logging as any,
 }))
 
 const previewJson = computed(() => JSON.stringify(payloadPreview.value, null, 2))
@@ -604,6 +725,20 @@ function handleEdit(policy: ProjectPolicy) {
   form.ocr_max_tools = policy.ocr_max_tools || 0
   form.ocr_default_severity = policy.ocr_default_severity || ''
   form.ocr_background = policy.ocr_background || ''
+  form.ocr_audience = policy.ocr_audience || ''
+  form.ocr_provider = policy.ocr_provider || ''
+  form.ocr_url = policy.ocr_url || ''
+  form.ocr_model = policy.ocr_model || ''
+  form.ocr_max_git_procs = policy.ocr_max_git_procs || 0
+  form.ocr_use_anthropic = policy.ocr_use_anthropic ?? null as any
+  form.ocr_extra_body = policy.ocr_extra_body || ''
+  form.ocr_language = policy.ocr_language || ''
+  form.ocr_binary = policy.ocr_binary || ''
+  form.ocr_tools_path = policy.ocr_tools_path || ''
+  form.ocr_telemetry_enabled = policy.ocr_telemetry_enabled ?? null as any
+  form.ocr_telemetry_exporter = policy.ocr_telemetry_exporter || ''
+  form.ocr_telemetry_otlp_endpoint = policy.ocr_telemetry_otlp_endpoint || ''
+  form.ocr_telemetry_content_logging = policy.ocr_telemetry_content_logging ?? null as any
   ignorePathsText.value = (policy.ignore_paths || []).join('\n')
   syncOriginal()
   fetchRepos()
@@ -621,6 +756,20 @@ function startCreate() {
   form.ocr_max_tools = 0
   form.ocr_default_severity = ''
   form.ocr_background = ''
+  form.ocr_audience = ''
+  form.ocr_provider = ''
+  form.ocr_url = ''
+  form.ocr_model = ''
+  form.ocr_max_git_procs = 0
+  form.ocr_use_anthropic = null as any
+  form.ocr_extra_body = ''
+  form.ocr_language = ''
+  form.ocr_binary = ''
+  form.ocr_tools_path = ''
+  form.ocr_telemetry_enabled = null as any
+  form.ocr_telemetry_exporter = ''
+  form.ocr_telemetry_otlp_endpoint = ''
+  form.ocr_telemetry_content_logging = null as any
   ignorePathsText.value = ''
   syncOriginal()
   if (form.provider) fetchRepos()

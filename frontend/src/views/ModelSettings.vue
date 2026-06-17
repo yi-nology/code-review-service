@@ -18,6 +18,9 @@
           <el-tab-pane label="审查侧重点" name="review">
             <ReviewFocusTab />
           </el-tab-pane>
+          <el-tab-pane label="自定义 Provider" name="custom-providers">
+            <CustomProvidersTab />
+          </el-tab-pane>
         </el-tabs>
       </el-card>
     </div>
@@ -31,6 +34,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import ModelConnectionTab from '@/components/model-settings/ModelConnectionTab.vue'
 import ExecutionParamsTab from '@/components/model-settings/ExecutionParamsTab.vue'
 import ReviewFocusTab from '@/components/model-settings/ReviewFocusTab.vue'
+import CustomProvidersTab from '@/components/model-settings/CustomProvidersTab.vue'
 import { modelSettingsKey, type ModelSettingsContext } from '@/components/model-settings/context'
 import { getOCRSettings, updateOCRSettings, testLLM } from '@/api/config'
 import type { OCRSettings } from '@/types/config'
@@ -58,6 +62,11 @@ const form = reactive<OCRSettings>({
   timeout_minutes: 10,
   max_tools: 0,
   background: '',
+  tools_path: '',
+  telemetry_enabled: false,
+  telemetry_exporter: '',
+  telemetry_otlp_endpoint: '',
+  telemetry_content_logging: false,
 })
 
 function syncExtraBody(showError = true) {

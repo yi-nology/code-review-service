@@ -1,5 +1,10 @@
 import request from './request'
-import type { OCRSettings, ProjectPolicy, ProjectPolicyList, GitPlatform, GitPlatformList, GitTestResult, GlobalRules, TestLLMResult, PlatformRepo, PlatformBranch, PlatformPullRequest, ReviewerAgent } from '@/types/config'
+import type {
+  OCRSettings, ProjectPolicy, ProjectPolicyList, GitPlatform, GitPlatformList,
+  GitTestResult, GlobalRules, TestLLMResult, PlatformRepo, PlatformBranch,
+  PlatformPullRequest, ReviewerAgent, LLMProvider, CustomProvider,
+  RulesCheckResult, OCRVersion, ViewerStatus
+} from '@/types/config'
 
 function parseIgnorePaths(raw: any): string[] {
   if (!raw) return []
@@ -42,6 +47,8 @@ function parseReviewerAgent(raw: any): ReviewerAgent {
   return { ...raw, tags: parseTags(raw?.tags) }
 }
 
+// ==================== OCR Settings ====================
+
 export async function getOCRSettings(): Promise<OCRSettings> {
   const data: any = await request.get('/settings/ocr')
   return data?.settings ?? data
@@ -57,6 +64,81 @@ export async function testLLM(): Promise<TestLLMResult> {
   return resp?.result ?? resp
 }
 
+// ==================== LLM Providers ====================
+
+export async function listLLMProviders(): Promise<LLMProvider[]> {
+  const resp: any = await request.get('/settings/ocr/providers')
+  return resp?.built_in ?? []
+}
+
+// ==================== Custom Providers ====================
+
+export async function listCustomProviders(): Promise<CustomProvider[]> {
+  const resp: any = await request.get('/settings/ocr/custom-providers')
+  return resp?.items ?? []
+}
+
+export async function createCustomProvider(data: {
+  name: string
+  protocol: string
+  url?: string
+  api_key?: string
+  model?: string
+  auth_header?: string
+  extra_body?: string
+  enabled?: boolean
+}): Promise<CustomProvider> {
+  const resp: any = await request.post('/settings/ocr/custom-providers', data)
+  return resp?.provider ?? resp
+}
+
+export async function updateCustomProvider(id: number, data: {
+  name?: string
+  protocol?: string
+  url?: string
+  api_key?: string
+  model?: string
+  auth_header?: string
+  extra_body?: string
+  enabled?: boolean
+}): Promise<CustomProvider> {
+  const resp: any = await request.put(`/settings/ocr/custom-providers/${id}`, data)
+  return resp?.provider ?? resp
+}
+
+export async function deleteCustomProvider(id: number): Promise<void> {
+  return request.delete(`/settings/ocr/custom-providers/${id}`) as any
+}
+
+// ==================== Rules Check ====================
+
+export async function rulesCheck(path: string): Promise<RulesCheckResult> {
+  const resp: any = await request.post('/settings/ocr/rules-check', { path })
+  return resp?.result ?? resp
+}
+
+// ==================== OCR Version ====================
+
+export async function getOCRVersion(): Promise<OCRVersion> {
+  return request.get('/settings/ocr/version') as any
+}
+
+// ==================== Viewer ====================
+
+export async function getViewerStatus(): Promise<ViewerStatus> {
+  return request.get('/settings/ocr/viewer') as any
+}
+
+export async function startViewer(addr?: string): Promise<ViewerStatus> {
+  return request.post('/settings/ocr/viewer/start', { addr }) as any
+}
+
+export async function stopViewer(): Promise<ViewerStatus> {
+  return request.post('/settings/ocr/viewer/stop') as any
+}
+
+// ==================== Project Policies ====================
+
 export async function getProjectPolicies(): Promise<ProjectPolicyList> {
   const data: any = await request.get('/settings/projects')
   const items = (data?.items || []).map(parsePolicy)
@@ -64,19 +146,43 @@ export async function getProjectPolicies(): Promise<ProjectPolicyList> {
 }
 
 export async function putProjectPolicy(data: ProjectPolicy): Promise<ProjectPolicy> {
-  const payload = {
+  const payload: Record<string, any> = {
     provider: data.provider,
     repo: data.repo,
     fail_on: data.fail_on,
     ignore_paths: JSON.stringify(data.ignore_paths || []),
     rules: JSON.stringify(data.rules || []),
-    ocr_enabled: data.ocr_enabled,
     ocr_concurrency: data.ocr_concurrency || 0,
     ocr_timeout_minutes: data.ocr_timeout_minutes || 0,
     ocr_max_tools: data.ocr_max_tools || 0,
     ocr_default_severity: data.ocr_default_severity || '',
     ocr_background: data.ocr_background || '',
+    ocr_audience: data.ocr_audience || '',
+    ocr_provider: data.ocr_provider || '',
+    ocr_url: data.ocr_url || '',
+    ocr_model: data.ocr_model || '',
+    ocr_max_git_procs: data.ocr_max_git_procs || 0,
+    ocr_extra_body: data.ocr_extra_body || '',
+    ocr_language: data.ocr_language || '',
+    ocr_binary: data.ocr_binary || '',
+    ocr_tools_path: data.ocr_tools_path || '',
+    ocr_telemetry_exporter: data.ocr_telemetry_exporter || '',
+    ocr_telemetry_otlp_endpoint: data.ocr_telemetry_otlp_endpoint || '',
   }
+
+  if (data.ocr_enabled !== undefined && data.ocr_enabled !== null) {
+    payload.ocr_enabled = data.ocr_enabled
+  }
+  if (data.ocr_use_anthropic !== undefined && data.ocr_use_anthropic !== null) {
+    payload.ocr_use_anthropic = data.ocr_use_anthropic
+  }
+  if (data.ocr_telemetry_enabled !== undefined && data.ocr_telemetry_enabled !== null) {
+    payload.ocr_telemetry_enabled = data.ocr_telemetry_enabled
+  }
+  if (data.ocr_telemetry_content_logging !== undefined && data.ocr_telemetry_content_logging !== null) {
+    payload.ocr_telemetry_content_logging = data.ocr_telemetry_content_logging
+  }
+
   const resp: any = await request.put('/settings/projects', { policy: payload })
   return parsePolicy(resp?.policy ?? resp)
 }
@@ -84,6 +190,8 @@ export async function putProjectPolicy(data: ProjectPolicy): Promise<ProjectPoli
 export async function deleteProjectPolicy(provider: string, repo: string): Promise<void> {
   return request.delete('/settings/projects', { params: { provider, repo } }) as any
 }
+
+// ==================== Global Rules ====================
 
 export async function getGlobalRules(): Promise<GlobalRules> {
   const data: any = await request.get('/settings/rules/global')
@@ -94,6 +202,8 @@ export async function updateGlobalRules(data: GlobalRules): Promise<GlobalRules>
   const resp: any = await request.put('/settings/rules/global', { rules: data })
   return resp?.rules ?? resp
 }
+
+// ==================== Git Platforms ====================
 
 export async function getGitPlatforms(): Promise<GitPlatformList> {
   return request.get('/settings/platforms') as any
@@ -136,6 +246,8 @@ export async function getBranchSHA(provider: string, owner: string, repo: string
   return resp?.sha ?? ''
 }
 
+// ==================== Reviewer Agents ====================
+
 export async function listReviewerAgents(): Promise<ReviewerAgent[]> {
   const resp: any = await request.get('/settings/agents')
   return (resp?.agents ?? []).map(parseReviewerAgent)
@@ -169,6 +281,8 @@ export async function updateReviewerAgent(id: number, data: {
 export async function deleteReviewerAgent(id: number): Promise<void> {
   return request.delete(`/settings/agents/${id}`) as any
 }
+
+// ==================== Project Agents ====================
 
 export async function getProjectAgents(provider: string, repo: string): Promise<{ provider: string; repo: string; agents: any[] }> {
   return request.get('/settings/project-agents', { params: { provider, repo } }) as any

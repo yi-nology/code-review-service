@@ -37,10 +37,11 @@ type ReviewConfig struct {
 }
 
 type OCRConfig struct {
-	Enabled bool   `yaml:"enabled"`
-	Binary  string `yaml:"binary"`
-	Rule    string `yaml:"rule"`
-	Command string `yaml:"command"`
+	Enabled    bool   `yaml:"enabled"`
+	Binary     string `yaml:"binary"`
+	Rule       string `yaml:"rule"`
+	Command    string `yaml:"command"`
+	ConfigFile string `yaml:"config_file"`
 }
 
 type PolicyConfig struct {

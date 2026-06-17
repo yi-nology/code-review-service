@@ -22,23 +22,28 @@ import (
 )
 
 type OpenCodeReviewConfig struct {
-	Binary          string
-	Audience        string
-	RulePath        string
-	DefaultSeverity string
-	Concurrency     int
-	MaxGitProcs     int
-	TimeoutMinutes  int
-	MaxRetries      int
-	MaxTools        int
-	URL             string
-	Model           string
-	AuthToken       string
-	AuthHeader      string
-	UseAnthropic    bool
-	ExtraBody       string
-	Language        string
-	Background      string
+	Binary                  string
+	Audience                string
+	RulePath                string
+	DefaultSeverity         string
+	Concurrency             int
+	MaxGitProcs             int
+	TimeoutMinutes          int
+	MaxRetries              int
+	MaxTools                int
+	URL                     string
+	Model                   string
+	AuthToken               string
+	AuthHeader              string
+	UseAnthropic            bool
+	ExtraBody               string
+	Language                string
+	Background              string
+	ToolsPath               string
+	TelemetryEnabled        bool
+	TelemetryExporter       string
+	TelemetryOTLPEndpoint   string
+	TelemetryContentLogging bool
 }
 
 type OpenCodeReviewRunner struct {
@@ -65,6 +70,10 @@ func NewOpenCodeReviewRunner(config OpenCodeReviewConfig) *OpenCodeReviewRunner 
 		config.TimeoutMinutes = 10
 	}
 	return &OpenCodeReviewRunner{config: config}
+}
+
+func (r *OpenCodeReviewRunner) Config() OpenCodeReviewConfig {
+	return r.config
 }
 
 const defaultOCRMaxRetries = 1
@@ -146,6 +155,9 @@ func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Wor
 	}
 	if r.config.MaxTools > 0 {
 		args = append(args, "--max-tools", convert.IntToStr(r.config.MaxTools))
+	}
+	if strings.TrimSpace(r.config.ToolsPath) != "" {
+		args = append(args, "--tools", r.config.ToolsPath)
 	}
 	if strings.TrimSpace(r.config.Background) != "" {
 		args = append(args, "--background", r.config.Background)
@@ -326,13 +338,59 @@ type OCRSettingsSource interface {
 	Get(ctx context.Context) (*models.OCRSettings, error)
 }
 
-type DynamicOpenCodeReviewRunner struct {
-	fallback *OpenCodeReviewRunner
-	settings OCRSettingsSource
+type viewerManager struct {
+	process *exec.Cmd
+	addr    string
+	mu      sync.Mutex
+	done    chan struct{}
 }
 
-func NewDynamicOpenCodeReviewRunner(fallback *OpenCodeReviewRunner, settings OCRSettingsSource) *DynamicOpenCodeReviewRunner {
-	return &DynamicOpenCodeReviewRunner{fallback: fallback, settings: settings}
+type DynamicOpenCodeReviewRunner struct {
+	fallback     *OpenCodeReviewRunner
+	settings     OCRSettingsSource
+	globalRules  GlobalRulesSource
+	viewer       *viewerManager
+}
+
+type GlobalRulesSource interface {
+	Get(ctx context.Context) (*models.GlobalRules, error)
+}
+
+func NewDynamicOpenCodeReviewRunner(fallback *OpenCodeReviewRunner, settings OCRSettingsSource, globalRules GlobalRulesSource) *DynamicOpenCodeReviewRunner {
+	return &DynamicOpenCodeReviewRunner{fallback: fallback, settings: settings, globalRules: globalRules, viewer: &viewerManager{}}
+}
+
+func (r *DynamicOpenCodeReviewRunner) resolveBinaryFrom(s *models.OCRSettings) string {
+	if s != nil && s.Binary != "" {
+		return s.Binary
+	}
+	if r.fallback.config.Binary != "" {
+		return r.fallback.config.Binary
+	}
+	return "ocr"
+}
+
+type ocrCommandResult struct {
+	stdout string
+	stderr string
+}
+
+func runOCRCommand(ctx context.Context, binary string, args []string, env []string) (*ocrCommandResult, error) {
+	cmd := exec.CommandContext(ctx, binary, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if len(env) > 0 {
+		cmd.Env = env
+	}
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	return &ocrCommandResult{
+		stdout: stdout.String(),
+		stderr: stderr.String(),
+	}, err
 }
 
 func (r *DynamicOpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspace) (review.Result, error) {
@@ -637,27 +695,19 @@ func (r *DynamicOpenCodeReviewRunner) TestLLM(ctx context.Context) (*review.LLMT
 	cfg := r.buildConfig(s, review.OCROverrides{})
 
 	args := []string{"llm", "test"}
-	cmd := exec.CommandContext(ctx, cfg.Binary, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-
 	env := os.Environ()
 	env = r.appendLLMEnv(env, cfg)
-	cmd.Env = env
 
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(stderr.String())
+	result, err := runOCRCommand(ctx, cfg.Binary, args, env)
+	if err != nil {
+		msg := strings.TrimSpace(result.stderr)
 		if msg == "" {
 			msg = err.Error()
 		}
 		return &review.LLMTestResult{Success: false, Message: msg}, nil
 	}
 
-	output := strings.TrimSpace(stdout.String())
+	output := strings.TrimSpace(result.stdout)
 	if output == "" {
 		output = "连接测试成功"
 	}
@@ -765,19 +815,24 @@ func (r *DynamicOpenCodeReviewRunner) Preview(ctx context.Context, workspace rev
 
 func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings, overrides review.OCROverrides) OpenCodeReviewConfig {
 	cfg := OpenCodeReviewConfig{
-		Binary:          firstNonBlank(s.Binary, r.fallback.config.Binary),
-		Audience:        firstNonBlank(s.Audience, r.fallback.config.Audience, "human"),
-		RulePath:        r.fallback.config.RulePath,
-		DefaultSeverity: firstNonBlank(overrides.DefaultSeverity, s.DefaultSeverity, r.fallback.config.DefaultSeverity, string(review.SeverityMajor)),
-		URL:             s.URL,
-		Model:           s.ModelName,
-		AuthToken:       s.AuthToken,
-		AuthHeader:      s.AuthHeader,
-		UseAnthropic:    s.UseAnthropic,
-		ExtraBody:       string(s.ExtraBody),
-		Language:        s.Language,
-		MaxTools:        firstPositive(overrides.MaxTools, s.MaxTools),
-		Background:      firstNonBlank(overrides.Background, s.Background),
+		Binary:                  firstNonBlank(s.Binary, r.fallback.config.Binary),
+		Audience:                firstNonBlank(overrides.Audience, s.Audience, r.fallback.config.Audience, "human"),
+		RulePath:                r.fallback.config.RulePath,
+		DefaultSeverity:         firstNonBlank(overrides.DefaultSeverity, s.DefaultSeverity, r.fallback.config.DefaultSeverity, string(review.SeverityMajor)),
+		URL:                     firstNonBlank(overrides.URL, s.URL),
+		Model:                   firstNonBlank(overrides.Model, s.ModelName),
+		AuthToken:               s.AuthToken,
+		AuthHeader:              s.AuthHeader,
+		UseAnthropic:            overrides.UseAnthropic || s.UseAnthropic,
+		ExtraBody:               firstNonBlank(overrides.ExtraBody, string(s.ExtraBody)),
+		Language:                firstNonBlank(overrides.Language, s.Language),
+		MaxTools:                firstPositive(overrides.MaxTools, s.MaxTools),
+		Background:              firstNonBlank(overrides.Background, s.Background),
+		ToolsPath:               firstNonBlank(overrides.ToolsPath, s.ToolsPath),
+		TelemetryEnabled:        s.TelemetryEnabled,
+		TelemetryExporter:       s.TelemetryExporter,
+		TelemetryOTLPEndpoint:   s.TelemetryOTLPEndpoint,
+		TelemetryContentLogging: s.TelemetryContentLogging,
 	}
 	if overrides.Concurrency > 0 {
 		cfg.Concurrency = overrides.Concurrency
@@ -786,7 +841,9 @@ func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings, overrid
 	} else {
 		cfg.Concurrency = r.fallback.config.Concurrency
 	}
-	if s.MaxGitProcs > 0 {
+	if overrides.MaxGitProcs > 0 {
+		cfg.MaxGitProcs = overrides.MaxGitProcs
+	} else if s.MaxGitProcs > 0 {
 		cfg.MaxGitProcs = s.MaxGitProcs
 	} else {
 		cfg.MaxGitProcs = r.fallback.config.MaxGitProcs
@@ -843,5 +900,304 @@ func (r *DynamicOpenCodeReviewRunner) appendLLMEnv(env []string, cfg OpenCodeRev
 	if cfg.ExtraBody != "" {
 		env = append(env, "OCR_LLM_EXTRA_BODY="+cfg.ExtraBody)
 	}
+	if cfg.TelemetryEnabled {
+		env = append(env, "OCR_ENABLE_TELEMETRY=true")
+	}
+	if cfg.TelemetryContentLogging {
+		env = append(env, "OCR_CONTENT_LOGGING=true")
+	}
 	return env
+}
+
+// ==================== LLMProviderLister ====================
+
+func (r *DynamicOpenCodeReviewRunner) ListLLMProviders(ctx context.Context) ([]review.LLMProvider, error) {
+	s, err := r.settings.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("读取 OCR 配置失败: %w", err)
+	}
+
+	binary := r.resolveBinaryFrom(s)
+
+	result, err := runOCRCommand(ctx, binary, []string{"llm", "providers"}, nil)
+	if err != nil {
+		msg := strings.TrimSpace(result.stderr)
+		if msg == "" {
+			msg = err.Error()
+		}
+		return nil, fmt.Errorf("获取 Provider 列表失败: %s", msg)
+	}
+
+	output := result.stdout
+	var providers []review.LLMProvider
+	lines := strings.Split(output, "\n")
+	inTable := false
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "NAME") && strings.Contains(line, "PROTOCOL") {
+			inTable = true
+			continue
+		}
+		if inTable && line == "" {
+			break
+		}
+		if inTable && line != "" && !strings.HasPrefix(line, "----") {
+			fields := strings.Fields(line)
+			if len(fields) >= 2 {
+				p := review.LLMProvider{
+					Name:     fields[0],
+					Protocol: fields[1],
+				}
+				if len(fields) >= 3 {
+					p.BaseURL = fields[2]
+				}
+				providers = append(providers, p)
+			}
+		}
+	}
+
+	return providers, nil
+}
+
+// ==================== RulesChecker ====================
+
+func (r *DynamicOpenCodeReviewRunner) RulesCheck(ctx context.Context, path string) (*review.RulesCheckResult, error) {
+	s, err := r.settings.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("读取 OCR 配置失败: %w", err)
+	}
+
+	binary := r.resolveBinaryFrom(s)
+
+	args := []string{"rules", "check"}
+
+	if r.globalRules != nil {
+		rulePath, cleanup, ruleErr := r.resolveGlobalRuleFile(ctx)
+		if ruleErr == nil && rulePath != "" {
+			args = append(args, "--rule", rulePath)
+			if cleanup != nil {
+				defer cleanup()
+			}
+		}
+	}
+
+	args = append(args, path)
+
+	result, err := runOCRCommand(ctx, binary, args, nil)
+	if err != nil {
+		msg := strings.TrimSpace(result.stderr)
+		if msg == "" {
+			msg = err.Error()
+		}
+		return &review.RulesCheckResult{Applicable: false, Message: msg}, nil
+	}
+
+	output := strings.TrimSpace(result.stdout)
+	return &review.RulesCheckResult{
+		Applicable: output != "",
+		Rule:       output,
+		Message:    "规则匹配成功",
+	}, nil
+}
+
+func (r *DynamicOpenCodeReviewRunner) resolveGlobalRuleFile(ctx context.Context) (string, func(), error) {
+	if r.globalRules == nil {
+		return "", nil, nil
+	}
+
+	rules, err := r.globalRules.Get(ctx)
+	if err != nil || rules == nil || len(rules.Rules) == 0 {
+		return "", nil, nil
+	}
+
+	f, err := os.CreateTemp("", "ocr-rules-*.json")
+	if err != nil {
+		return "", nil, err
+	}
+
+	ruleJSON := fmt.Sprintf(`{"rules":%s}`, string(rules.Rules))
+	if _, err := f.WriteString(ruleJSON); err != nil {
+		_ = f.Close()
+		_ = os.Remove(f.Name())
+		return "", nil, err
+	}
+	_ = f.Close()
+
+	cleanup := func() { _ = os.Remove(f.Name()) }
+	return f.Name(), cleanup, nil
+}
+
+// ==================== OCRVersioner ====================
+
+func (r *DynamicOpenCodeReviewRunner) OCRVersion(ctx context.Context) (*review.OCRVersion, error) {
+	s, err := r.settings.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("读取 OCR 配置失败: %w", err)
+	}
+
+	binary := r.resolveBinaryFrom(s)
+
+	cmdResult, err := runOCRCommand(ctx, binary, []string{"version"}, nil)
+	if err != nil {
+		msg := strings.TrimSpace(cmdResult.stderr)
+		if msg == "" {
+			msg = err.Error()
+		}
+		return nil, fmt.Errorf("获取版本失败: %s", msg)
+	}
+
+	output := strings.TrimSpace(cmdResult.stdout)
+	result := &review.OCRVersion{}
+
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "open-code-review ") {
+			versionStr := strings.TrimPrefix(line, "open-code-review ")
+			parts := strings.SplitN(versionStr, " ", 2)
+			if len(parts) >= 1 {
+				result.Version = parts[0]
+			}
+			if len(parts) >= 2 {
+				rest := parts[1]
+				if strings.HasPrefix(rest, "(") {
+					end := strings.Index(rest, ")")
+					if end > 0 {
+						result.Commit = rest[1:end]
+					}
+				}
+			}
+		} else if strings.Contains(line, "darwin") || strings.Contains(line, "linux") || strings.Contains(line, "windows") {
+			result.Platform = line
+		} else if strings.Contains(line, "built at:") {
+			result.BuildTime = strings.TrimSpace(strings.TrimPrefix(line, "built at:"))
+		}
+	}
+
+	return result, nil
+}
+
+// ==================== ViewerManager ====================
+
+func (vm *viewerManager) Status() *review.ViewerStatus {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+
+	if vm.process == nil {
+		return &review.ViewerStatus{Running: false, Message: "Viewer 未运行"}
+	}
+
+	select {
+	case <-vm.done:
+		vm.process = nil
+		return &review.ViewerStatus{Running: false, Message: "Viewer 已停止"}
+	default:
+	}
+
+	return &review.ViewerStatus{
+		Running: true,
+		Addr:    vm.addr,
+		Message: fmt.Sprintf("Viewer 运行中 (%s)", vm.addr),
+	}
+}
+
+func (vm *viewerManager) Start(binary string, addr string) (*review.ViewerStatus, error) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+
+	if vm.process != nil {
+		select {
+		case <-vm.done:
+			vm.process = nil
+		default:
+			return &review.ViewerStatus{
+				Running: true,
+				Addr:    vm.addr,
+				Message: "Viewer 已在运行",
+			}, nil
+		}
+	}
+
+	args := []string{"viewer"}
+	if addr != "" {
+		args = append(args, "--addr", addr)
+	} else {
+		addr = "localhost:5483"
+	}
+
+	cmd := exec.Command(binary, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("启动 Viewer 失败: %w", err)
+	}
+
+	vm.process = cmd
+	vm.addr = addr
+	vm.done = make(chan struct{})
+
+	async.GoSafe(func() {
+		_ = cmd.Wait()
+		close(vm.done)
+	})
+
+	return &review.ViewerStatus{
+		Running: true,
+		Addr:    addr,
+		Message: fmt.Sprintf("Viewer 已启动 (%s)", addr),
+	}, nil
+}
+
+func (vm *viewerManager) Stop() (*review.ViewerStatus, error) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+
+	if vm.process == nil {
+		return &review.ViewerStatus{Running: false, Message: "Viewer 未运行"}, nil
+	}
+
+	select {
+	case <-vm.done:
+		vm.process = nil
+		return &review.ViewerStatus{Running: false, Message: "Viewer 已停止"}, nil
+	default:
+	}
+
+	if err := syscall.Kill(-vm.process.Process.Pid, syscall.SIGTERM); err != nil {
+		_ = syscall.Kill(-vm.process.Process.Pid, syscall.SIGKILL)
+	}
+
+	select {
+	case <-vm.done:
+	case <-time.After(3 * time.Second):
+		_ = syscall.Kill(-vm.process.Process.Pid, syscall.SIGKILL)
+	}
+
+	addr := vm.addr
+	vm.process = nil
+	vm.addr = ""
+
+	return &review.ViewerStatus{
+		Running: false,
+		Addr:    addr,
+		Message: "Viewer 已停止",
+	}, nil
+}
+
+func (r *DynamicOpenCodeReviewRunner) ViewerStatus(ctx context.Context) (*review.ViewerStatus, error) {
+	return r.viewer.Status(), nil
+}
+
+func (r *DynamicOpenCodeReviewRunner) StartViewer(ctx context.Context, addr string) (*review.ViewerStatus, error) {
+	s, err := r.settings.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("读取 OCR 配置失败: %w", err)
+	}
+
+	binary := r.resolveBinaryFrom(s)
+	return r.viewer.Start(binary, addr)
+}
+
+func (r *DynamicOpenCodeReviewRunner) StopViewer(ctx context.Context) (*review.ViewerStatus, error) {
+	return r.viewer.Stop()
 }

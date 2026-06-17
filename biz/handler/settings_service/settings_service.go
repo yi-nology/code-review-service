@@ -24,13 +24,23 @@ import (
 var handlerInst *SettingsHandler
 
 type SettingsHandler struct {
-	ocrRepo     repository.OCRSettingsRepository
-	project     repository.ProjectPolicyRepository
-	platform    repository.GitPlatformRepository
-	globalRules repository.GlobalRulesRepository
-	agentRepo   repository.ReviewerAgentRepository
-	gitMgr      svcApp.GitProviderManager
-	llmTester   review.LLMTester
+	ocrRepo        repository.OCRSettingsRepository
+	project        repository.ProjectPolicyRepository
+	platform       repository.GitPlatformRepository
+	globalRules    repository.GlobalRulesRepository
+	agentRepo      repository.ReviewerAgentRepository
+	customProvider repository.CustomProviderRepository
+	gitMgr         svcApp.GitProviderManager
+	llmTester      review.LLMTester
+	providerLister review.LLMProviderLister
+	rulesChecker   review.RulesChecker
+	ocrVersioner   review.OCRVersioner
+	viewerMgr      review.ViewerManager
+	configSync     ConfigSyncer
+}
+
+type ConfigSyncer interface {
+	Sync(ctx context.Context) error
 }
 
 func InitHandler(
@@ -39,17 +49,29 @@ func InitHandler(
 	platform repository.GitPlatformRepository,
 	globalRules repository.GlobalRulesRepository,
 	agentRepo repository.ReviewerAgentRepository,
+	customProvider repository.CustomProviderRepository,
 	gitMgr svcApp.GitProviderManager,
 	llmTester review.LLMTester,
+	providerLister review.LLMProviderLister,
+	rulesChecker review.RulesChecker,
+	ocrVersioner review.OCRVersioner,
+	viewerMgr review.ViewerManager,
+	configSync ConfigSyncer,
 ) {
 	handlerInst = &SettingsHandler{
-		ocrRepo:     ocrRepo,
-		project:     project,
-		platform:    platform,
-		globalRules: globalRules,
-		agentRepo:   agentRepo,
-		gitMgr:      gitMgr,
-		llmTester:   llmTester,
+		ocrRepo:        ocrRepo,
+		project:         project,
+		platform:        platform,
+		globalRules:     globalRules,
+		agentRepo:       agentRepo,
+		customProvider:  customProvider,
+		gitMgr:          gitMgr,
+		llmTester:       llmTester,
+		providerLister:  providerLister,
+		rulesChecker:    rulesChecker,
+		ocrVersioner:    ocrVersioner,
+		viewerMgr:       viewerMgr,
+		configSync:      configSync,
 	}
 }
 
@@ -92,6 +114,10 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 	if err := handlerInst.ocrRepo.Save(ctx, dbSettings); err != nil {
 		common.Fail(c, common.BadRequest(err.Error()))
 		return
+	}
+
+	if handlerInst.configSync != nil {
+		_ = handlerInst.configSync.Sync(ctx)
 	}
 
 	resp := dbOCRSettingsToAPI(dbSettings)
@@ -533,7 +559,7 @@ func dbOCRSettingsToAPI(s *models.OCRSettings) *modelSettings.OCRSettings {
 		extraBody = string(s.ExtraBody)
 	}
 	return &modelSettings.OCRSettings{
-		Enabled: s.Enabled, Provider: common.StrPtr(s.Provider), Plan: common.StrPtr(s.Plan),
+		Enabled: s.Enabled, Provider: common.StrPtr(s.Provider),
 		URL: common.StrPtr(s.URL), AuthToken: common.StrPtr(s.AuthToken), AuthHeader: common.StrPtr(s.AuthHeader),
 		Model: common.StrPtr(s.ModelName), UseAnthropic: ptrx.Of(s.UseAnthropic), ExtraBody: common.StrPtr(extraBody),
 		Language: common.StrPtr(s.Language), Concurrency: ptrx.Of(int64(s.Concurrency)),
@@ -541,6 +567,9 @@ func dbOCRSettingsToAPI(s *models.OCRSettings) *modelSettings.OCRSettings {
 		MaxTools: ptrx.Of(int64(s.MaxTools)), Background: common.StrPtr(s.Background),
 		Binary: common.StrPtr(s.Binary), Audience: common.StrPtr(s.Audience),
 		DefaultSeverity: common.StrPtr(s.DefaultSeverity),
+		ToolsPath: common.StrPtr(s.ToolsPath),
+		TelemetryEnabled: ptrx.Of(s.TelemetryEnabled), TelemetryExporter: common.StrPtr(s.TelemetryExporter),
+		TelemetryOtlpEndpoint: common.StrPtr(s.TelemetryOTLPEndpoint), TelemetryContentLogging: ptrx.Of(s.TelemetryContentLogging),
 	}
 }
 
@@ -554,7 +583,6 @@ func apiOCRSettingsToDB(s *modelSettings.OCRSettings) *models.OCRSettings {
 	db.Audience = ptrx.Deref(s.Audience, "")
 	db.DefaultSeverity = ptrx.Deref(s.DefaultSeverity, "")
 	db.Provider = ptrx.Deref(s.Provider, "")
-	db.Plan = ptrx.Deref(s.Plan, "")
 	db.URL = ptrx.Deref(s.URL, "")
 	db.AuthToken = ptrx.Deref(s.AuthToken, "")
 	db.AuthHeader = ptrx.Deref(s.AuthHeader, "")
@@ -566,6 +594,11 @@ func apiOCRSettingsToDB(s *modelSettings.OCRSettings) *models.OCRSettings {
 	db.TimeoutMinutes = int(ptrx.Deref(s.TimeoutMinutes, 0))
 	db.MaxTools = int(ptrx.Deref(s.MaxTools, 0))
 	db.Background = ptrx.Deref(s.Background, "")
+	db.ToolsPath = ptrx.Deref(s.ToolsPath, "")
+	db.TelemetryEnabled = ptrx.Deref(s.TelemetryEnabled, false)
+	db.TelemetryExporter = ptrx.Deref(s.TelemetryExporter, "")
+	db.TelemetryOTLPEndpoint = ptrx.Deref(s.TelemetryOtlpEndpoint, "")
+	db.TelemetryContentLogging = ptrx.Deref(s.TelemetryContentLogging, false)
 	if s.IsSetExtraBody() && s.ExtraBody != nil && *s.ExtraBody != "" {
 		db.ExtraBody = datatypes.JSON(*s.ExtraBody)
 	}
@@ -583,9 +616,18 @@ func dbProjectPolicyToAPI(p *models.ProjectPolicy) *modelSettings.ProjectPolicy 
 	return &modelSettings.ProjectPolicy{
 		Provider: p.Provider, Repo: p.Repo, FailOn: p.FailOn,
 		IgnorePaths: common.StrPtr(ignorePaths), Rules: common.StrPtr(rules),
-		OCREnabled: p.OCREnabled, OCRConcurrency: ptrx.Of(int64(p.OCRConcurrency)),
-		OCRTimeoutMinutes: ptrx.Of(int64(p.OCRTimeoutMinutes)), OCRMaxTools: ptrx.Of(int64(p.OCRMaxTools)),
-		OCRDefaultSeverity: common.StrPtr(p.OCRDefaultSeverity), OCRBackground: common.StrPtr(p.OCRBackground),
+		OcrEnabled: p.OCREnabled, OcrConcurrency: ptrx.Of(int64(p.OCRConcurrency)),
+		OcrTimeoutMinutes: ptrx.Of(int64(p.OCRTimeoutMinutes)), OcrMaxTools: ptrx.Of(int64(p.OCRMaxTools)),
+		OcrDefaultSeverity: common.StrPtr(p.OCRDefaultSeverity), OcrBackground: common.StrPtr(p.OCRBackground),
+		OcrAudience: common.StrPtr(p.OCRAudience), OcrProvider: common.StrPtr(p.OCRProvider),
+		OcrURL: common.StrPtr(p.OCRURL), OcrModel: common.StrPtr(p.OCRModel),
+		OcrMaxGitProcs: ptrx.Of(int64(p.OCRMaxGitProcs)), OcrUseAnthropic: ptrx.Of(p.OCRUseAnthropic),
+		OcrExtraBody: common.StrPtr(p.OCRExtraBody), OcrLanguage: common.StrPtr(p.OCRLanguage),
+		OcrBinary: common.StrPtr(p.OCRBinary), OcrToolsPath: common.StrPtr(p.OCRToolsPath),
+		OcrTelemetryEnabled: ptrx.Of(p.OCRTelemetryEnabled),
+		OcrTelemetryExporter: common.StrPtr(p.OCRTelemetryExporter),
+		OcrTelemetryOtlpEndpoint: common.StrPtr(p.OCRTelemetryOTLPEndpoint),
+		OcrTelemetryContentLogging: ptrx.Of(p.OCRTelemetryContentLogging),
 	}
 }
 
@@ -597,12 +639,26 @@ func apiProjectPolicyToDB(p *modelSettings.ProjectPolicy) *models.ProjectPolicy 
 	db.Provider = p.Provider
 	db.Repo = p.Repo
 	db.FailOn = p.FailOn
-	db.OCREnabled = p.OCREnabled
-	db.OCRConcurrency = int(ptrx.Deref(p.OCRConcurrency, 0))
-	db.OCRTimeoutMinutes = int(ptrx.Deref(p.OCRTimeoutMinutes, 0))
-	db.OCRMaxTools = int(ptrx.Deref(p.OCRMaxTools, 0))
-	db.OCRDefaultSeverity = ptrx.Deref(p.OCRDefaultSeverity, "")
-	db.OCRBackground = ptrx.Deref(p.OCRBackground, "")
+	db.OCREnabled = p.OcrEnabled
+	db.OCRConcurrency = int(ptrx.Deref(p.OcrConcurrency, 0))
+	db.OCRTimeoutMinutes = int(ptrx.Deref(p.OcrTimeoutMinutes, 0))
+	db.OCRMaxTools = int(ptrx.Deref(p.OcrMaxTools, 0))
+	db.OCRDefaultSeverity = ptrx.Deref(p.OcrDefaultSeverity, "")
+	db.OCRBackground = ptrx.Deref(p.OcrBackground, "")
+	db.OCRAudience = ptrx.Deref(p.OcrAudience, "")
+	db.OCRProvider = ptrx.Deref(p.OcrProvider, "")
+	db.OCRURL = ptrx.Deref(p.OcrURL, "")
+	db.OCRModel = ptrx.Deref(p.OcrModel, "")
+	db.OCRMaxGitProcs = int(ptrx.Deref(p.OcrMaxGitProcs, 0))
+	db.OCRUseAnthropic = ptrx.Deref(p.OcrUseAnthropic, false)
+	db.OCRExtraBody = ptrx.Deref(p.OcrExtraBody, "")
+	db.OCRLanguage = ptrx.Deref(p.OcrLanguage, "")
+	db.OCRBinary = ptrx.Deref(p.OcrBinary, "")
+	db.OCRToolsPath = ptrx.Deref(p.OcrToolsPath, "")
+	db.OCRTelemetryEnabled = ptrx.Deref(p.OcrTelemetryEnabled, false)
+	db.OCRTelemetryExporter = ptrx.Deref(p.OcrTelemetryExporter, "")
+	db.OCRTelemetryOTLPEndpoint = ptrx.Deref(p.OcrTelemetryOtlpEndpoint, "")
+	db.OCRTelemetryContentLogging = ptrx.Deref(p.OcrTelemetryContentLogging, false)
 	if p.IsSetIgnorePaths() && p.IgnorePaths != nil && *p.IgnorePaths != "" {
 		db.IgnorePaths = datatypes.JSON(*p.IgnorePaths)
 	}
@@ -661,4 +717,342 @@ func apiGlobalRulesToDB(g *modelSettings.GlobalRules) *models.GlobalRules {
 	data, _ := json.Marshal(entries)
 	db.Rules = datatypes.JSON(data)
 	return db
+}
+
+// ==================== LLM Providers ====================
+
+func ListLLMProviders(ctx context.Context, c *app.RequestContext) {
+	if handlerInst.providerLister == nil {
+		common.Fail(c, common.BadRequest("LLM Provider 列表功能未配置"))
+		return
+	}
+
+	providers, err := handlerInst.providerLister.ListLLMProviders(ctx)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+
+	var items []*modelSettings.LLMProvider
+	for _, p := range providers {
+		item := &modelSettings.LLMProvider{
+			Name:     p.Name,
+			Protocol: p.Protocol,
+		}
+		if p.BaseURL != "" {
+			item.BaseURL = common.StrPtr(p.BaseURL)
+		}
+		if len(p.DefaultModel) > 0 {
+			item.DefaultModel = p.DefaultModel
+		}
+		items = append(items, item)
+	}
+
+	common.Success(c, &modelSettings.ListLLMProvidersResp{BuiltIn: items})
+}
+
+// ==================== Custom Providers ====================
+
+func ListCustomProviders(ctx context.Context, c *app.RequestContext) {
+	if handlerInst.customProvider == nil {
+		common.Fail(c, common.BadRequest("自定义 Provider 功能未配置"))
+		return
+	}
+
+	providers, err := handlerInst.customProvider.List(ctx)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+
+	var items []*modelSettings.CustomProvider
+	for i := range providers {
+		items = append(items, dbCustomProviderToAPI(&providers[i]))
+	}
+
+	common.Success(c, &modelSettings.ListCustomProvidersResp{Items: items})
+}
+
+func CreateCustomProvider(ctx context.Context, c *app.RequestContext) {
+	var req modelSettings.CreateCustomProviderReq
+	if err := c.BindAndValidate(&req); err != nil {
+		common.Fail(c, common.BadRequest(err.Error()))
+		return
+	}
+
+	if strings.TrimSpace(req.Name) == "" {
+		common.Fail(c, common.BadRequest("Provider 名称不能为空"))
+		return
+	}
+	if strings.TrimSpace(req.Protocol) == "" {
+		common.Fail(c, common.BadRequest("Protocol 不能为空"))
+		return
+	}
+
+	p := &models.CustomProvider{
+		Name:       req.Name,
+		Protocol:   req.Protocol,
+		URL:        ptrx.Deref(req.URL, ""),
+		APIKey:     ptrx.Deref(req.APIKey, ""),
+		ModelName:  ptrx.Deref(req.Model, ""),
+		AuthHeader: ptrx.Deref(req.AuthHeader, ""),
+		Enabled:    ptrx.Deref(req.Enabled, true),
+	}
+	if req.ExtraBody != nil && *req.ExtraBody != "" {
+		p.ExtraBody = datatypes.JSON(*req.ExtraBody)
+	}
+
+	if err := handlerInst.customProvider.Create(ctx, p); err != nil {
+		common.Fail(c, err)
+		return
+	}
+
+	if handlerInst.configSync != nil {
+		_ = handlerInst.configSync.Sync(ctx)
+	}
+
+	common.Success(c, &modelSettings.CreateCustomProviderResp{Provider: dbCustomProviderToAPI(p)})
+}
+
+func UpdateCustomProvider(ctx context.Context, c *app.RequestContext) {
+	var req modelSettings.UpdateCustomProviderReq
+	if err := c.BindAndValidate(&req); err != nil {
+		common.Fail(c, common.BadRequest(err.Error()))
+		return
+	}
+
+	existing, err := handlerInst.customProvider.GetByID(ctx, uint(req.ID))
+	if err != nil || existing == nil {
+		common.Fail(c, common.BadRequest("Provider 不存在"))
+		return
+	}
+
+	if req.Name != nil {
+		existing.Name = *req.Name
+	}
+	if req.Protocol != nil {
+		existing.Protocol = *req.Protocol
+	}
+	if req.URL != nil {
+		existing.URL = *req.URL
+	}
+	if req.APIKey != nil {
+		existing.APIKey = *req.APIKey
+	}
+	if req.Model != nil {
+		existing.ModelName = *req.Model
+	}
+	if req.AuthHeader != nil {
+		existing.AuthHeader = *req.AuthHeader
+	}
+	if req.ExtraBody != nil && *req.ExtraBody != "" {
+		existing.ExtraBody = datatypes.JSON(*req.ExtraBody)
+	}
+	if req.Enabled != nil {
+		existing.Enabled = *req.Enabled
+	}
+
+	if err := handlerInst.customProvider.Update(ctx, existing); err != nil {
+		common.Fail(c, err)
+		return
+	}
+
+	if handlerInst.configSync != nil {
+		_ = handlerInst.configSync.Sync(ctx)
+	}
+
+	common.Success(c, &modelSettings.UpdateCustomProviderResp{Provider: dbCustomProviderToAPI(existing)})
+}
+
+func DeleteCustomProvider(ctx context.Context, c *app.RequestContext) {
+	var req modelSettings.DeleteCustomProviderReq
+	if err := c.BindAndValidate(&req); err != nil {
+		common.Fail(c, common.BadRequest(err.Error()))
+		return
+	}
+
+	if err := handlerInst.customProvider.Delete(ctx, uint(req.ID)); err != nil {
+		common.Fail(c, err)
+		return
+	}
+
+	if handlerInst.configSync != nil {
+		_ = handlerInst.configSync.Sync(ctx)
+	}
+
+	common.Success(c, &modelSettings.DeleteCustomProviderResp{})
+}
+
+func dbCustomProviderToAPI(p *models.CustomProvider) *modelSettings.CustomProvider {
+	if p == nil {
+		return nil
+	}
+	result := &modelSettings.CustomProvider{
+		ID:       int64(p.ID),
+		Name:     p.Name,
+		Protocol: p.Protocol,
+		Enabled:  p.Enabled,
+	}
+	if p.URL != "" {
+		result.URL = common.StrPtr(p.URL)
+	}
+	if p.APIKey != "" {
+		result.APIKey = common.StrPtr("***")
+	}
+	if p.ModelName != "" {
+		result.Model = common.StrPtr(p.ModelName)
+	}
+	if p.AuthHeader != "" {
+		result.AuthHeader = common.StrPtr(p.AuthHeader)
+	}
+	if len(p.ExtraBody) > 0 {
+		result.ExtraBody = common.StrPtr(string(p.ExtraBody))
+	}
+	return result
+}
+
+// ==================== Rules Check ====================
+
+func RulesCheck(ctx context.Context, c *app.RequestContext) {
+	var req modelSettings.RulesCheckReq
+	if err := c.BindAndValidate(&req); err != nil {
+		common.Fail(c, common.BadRequest(err.Error()))
+		return
+	}
+
+	if strings.TrimSpace(req.Path) == "" {
+		common.Fail(c, common.BadRequest("文件路径不能为空"))
+		return
+	}
+
+	if handlerInst.rulesChecker == nil {
+		common.Fail(c, common.BadRequest("规则检查功能未配置"))
+		return
+	}
+
+	result, err := handlerInst.rulesChecker.RulesCheck(ctx, req.Path)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+
+	resp := &modelSettings.RulesCheckResult{
+		Applicable: result.Applicable,
+	}
+	if result.Rule != "" {
+		resp.Rule = common.StrPtr(result.Rule)
+	}
+	if result.Message != "" {
+		resp.Message = common.StrPtr(result.Message)
+	}
+
+	common.Success(c, &modelSettings.RulesCheckResp{Result: resp})
+}
+
+// ==================== OCR Version ====================
+
+func OCRVersion(ctx context.Context, c *app.RequestContext) {
+	if handlerInst.ocrVersioner == nil {
+		common.Fail(c, common.BadRequest("OCR 版本查询功能未配置"))
+		return
+	}
+
+	result, err := handlerInst.ocrVersioner.OCRVersion(ctx)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+
+	resp := &modelSettings.OCRVersionResp{
+		Version: result.Version,
+	}
+	if result.Commit != "" {
+		resp.Commit = common.StrPtr(result.Commit)
+	}
+	if result.Platform != "" {
+		resp.Platform = common.StrPtr(result.Platform)
+	}
+	if result.BuildTime != "" {
+		resp.BuildTime = common.StrPtr(result.BuildTime)
+	}
+
+	common.Success(c, resp)
+}
+
+// ==================== Viewer ====================
+
+func ViewerStatus(ctx context.Context, c *app.RequestContext) {
+	if handlerInst.viewerMgr == nil {
+		common.Fail(c, common.BadRequest("Viewer 功能未配置"))
+		return
+	}
+
+	result, err := handlerInst.viewerMgr.ViewerStatus(ctx)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+
+	resp := &modelSettings.ViewerStatusResp{Running: result.Running}
+	if result.Addr != "" {
+		resp.Addr = common.StrPtr(result.Addr)
+	}
+	if result.Message != "" {
+		resp.Message = common.StrPtr(result.Message)
+	}
+
+	common.Success(c, resp)
+}
+
+func StartViewer(ctx context.Context, c *app.RequestContext) {
+	var req modelSettings.StartViewerReq
+	if err := c.BindAndValidate(&req); err != nil {
+		common.Fail(c, common.BadRequest(err.Error()))
+		return
+	}
+
+	if handlerInst.viewerMgr == nil {
+		common.Fail(c, common.BadRequest("Viewer 功能未配置"))
+		return
+	}
+
+	addr := ptrx.Deref(req.Addr, "")
+	result, err := handlerInst.viewerMgr.StartViewer(ctx, addr)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+
+	resp := &modelSettings.StartViewerResp{Running: result.Running}
+	if result.Addr != "" {
+		resp.Addr = common.StrPtr(result.Addr)
+	}
+	if result.Message != "" {
+		resp.Message = common.StrPtr(result.Message)
+	}
+
+	common.Success(c, resp)
+}
+
+func StopViewer(ctx context.Context, c *app.RequestContext) {
+	if handlerInst.viewerMgr == nil {
+		common.Fail(c, common.BadRequest("Viewer 功能未配置"))
+		return
+	}
+
+	result, err := handlerInst.viewerMgr.StopViewer(ctx)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+
+	resp := &modelSettings.ViewerStatusResp{Running: result.Running}
+	if result.Addr != "" {
+		resp.Addr = common.StrPtr(result.Addr)
+	}
+	if result.Message != "" {
+		resp.Message = common.StrPtr(result.Message)
+	}
+
+	common.Success(c, resp)
 }
