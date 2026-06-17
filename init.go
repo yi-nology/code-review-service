@@ -55,8 +55,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/publisher"
-	"github.com/yi-nology/code-review-service/internal/service/runner"
 	svcReview "github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/runner"
 	"github.com/yi-nology/code-review-service/internal/service/session"
 	statsSvc "github.com/yi-nology/code-review-service/internal/service/stats"
 	"github.com/yi-nology/code-review-service/internal/service/webhook"
@@ -89,6 +89,7 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 	ocrRunner := runner.NewDynamicOpenCodeReviewRunner(
 		runner.NewOpenCodeReviewRunner(runner.OpenCodeReviewConfig{
 			Binary:          cfg.OCR.Binary,
+			Audience:        "human",
 			RulePath:        cfg.OCR.Rule,
 			DefaultSeverity: "major",
 		}),

@@ -34,3 +34,11 @@ export async function getReviewMaps(reviewId: string): Promise<any> {
 export async function getReviewMap(reviewId: string, mapId: string): Promise<any> {
   return request.get(`/reviews/${reviewId}/maps/${mapId}`) as any
 }
+
+export async function updateFileReviewed(reviewId: string, mapId: string, filePath: string, reviewed: boolean): Promise<void> {
+  return request.put(`/reviews/${reviewId}/maps/${mapId}/files/${encodeURIComponent(filePath)}/reviewed`, { reviewed }) as any
+}
+
+export async function updateSectionProgress(reviewId: string, mapId: string, sectionId: string, reviewed: boolean): Promise<void> {
+  return request.put(`/reviews/${reviewId}/maps/${mapId}/sections/${sectionId}/progress`, { reviewed }) as any
+}

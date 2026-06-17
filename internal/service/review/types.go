@@ -89,6 +89,7 @@ type Record struct {
 	Request            Request         `json:"request"`
 	Response           Response        `json:"response"`
 	RawOCR             json.RawMessage `json:"raw_ocr,omitempty"`
+	RawOCRInput        json.RawMessage `json:"raw_ocr_input,omitempty"`
 	CreatedAt          time.Time       `json:"created_at"`
 	UpdatedAt          time.Time       `json:"updated_at"`
 }
@@ -339,4 +340,21 @@ type LLMTestResult struct {
 
 type WebhookReviewCreator interface {
 	CreateFromWebhook(ctx context.Context, req Request, idempotencyKey string) (Response, error)
+}
+
+type OCRInput struct {
+	Binary    string            `json:"binary"`
+	Args      []string          `json:"args"`
+	Env       map[string]string `json:"env,omitempty"`
+	Workspace WorkspaceInfo     `json:"workspace"`
+	RulePath  string            `json:"rule_path,omitempty"`
+	StartedAt time.Time         `json:"started_at"`
+}
+
+type WorkspaceInfo struct {
+	Provider string `json:"provider"`
+	Repo     string `json:"repo"`
+	BaseSHA  string `json:"base_sha"`
+	HeadSHA  string `json:"head_sha"`
+	Dir      string `json:"dir,omitempty"`
 }

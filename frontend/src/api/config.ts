@@ -19,9 +19,27 @@ function parseRules(raw: any): any[] {
   return []
 }
 
+function parseTags(raw: any): string[] {
+  if (!raw) return []
+  if (Array.isArray(raw)) return raw
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return raw.split(',').map((s) => s.trim()).filter(Boolean)
+    }
+  }
+  return []
+}
+
 function parsePolicy(raw: any): ProjectPolicy {
   if (!raw) return raw
   return { ...raw, ignore_paths: parseIgnorePaths(raw.ignore_paths), rules: parseRules(raw.rules) }
+}
+
+function parseReviewerAgent(raw: any): ReviewerAgent {
+  return { ...raw, tags: parseTags(raw?.tags) }
 }
 
 export async function getOCRSettings(): Promise<OCRSettings> {
@@ -114,7 +132,7 @@ export async function getBranchSHA(provider: string, owner: string, repo: string
 
 export async function listReviewerAgents(): Promise<ReviewerAgent[]> {
   const resp: any = await request.get('/settings/agents')
-  return resp?.agents ?? []
+  return (resp?.agents ?? []).map(parseReviewerAgent)
 }
 
 export async function createReviewerAgent(data: {
@@ -127,7 +145,7 @@ export async function createReviewerAgent(data: {
   tags?: string[]
 }): Promise<ReviewerAgent> {
   const resp: any = await request.post('/settings/agents', data)
-  return resp?.agent
+  return parseReviewerAgent(resp?.agent)
 }
 
 export async function updateReviewerAgent(id: number, data: {
@@ -139,7 +157,7 @@ export async function updateReviewerAgent(id: number, data: {
   tags?: string[]
 }): Promise<ReviewerAgent> {
   const resp: any = await request.put(`/settings/agents/${id}`, data)
-  return resp?.agent
+  return parseReviewerAgent(resp?.agent)
 }
 
 export async function deleteReviewerAgent(id: number): Promise<void> {

@@ -1,7 +1,7 @@
 # Review Service 配置文件
 # 环境变量会覆盖此文件中的配置
 
-port: 8080
+port: 8081
 
 # 认证配置
 auth:

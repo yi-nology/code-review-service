@@ -70,3 +70,13 @@ func _getsessionmapMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
+
+func _updatefilereviewedMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _updatesectionprogressMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}

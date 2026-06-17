@@ -19,6 +19,11 @@ const router = createRouter({
       component: () => import('@/views/ReviewDetail.vue'),
     },
     {
+      path: '/reviews/:reviewId/maps/:mapId',
+      name: 'ReviewMapDetail',
+      component: () => import('@/views/ReviewMapDetail.vue'),
+    },
+    {
       path: '/reviews/:reviewId/sessions/:sessionId',
       name: 'SessionDetail',
       component: () => import('@/views/SessionDetail.vue'),
@@ -34,9 +39,19 @@ const router = createRouter({
       component: () => import('@/views/ContributorDetail.vue'),
     },
     {
-      path: '/settings/ocr',
-      name: 'OCRSettings',
-      component: () => import('@/views/OCRSettings.vue'),
+      path: '/projects/reports',
+      name: 'ProjectReports',
+      component: () => import('@/views/ProjectReports.vue'),
+    },
+    {
+      path: '/projects/reports/detail',
+      name: 'ProjectReportDetail',
+      component: () => import('@/views/ProjectReportDetail.vue'),
+    },
+    {
+      path: '/settings/model',
+      name: 'ModelSettings',
+      component: () => import('@/views/ModelSettings.vue'),
     },
     {
       path: '/settings/projects',
@@ -54,9 +69,17 @@ const router = createRouter({
       component: () => import('@/views/RuleSettings.vue'),
     },
     {
+      path: '/settings/global-rules',
+      redirect: '/settings/rules',
+    },
+    {
       path: '/settings/agents',
       name: 'AgentSettings',
       component: () => import('@/views/AgentSettings.vue'),
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/reviews',
     },
   ],
 })

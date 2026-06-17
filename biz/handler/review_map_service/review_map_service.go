@@ -273,3 +273,76 @@ func marshalJSONToDatatypes(data interface{}) datatypes.JSON {
 func generateMapID() string {
 	return "map-" + uuid.New().String()
 }
+
+type UpdateFileReviewedRequest struct {
+	Reviewed bool `json:"reviewed"`
+}
+
+func UpdateFileReviewed(ctx context.Context, c *app.RequestContext) {
+	reviewID := c.Param("id")
+	mapID := c.Param("mapId")
+	fileID := c.Param("fileId")
+
+	// Decode file path (may contain encoded slashes)
+	filePath := fileID
+
+	var req UpdateFileReviewedRequest
+	if err := c.BindAndValidate(&req); err != nil {
+		common.Fail(c, common.BadRequest(err.Error()))
+		return
+	}
+
+	// Verify map exists and belongs to review
+	m, err := handlerInst.reviewMapRepo.GetByMapID(ctx, mapID)
+	if err != nil || m == nil {
+		common.Fail(c, common.NotFound("map not found"))
+		return
+	}
+	if m.ReviewID != reviewID {
+		common.Fail(c, common.BadRequest("map does not belong to this review"))
+		return
+	}
+
+	if err := handlerInst.reviewMapRepo.UpdateFileReviewed(ctx, mapID, filePath, req.Reviewed); err != nil {
+		hlog.Errorf("update file reviewed failed: %v", err)
+		common.Fail(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+}
+
+type UpdateSectionProgressRequest struct {
+	Reviewed bool `json:"reviewed"`
+}
+
+func UpdateSectionProgress(ctx context.Context, c *app.RequestContext) {
+	reviewID := c.Param("id")
+	mapID := c.Param("mapId")
+	sectionID := c.Param("sectionId")
+
+	var req UpdateSectionProgressRequest
+	if err := c.BindAndValidate(&req); err != nil {
+		common.Fail(c, common.BadRequest(err.Error()))
+		return
+	}
+
+	// Verify map exists and belongs to review
+	m, err := handlerInst.reviewMapRepo.GetByMapID(ctx, mapID)
+	if err != nil || m == nil {
+		common.Fail(c, common.NotFound("map not found"))
+		return
+	}
+	if m.ReviewID != reviewID {
+		common.Fail(c, common.BadRequest("map does not belong to this review"))
+		return
+	}
+
+	if err := handlerInst.reviewMapRepo.UpdateSectionFilesReviewed(ctx, mapID, sectionID, req.Reviewed); err != nil {
+		hlog.Errorf("update section progress failed: %v", err)
+		common.Fail(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+}

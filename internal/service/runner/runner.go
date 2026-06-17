@@ -13,21 +13,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/oekit/concurrency/async"
-	"github.com/oekit/pkg/convert"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
-)
-
-const (
-	// ocrAudience defines the output audience for OCR tool
-	// "human" outputs progress lines, "agent" outputs summary only
-	ocrAudience = "human"
+	"github.com/oekit/concurrency/async"
+	"github.com/oekit/pkg/convert"
 )
 
 type OpenCodeReviewConfig struct {
 	Binary          string
+	Audience        string
 	RulePath        string
 	DefaultSeverity string
 	Concurrency     int
@@ -51,6 +46,9 @@ type OpenCodeReviewRunner struct {
 func NewOpenCodeReviewRunner(config OpenCodeReviewConfig) *OpenCodeReviewRunner {
 	if strings.TrimSpace(config.Binary) == "" {
 		config.Binary = "ocr"
+	}
+	if strings.TrimSpace(config.Audience) == "" {
+		config.Audience = "human"
 	}
 	if strings.TrimSpace(config.DefaultSeverity) == "" {
 		config.DefaultSeverity = string(review.SeverityMajor)
@@ -94,7 +92,7 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 		"--concurrency", convert.IntToStr(r.config.Concurrency),
 		"--max-git-procs", convert.IntToStr(r.config.MaxGitProcs),
 		"--timeout", convert.IntToStr(r.config.TimeoutMinutes),
-		"--audience", ocrAudience,
+		"--audience", r.config.Audience,
 	}
 	rulePath := r.config.RulePath
 	if strings.TrimSpace(workspace.RulePath) != "" {
@@ -720,9 +718,10 @@ func (r *DynamicOpenCodeReviewRunner) Preview(ctx context.Context, workspace rev
 
 func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings) OpenCodeReviewConfig {
 	cfg := OpenCodeReviewConfig{
-		Binary:          r.fallback.config.Binary,
+		Binary:          firstNonBlank(s.Binary, r.fallback.config.Binary),
+		Audience:        firstNonBlank(s.Audience, r.fallback.config.Audience, "human"),
 		RulePath:        r.fallback.config.RulePath,
-		DefaultSeverity: r.fallback.config.DefaultSeverity,
+		DefaultSeverity: firstNonBlank(s.DefaultSeverity, r.fallback.config.DefaultSeverity, string(review.SeverityMajor)),
 		URL:             s.URL,
 		Model:           s.ModelName,
 		AuthToken:       s.AuthToken,
@@ -749,6 +748,15 @@ func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings) OpenCod
 		cfg.TimeoutMinutes = r.fallback.config.TimeoutMinutes
 	}
 	return cfg
+}
+
+func firstNonBlank(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
 
 func (r *DynamicOpenCodeReviewRunner) appendLLMEnv(env []string, cfg OpenCodeReviewConfig) []string {

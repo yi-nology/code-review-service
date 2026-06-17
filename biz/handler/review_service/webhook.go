@@ -151,6 +151,10 @@ func getNormalizer(provider string) webhook.Normalizer {
 		return &webhook.GitLabNormalizer{}
 	case "gitea":
 		return &webhook.GiteaNormalizer{}
+	case "gitcode":
+		return &webhook.GitCodeNormalizer{}
+	case "tencent_code":
+		return &webhook.TencentCodeNormalizer{}
 	}
 	return nil
 }
@@ -159,7 +163,7 @@ func normalizerEventTypeHeader(provider string) string {
 	switch strings.ToLower(provider) {
 	case "github":
 		return "X-GitHub-Event"
-	case "gitlab":
+	case "gitlab", "gitcode", "tencent_code":
 		return "X-GitLab-Event"
 	case "gitea":
 		return "X-Gitea-Event"
@@ -171,7 +175,7 @@ func normalizerDeliveryIDHeader(provider string) string {
 	switch strings.ToLower(provider) {
 	case "github":
 		return "X-GitHub-Delivery"
-	case "gitlab":
+	case "gitlab", "gitcode", "tencent_code":
 		return "X-Gitlab-Event-UUID"
 	case "gitea":
 		return "X-Gitea-Delivery"
@@ -183,7 +187,7 @@ func normalizerSignatureHeader(provider string) string {
 	switch strings.ToLower(provider) {
 	case "github":
 		return "X-Hub-Signature-256"
-	case "gitlab":
+	case "gitlab", "gitcode", "tencent_code":
 		return "X-Gitlab-Token"
 	case "gitea":
 		return "X-Gitea-Signature"

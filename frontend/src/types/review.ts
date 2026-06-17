@@ -34,6 +34,7 @@ export interface ReviewDetail {
   findings: Finding[]
   report: Report
   raw_ocr?: any
+  raw_ocr_input?: any
   error?: string
   author?: string
   author_name?: string

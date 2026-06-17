@@ -5815,6 +5815,7 @@ type ReviewDetail struct {
 	Findings        []*Finding `thrift:"findings,15,optional,list<Finding>" form:"findings" json:"findings,omitempty"`
 	Report          *Report    `thrift:"report,16,optional" form:"report" json:"report,omitempty"`
 	RawOcr          *string    `thrift:"raw_ocr,17,optional" form:"raw_ocr" json:"raw_ocr,omitempty"`
+	RawOcrInput     *string    `thrift:"raw_ocr_input,24,optional" form:"raw_ocr_input" json:"raw_ocr_input,omitempty"`
 	Error           *string    `thrift:"error,18,optional" form:"error" json:"error,omitempty"`
 	CreatedAt       *string    `thrift:"created_at,19,optional" form:"created_at" json:"created_at,omitempty"`
 	UpdatedAt       *string    `thrift:"updated_at,20,optional" form:"updated_at" json:"updated_at,omitempty"`

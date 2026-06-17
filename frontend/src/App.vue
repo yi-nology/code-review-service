@@ -1,55 +1,57 @@
 <template>
-  <router-view v-if="auth.token" />
+  <el-config-provider :locale="zhCn">
+    <router-view v-if="auth.token" />
 
-  <main v-else class="login-page">
-    <section class="login-intro">
-      <div class="login-brand">
-        <span><el-icon><Finished /></el-icon></span>
-        Review Hub
-      </div>
-      <div class="intro-copy">
-        <div class="eyebrow">CODE QUALITY CONSOLE</div>
-        <h1>让每一次合并<br>都有清晰依据</h1>
-        <p>集中管理代码审查、质量门禁与项目策略，把风险留在合并之前。</p>
-      </div>
-      <div class="intro-points">
-        <span><el-icon><CircleCheckFilled /></el-icon>统一审查记录</span>
-        <span><el-icon><CircleCheckFilled /></el-icon>可追溯质量门禁</span>
-        <span><el-icon><CircleCheckFilled /></el-icon>项目级规则配置</span>
-      </div>
-    </section>
-
-    <section class="login-panel">
-      <form class="login-card" @submit.prevent="handleLogin">
-        <div class="mobile-brand">
+    <main v-else class="login-page">
+      <section class="login-intro">
+        <div class="login-brand">
           <span><el-icon><Finished /></el-icon></span>
           Review Hub
         </div>
-        <h2>进入控制台</h2>
-        <p>请输入服务端配置的访问 Token。</p>
+        <div class="intro-copy">
+          <div class="eyebrow">CODE QUALITY CONSOLE</div>
+          <h1>让每一次合并<br>都有清晰依据</h1>
+          <p>集中管理代码审查、质量门禁与项目策略，把风险留在合并之前。</p>
+        </div>
+        <div class="intro-points">
+          <span><el-icon><CircleCheckFilled /></el-icon>统一审查记录</span>
+          <span><el-icon><CircleCheckFilled /></el-icon>可追溯质量门禁</span>
+          <span><el-icon><CircleCheckFilled /></el-icon>项目级规则配置</span>
+        </div>
+      </section>
 
-        <label for="api-token">API Token</label>
-        <el-input
-          id="api-token"
-          v-model="token"
-          type="password"
-          size="large"
-          show-password
-          autofocus
-          placeholder="请输入 REVIEW_TOKEN"
-        >
-          <template #prefix><el-icon><Key /></el-icon></template>
-        </el-input>
-        <div v-if="error" class="login-error">{{ error }}</div>
+      <section class="login-panel">
+        <form class="login-card" @submit.prevent="handleLogin">
+          <div class="mobile-brand">
+            <span><el-icon><Finished /></el-icon></span>
+            Review Hub
+          </div>
+          <h2>进入控制台</h2>
+          <p>请输入服务端配置的访问 Token。</p>
 
-        <el-button type="primary" size="large" native-type="submit" :loading="logging">
-          进入控制台
-          <el-icon><ArrowRight /></el-icon>
-        </el-button>
-        <small>Token 仅保存在当前浏览器会话中。</small>
-      </form>
-    </section>
-  </main>
+          <label for="api-token">API Token</label>
+          <el-input
+            id="api-token"
+            v-model="token"
+            type="password"
+            size="large"
+            show-password
+            autofocus
+            placeholder="请输入 REVIEW_TOKEN"
+          >
+            <template #prefix><el-icon><Key /></el-icon></template>
+          </el-input>
+          <div v-if="error" class="login-error">{{ error }}</div>
+
+          <el-button type="primary" size="large" native-type="submit" :loading="logging">
+            进入控制台
+            <el-icon><ArrowRight /></el-icon>
+          </el-button>
+          <small>Token 仅保存在当前浏览器会话中。</small>
+        </form>
+      </section>
+    </main>
+  </el-config-provider>
 </template>
 
 <script setup lang="ts">
@@ -58,6 +60,7 @@ import { ArrowRight, CircleCheckFilled, Finished, Key } from '@element-plus/icon
 import { useAuthStore } from '@/stores/auth'
 import axios from 'axios'
 import router from '@/router'
+import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 
 const auth = useAuthStore()
 const token = ref('')

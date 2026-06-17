@@ -122,6 +122,20 @@ func (s *Service) updateRequestSHAs(ctx context.Context, id string, req Request)
 	}
 }
 
+func (s *Service) updateWithOCRInput(ctx context.Context, id string, ocrInput OCRInput) error {
+	review, err := s.reviewRepo.GetByReviewID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if review == nil {
+		return fmt.Errorf("review not found: %s", id)
+	}
+
+	review.RawOCRInput = datatypes.JSON(mustMarshal(ocrInput))
+	review.UpdatedAt = time.Now().UTC()
+	return s.reviewRepo.Save(ctx, review)
+}
+
 func statusEventState(status string) string {
 	if status == "failed" {
 		return "failed"

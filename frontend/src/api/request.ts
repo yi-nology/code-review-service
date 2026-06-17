@@ -1,5 +1,12 @@
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from 'element-plus/es/components/message/index'
+
+function getErrorMessage(error: any): string {
+  if (error.code === 'ECONNABORTED') return '请求超时，请稍后重试'
+  const data = error.response?.data
+  if (typeof data === 'string' && data.trim()) return data
+  return data?.message || data?.error || data?.msg || error.message || '请求失败'
+}
 
 const request = axios.create({
   baseURL: '/api/v1',
@@ -40,7 +47,7 @@ request.interceptors.response.use(
       }
       return Promise.reject(error)
     }
-    const message = error.response?.data?.error || error.message || '请求失败'
+    const message = getErrorMessage(error)
     if (error.response?.status !== 404) {
       ElMessage.error(message)
     }

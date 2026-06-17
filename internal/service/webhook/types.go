@@ -49,6 +49,16 @@ var supportedActions = map[string]map[string]bool{
 		"reopened":   true,
 		"synchronized": true,
 	},
+	"gitcode": {
+		"open":   true,
+		"reopen": true,
+		"update": true,
+	},
+	"tencent_code": {
+		"open":   true,
+		"reopen": true,
+		"update": true,
+	},
 }
 
 func IsSupportedAction(provider, action string) bool {
@@ -67,7 +77,7 @@ func IsDraftEvent(provider string, payload map[string]any) bool {
 				return true
 			}
 		}
-	case "gitlab":
+	case "gitlab", "gitcode", "tencent_code":
 		if attrs, ok := payload["object_attributes"].(map[string]any); ok {
 			if ws, ok := attrs["work_in_progress"].(bool); ok && ws {
 				return true
@@ -107,7 +117,7 @@ func IsBotSender(provider string, payload map[string]any, botName string) bool {
 				}
 			}
 		}
-	case "gitlab":
+	case "gitlab", "gitcode", "tencent_code":
 		if user, ok := payload["user"].(map[string]any); ok {
 			if username, ok := user["username"].(string); ok {
 				sender = username
