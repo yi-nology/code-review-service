@@ -18,9 +18,6 @@ type DefaultAggregator struct {
 
 // AggregatorConfig contains aggregator configuration
 type AggregatorConfig struct {
-	// DeduplicationThreshold is the similarity threshold for deduplication (0-1)
-	DeduplicationThreshold float64
-
 	// ConfidenceWeights defines weights for confidence calculation
 	ConfidenceWeights ConfidenceWeights
 }
@@ -40,7 +37,6 @@ type ConfidenceWeights struct {
 // DefaultAggregatorConfig returns default aggregator configuration
 func DefaultAggregatorConfig() AggregatorConfig {
 	return AggregatorConfig{
-		DeduplicationThreshold: 0.8,
 		ConfidenceWeights: ConfidenceWeights{
 			AgentCount: 0.5,
 			Severity:   0.3,

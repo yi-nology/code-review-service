@@ -17,7 +17,6 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
-	"github.com/google/uuid"
 	"gorm.io/datatypes"
 )
 
@@ -35,12 +34,6 @@ func InitHandler(sessionService session.Service, reviewMapRepo repository.Review
 		reviewMapRepo:  reviewMapRepo,
 		mapGenerator:   reviewmap.NewGenerator(),
 	}
-}
-
-type GenerateMapRequest struct {
-	SessionID string `json:"session_id" binding:"required"`
-	Diff      string `json:"diff" binding:"required"`
-	ReviewID  string `json:"review_id"`
 }
 
 func GenerateMap(ctx context.Context, c *app.RequestContext) {
@@ -207,10 +200,6 @@ func GetSessionMap(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-type PreviewMapRequest struct {
-	Diff string `json:"diff" binding:"required"`
-}
-
 func PreviewMap(ctx context.Context, c *app.RequestContext) {
 	var req modelReviewMap.PreviewMapReq
 	if err := c.BindAndValidate(&req); err != nil {
@@ -268,10 +257,6 @@ func marshalJSONToDatatypes(data interface{}) datatypes.JSON {
 		return datatypes.JSON([]byte("{}"))
 	}
 	return datatypes.JSON(result)
-}
-
-func generateMapID() string {
-	return "map-" + uuid.New().String()
 }
 
 type UpdateFileReviewedRequest struct {
