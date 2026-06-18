@@ -13,7 +13,6 @@ const (
 	ResponseAgree     ResponseType = "AGREE"
 	ResponseChallenge ResponseType = "CHALLENGE"
 	ResponseConnect   ResponseType = "CONNECT"
-	ResponseSurface   ResponseType = "SURFACE"
 )
 
 // Discussion represents a discussion round

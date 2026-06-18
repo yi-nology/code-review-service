@@ -128,10 +128,6 @@ func (g *Git) CheckoutFiles(ctx context.Context, ref string, files []string) err
 	return g.backend.CheckoutFiles(ctx, g.dir, ref, files)
 }
 
-func (g *Git) Add(ctx context.Context, files []string) error {
-	return g.backend.Add(ctx, g.dir, files)
-}
-
 func (g *Git) CommitWithIdentity(ctx context.Context, name, email, msg string) error {
 	return g.backend.CommitWithIdentity(ctx, g.dir, name, email, msg)
 }

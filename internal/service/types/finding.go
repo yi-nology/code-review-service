@@ -30,29 +30,3 @@ func SeverityRank(severity string) int {
 		return 0
 	}
 }
-
-func SeverityLabel(severity string) string {
-	switch strings.ToLower(severity) {
-	case "critical":
-		return "Critical"
-	case "major":
-		return "Major"
-	case "minor":
-		return "Minor"
-	case "info":
-		return "Info"
-	default:
-		return severity
-	}
-}
-
-func SeverityCount(findings []Finding, minSeverity string) int {
-	threshold := SeverityRank(minSeverity)
-	count := 0
-	for _, f := range findings {
-		if SeverityRank(f.Severity) >= threshold {
-			count++
-		}
-	}
-	return count
-}

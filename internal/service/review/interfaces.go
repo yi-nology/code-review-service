@@ -49,7 +49,3 @@ type ViewerManager interface {
 	StartViewer(ctx context.Context, addr string) (*ViewerStatus, error)
 	StopViewer(ctx context.Context) (*ViewerStatus, error)
 }
-
-type WebhookReviewCreator interface {
-	CreateFromWebhook(ctx context.Context, req Request, idempotencyKey string) (Response, error)
-}

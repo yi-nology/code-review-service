@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -218,49 +217,6 @@ func (r *DeterministicRunner) Run(_ context.Context, workspace review.Workspace)
 		summary = fmt.Sprintf("%s (%d diff bytes)", summary, len(workspace.Diff))
 	}
 	return review.Result{Summary: summary, Findings: []review.Finding{}}, nil
-}
-
-type CommandRunner struct {
-	command  string
-	fallback review.Runner
-}
-
-func NewCommandRunner(command string, fallback review.Runner) *CommandRunner {
-	return &CommandRunner{command: command, fallback: fallback}
-}
-
-func (r *CommandRunner) Run(ctx context.Context, workspace review.Workspace) (review.Result, error) {
-	parts := strings.Fields(r.command)
-	if len(parts) == 0 {
-		return r.fallback.Run(ctx, workspace)
-	}
-
-	cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
-	cmd.Env = append(os.Environ(),
-		"REVIEW_PROVIDER="+workspace.Provider,
-		"REVIEW_REPO="+workspace.Repo,
-		"REVIEW_BASE_SHA="+workspace.BaseSHA,
-		"REVIEW_HEAD_SHA="+workspace.HeadSHA,
-		"REVIEW_WORKSPACE_DIR="+workspace.Dir,
-	)
-	cmd.Stdin = strings.NewReader(workspace.Diff)
-
-	output, err := cmd.Output()
-	if err != nil {
-		return review.Result{}, err
-	}
-	if len(strings.TrimSpace(string(output))) == 0 {
-		return r.fallback.Run(ctx, workspace)
-	}
-
-	var result review.Result
-	if err := json.Unmarshal(output, &result); err != nil {
-		return review.Result{}, fmt.Errorf("parse OCR output: %w", err)
-	}
-	if result.Summary == "" {
-		result.Summary = "review completed"
-	}
-	return result, nil
 }
 
 func shortSHA(sha string) string {

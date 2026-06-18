@@ -37,7 +37,12 @@ func NewProgressManager(lc fx.Lifecycle) *progress.ProgressManager {
 }
 
 func NewPolicyEngine(cfg *config.Config) *policy.Engine {
-	return policy.NewEngine(cfg.GetPolicyConfig())
+	return policy.NewEngine(policy.Config{
+		FailOn:      cfg.Policy.FailOn,
+		MaxComments: cfg.Policy.MaxComments,
+		SummaryOnly: cfg.Policy.SummaryOnly,
+		IgnorePaths: cfg.Policy.IgnorePaths,
+	})
 }
 
 type ExecutorDeps struct {
