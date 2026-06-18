@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/oekit/pkg/slicex"
 	"github.com/oekit/pkg"
+	"github.com/oekit/pkg/slicex"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
 
@@ -184,12 +184,12 @@ func (m *AgentManager) RunAgent(ctx context.Context, agentName string, workspace
 
 // AgentStatus represents the status of an agent
 type AgentStatus struct {
-	Name      string        `json:"name"`
-	Status    string        `json:"status"`
-	Progress  float64       `json:"progress"`
-	Message   string        `json:"message"`
-	Duration  time.Duration `json:"duration"`
-	Error     string        `json:"error,omitempty"`
+	Name     string        `json:"name"`
+	Status   string        `json:"status"`
+	Progress float64       `json:"progress"`
+	Message  string        `json:"message"`
+	Duration time.Duration `json:"duration"`
+	Error    string        `json:"error,omitempty"`
 }
 
 // RunAgentsWithCallback runs agents with progress callbacks

@@ -131,19 +131,19 @@ func (n *GiteaNormalizer) normalizePullRequest(rawBody []byte) (*ChangeEvent, er
 	deliveryID := fmt.Sprintf("gitea-%v", payload["delivery_id"])
 
 	return &ChangeEvent{
-		Provider:       "gitea",
-		DeliveryID:     deliveryID,
-		EventType:      "pull_request",
-		Action:         action,
-		RepositoryID:   repoID,
-		Repository:     repoFullName,
-		Number:         number,
-		BaseSHA:        baseSHA,
-		HeadSHA:        headSHA,
-		Sender:         sender,
-		Author:         author,
-		AuthorName:     authorName,
-		AuthorAvatar:   authorAvatar,
+		Provider:     "gitea",
+		DeliveryID:   deliveryID,
+		EventType:    "pull_request",
+		Action:       action,
+		RepositoryID: repoID,
+		Repository:   repoFullName,
+		Number:       number,
+		BaseSHA:      baseSHA,
+		HeadSHA:      headSHA,
+		Sender:       sender,
+		Author:       author,
+		AuthorName:   authorName,
+		AuthorAvatar: authorAvatar,
 	}, nil
 }
 

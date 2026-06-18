@@ -116,9 +116,9 @@ func dbProjectPolicyToAPI(p *models.ProjectPolicy) *modelSettings.ProjectPolicy 
 		OcrMaxGitProcs: ptrx.Of(int64(p.OCRMaxGitProcs)), OcrUseAnthropic: ptrx.Of(p.OCRUseAnthropic),
 		OcrExtraBody: common.StrPtr(p.OCRExtraBody), OcrLanguage: common.StrPtr(p.OCRLanguage),
 		OcrBinary: common.StrPtr(p.OCRBinary), OcrToolsPath: common.StrPtr(p.OCRToolsPath),
-		OcrTelemetryEnabled: ptrx.Of(p.OCRTelemetryEnabled),
-		OcrTelemetryExporter: common.StrPtr(p.OCRTelemetryExporter),
-		OcrTelemetryOtlpEndpoint: common.StrPtr(p.OCRTelemetryOTLPEndpoint),
+		OcrTelemetryEnabled:        ptrx.Of(p.OCRTelemetryEnabled),
+		OcrTelemetryExporter:       common.StrPtr(p.OCRTelemetryExporter),
+		OcrTelemetryOtlpEndpoint:   common.StrPtr(p.OCRTelemetryOTLPEndpoint),
 		OcrTelemetryContentLogging: ptrx.Of(p.OCRTelemetryContentLogging),
 	}
 }

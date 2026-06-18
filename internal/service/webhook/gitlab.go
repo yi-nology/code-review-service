@@ -131,19 +131,19 @@ func (n *GitLabNormalizer) normalizeMergeRequest(rawBody []byte) (*ChangeEvent, 
 	author := sender
 
 	return &ChangeEvent{
-		Provider:       "gitlab",
-		EventType:      "merge_request",
-		Action:         action,
-		RepositoryID:   repoID,
-		Repository:     repoPath,
-		Number:         iid,
-		BaseSHA:        baseSHA,
-		StartSHA:       startSHA,
-		HeadSHA:        headSHA,
-		Sender:         sender,
-		Author:         author,
-		AuthorName:     authorName,
-		AuthorAvatar:   authorAvatar,
+		Provider:     "gitlab",
+		EventType:    "merge_request",
+		Action:       action,
+		RepositoryID: repoID,
+		Repository:   repoPath,
+		Number:       iid,
+		BaseSHA:      baseSHA,
+		StartSHA:     startSHA,
+		HeadSHA:      headSHA,
+		Sender:       sender,
+		Author:       author,
+		AuthorName:   authorName,
+		AuthorAvatar: authorAvatar,
 	}, nil
 }
 

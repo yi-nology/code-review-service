@@ -54,16 +54,6 @@ type Requirements struct {
 	Context map[string]string `json:"context"`
 }
 
-// agentConfig contains agent configuration
-type agentConfig struct {
-	Name     string   `yaml:"name"`
-	Count    int      `yaml:"count"`
-	Focus    []string `yaml:"focus"`
-	Enabled  bool     `yaml:"enabled"`
-	Priority int      `yaml:"priority"`
-	Timeout  string   `yaml:"timeout"`
-}
-
 // AggregatedResult contains aggregated results from multiple agents
 type AggregatedResult struct {
 	Findings     []Finding     `json:"findings"`

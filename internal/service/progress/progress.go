@@ -3,17 +3,17 @@ package progress
 import "time"
 
 type ReviewProgress struct {
-	ReviewID    string                `json:"review_id"`
-	SessionID   string                `json:"session_id"`
-	Round       int                   `json:"round"`
-	Phase       Phase                 `json:"phase"`
-	Status      string                `json:"status"`
-	Progress    float64               `json:"progress"`
-	Phases      []PhaseInfo           `json:"phases"`
+	ReviewID    string                 `json:"review_id"`
+	SessionID   string                 `json:"session_id"`
+	Round       int                    `json:"round"`
+	Phase       Phase                  `json:"phase"`
+	Status      string                 `json:"status"`
+	Progress    float64                `json:"progress"`
+	Phases      []PhaseInfo            `json:"phases"`
 	AgentStatus map[string]AgentStatus `json:"agent_status,omitempty"`
-	StartTime   time.Time             `json:"start_time"`
-	UpdatedAt   time.Time             `json:"updated_at"`
-	Error       string                `json:"error,omitempty"`
+	StartTime   time.Time              `json:"start_time"`
+	UpdatedAt   time.Time              `json:"updated_at"`
+	Error       string                 `json:"error,omitempty"`
 }
 
 func newReviewProgress(reviewID, sessionID string, round int) *ReviewProgress {

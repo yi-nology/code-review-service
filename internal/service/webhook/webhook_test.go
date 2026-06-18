@@ -39,10 +39,10 @@ func TestIsSupportedAction(t *testing.T) {
 
 func TestIsDraftEvent(t *testing.T) {
 	tests := []struct {
-		name    string
+		name     string
 		provider string
-		payload map[string]any
-		want    bool
+		payload  map[string]any
+		want     bool
 	}{
 		{
 			name:     "github draft PR",

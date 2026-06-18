@@ -14,15 +14,6 @@ const (
 	responseConnect   responseType = "CONNECT"
 )
 
-type discussion struct {
-	ID        string            `json:"id"`
-	SessionID string            `json:"session_id"`
-	Round     int               `json:"round"`
-	Entries   []discussionEntry `json:"entries"`
-	Summary   string            `json:"summary"`
-	CreatedAt time.Time         `json:"created_at"`
-}
-
 type discussionEntry struct {
 	ID         string       `json:"id"`
 	AgentName  string       `json:"agent_name"`

@@ -64,13 +64,13 @@ type SeverityCounts struct {
 }
 
 type Report struct {
-	OCR      OCRMetadata    `json:"ocr"`
-	Scope    ScopeMetadata  `json:"scope"`
-	Score    Score          `json:"score"`
-	Counts   SeverityCounts `json:"counts"`
-	Warnings []OCRWarning   `json:"warnings,omitempty"`
-	Complete bool           `json:"complete"`
-	Generated bool          `json:"generated"`
+	OCR       OCRMetadata    `json:"ocr"`
+	Scope     ScopeMetadata  `json:"scope"`
+	Score     Score          `json:"score"`
+	Counts    SeverityCounts `json:"counts"`
+	Warnings  []OCRWarning   `json:"warnings,omitempty"`
+	Complete  bool           `json:"complete"`
+	Generated bool           `json:"generated"`
 }
 
 type Workspace struct {

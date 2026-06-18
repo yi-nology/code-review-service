@@ -130,12 +130,12 @@ func TestValidateProjectPolicy(t *testing.T) {
 		{
 			name: "valid policy passes",
 			input: &models.ProjectPolicy{
-				Provider:         "github",
-				Repo:             "org/repo",
-				FailOn:           "critical",
-				OCRConcurrency:   4,
+				Provider:          "github",
+				Repo:              "org/repo",
+				FailOn:            "critical",
+				OCRConcurrency:    4,
 				OCRTimeoutMinutes: 10,
-				OCRMaxTools:      20,
+				OCRMaxTools:       20,
 			},
 			wantErr: false,
 		},
@@ -287,11 +287,11 @@ func TestDBCustomProviderToAPI(t *testing.T) {
 
 	t.Run("API key is masked", func(t *testing.T) {
 		input := &models.CustomProvider{
-			Name:       "custom",
-			Protocol:   "openai",
-			APIKey:     "sk-secret-key-12345",
-			ModelName:  "gpt-4",
-			Enabled:    true,
+			Name:      "custom",
+			Protocol:  "openai",
+			APIKey:    "sk-secret-key-12345",
+			ModelName: "gpt-4",
+			Enabled:   true,
 		}
 		result := dbCustomProviderToAPI(input)
 		if result == nil {

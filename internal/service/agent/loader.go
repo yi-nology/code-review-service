@@ -2,7 +2,7 @@ package agent
 
 import (
 	"context"
-	"fmt"
+
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
@@ -111,80 +111,4 @@ func extractTags(tags interface{}) []string {
 	}
 
 	return defaultTags
-}
-
-// CreateAgentFromModel creates an agent from a database model
-func createAgentFromModel(agentModel models.ReviewerAgent, factory reviewRunnerFactory, timeout time.Duration) (reviewAgent, error) {
-	if !agentModel.Enabled {
-		return nil, fmt.Errorf("agent %s is disabled", agentModel.Name)
-	}
-
-	runner := factory.CreateRunner(agentModel.Background)
-
-	agentConfig := ocrAgentConfig{
-		Name:     agentModel.Name,
-		Priority: agentModel.Priority,
-		Focus:    extractTags(agentModel.Tags),
-		Timeout:  timeout,
-	}
-
-	return newOCRAgent(runner, agentConfig), nil
-}
-
-// CreateProjectAgentManager creates an agent manager for a specific project
-func (l *AgentLoader) createProjectAgentManager(projectAgents []models.ProjectAgent, allAgents []models.ReviewerAgent) *AgentManager {
-	manager := NewAgentManager(l.agentManager.config, l.agentManager.aggregator)
-
-	agentMap := make(map[uint]models.ReviewerAgent)
-	for _, a := range allAgents {
-		agentMap[a.ID] = a
-	}
-
-	if len(projectAgents) == 0 {
-		hlog.Info("no project agent config, using all enabled agents")
-		for _, a := range allAgents {
-			if a.Enabled {
-				agent, err := createAgentFromModel(a, l.factory, l.timeout)
-				if err != nil {
-					hlog.Warnf("failed to create agent %s: %v", a.Name, err)
-					continue
-				}
-				manager.RegisterAgent(agent)
-			}
-		}
-		return manager
-	}
-
-	for _, pa := range projectAgents {
-		if !pa.Enabled {
-			continue
-		}
-
-		agentModel, ok := agentMap[pa.AgentID]
-		if !ok {
-			hlog.Warnf("agent %d not found for project", pa.AgentID)
-			continue
-		}
-
-		if !agentModel.Enabled {
-			hlog.Infof("agent %s is globally disabled, skipping for project", agentModel.Name)
-			continue
-		}
-
-		runner := l.factory.CreateRunner(agentModel.Background)
-
-		agentConfig := ocrAgentConfig{
-			Name:     agentModel.Name,
-			Priority: pa.Priority,
-			Focus:    extractTags(agentModel.Tags),
-			Timeout:  l.timeout,
-		}
-
-		agent := newOCRAgent(runner, agentConfig)
-		manager.RegisterAgent(agent)
-
-		hlog.Infof("loaded project agent: %s (priority: %d)", agentModel.Name, pa.Priority)
-	}
-
-	return manager
 }

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/oekit/gormx"
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/oekit/gormx"
 
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	gormLib "gorm.io/driver/postgres"

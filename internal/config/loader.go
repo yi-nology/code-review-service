@@ -34,9 +34,12 @@ func Load() *Config {
 	return cfg
 }
 
-func envString(key string) string    { return os.Getenv(key) }
-func envInt(key string) (int, bool)  { v, err := strconv.Atoi(os.Getenv(key)); return v, err == nil }
-func envBool(key string) (bool, bool) { v, err := strconv.ParseBool(os.Getenv(key)); return v, err == nil }
+func envString(key string) string   { return os.Getenv(key) }
+func envInt(key string) (int, bool) { v, err := strconv.Atoi(os.Getenv(key)); return v, err == nil }
+func envBool(key string) (bool, bool) {
+	v, err := strconv.ParseBool(os.Getenv(key))
+	return v, err == nil
+}
 
 func applyEnvOverrides(cfg *Config) {
 	if v := envString("REVIEW_TOKEN"); v != "" {

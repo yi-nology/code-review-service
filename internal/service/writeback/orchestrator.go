@@ -14,19 +14,19 @@ import (
 )
 
 type OrchestratorConfig struct {
-	Adapters      map[string]Adapter
-	ItemRepo      repository.WritebackItemRepository
-	ChangeRepo    repository.ChangeRevisionRepository
-	MaxComments   int
-	SummaryOnly   bool
+	Adapters    map[string]Adapter
+	ItemRepo    repository.WritebackItemRepository
+	ChangeRepo  repository.ChangeRevisionRepository
+	MaxComments int
+	SummaryOnly bool
 }
 
 type Orchestrator struct {
-	adapters      map[string]Adapter
-	itemRepo      repository.WritebackItemRepository
-	changeRepo    repository.ChangeRevisionRepository
-	maxComments   int
-	summaryOnly   bool
+	adapters    map[string]Adapter
+	itemRepo    repository.WritebackItemRepository
+	changeRepo  repository.ChangeRevisionRepository
+	maxComments int
+	summaryOnly bool
 }
 
 func NewOrchestrator(cfg OrchestratorConfig) *Orchestrator {

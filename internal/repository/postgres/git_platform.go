@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
@@ -55,7 +56,7 @@ func (r *GitPlatformRepo) GetByProviderAndInstallation(ctx context.Context, prov
 	var p models.GitPlatform
 	err := r.db.WithContext(ctx).Where("provider = ? AND installation_id = ?", provider, installationID).First(&p).Error
 	if err != nil {
-		if err == gormLib.ErrRecordNotFound {
+		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err

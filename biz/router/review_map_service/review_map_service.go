@@ -24,14 +24,14 @@ func Register(r *server.Hertz) {
 			{
 				_reviews := _v1.Group("/reviews", _reviewsMw()...)
 				{
-				_id := _reviews.Group("/:id", _idMw()...)
-				_id.GET("/maps", append(_getmapsMw(), review_map_service.GetMaps)...)
-				_maps := _id.Group("/maps", _mapsMw()...)
-				_maps.GET("/:mapId", append(_getmapMw(), review_map_service.GetMap)...)
-				_maps.POST("/preview", append(_previewmapMw(), review_map_service.PreviewMap)...)
-				_maps.PUT("/:mapId/files/:fileId/reviewed", append(_updatefilereviewedMw(), review_map_service.UpdateFileReviewed)...)
-				_maps.PUT("/:mapId/sections/:sectionId/progress", append(_updatesectionprogressMw(), review_map_service.UpdateSectionProgress)...)
-				_id.POST("/maps", append(_generatemapMw(), review_map_service.GenerateMap)...)
+					_id := _reviews.Group("/:id", _idMw()...)
+					_id.GET("/maps", append(_getmapsMw(), review_map_service.GetMaps)...)
+					_maps := _id.Group("/maps", _mapsMw()...)
+					_maps.GET("/:mapId", append(_getmapMw(), review_map_service.GetMap)...)
+					_maps.POST("/preview", append(_previewmapMw(), review_map_service.PreviewMap)...)
+					_maps.PUT("/:mapId/files/:fileId/reviewed", append(_updatefilereviewedMw(), review_map_service.UpdateFileReviewed)...)
+					_maps.PUT("/:mapId/sections/:sectionId/progress", append(_updatesectionprogressMw(), review_map_service.UpdateSectionProgress)...)
+					_id.POST("/maps", append(_generatemapMw(), review_map_service.GenerateMap)...)
 					{
 						_sessions := _id.Group("/sessions", _sessionsMw()...)
 						{

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
@@ -48,7 +49,7 @@ func (r *ProjectAgentRepo) Upsert(ctx context.Context, pa *models.ProjectAgent) 
 		Where("provider = ? AND repo = ? AND agent_id = ?", pa.Provider, pa.Repo, pa.AgentID).
 		First(&existing).Error
 
-	if err == gormLib.ErrRecordNotFound {
+	if errors.Is(err, gormLib.ErrRecordNotFound) {
 		// Create new
 		return r.db.WithContext(ctx).Create(pa).Error
 	}

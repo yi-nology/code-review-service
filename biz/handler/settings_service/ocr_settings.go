@@ -129,8 +129,8 @@ func dbOCRSettingsToAPI(s *models.OCRSettings) *modelSettings.OCRSettings {
 		MaxGitProcs: ptrx.Of(int64(s.MaxGitProcs)), TimeoutMinutes: ptrx.Of(int64(s.TimeoutMinutes)),
 		MaxTools: ptrx.Of(int64(s.MaxTools)), Background: common.StrPtr(s.Background),
 		Binary: common.StrPtr(s.Binary), Audience: common.StrPtr(s.Audience),
-		DefaultSeverity: common.StrPtr(s.DefaultSeverity),
-		ToolsPath:       common.StrPtr(s.ToolsPath),
+		DefaultSeverity:  common.StrPtr(s.DefaultSeverity),
+		ToolsPath:        common.StrPtr(s.ToolsPath),
 		TelemetryEnabled: ptrx.Of(s.TelemetryEnabled), TelemetryExporter: common.StrPtr(s.TelemetryExporter),
 		TelemetryOtlpEndpoint: common.StrPtr(s.TelemetryOTLPEndpoint), TelemetryContentLogging: ptrx.Of(s.TelemetryContentLogging),
 	}

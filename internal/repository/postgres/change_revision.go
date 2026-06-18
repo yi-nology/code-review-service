@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
@@ -34,7 +35,7 @@ func (r *ChangeRevisionRepo) GetByChange(ctx context.Context, provider, installa
 		Order("created_at DESC").
 		First(&cr).Error
 	if err != nil {
-		if err == gormLib.ErrRecordNotFound {
+		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err
@@ -51,7 +52,7 @@ func (r *ChangeRevisionRepo) GetCurrentHeadSHA(ctx context.Context, provider, in
 		Select("head_sha").
 		First(&cr).Error
 	if err != nil {
-		if err == gormLib.ErrRecordNotFound {
+		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return "", nil
 		}
 		return "", err

@@ -62,24 +62,24 @@ type GitPlatformConfig struct {
 }
 
 type AgentsConfig struct {
-	Enabled         bool              `yaml:"enabled"`
-	MaxConcurrency  int               `yaml:"max_concurrency"`
-	AgentTimeout    string            `yaml:"agent_timeout"`
-	TotalTimeout    string            `yaml:"total_timeout"`
-	DefaultTeam     []AgentTeamMember `yaml:"default_team"`
-	Discussion      DiscussionConfig  `yaml:"discussion"`
-	Requirements    RequirementsConfig `yaml:"requirements"`
-	ReviewMap       ReviewMapConfig   `yaml:"review_map"`
+	Enabled        bool               `yaml:"enabled"`
+	MaxConcurrency int                `yaml:"max_concurrency"`
+	AgentTimeout   string             `yaml:"agent_timeout"`
+	TotalTimeout   string             `yaml:"total_timeout"`
+	DefaultTeam    []AgentTeamMember  `yaml:"default_team"`
+	Discussion     DiscussionConfig   `yaml:"discussion"`
+	Requirements   RequirementsConfig `yaml:"requirements"`
+	ReviewMap      ReviewMapConfig    `yaml:"review_map"`
 }
 
 type AgentTeamMember struct {
-	Name      string   `yaml:"name"`
-	Count     int      `yaml:"count"`
-	Focus     []string `yaml:"focus"`
-	Enabled   bool     `yaml:"enabled"`
-	Priority  int      `yaml:"priority"`
-	AutoDetect bool    `yaml:"auto_detect,omitempty"`
-	Triggers  []string `yaml:"triggers,omitempty"`
+	Name       string   `yaml:"name"`
+	Count      int      `yaml:"count"`
+	Focus      []string `yaml:"focus"`
+	Enabled    bool     `yaml:"enabled"`
+	Priority   int      `yaml:"priority"`
+	AutoDetect bool     `yaml:"auto_detect,omitempty"`
+	Triggers   []string `yaml:"triggers,omitempty"`
 }
 
 type DiscussionConfig struct {

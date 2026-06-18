@@ -9,9 +9,9 @@ import (
 	"github.com/yi-nology/code-review-service/internal/modules"
 
 	"github.com/oekit/bootstrap"
-	"go.uber.org/fx"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"go.uber.org/fx"
 )
 
 func runApp(cfg *config.Config, app *bootstrap.App) error {

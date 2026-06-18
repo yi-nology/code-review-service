@@ -141,8 +141,8 @@ func (o *Orchestrator) analyzeDiscussion(findings []Finding, entries []discussio
 				}
 			}
 			disagreements = append(disagreements, disagreementItem{
-				FindingID: finding.ID,
-				Positions: positions,
+				FindingID:  finding.ID,
+				Positions:  positions,
 				Resolution: determineResolution(positions),
 			})
 

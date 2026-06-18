@@ -140,31 +140,3 @@ func inferCategoryFromReview(f reviewFinding) string {
 	}
 	return "code_quality"
 }
-
-// multiOCRAgent creates multiple OCR agents with different configurations
-type multiOCRAgent struct {
-	agents []*ocrAgent
-}
-
-func newMultiOCRAgent(runner reviewRunner, count int) *multiOCRAgent {
-	agents := make([]*ocrAgent, count)
-	for i := 0; i < count; i++ {
-		config := ocrAgentConfig{
-			Name:     fmt.Sprintf("ocr-%d", i+1),
-			Priority: 10 + i,
-			Focus:    []string{"code_quality", "best_practices", "potential_bugs"},
-			Timeout:  10 * time.Minute,
-		}
-		agents[i] = newOCRAgent(runner, config)
-	}
-	return &multiOCRAgent{agents: agents}
-}
-
-// GetAgents returns all OCR agents
-func (m *multiOCRAgent) GetAgents() []reviewAgent {
-	agents := make([]reviewAgent, len(m.agents))
-	for i, agent := range m.agents {
-		agents[i] = agent
-	}
-	return agents
-}

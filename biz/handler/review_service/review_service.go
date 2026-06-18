@@ -426,7 +426,7 @@ func convertDetail(r review.Record) modelReview.ReviewDetail {
 		History: convertEvents(r.Response.History), Findings: convertFindings(r.Response.Findings),
 		Report: convertReport(r.Response.Report), RawOcr: common.StrPtr(string(r.RawOCR)),
 
-		Error:       common.StrPtr(r.Response.Error), Author: common.StrPtr(r.Request.Author),
+		Error: common.StrPtr(r.Response.Error), Author: common.StrPtr(r.Request.Author),
 		AuthorName: common.StrPtr(r.Request.AuthorName), AuthorAvatar: common.StrPtr(r.Request.AuthorAvatar),
 		CreatedAt: common.StrPtr(common.FormatTime(r.CreatedAt)),
 		UpdatedAt: common.StrPtr(common.FormatTime(r.UpdatedAt)),
