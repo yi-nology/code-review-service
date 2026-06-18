@@ -10,7 +10,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
-var handlerInst *PublisherHandler
+var handlerInst *PublisherHandler //nolint:unused // initialized by InitHandler, used by route handlers
 
 type PublisherHandler struct {
 	writeback *writeback.Orchestrator

@@ -84,7 +84,7 @@ func (w *ConfigFileWriter) Sync(ctx context.Context) error {
 
 	cfg := w.buildConfig(s, customProviders)
 
-	if err := os.MkdirAll(filepath.Dir(w.filePath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(w.filePath), 0o750); err != nil {
 		return err
 	}
 
@@ -93,7 +93,7 @@ func (w *ConfigFileWriter) Sync(ctx context.Context) error {
 		return err
 	}
 
-	if err := os.WriteFile(w.filePath, data, 0o644); err != nil {
+	if err := os.WriteFile(w.filePath, data, 0o600); err != nil {
 		return err
 	}
 

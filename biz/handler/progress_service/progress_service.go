@@ -49,11 +49,11 @@ func HandleProgressWS(ctx context.Context, c *app.RequestContext) {
 		hlog.Errorf("failed to upgrade websocket connection: %v", err)
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	tracker := handlerInst.progressManager.GetTracker(req.ID)
 	if tracker == nil {
-		conn.WriteJSON(map[string]interface{}{
+		_ = conn.WriteJSON(map[string]interface{}{
 			"type":    "error",
 			"error":   "no active review found",
 			"message": "No active review found for this ID",

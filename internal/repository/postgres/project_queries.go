@@ -5,6 +5,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/oekit/pkg/mathx"
+	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
 
 func (r *ContributorStatsRepo) ListProjects(ctx context.Context, opts models.ProjectStatsOptions) (*models.ProjectListResult, error) {
@@ -68,7 +69,7 @@ func (r *ContributorStatsRepo) GetProject(ctx context.Context, opts models.Proje
 
 	var maxScore, minScore int
 	var medianScore, avgFindings, avgChangedLines float64
-	r.db.WithContext(ctx).Raw(`
+	if err := r.db.WithContext(ctx).Raw(`
 		SELECT
 			COALESCE(MAX(NULLIF(response->'report'->'score'->>'value','')::int), 0),
 			COALESCE(MIN(NULLIF(response->'report'->'score'->>'value','')::int), 0),
@@ -78,7 +79,9 @@ func (r *ContributorStatsRepo) GetProject(ctx context.Context, opts models.Proje
 		FROM reviews
 		WHERE provider = ? AND repo = ? AND `+baseReviewWhere+`
 			`+projectFilterClauseWithoutProject(opts)+`
-	`, append([]interface{}{opts.Provider, opts.Repo}, projectFilterArgsWithoutProject(opts)...)...).Row().Scan(&maxScore, &minScore, &medianScore, &avgFindings, &avgChangedLines)
+	`, append([]interface{}{opts.Provider, opts.Repo}, projectFilterArgsWithoutProject(opts)...)...).Row().Scan(&maxScore, &minScore, &medianScore, &avgFindings, &avgChangedLines); err != nil {
+		hlog.Warnf("failed to scan project stats: %v", err)
+	}
 
 	gradeDist := r.getGradeDistribution(ctx,
 		"provider = ? AND repo = ? AND "+baseReviewWhere+projectFilterClauseWithoutProject(opts),

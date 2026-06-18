@@ -142,8 +142,8 @@ func GetMap(ctx context.Context, c *app.RequestContext) {
 
 	var sections []interface{}
 	var dependencies []interface{}
-	json.Unmarshal(m.Sections, &sections)
-	json.Unmarshal(m.Dependencies, &dependencies)
+	_ = json.Unmarshal(m.Sections, &sections)
+	_ = json.Unmarshal(m.Dependencies, &dependencies)
 
 	c.JSON(http.StatusOK, map[string]interface{}{
 		"id":            m.MapID,
@@ -181,8 +181,8 @@ func GetSessionMap(ctx context.Context, c *app.RequestContext) {
 
 	var sections []interface{}
 	var dependencies []interface{}
-	json.Unmarshal(m.Sections, &sections)
-	json.Unmarshal(m.Dependencies, &dependencies)
+	_ = json.Unmarshal(m.Sections, &sections)
+	_ = json.Unmarshal(m.Dependencies, &dependencies)
 
 	c.JSON(http.StatusOK, map[string]interface{}{
 		"id":            m.MapID,

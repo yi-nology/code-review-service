@@ -25,14 +25,14 @@ func (m *ReviewMap) ToMermaid() string {
 		for filePath := range allFiles {
 			nodeID := sanitizeID(filePath)
 			parts := strings.Split(filePath, "/")
-			sb.WriteString(fmt.Sprintf("    %s[\"%s\"]\n", nodeID, parts[len(parts)-1]))
+			fmt.Fprintf(&sb, "    %s[\"%s\"]\n", nodeID, parts[len(parts)-1])
 		}
 		seen := make(map[string]bool)
 		for _, dep := range m.Dependencies {
 			fromID, toID := sanitizeID(dep.From), sanitizeID(dep.To)
 			edgeKey := fromID + "->" + toID
 			if fromID != toID && !seen[edgeKey] {
-				sb.WriteString(fmt.Sprintf("    %s --> %s\n", fromID, toID))
+				fmt.Fprintf(&sb, "    %s --> %s\n", fromID, toID)
 				seen[edgeKey] = true
 			}
 		}
@@ -44,7 +44,7 @@ func (m *ReviewMap) ToMermaid() string {
 			if len(parts) > 3 {
 				displayName = ".../" + strings.Join(parts[len(parts)-2:], "/")
 			}
-			sb.WriteString(fmt.Sprintf("    %s[\"%s\"]\n", nodeID, displayName))
+			fmt.Fprintf(&sb, "    %s[\"%s\"]\n", nodeID, displayName)
 		}
 		seen := make(map[string]bool)
 		for _, dep := range m.Dependencies {
@@ -55,7 +55,7 @@ func (m *ReviewMap) ToMermaid() string {
 			fromID, toID := sanitizeID(fromDir), sanitizeID(toDir)
 			edgeKey := fromID + "->" + toID
 			if !seen[edgeKey] {
-				sb.WriteString(fmt.Sprintf("    %s --> %s\n", fromID, toID))
+				fmt.Fprintf(&sb, "    %s --> %s\n", fromID, toID)
 				seen[edgeKey] = true
 			}
 		}

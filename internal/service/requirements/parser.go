@@ -29,7 +29,7 @@ func (p *Parser) ParseFromFile(filePath string) (*Requirements, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var lines []string
 	scanner := bufio.NewScanner(file)

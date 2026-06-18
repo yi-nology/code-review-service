@@ -101,7 +101,8 @@ func (o *Orchestrator) analyzeDiscussion(findings []Finding, entries []discussio
 		}
 
 		// Determine consensus or disagreement
-		if challengeCount == 0 && agreeCount > 0 {
+		switch {
+		case challengeCount == 0 && agreeCount > 0:
 			// Consensus
 			agents := make([]string, 0)
 			for _, entry := range findingEntries {
@@ -113,25 +114,26 @@ func (o *Orchestrator) analyzeDiscussion(findings []Finding, entries []discussio
 				FindingID:  finding.ID,
 				Agents:     agents,
 				Confidence: float64(agreeCount) / float64(len(findingEntries)),
-				Summary:    fmt.Sprintf("All agents agree on this finding"),
+				Summary:    "All agents agree on this finding",
 			})
 
 			// Update finding confidence
 			updatedFinding := finding
 			updatedFinding.Confidence = float64(agreeCount) / float64(len(findingEntries))
 			updatedFindings = append(updatedFindings, updatedFinding)
-		} else if challengeCount > 0 {
+		case challengeCount > 0:
 			// Disagreement
 			positions := make([]agentPosition, 0)
 			for _, entry := range findingEntries {
-				if entry.Response == responseChallenge {
+				switch entry.Response {
+				case responseChallenge:
 					positions = append(positions, agentPosition{
 						AgentName:  entry.AgentName,
 						Position:   "challenge",
 						Evidence:   entry.Content,
 						Confidence: entry.Confidence,
 					})
-				} else if entry.Response == responseAgree {
+				case responseAgree:
 					positions = append(positions, agentPosition{
 						AgentName:  entry.AgentName,
 						Position:   "agree",
@@ -150,7 +152,7 @@ func (o *Orchestrator) analyzeDiscussion(findings []Finding, entries []discussio
 			updatedFinding := finding
 			updatedFinding.Confidence = finding.Confidence * 0.7
 			updatedFindings = append(updatedFindings, updatedFinding)
-		} else {
+		default:
 			updatedFindings = append(updatedFindings, finding)
 		}
 	}
@@ -172,9 +174,10 @@ func determineResolution(positions []agentPosition) string {
 	agreeCount := 0
 	challengeCount := 0
 	for _, pos := range positions {
-		if pos.Position == "agree" {
+		switch pos.Position {
+		case "agree":
 			agreeCount++
-		} else if pos.Position == "challenge" {
+		case "challenge":
 			challengeCount++
 		}
 	}

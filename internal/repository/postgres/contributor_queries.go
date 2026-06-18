@@ -5,6 +5,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/oekit/pkg/mathx"
+	"github.com/cloudwego/hertz/pkg/common/hlog"
 
 	gormLib "gorm.io/gorm"
 )
@@ -65,7 +66,7 @@ func (r *ContributorStatsRepo) GetContributor(ctx context.Context, opts models.C
 
 	var maxScore, minScore int
 	var medianScore, avgFindings, avgChangedLines float64
-	r.db.WithContext(ctx).Raw(`
+	if err := r.db.WithContext(ctx).Raw(`
 		SELECT
 			COALESCE(MAX(NULLIF(response->'report'->'score'->>'value','')::int), 0),
 			COALESCE(MIN(NULLIF(response->'report'->'score'->>'value','')::int), 0),
@@ -73,7 +74,9 @@ func (r *ContributorStatsRepo) GetContributor(ctx context.Context, opts models.C
 			COALESCE(AVG(jsonb_array_length(response->'findings')), 0),
 			COALESCE(AVG(NULLIF(response->'report'->'score'->>'changed_lines','')::int), 0)
 		FROM reviews WHERE author = ? AND `+baseReviewWhere+`
-	`, opts.Author).Row().Scan(&maxScore, &minScore, &medianScore, &avgFindings, &avgChangedLines)
+	`, opts.Author).Row().Scan(&maxScore, &minScore, &medianScore, &avgFindings, &avgChangedLines); err != nil {
+		hlog.Warnf("failed to scan contributor stats: %v", err)
+	}
 
 	gradeDist := r.getGradeDistribution(ctx, "author = ?", opts.Author)
 

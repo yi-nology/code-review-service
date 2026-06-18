@@ -40,9 +40,10 @@ func (pt *ProgressTracker) UpdatePhase(phase Phase, status string, progress floa
 	event := progressEvent{
 		Type: eventPhaseProgress, Phase: phase, Status: status, Progress: progress, Message: message,
 	}
-	if status == "active" {
+	switch status {
+	case "active":
 		event.Type = eventPhaseStart
-	} else if status == "completed" {
+	case "completed":
 		event.Type = eventPhaseComplete
 	}
 	pt.broadcaster.BroadcastEvent(pt.GetRoomID(), event)

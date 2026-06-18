@@ -120,7 +120,7 @@ func dbReviewerAgentToAPI(a *models.ReviewerAgent) *modelSettings.ReviewerAgentI
 		tags = string(a.Tags)
 	}
 	return &modelSettings.ReviewerAgentInfo{
-		ID: int64(a.ID), Name: a.Name, DisplayName: a.DisplayName,
+		ID: safeInt64(a.ID), Name: a.Name, DisplayName: a.DisplayName,
 		Description: common.StrPtr(a.Description), Background: common.StrPtr(a.Background),
 		Enabled: a.Enabled, Priority: int64(a.Priority), Tags: common.StrPtr(tags),
 	}

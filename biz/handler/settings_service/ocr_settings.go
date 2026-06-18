@@ -102,7 +102,7 @@ func validateOCRSettings(s *models.OCRSettings) error {
 		return fmt.Errorf("模型并发数需在 0 到 32 之间")
 	}
 	if s.MaxGitProcs < 0 || s.MaxGitProcs > 64 {
-		return fmt.Errorf("Git 并发数需在 0 到 64 之间")
+		return fmt.Errorf("git 并发数需在 0 到 64 之间")
 	}
 	if s.TimeoutMinutes < 0 || s.TimeoutMinutes > 120 {
 		return fmt.Errorf("超时时间需在 0 到 120 分钟之间")

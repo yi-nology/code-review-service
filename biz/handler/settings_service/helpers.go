@@ -19,3 +19,18 @@ func mustMarshalJSON(v any) []byte {
 	b, _ := json.Marshal(v)
 	return b
 }
+
+func safeInt64(v uint) int64 {
+	const maxInt64 = ^uint(0) >> 1
+	if v > maxInt64 {
+		return int64(maxInt64)
+	}
+	return int64(v)
+}
+
+func safeUint(v int64) uint {
+	if v < 0 {
+		return 0
+	}
+	return uint(v)
+}

@@ -71,7 +71,7 @@ func (b *broadcaster) handleUnregister(reg *registration) {
 	if conns, ok := b.rooms[reg.room]; ok {
 		if _, ok := conns[reg.conn]; ok {
 			delete(conns, reg.conn)
-			reg.conn.Close()
+			_ = reg.conn.Close()
 			hlog.Infof("websocket client disconnected from room: %s (total: %d)", reg.room, len(conns))
 			if len(conns) == 0 {
 				delete(b.rooms, reg.room)
@@ -148,7 +148,7 @@ func (b *broadcaster) Close() {
 	defer b.mu.Unlock()
 	for room, conns := range b.rooms {
 		for conn := range conns {
-			conn.Close()
+			_ = conn.Close()
 		}
 		delete(b.rooms, room)
 	}

@@ -83,26 +83,17 @@ func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings, overrid
 		TelemetryOTLPEndpoint:   s.TelemetryOTLPEndpoint,
 		TelemetryContentLogging: s.TelemetryContentLogging,
 	}
-	if overrides.Concurrency > 0 {
-		cfg.Concurrency = overrides.Concurrency
-	} else if s.Concurrency > 0 {
-		cfg.Concurrency = s.Concurrency
-	} else {
-		cfg.Concurrency = r.fallback.config.Concurrency
-	}
-	if overrides.MaxGitProcs > 0 {
-		cfg.MaxGitProcs = overrides.MaxGitProcs
-	} else if s.MaxGitProcs > 0 {
-		cfg.MaxGitProcs = s.MaxGitProcs
-	} else {
-		cfg.MaxGitProcs = r.fallback.config.MaxGitProcs
-	}
-	if overrides.TimeoutMinutes > 0 {
-		cfg.TimeoutMinutes = overrides.TimeoutMinutes
-	} else if s.TimeoutMinutes > 0 {
-		cfg.TimeoutMinutes = s.TimeoutMinutes
-	} else {
-		cfg.TimeoutMinutes = r.fallback.config.TimeoutMinutes
-	}
+	cfg.Concurrency = firstPositiveOr(overrides.Concurrency, s.Concurrency, r.fallback.config.Concurrency)
+	cfg.MaxGitProcs = firstPositiveOr(overrides.MaxGitProcs, s.MaxGitProcs, r.fallback.config.MaxGitProcs)
+	cfg.TimeoutMinutes = firstPositiveOr(overrides.TimeoutMinutes, s.TimeoutMinutes, r.fallback.config.TimeoutMinutes)
 	return cfg
+}
+
+func firstPositiveOr(values ...int) int {
+	for _, v := range values {
+		if v > 0 {
+			return v
+		}
+	}
+	return 0
 }

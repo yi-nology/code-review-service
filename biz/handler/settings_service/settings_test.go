@@ -1,6 +1,7 @@
 package settings_service
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
@@ -289,7 +290,7 @@ func TestDBCustomProviderToAPI(t *testing.T) {
 		input := &models.CustomProvider{
 			Name:      "custom",
 			Protocol:  "openai",
-			APIKey:    "sk-secret-key-12345",
+			APIKey:    "sk-test-" + strings.Repeat("x", 20), //nolint:gosec // test data
 			ModelName: "gpt-4",
 			Enabled:   true,
 		}

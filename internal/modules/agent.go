@@ -36,13 +36,14 @@ func InitAgentManager(lc fx.Lifecycle, cfg *config.Config, repos *repository.Rep
 			agentLoader := agent.NewAgentLoader(agentMgr, runnerFactory, 10*time.Minute)
 
 			enabledAgents, err := repos.ReviewerAgent.ListEnabled(ctx)
-			if err != nil {
+			switch {
+			case err != nil:
 				hlog.Warnf("failed to load agents from database: %v", err)
-			} else if len(enabledAgents) > 0 {
+			case len(enabledAgents) > 0:
 				if err := agentLoader.LoadFromDB(ctx, enabledAgents); err != nil {
 					hlog.Warnf("failed to load agents: %v", err)
 				}
-			} else {
+			default:
 				ocrSettings, err := repos.OCRSettings.Get(ctx)
 				if err == nil && ocrSettings != nil && ocrSettings.Background != "" {
 					agentLoader.LoadDefaultAgent(ocrSettings.Background)

@@ -40,7 +40,8 @@ func (v *Versioner) OCRVersion(ctx context.Context) (*review.OCRVersion, error) 
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "open-code-review ") {
+		switch {
+		case strings.HasPrefix(line, "open-code-review "):
 			versionStr := strings.TrimPrefix(line, "open-code-review ")
 			parts := strings.SplitN(versionStr, " ", 2)
 			if len(parts) >= 1 {
@@ -55,9 +56,9 @@ func (v *Versioner) OCRVersion(ctx context.Context) (*review.OCRVersion, error) 
 					}
 				}
 			}
-		} else if strings.Contains(line, "darwin") || strings.Contains(line, "linux") || strings.Contains(line, "windows") {
+		case strings.Contains(line, "darwin") || strings.Contains(line, "linux") || strings.Contains(line, "windows"):
 			result.Platform = line
-		} else if strings.Contains(line, "built at:") {
+		case strings.Contains(line, "built at:"):
 			result.BuildTime = strings.TrimSpace(strings.TrimPrefix(line, "built at:"))
 		}
 	}
