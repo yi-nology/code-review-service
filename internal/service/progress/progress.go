@@ -16,7 +16,7 @@ type ReviewProgress struct {
 	Error       string                `json:"error,omitempty"`
 }
 
-func NewReviewProgress(reviewID, sessionID string, round int) *ReviewProgress {
+func newReviewProgress(reviewID, sessionID string, round int) *ReviewProgress {
 	return &ReviewProgress{
 		ReviewID:  reviewID,
 		SessionID: sessionID,

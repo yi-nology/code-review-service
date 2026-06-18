@@ -6,10 +6,10 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 )
 
-type SettingsSource interface {
+type settingsSource interface {
 	Get(ctx context.Context) (*models.OCRSettings, error)
 }
 
-type GlobalRulesSource interface {
+type globalRulesSource interface {
 	Get(ctx context.Context) (*models.GlobalRules, error)
 }

@@ -9,21 +9,21 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review"
 )
 
-type OCRSettingsSource interface {
+type ocrSettingsSource interface {
 	Get(ctx context.Context) (*models.OCRSettings, error)
 }
 
-type GlobalRulesSource interface {
+type globalRulesSource interface {
 	Get(ctx context.Context) (*models.GlobalRules, error)
 }
 
 type DynamicOpenCodeReviewRunner struct {
 	fallback    *OpenCodeReviewRunner
-	settings    OCRSettingsSource
-	globalRules GlobalRulesSource
+	settings    ocrSettingsSource
+	globalRules globalRulesSource
 }
 
-func NewDynamicOpenCodeReviewRunner(fallback *OpenCodeReviewRunner, settings OCRSettingsSource, globalRules GlobalRulesSource) *DynamicOpenCodeReviewRunner {
+func NewDynamicOpenCodeReviewRunner(fallback *OpenCodeReviewRunner, settings ocrSettingsSource, globalRules globalRulesSource) *DynamicOpenCodeReviewRunner {
 	return &DynamicOpenCodeReviewRunner{fallback: fallback, settings: settings, globalRules: globalRules}
 }
 

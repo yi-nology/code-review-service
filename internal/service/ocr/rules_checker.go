@@ -10,12 +10,12 @@ import (
 )
 
 type RulesChecker struct {
-	settings    SettingsSource
-	globalRules GlobalRulesSource
+	settings    settingsSource
+	globalRules globalRulesSource
 	resolver    *ConfigResolver
 }
 
-func NewRulesChecker(settings SettingsSource, globalRules GlobalRulesSource, resolver *ConfigResolver) *RulesChecker {
+func NewRulesChecker(settings settingsSource, globalRules globalRulesSource, resolver *ConfigResolver) *RulesChecker {
 	return &RulesChecker{settings: settings, globalRules: globalRules, resolver: resolver}
 }
 
@@ -60,7 +60,7 @@ func (rc *RulesChecker) RulesCheck(ctx context.Context, path string) (*review.Ru
 
 var _ review.RulesChecker = (*RulesChecker)(nil)
 
-func resolveGlobalRuleFile(ctx context.Context, globalRules GlobalRulesSource) (string, func(), error) {
+func resolveGlobalRuleFile(ctx context.Context, globalRules globalRulesSource) (string, func(), error) {
 	if globalRules == nil {
 		return "", nil, nil
 	}

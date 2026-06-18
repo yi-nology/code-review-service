@@ -28,7 +28,7 @@ func ProgressReporterFromContext(ctx context.Context) ProgressReporter {
 }
 
 type ProgressManager struct {
-	broadcaster *Broadcaster
+	broadcaster *broadcaster
 	trackers    map[string]*ProgressTracker
 	mu          sync.RWMutex
 }
@@ -37,12 +37,12 @@ const completedTrackerRetention = 10 * time.Minute
 
 func NewProgressManager() *ProgressManager {
 	return &ProgressManager{
-		broadcaster: NewBroadcaster(),
+		broadcaster: newBroadcaster(),
 		trackers:    make(map[string]*ProgressTracker),
 	}
 }
 
-func (pm *ProgressManager) GetBroadcaster() *Broadcaster {
+func (pm *ProgressManager) GetBroadcaster() *broadcaster {
 	return pm.broadcaster
 }
 
@@ -60,7 +60,7 @@ func (pm *ProgressManager) CreateTracker(reviewID, sessionID string, round int) 
 		existing.Complete()
 	}
 
-	tracker := NewProgressTracker(pm.broadcaster, reviewID, sessionID, round)
+	tracker := newProgressTracker(pm.broadcaster, reviewID, sessionID, round)
 	pm.trackers[reviewID] = tracker
 	hlog.Infof("created progress tracker for review: %s", reviewID)
 	return tracker

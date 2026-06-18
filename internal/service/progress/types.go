@@ -2,15 +2,15 @@ package progress
 
 import "time"
 
-type EventType string
+type eventType string
 
 const (
-	EventPhaseStart    EventType = "phase_start"
-	EventPhaseProgress EventType = "phase_progress"
-	EventPhaseComplete EventType = "phase_complete"
-	EventAgentStatus   EventType = "agent_status"
-	EventError         EventType = "error"
-	EventComplete      EventType = "complete"
+	eventPhaseStart    eventType = "phase_start"
+	eventPhaseProgress eventType = "phase_progress"
+	eventPhaseComplete eventType = "phase_complete"
+	eventAgentStatus   eventType = "agent_status"
+	eventError         eventType = "error"
+	eventComplete      eventType = "complete"
 )
 
 type Phase string
@@ -26,8 +26,8 @@ const (
 	PhaseComplete      Phase = "complete"
 )
 
-type ProgressEvent struct {
-	Type        EventType              `json:"type"`
+type progressEvent struct {
+	Type        eventType              `json:"type"`
 	Phase       Phase                  `json:"phase"`
 	Status      string                 `json:"status"`
 	Progress    float64                `json:"progress"`

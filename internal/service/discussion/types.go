@@ -6,31 +6,28 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/types"
 )
 
-// ResponseType represents the type of discussion response
-type ResponseType string
+type responseType string
 
 const (
-	ResponseAgree     ResponseType = "AGREE"
-	ResponseChallenge ResponseType = "CHALLENGE"
-	ResponseConnect   ResponseType = "CONNECT"
+	responseAgree     responseType = "AGREE"
+	responseChallenge responseType = "CHALLENGE"
+	responseConnect   responseType = "CONNECT"
 )
 
-// Discussion represents a discussion round
-type Discussion struct {
-	ID        string           `json:"id"`
-	SessionID string           `json:"session_id"`
-	Round     int              `json:"round"`
-	Entries   []DiscussionEntry `json:"entries"`
-	Summary   string           `json:"summary"`
-	CreatedAt time.Time        `json:"created_at"`
+type discussion struct {
+	ID        string            `json:"id"`
+	SessionID string            `json:"session_id"`
+	Round     int               `json:"round"`
+	Entries   []discussionEntry `json:"entries"`
+	Summary   string            `json:"summary"`
+	CreatedAt time.Time         `json:"created_at"`
 }
 
-// DiscussionEntry represents a single discussion entry
-type DiscussionEntry struct {
+type discussionEntry struct {
 	ID         string       `json:"id"`
 	AgentName  string       `json:"agent_name"`
 	FindingID  string       `json:"finding_id"`
-	Response   ResponseType `json:"response"`
+	Response   responseType `json:"response"`
 	Content    string       `json:"content"`
 	Evidence   string       `json:"evidence"`
 	Confidence float64      `json:"confidence"`
@@ -38,83 +35,68 @@ type DiscussionEntry struct {
 	CreatedAt  time.Time    `json:"created_at"`
 }
 
-// DiscussionResult represents the aggregated discussion result
 type DiscussionResult struct {
-	Consensus       []ConsensusItem    `json:"consensus"`
-	Disagreements   []DisagreementItem `json:"disagreements"`
+	Consensus       []consensusItem    `json:"consensus"`
+	Disagreements   []disagreementItem `json:"disagreements"`
 	NewFindings     []Finding          `json:"new_findings"`
 	UpdatedFindings []Finding          `json:"updated_findings"`
 	Summary         string             `json:"summary"`
 }
 
-// ConsensusItem represents a consensus finding
-type ConsensusItem struct {
+type consensusItem struct {
 	FindingID  string   `json:"finding_id"`
 	Agents     []string `json:"agents"`
 	Confidence float64  `json:"confidence"`
 	Summary    string   `json:"summary"`
 }
 
-// DisagreementItem represents a disagreement
-type DisagreementItem struct {
+type disagreementItem struct {
 	FindingID  string          `json:"finding_id"`
-	Positions  []AgentPosition `json:"positions"`
+	Positions  []agentPosition `json:"positions"`
 	Resolution string          `json:"resolution"`
 }
 
-// AgentPosition represents an agent's position
-type AgentPosition struct {
+type agentPosition struct {
 	AgentName  string  `json:"agent_name"`
 	Position   string  `json:"position"`
 	Evidence   string  `json:"evidence"`
 	Confidence float64 `json:"confidence"`
 }
 
-// Finding is an alias for the canonical types.Finding
 type Finding = types.Finding
 
-// DiscussionPrompt represents a prompt for discussion
-type DiscussionPrompt struct {
-	AgentName   string   `json:"agent_name"`
-	FindingID   string   `json:"finding_id"`
-	Finding     Finding  `json:"finding"`
-	OtherFindings []Finding `json:"other_findings"`
-	Requirements  []string `json:"requirements,omitempty"`
-	ResponseType  ResponseType `json:"response_type"`
+type discussionPrompt struct {
+	AgentName     string       `json:"agent_name"`
+	FindingID     string       `json:"finding_id"`
+	Finding       Finding      `json:"finding"`
+	OtherFindings []Finding    `json:"other_findings"`
+	Requirements  []string     `json:"requirements,omitempty"`
+	ResponseType  responseType `json:"response_type"`
 }
 
-// GenerateDiscussionPrompts generates prompts for discussion
-func GenerateDiscussionPrompts(findings []Finding, agents []string, requirements []string) []DiscussionPrompt {
-	var prompts []DiscussionPrompt
-
-	// For each finding, ask other agents to respond
+func generateDiscussionPrompts(findings []Finding, agents []string, requirements []string) []discussionPrompt {
+	var prompts []discussionPrompt
 	for _, finding := range findings {
 		for _, agent := range agents {
-			// Skip if agent already found this
 			if containsAgent(finding.Agents, agent) {
 				continue
 			}
-
-			// Generate prompts for each response type
-			responseTypes := []ResponseType{ResponseAgree, ResponseChallenge, ResponseConnect}
+			responseTypes := []responseType{responseAgree, responseChallenge, responseConnect}
 			for _, responseType := range responseTypes {
-				prompt := DiscussionPrompt{
+				prompts = append(prompts, discussionPrompt{
 					AgentName:     agent,
 					FindingID:     finding.ID,
 					Finding:       finding,
 					OtherFindings: filterFindings(findings, finding.ID),
 					Requirements:  requirements,
 					ResponseType:  responseType,
-				}
-				prompts = append(prompts, prompt)
+				})
 			}
 		}
 	}
-
 	return prompts
 }
 
-// containsAgent checks if an agent is in the list
 func containsAgent(agents []string, agent string) bool {
 	for _, a := range agents {
 		if a == agent {
@@ -124,7 +106,6 @@ func containsAgent(agents []string, agent string) bool {
 	return false
 }
 
-// filterFindings filters out a finding by ID
 func filterFindings(findings []Finding, excludeID string) []Finding {
 	var filtered []Finding
 	for _, finding := range findings {
@@ -135,15 +116,13 @@ func filterFindings(findings []Finding, excludeID string) []Finding {
 	return filtered
 }
 
-// DiscussionConfig contains discussion configuration
 type DiscussionConfig struct {
-	Enabled     bool `yaml:"enabled"`
-	MaxRounds   int  `yaml:"max_rounds"`
-	MaxPrompts  int  `yaml:"max_prompts"`
-	MinAgents   int  `yaml:"min_agents"`
+	Enabled    bool `yaml:"enabled"`
+	MaxRounds  int  `yaml:"max_rounds"`
+	MaxPrompts int  `yaml:"max_prompts"`
+	MinAgents  int  `yaml:"min_agents"`
 }
 
-// DefaultDiscussionConfig returns default discussion configuration
 func DefaultDiscussionConfig() DiscussionConfig {
 	return DiscussionConfig{
 		Enabled:    true,

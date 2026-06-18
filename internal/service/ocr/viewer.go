@@ -19,11 +19,11 @@ type ViewerManager struct {
 	mu       sync.Mutex
 	done     chan struct{}
 	binary   string
-	settings SettingsSource
+	settings settingsSource
 	resolver *ConfigResolver
 }
 
-func NewViewerManager(settings SettingsSource, resolver *ConfigResolver) *ViewerManager {
+func NewViewerManager(settings settingsSource, resolver *ConfigResolver) *ViewerManager {
 	return &ViewerManager{settings: settings, resolver: resolver}
 }
 

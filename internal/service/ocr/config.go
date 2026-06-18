@@ -11,11 +11,11 @@ import (
 )
 
 type ConfigResolver struct {
-	settings SettingsSource
+	settings settingsSource
 	fallback runner.OpenCodeReviewConfig
 }
 
-func NewConfigResolver(settings SettingsSource, fallback runner.OpenCodeReviewConfig) *ConfigResolver {
+func NewConfigResolver(settings settingsSource, fallback runner.OpenCodeReviewConfig) *ConfigResolver {
 	return &ConfigResolver{settings: settings, fallback: fallback}
 }
 

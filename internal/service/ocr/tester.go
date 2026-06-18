@@ -10,11 +10,11 @@ import (
 )
 
 type Tester struct {
-	settings SettingsSource
+	settings settingsSource
 	resolver *ConfigResolver
 }
 
-func NewTester(settings SettingsSource, resolver *ConfigResolver) *Tester {
+func NewTester(settings settingsSource, resolver *ConfigResolver) *Tester {
 	return &Tester{settings: settings, resolver: resolver}
 }
 

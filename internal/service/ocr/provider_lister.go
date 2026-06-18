@@ -9,11 +9,11 @@ import (
 )
 
 type ProviderLister struct {
-	settings SettingsSource
+	settings settingsSource
 	resolver *ConfigResolver
 }
 
-func NewProviderLister(settings SettingsSource, resolver *ConfigResolver) *ProviderLister {
+func NewProviderLister(settings settingsSource, resolver *ConfigResolver) *ProviderLister {
 	return &ProviderLister{settings: settings, resolver: resolver}
 }
 

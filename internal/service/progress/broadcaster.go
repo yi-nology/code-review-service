@@ -9,7 +9,7 @@ import (
 	"github.com/hertz-contrib/websocket"
 )
 
-type Broadcaster struct {
+type broadcaster struct {
 	rooms      map[string]map[*websocket.Conn]bool
 	mu         sync.RWMutex
 	register   chan *registration
@@ -28,8 +28,8 @@ type broadcastMessage struct {
 	message []byte
 }
 
-func NewBroadcaster() *Broadcaster {
-	b := &Broadcaster{
+func newBroadcaster() *broadcaster {
+	b := &broadcaster{
 		rooms:      make(map[string]map[*websocket.Conn]bool),
 		register:   make(chan *registration),
 		unregister: make(chan *registration),
@@ -40,7 +40,7 @@ func NewBroadcaster() *Broadcaster {
 	return b
 }
 
-func (b *Broadcaster) run() {
+func (b *broadcaster) run() {
 	for {
 		select {
 		case reg := <-b.register:
@@ -55,7 +55,7 @@ func (b *Broadcaster) run() {
 	}
 }
 
-func (b *Broadcaster) handleRegister(reg *registration) {
+func (b *broadcaster) handleRegister(reg *registration) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if _, ok := b.rooms[reg.room]; !ok {
@@ -65,7 +65,7 @@ func (b *Broadcaster) handleRegister(reg *registration) {
 	hlog.Infof("websocket client connected to room: %s (total: %d)", reg.room, len(b.rooms[reg.room]))
 }
 
-func (b *Broadcaster) handleUnregister(reg *registration) {
+func (b *broadcaster) handleUnregister(reg *registration) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if conns, ok := b.rooms[reg.room]; ok {
@@ -80,7 +80,7 @@ func (b *Broadcaster) handleUnregister(reg *registration) {
 	}
 }
 
-func (b *Broadcaster) handleBroadcast(msg *broadcastMessage) {
+func (b *broadcaster) handleBroadcast(msg *broadcastMessage) {
 	b.mu.RLock()
 	conns, ok := b.rooms[msg.room]
 	if !ok {
@@ -101,19 +101,19 @@ func (b *Broadcaster) handleBroadcast(msg *broadcastMessage) {
 	}
 }
 
-func (b *Broadcaster) Register(room string, conn *websocket.Conn) {
+func (b *broadcaster) Register(room string, conn *websocket.Conn) {
 	b.register <- &registration{room: room, conn: conn}
 }
 
-func (b *Broadcaster) Unregister(room string, conn *websocket.Conn) {
+func (b *broadcaster) Unregister(room string, conn *websocket.Conn) {
 	b.unregister <- &registration{room: room, conn: conn}
 }
 
-func (b *Broadcaster) Broadcast(room string, message []byte) {
+func (b *broadcaster) Broadcast(room string, message []byte) {
 	b.broadcast <- &broadcastMessage{room: room, message: message}
 }
 
-func (b *Broadcaster) BroadcastEvent(room string, event ProgressEvent) {
+func (b *broadcaster) BroadcastEvent(room string, event progressEvent) {
 	event.Timestamp = time.Now()
 	data, err := json.Marshal(event)
 	if err != nil {
@@ -123,7 +123,7 @@ func (b *Broadcaster) BroadcastEvent(room string, event ProgressEvent) {
 	b.Broadcast(room, data)
 }
 
-func (b *Broadcaster) GetRoomCount(room string) int {
+func (b *broadcaster) GetRoomCount(room string) int {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	if conns, ok := b.rooms[room]; ok {
@@ -132,7 +132,7 @@ func (b *Broadcaster) GetRoomCount(room string) int {
 	return 0
 }
 
-func (b *Broadcaster) GetTotalConnections() int {
+func (b *broadcaster) GetTotalConnections() int {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	total := 0
@@ -142,7 +142,7 @@ func (b *Broadcaster) GetTotalConnections() int {
 	return total
 }
 
-func (b *Broadcaster) Close() {
+func (b *broadcaster) Close() {
 	close(b.stop)
 	b.mu.Lock()
 	defer b.mu.Unlock()

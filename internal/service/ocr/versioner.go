@@ -9,11 +9,11 @@ import (
 )
 
 type Versioner struct {
-	settings SettingsSource
+	settings settingsSource
 	resolver *ConfigResolver
 }
 
-func NewVersioner(settings SettingsSource, resolver *ConfigResolver) *Versioner {
+func NewVersioner(settings settingsSource, resolver *ConfigResolver) *Versioner {
 	return &Versioner{settings: settings, resolver: resolver}
 }
 
