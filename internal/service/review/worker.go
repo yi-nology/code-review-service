@@ -93,7 +93,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 			continue
 		}
 
-		provider, ok := s.providers.Get(req.Provider)
+		provider, ok := s.Providers.Get(req.Provider)
 		if !ok {
 			err := fmt.Errorf("%w: %q", ErrUnsupportedProvider, req.Provider)
 			s.recordFailure(context.Background(), review.ReviewID, req, err)
@@ -112,7 +112,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 				defer s.progressManager.RemoveTracker(review.ReviewID)
 			}
 
-			if _, err := s.executor.Execute(ctx, review.ReviewID, req, provider, progressReporter); err != nil && ctx.Err() == nil {
+			if _, err := s.Executor.Execute(ctx, review.ReviewID, req, provider, progressReporter); err != nil && ctx.Err() == nil {
 				hlog.Error("async review failed", "worker_id", workerID, "review_id", review.ReviewID, "error", err)
 				// Report error to progress tracker
 				if progressReporter != nil {
