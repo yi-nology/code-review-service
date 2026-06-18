@@ -13,7 +13,7 @@ import (
 
 // AgentManager manages multiple review agents
 type AgentManager struct {
-	agents     []ReviewAgent
+	agents     []reviewAgent
 	aggregator ResultAggregator
 	config     ManagerConfig
 	mu         sync.RWMutex
@@ -44,7 +44,7 @@ func NewAgentManager(config ManagerConfig, aggregator ResultAggregator) *AgentMa
 }
 
 // RegisterAgent registers a review agent
-func (m *AgentManager) RegisterAgent(agent ReviewAgent) {
+func (m *AgentManager) RegisterAgent(agent reviewAgent) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.agents = append(m.agents, agent)
@@ -52,23 +52,23 @@ func (m *AgentManager) RegisterAgent(agent ReviewAgent) {
 }
 
 // RegisterAgents registers multiple review agents
-func (m *AgentManager) RegisterAgents(agents []ReviewAgent) {
+func (m *AgentManager) RegisterAgents(agents []reviewAgent) {
 	for _, agent := range agents {
 		m.RegisterAgent(agent)
 	}
 }
 
 // GetAgents returns all registered agents
-func (m *AgentManager) GetAgents() []ReviewAgent {
+func (m *AgentManager) GetAgents() []reviewAgent {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	agents := make([]ReviewAgent, len(m.agents))
+	agents := make([]reviewAgent, len(m.agents))
 	copy(agents, m.agents)
 	return agents
 }
 
 // GetAgent returns an agent by name
-func (m *AgentManager) GetAgent(name string) (ReviewAgent, error) {
+func (m *AgentManager) GetAgent(name string) (reviewAgent, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	for _, agent := range m.agents {
@@ -80,9 +80,9 @@ func (m *AgentManager) GetAgent(name string) (ReviewAgent, error) {
 }
 
 // getFilteredAgents returns agents matching the filter
-func (m *AgentManager) getFilteredAgents(filter func(ReviewAgent) bool) []ReviewAgent {
+func (m *AgentManager) getFilteredAgents(filter func(reviewAgent) bool) []reviewAgent {
 	m.mu.RLock()
-	agents := make([]ReviewAgent, len(m.agents))
+	agents := make([]reviewAgent, len(m.agents))
 	copy(agents, m.agents)
 	m.mu.RUnlock()
 
@@ -98,7 +98,7 @@ func (m *AgentManager) RunAgents(ctx context.Context, workspace Workspace) (Aggr
 }
 
 // RunAgentsWithFilter runs agents matching the filter in parallel
-func (m *AgentManager) RunAgentsWithFilter(ctx context.Context, workspace Workspace, filter func(ReviewAgent) bool) (AggregatedResult, error) {
+func (m *AgentManager) RunAgentsWithFilter(ctx context.Context, workspace Workspace, filter func(reviewAgent) bool) (AggregatedResult, error) {
 	agents := m.getFilteredAgents(filter)
 	if len(agents) == 0 {
 		return AggregatedResult{}, fmt.Errorf("no agents available for review")
@@ -289,7 +289,7 @@ func (m *AgentManager) RunAgentsWithCallback(ctx context.Context, workspace Work
 }
 
 // runSingleAgent runs a single agent with timeout
-func (m *AgentManager) runSingleAgent(ctx context.Context, agent ReviewAgent, workspace Workspace) (AgentResult, error) {
+func (m *AgentManager) runSingleAgent(ctx context.Context, agent reviewAgent, workspace Workspace) (AgentResult, error) {
 	agentTimeout := m.config.AgentTimeout
 	if agentTimeout <= 0 {
 		agentTimeout = 5 * time.Minute

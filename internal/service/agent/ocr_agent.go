@@ -9,27 +9,27 @@ import (
 	"github.com/google/uuid"
 )
 
-// ReviewRunner defines the interface for running reviews
-type ReviewRunner interface {
-	Run(ctx context.Context, workspace ReviewWorkspace) (ReviewResult, error)
+// reviewRunner defines the interface for running reviews
+type reviewRunner interface {
+	Run(ctx context.Context, workspace reviewWorkspace) (reviewResult, error)
 }
 
-// ReviewWorkspace represents a review workspace
-type ReviewWorkspace struct {
+// reviewWorkspace represents a review workspace
+type reviewWorkspace struct {
 	Dir     string
 	BaseSHA string
 	HeadSHA string
 	Diff    string
 }
 
-// ReviewResult represents a review result
-type ReviewResult struct {
+// reviewResult represents a review result
+type reviewResult struct {
 	Summary  string
-	Findings []ReviewFinding
+	Findings []reviewFinding
 }
 
-// ReviewFinding represents a review finding
-type ReviewFinding struct {
+// reviewFinding represents a review finding
+type reviewFinding struct {
 	Severity       string
 	Path           string
 	Line           int
@@ -41,72 +41,59 @@ type ReviewFinding struct {
 	SuggestionCode string
 }
 
-// OCRAgent wraps the existing OpenCodeReviewRunner as a ReviewAgent
-type OCRAgent struct {
-	runner ReviewRunner
-	config OCRAgentConfig
+// ocrAgent wraps the existing OpenCodeReviewRunner as a reviewAgent
+type ocrAgent struct {
+	runner reviewRunner
+	config ocrAgentConfig
 }
 
-// OCRAgentConfig contains OCR agent configuration
-type OCRAgentConfig struct {
+// ocrAgentConfig contains OCR agent configuration
+type ocrAgentConfig struct {
 	Name     string
 	Priority int
 	Focus    []string
 	Timeout  time.Duration
 }
 
-// DefaultOCRAgentConfig returns default OCR agent configuration
-func DefaultOCRAgentConfig() OCRAgentConfig {
-	return OCRAgentConfig{
-		Name:     "ocr",
-		Priority: 10,
-		Focus:    []string{"code_quality", "best_practices", "potential_bugs"},
-		Timeout:  10 * time.Minute,
-	}
-}
-
-// NewOCRAgent creates a new OCR agent
-func NewOCRAgent(runner ReviewRunner, config OCRAgentConfig) *OCRAgent {
-	return &OCRAgent{
+// newOCRAgent creates a new OCR agent
+func newOCRAgent(runner reviewRunner, config ocrAgentConfig) *ocrAgent {
+	return &ocrAgent{
 		runner: runner,
 		config: config,
 	}
 }
 
 // Name returns the agent name
-func (a *OCRAgent) Name() string {
+func (a *ocrAgent) Name() string {
 	return a.config.Name
 }
 
 // Focus returns the agent's focus areas
-func (a *OCRAgent) Focus() []string {
+func (a *ocrAgent) Focus() []string {
 	return a.config.Focus
 }
 
 // Priority returns the agent priority
-func (a *OCRAgent) Priority() int {
+func (a *ocrAgent) Priority() int {
 	return a.config.Priority
 }
 
 // Review performs the code review using OCR
-func (a *OCRAgent) Review(ctx context.Context, workspace Workspace) (AgentResult, error) {
-	// Convert agent workspace to review workspace
-	reviewWorkspace := ReviewWorkspace{
+func (a *ocrAgent) Review(ctx context.Context, workspace Workspace) (AgentResult, error) {
+	reviewWs := reviewWorkspace{
 		Dir:     workspace.Dir,
 		BaseSHA: workspace.BaseSHA,
 		HeadSHA: workspace.HeadSHA,
 		Diff:    workspace.Diff,
 	}
 
-	// Run OCR
 	startTime := time.Now()
-	result, err := a.runner.Run(ctx, reviewWorkspace)
+	result, err := a.runner.Run(ctx, reviewWs)
 	if err != nil {
 		return AgentResult{}, fmt.Errorf("OCR review failed: %w", err)
 	}
 	duration := time.Since(startTime)
 
-	// Convert review findings to agent findings
 	findings := make([]Finding, len(result.Findings))
 	for i, f := range result.Findings {
 		findings[i] = Finding{
@@ -119,7 +106,7 @@ func (a *OCRAgent) Review(ctx context.Context, workspace Workspace) (AgentResult
 			Title:      f.Title,
 			Body:       f.Body,
 			Suggestion: f.SuggestionCode,
-			Confidence: 0.8, // Default confidence for OCR
+			Confidence: 0.8,
 			Agents:     []string{a.config.Name},
 		}
 	}
@@ -133,61 +120,49 @@ func (a *OCRAgent) Review(ctx context.Context, workspace Workspace) (AgentResult
 	}, nil
 }
 
-// inferCategoryFromReview infers the category of a finding
-func inferCategoryFromReview(f ReviewFinding) string {
-	// Simple category inference based on content
+func inferCategoryFromReview(f reviewFinding) string {
 	title := f.Title
 	body := f.Body
-
-	// Security related
 	if types.ContainsAny(title, body, "security", "vulnerability", "injection", "xss", "csrf", "auth") {
 		return "security"
 	}
-
-	// Performance related
 	if types.ContainsAny(title, body, "performance", "slow", "memory", "leak", "optimize") {
 		return "performance"
 	}
-
-	// Bug related
 	if types.ContainsAny(title, body, "bug", "error", "crash", "null", "nil", "undefined") {
 		return "bug"
 	}
-
-	// Style related
 	if types.ContainsAny(title, body, "style", "format", "lint", "convention") {
 		return "style"
 	}
-
-	// Documentation related
 	if types.ContainsAny(title, body, "doc", "comment", "readme", "documentation") {
 		return "documentation"
 	}
-
-	// Default category
 	return "code_quality"
 }
 
-// MultiOCRAgent creates multiple OCR agents with different configurations
-type MultiOCRAgent struct {
-	agents []*OCRAgent
+// multiOCRAgent creates multiple OCR agents with different configurations
+type multiOCRAgent struct {
+	agents []*ocrAgent
 }
 
-// NewMultiOCRAgent creates multiple OCR agents
-func NewMultiOCRAgent(runner ReviewRunner, count int) *MultiOCRAgent {
-	agents := make([]*OCRAgent, count)
+func newMultiOCRAgent(runner reviewRunner, count int) *multiOCRAgent {
+	agents := make([]*ocrAgent, count)
 	for i := 0; i < count; i++ {
-		config := DefaultOCRAgentConfig()
-		config.Name = fmt.Sprintf("ocr-%d", i+1)
-		config.Priority = 10 + i
-		agents[i] = NewOCRAgent(runner, config)
+		config := ocrAgentConfig{
+			Name:     fmt.Sprintf("ocr-%d", i+1),
+			Priority: 10 + i,
+			Focus:    []string{"code_quality", "best_practices", "potential_bugs"},
+			Timeout:  10 * time.Minute,
+		}
+		agents[i] = newOCRAgent(runner, config)
 	}
-	return &MultiOCRAgent{agents: agents}
+	return &multiOCRAgent{agents: agents}
 }
 
 // GetAgents returns all OCR agents
-func (m *MultiOCRAgent) GetAgents() []ReviewAgent {
-	agents := make([]ReviewAgent, len(m.agents))
+func (m *multiOCRAgent) GetAgents() []reviewAgent {
+	agents := make([]reviewAgent, len(m.agents))
 	for i, agent := range m.agents {
 		agents[i] = agent
 	}

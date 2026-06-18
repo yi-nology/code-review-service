@@ -7,18 +7,11 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/types"
 )
 
-// ReviewAgent defines the interface for review agents
-type ReviewAgent interface {
-	// Name returns the agent name
+// reviewAgent defines the interface for review agents (internal only)
+type reviewAgent interface {
 	Name() string
-
-	// Focus returns the agent's focus areas
 	Focus() []string
-
-	// Review performs the code review
 	Review(ctx context.Context, workspace Workspace) (AgentResult, error)
-
-	// Priority returns the agent priority (lower = higher priority)
 	Priority() int
 }
 
@@ -40,14 +33,14 @@ type AgentResult struct {
 	Confidence float64       `json:"confidence"`
 	Duration   time.Duration `json:"duration"`
 	TokensUsed int64         `json:"tokens_used"`
-	Warnings   []Warning     `json:"warnings"`
+	Warnings   []warning     `json:"warnings"`
 }
 
 // Finding is an alias for the canonical types.Finding
 type Finding = types.Finding
 
 // Warning represents a review warning
-type Warning struct {
+type warning struct {
 	Type    string `json:"type"`
 	Message string `json:"message"`
 	Path    string `json:"path"`
@@ -61,8 +54,8 @@ type Requirements struct {
 	Context map[string]string `json:"context"`
 }
 
-// AgentConfig contains agent configuration
-type AgentConfig struct {
+// agentConfig contains agent configuration
+type agentConfig struct {
 	Name     string   `yaml:"name"`
 	Count    int      `yaml:"count"`
 	Focus    []string `yaml:"focus"`
