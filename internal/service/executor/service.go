@@ -116,7 +116,7 @@ func (s *Service) Execute(ctx context.Context, id string, req review.Request, pr
 			projectPolicy = *p
 		}
 	}
-	workspace.OCR = ProjectPolicyOCROverrides(projectPolicy)
+	workspace.OCR = projectPolicyOCROverrides(projectPolicy)
 
 	var ignorePaths []string
 	if len(projectPolicy.IgnorePaths) > 0 {
@@ -125,7 +125,7 @@ func (s *Service) Execute(ctx context.Context, id string, req review.Request, pr
 		}
 	}
 	if len(ignorePaths) > 0 {
-		workspace, err = ApplyProjectScope(ctx, workspace, ignorePaths)
+		workspace, err = applyProjectScope(ctx, workspace, ignorePaths)
 		if err != nil {
 			s.recordFailure(ctx, id, req, err)
 			return review.Response{}, err
@@ -157,7 +157,7 @@ func (s *Service) Execute(ctx context.Context, id string, req review.Request, pr
 		}()
 	}
 
-	ocrInput := BuildOCRInput(workspace, req)
+	ocrInput := buildOCRInput(workspace, req)
 	if err := s.updateWithOCRInput(ctx, id, ocrInput); err != nil {
 		hlog.Warn("failed to update OCR input", "review_id", id, "error", err)
 	}
@@ -237,7 +237,7 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 	if projectPolicy.FailOn != "" {
 		gateEngine = policy.NewEngine(policy.Config{FailOn: projectPolicy.FailOn})
 	}
-	gate := gateEngine.Evaluate(ToPolicyFindings(findings))
+	gate := gateEngine.Evaluate(toPolicyFindings(findings))
 
 	resp := review.Response{
 		ReviewID: id,
@@ -278,7 +278,7 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req review.R
 	if projectPolicy.FailOn != "" {
 		gateEngine = policy.NewEngine(policy.Config{FailOn: projectPolicy.FailOn})
 	}
-	gate := gateEngine.Evaluate(ToPolicyFindings(result.Findings))
+	gate := gateEngine.Evaluate(toPolicyFindings(result.Findings))
 	resp := review.Response{
 		ReviewID: id,
 		Status:   "success",
@@ -376,13 +376,13 @@ func (s *Service) generateAndSaveReviewMap(ctx context.Context, id string, req r
 	hlog.Info("review map generated and saved", "review_id", id, "map_id", reviewMap.ID, "sections", reviewMap.SectionCount, "files", reviewMap.FileCount)
 }
 
-func ToPolicyFindings(findings []review.Finding) []policy.Finding {
+func toPolicyFindings(findings []review.Finding) []policy.Finding {
 	return slicex.Map(findings, func(f review.Finding) policy.Finding {
 		return policy.Finding{Severity: string(f.Severity), Path: f.Path}
 	})
 }
 
-func ProjectPolicyOCROverrides(p models.ProjectPolicy) review.OCROverrides {
+func projectPolicyOCROverrides(p models.ProjectPolicy) review.OCROverrides {
 	return review.OCROverrides{
 		Enabled:                 p.OCREnabled,
 		Concurrency:             p.OCRConcurrency,
@@ -407,7 +407,7 @@ func ProjectPolicyOCROverrides(p models.ProjectPolicy) review.OCROverrides {
 	}
 }
 
-func BuildOCRInput(workspace review.Workspace, req review.Request) review.OCRInput {
+func buildOCRInput(workspace review.Workspace, req review.Request) review.OCRInput {
 	return review.OCRInput{
 		Binary: "ocr",
 		Args: []string{

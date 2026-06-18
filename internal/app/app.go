@@ -3,14 +3,10 @@ package app
 import (
 	"context"
 
-	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 
-	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/git-platform-sdk/provider"
-
-	gormLib "gorm.io/gorm"
 )
 
 type ReviewService interface {
@@ -32,11 +28,4 @@ type GitProviderManager interface {
 	ListCRs(ctx context.Context, platform string, opts provider.ListCROptions) ([]*provider.ChangeRequest, int, error)
 	GetCR(ctx context.Context, platform, owner, repo string, number int) (*provider.ChangeRequest, error)
 	GetBranchSHA(ctx context.Context, platform, owner, repo, branch string) (string, error)
-}
-
-type App struct {
-	DB         *gormLib.DB
-	Repos      *repository.RepoContainer
-	Review     ReviewService
-	Provider   *gitProvider.GitProviderService
 }

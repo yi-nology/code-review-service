@@ -13,7 +13,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
 
-func ApplyProjectScope(ctx context.Context, workspace review.Workspace, ignorePaths []string) (review.Workspace, error) {
+func applyProjectScope(ctx context.Context, workspace review.Workspace, ignorePaths []string) (review.Workspace, error) {
 	git, err := vcs.Open(workspace.Dir, "")
 	if err != nil {
 		return review.Workspace{}, fmt.Errorf("open repo: %w", err)

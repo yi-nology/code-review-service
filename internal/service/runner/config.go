@@ -1,9 +1,14 @@
 package runner
 
-import (
-	"strings"
+import "strings"
 
-	"github.com/yi-nology/code-review-service/internal/consts"
+const (
+	defaultBinary         = "ocr"
+	defaultAudience       = "human"
+	defaultSeverity       = "major"
+	defaultConcurrency    = 2
+	defaultMaxGitProcs    = 4
+	defaultTimeoutMinutes = 10
 )
 
 type OpenCodeReviewConfig struct {
@@ -33,22 +38,22 @@ type OpenCodeReviewConfig struct {
 
 func NewOpenCodeReviewRunner(config OpenCodeReviewConfig) *OpenCodeReviewRunner {
 	if strings.TrimSpace(config.Binary) == "" {
-		config.Binary = consts.DefaultBinary
+		config.Binary = defaultBinary
 	}
 	if strings.TrimSpace(config.Audience) == "" {
-		config.Audience = consts.DefaultAudience
+		config.Audience = defaultAudience
 	}
 	if strings.TrimSpace(config.DefaultSeverity) == "" {
-		config.DefaultSeverity = consts.DefaultSeverity
+		config.DefaultSeverity = defaultSeverity
 	}
 	if config.Concurrency <= 0 {
-		config.Concurrency = consts.DefaultConcurrency
+		config.Concurrency = defaultConcurrency
 	}
 	if config.MaxGitProcs <= 0 {
-		config.MaxGitProcs = consts.DefaultMaxGitProcs
+		config.MaxGitProcs = defaultMaxGitProcs
 	}
 	if config.TimeoutMinutes <= 0 {
-		config.TimeoutMinutes = consts.DefaultTimeoutMinutes
+		config.TimeoutMinutes = defaultTimeoutMinutes
 	}
 	return &OpenCodeReviewRunner{config: config}
 }
