@@ -3,8 +3,8 @@ package main
 import (
 	"time"
 
-	"github.com/oekit/bootstrap"
 	"github.com/yi-nology/code-review-service/internal/config"
+	"github.com/oekit/bootstrap"
 )
 
 const defaultShutdownTimeout = 30 * time.Second

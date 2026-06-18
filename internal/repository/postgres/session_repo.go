@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -83,7 +84,7 @@ func (r *PostgresSessionRepository) GetByID(ctx context.Context, sessionID strin
 		Where("session_id = ?", sessionID).
 		First(&session).Error
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("session not found: %s", sessionID)
 		}
 		return nil, err
@@ -109,7 +110,7 @@ func (r *PostgresSessionRepository) GetActiveByReviewID(ctx context.Context, rev
 		Order("round DESC").
 		First(&session).Error
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err

@@ -15,19 +15,19 @@ import (
 )
 
 type ServiceConfig struct {
-	Normalizers       map[string]Normalizer
-	DeliveryRepo      repository.WebhookDeliveryRepository
+	Normalizers        map[string]Normalizer
+	DeliveryRepo       repository.WebhookDeliveryRepository
 	ChangeRevisionRepo repository.ChangeRevisionRepository
-	MaxPayloadBytes   int64
-	BotUsername       string
+	MaxPayloadBytes    int64
+	BotUsername        string
 }
 
 type Service struct {
-	normalizers       map[string]Normalizer
-	deliveryRepo      repository.WebhookDeliveryRepository
+	normalizers        map[string]Normalizer
+	deliveryRepo       repository.WebhookDeliveryRepository
 	changeRevisionRepo repository.ChangeRevisionRepository
-	maxPayloadBytes   int64
-	botUsername       string
+	maxPayloadBytes    int64
+	botUsername        string
 }
 
 func NewService(cfg ServiceConfig) *Service {
@@ -35,11 +35,11 @@ func NewService(cfg ServiceConfig) *Service {
 		cfg.MaxPayloadBytes = 1 << 20
 	}
 	return &Service{
-		normalizers:       cfg.Normalizers,
-		deliveryRepo:      cfg.DeliveryRepo,
+		normalizers:        cfg.Normalizers,
+		deliveryRepo:       cfg.DeliveryRepo,
 		changeRevisionRepo: cfg.ChangeRevisionRepo,
-		maxPayloadBytes:   cfg.MaxPayloadBytes,
-		botUsername:       cfg.BotUsername,
+		maxPayloadBytes:    cfg.MaxPayloadBytes,
+		botUsername:        cfg.BotUsername,
 	}
 }
 
@@ -52,6 +52,11 @@ type HandleResult struct {
 
 func (s *Service) MaxPayloadBytes() int64 {
 	return s.maxPayloadBytes
+}
+
+func (s *Service) GetNormalizer(provider string) (Normalizer, bool) {
+	n, ok := s.normalizers[provider]
+	return n, ok
 }
 
 func (s *Service) HandleWebhook(provider, installationID string, rawBody []byte, eventType, deliveryID, signature string, secret string) (*HandleResult, error) {

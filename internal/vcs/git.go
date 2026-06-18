@@ -78,7 +78,7 @@ func (g *Git) FetchAll(ctx context.Context) error {
 	}
 	branches, branchErr := g.backend.ListRemoteBranches(ctx, g.dir, "origin")
 	if branchErr != nil {
-		return nil
+		return fmt.Errorf("list remote branches: %w", branchErr)
 	}
 	for _, branch := range branches {
 		_, _ = g.backend.Fetch(ctx, gitbackend.FetchOptions{
@@ -126,10 +126,6 @@ func (g *Git) DeletedFiles(ctx context.Context, baseSHA, headSHA string) ([]stri
 
 func (g *Git) CheckoutFiles(ctx context.Context, ref string, files []string) error {
 	return g.backend.CheckoutFiles(ctx, g.dir, ref, files)
-}
-
-func (g *Git) Add(ctx context.Context, files []string) error {
-	return g.backend.Add(ctx, g.dir, files)
 }
 
 func (g *Git) CommitWithIdentity(ctx context.Context, name, email, msg string) error {

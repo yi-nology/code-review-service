@@ -30,22 +30,26 @@ var gitObjectIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{7,64}$`)
 var errIdempotencyKeyTooLong = errors.New("idempotency key too long")
 
 var (
-	ErrNotFound      = errors.New("review not found")
-	ErrInvalidState  = errors.New("invalid review state")
+	ErrNotFound     = errors.New("review not found")
+	ErrInvalidState = errors.New("invalid review state")
 )
 
 const (
 	idempotencyKeyMaxLength = 200
 
 	StatusQueued    = "queued"
-	StatusRunning   = "running"
-	StatusSuccess   = "success"
-	StatusFailed    = "failed"
-	StatusCompleted = "completed"
+	statusRunning   = "running"
+	statusSuccess   = "success"
+	statusFailed    = "failed"
+	statusCompleted = "completed"
 
-	StageQueued    = "queued"
-	StageCancelled = "cancelled"
+	stageQueued    = "queued"
+	stageCancelled = "cancelled"
 )
+
+type Executor interface {
+	Execute(ctx context.Context, id string, req Request, provider Provider, progressReporter progress.ProgressReporter) (Response, error)
+}
 
 type ServiceConfig struct {
 	ReviewRepo      repository.ReviewRepository
@@ -57,10 +61,9 @@ type ServiceConfig struct {
 	Providers       Providers
 	GitProvider     GitProvider
 	Runner          Runner
-	Publisher       Publisher
-	Writeback       WritebackPublisher
 	PreviewRunner   PreviewRunner
 	ProgressManager *progress.ProgressManager
+	Executor        Executor
 }
 
 type Service struct {
@@ -70,13 +73,12 @@ type Service struct {
 	globalRulesRepo repository.GlobalRulesRepository
 	reviewMapRepo   repository.ReviewMapRepository
 	policy          *policy.Engine
-	providers       Providers
-	gitProvider     GitProvider
+	Providers       Providers
+	GitProvider     GitProvider
 	runner          Runner
-	publisher       Publisher
-	writeback       WritebackPublisher
-	previewRunner   PreviewRunner
+	PreviewRunner   PreviewRunner
 	progressManager *progress.ProgressManager
+	Executor        Executor
 	inFlight        sync.WaitGroup
 }
 
@@ -88,13 +90,12 @@ func NewService(cfg ServiceConfig) *Service {
 		globalRulesRepo: cfg.GlobalRulesRepo,
 		reviewMapRepo:   cfg.ReviewMapRepo,
 		policy:          cfg.Policy,
-		providers:       cfg.Providers,
-		gitProvider:     cfg.GitProvider,
+		Providers:       cfg.Providers,
+		GitProvider:     cfg.GitProvider,
 		runner:          cfg.Runner,
-		publisher:       cfg.Publisher,
-		writeback:       cfg.Writeback,
-		previewRunner:   cfg.PreviewRunner,
+		PreviewRunner:   cfg.PreviewRunner,
 		progressManager: cfg.ProgressManager,
+		Executor:        cfg.Executor,
 	}
 }
 
@@ -119,7 +120,7 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 		return Response{}, err
 	}
 
-	provider, ok := s.providers.Get(req.Provider)
+	provider, ok := s.Providers.Get(req.Provider)
 	if !ok {
 		return Response{}, fmt.Errorf("%w: %q", ErrUnsupportedProvider, req.Provider)
 	}
@@ -135,8 +136,8 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 		Summary:  queuedSummary(isWebhook),
 		Gate:     PendingGate(),
 		History: []Event{{
-			Stage:     StageQueued,
-			Status:    StatusCompleted,
+			Stage:     stageQueued,
+			Status:    statusCompleted,
 			Message:   queuedMessage(isWebhook),
 			CreatedAt: time.Now().UTC(),
 		}},
@@ -180,7 +181,7 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 		return queued, nil
 	}
 
-	return s.run(ctx, id, req, provider, nil)
+	return s.Executor.Execute(ctx, id, req, provider, nil)
 }
 
 func (s *Service) findActiveReview(ctx context.Context, req Request) *Response {
@@ -356,7 +357,7 @@ func (s *Service) Preview(ctx context.Context, req Request) ([]string, error) {
 		return nil, err
 	}
 
-	p, ok := s.providers.Get(req.Provider)
+	p, ok := s.Providers.Get(req.Provider)
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedProvider, req.Provider)
 	}
@@ -402,10 +403,10 @@ func (s *Service) Preview(ctx context.Context, req Request) ([]string, error) {
 		}
 	}
 
-	if s.previewRunner == nil {
+	if s.PreviewRunner == nil {
 		return nil, fmt.Errorf("preview feature not configured")
 	}
-	result, err := s.previewRunner.Preview(ctx, workspace)
+	result, err := s.PreviewRunner.Preview(ctx, workspace)
 	if err != nil {
 		return nil, err
 	}
@@ -416,7 +417,7 @@ func (s *Service) Requeue(ctx context.Context, reviewID string) (Response, error
 	var resultResp Response
 	err := s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *models.Review) error {
 		switch review.Status {
-		case StatusQueued, StatusRunning:
+		case StatusQueued, statusRunning:
 			return fmt.Errorf("%w: review is %s, only failed or completed reviews can be re-run", ErrInvalidState, review.Status)
 		}
 
@@ -433,8 +434,8 @@ func (s *Service) Requeue(ctx context.Context, reviewID string) (Response, error
 		resp.Report = Report{}
 		resp.Analysis = Analysis{}
 		resp.History = append(resp.History, Event{
-			Stage:     StageQueued,
-			Status:    StatusCompleted,
+			Stage:     stageQueued,
+			Status:    statusCompleted,
 			Message:   "review re-queued by user",
 			CreatedAt: time.Now().UTC(),
 		})
@@ -466,17 +467,17 @@ func (s *Service) Cancel(ctx context.Context, reviewID string) (Response, error)
 			return fmt.Errorf("decode response: %w", err)
 		}
 
-		resp.Status = StatusFailed
+		resp.Status = statusFailed
 		resp.Summary = "review cancelled by user"
 		resp.Gate = ErrorGate("review cancelled")
 		resp.History = append(resp.History, Event{
-			Stage:     StageCancelled,
-			Status:    StatusFailed,
+			Stage:     stageCancelled,
+			Status:    statusFailed,
 			Message:   "review cancelled by user",
 			CreatedAt: time.Now().UTC(),
 		})
 
-		review.Status = StatusFailed
+		review.Status = statusFailed
 		review.Response = mustMarshal(resp)
 		review.UpdatedAt = time.Now().UTC()
 		resultResp = resp

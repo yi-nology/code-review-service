@@ -3,20 +3,15 @@ package agent
 import (
 	"context"
 	"time"
+
+	"github.com/yi-nology/code-review-service/internal/service/types"
 )
 
-// ReviewAgent defines the interface for review agents
-type ReviewAgent interface {
-	// Name returns the agent name
+// reviewAgent defines the interface for review agents (internal only)
+type reviewAgent interface {
 	Name() string
-
-	// Focus returns the agent's focus areas
 	Focus() []string
-
-	// Review performs the code review
 	Review(ctx context.Context, workspace Workspace) (AgentResult, error)
-
-	// Priority returns the agent priority (lower = higher priority)
 	Priority() int
 }
 
@@ -38,26 +33,14 @@ type AgentResult struct {
 	Confidence float64       `json:"confidence"`
 	Duration   time.Duration `json:"duration"`
 	TokensUsed int64         `json:"tokens_used"`
-	Warnings   []Warning     `json:"warnings"`
+	Warnings   []warning     `json:"warnings"`
 }
 
-// Finding represents a code review finding
-type Finding struct {
-	ID         string   `json:"id"`
-	Severity   string   `json:"severity"`
-	Category   string   `json:"category"`
-	Path       string   `json:"path"`
-	Line       int      `json:"line"`
-	EndLine    int      `json:"end_line"`
-	Title      string   `json:"title"`
-	Body       string   `json:"body"`
-	Suggestion string   `json:"suggestion"`
-	Confidence float64  `json:"confidence"`
-	Agents     []string `json:"agents"`
-}
+// Finding is an alias for the canonical types.Finding
+type Finding = types.Finding
 
 // Warning represents a review warning
-type Warning struct {
+type warning struct {
 	Type    string `json:"type"`
 	Message string `json:"message"`
 	Path    string `json:"path"`
@@ -69,16 +52,6 @@ type Requirements struct {
 	Files   []string          `json:"files"`
 	URLs    []string          `json:"urls"`
 	Context map[string]string `json:"context"`
-}
-
-// AgentConfig contains agent configuration
-type AgentConfig struct {
-	Name     string   `yaml:"name"`
-	Count    int      `yaml:"count"`
-	Focus    []string `yaml:"focus"`
-	Enabled  bool     `yaml:"enabled"`
-	Priority int      `yaml:"priority"`
-	Timeout  string   `yaml:"timeout"`
 }
 
 // AggregatedResult contains aggregated results from multiple agents

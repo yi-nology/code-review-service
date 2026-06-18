@@ -9,19 +9,19 @@ import (
 
 // ReviewMap represents a code review map for a session
 type ReviewMap struct {
-	gorm.Model      `json:"-"`
-	MapID           string         `gorm:"type:text;uniqueIndex;not null" json:"map_id"`
-	ReviewID        string         `gorm:"type:text;not null;index" json:"review_id"`
-	SessionID       string         `gorm:"type:text;not null;index" json:"session_id"`
-	Title           string         `gorm:"type:text;not null" json:"title"`
-	Description     string         `gorm:"type:text" json:"description"`
-	Sections        datatypes.JSON `gorm:"type:jsonb" json:"sections"`
-	Dependencies    datatypes.JSON `gorm:"type:jsonb" json:"dependencies"`
-	Summary         string         `gorm:"type:text" json:"summary"`
-	FileCount       int            `gorm:"not null;default:0" json:"file_count"`
-	SectionCount    int            `gorm:"not null;default:0" json:"section_count"`
-	MermaidDiagram  string         `gorm:"type:text" json:"mermaid_diagram,omitempty"`
-	CompletedAt     *time.Time     `json:"completed_at,omitempty"`
+	gorm.Model     `json:"-"`
+	MapID          string         `gorm:"type:text;uniqueIndex;not null" json:"map_id"`
+	ReviewID       string         `gorm:"type:text;not null;index" json:"review_id"`
+	SessionID      string         `gorm:"type:text;not null;index" json:"session_id"`
+	Title          string         `gorm:"type:text;not null" json:"title"`
+	Description    string         `gorm:"type:text" json:"description"`
+	Sections       datatypes.JSON `gorm:"type:jsonb" json:"sections"`
+	Dependencies   datatypes.JSON `gorm:"type:jsonb" json:"dependencies"`
+	Summary        string         `gorm:"type:text" json:"summary"`
+	FileCount      int            `gorm:"not null;default:0" json:"file_count"`
+	SectionCount   int            `gorm:"not null;default:0" json:"section_count"`
+	MermaidDiagram string         `gorm:"type:text" json:"mermaid_diagram,omitempty"`
+	CompletedAt    *time.Time     `json:"completed_at,omitempty"`
 }
 
 func (ReviewMap) TableName() string {

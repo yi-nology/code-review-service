@@ -4,7 +4,6 @@ export interface OCRSettings {
   audience?: 'human' | 'agent'
   default_severity?: 'critical' | 'major' | 'minor' | 'info'
   provider?: string
-  plan?: string
   url: string
   auth_token?: string
   auth_header?: string
@@ -17,6 +16,11 @@ export interface OCRSettings {
   timeout_minutes: number
   max_tools: number
   background?: string
+  tools_path?: string
+  telemetry_enabled?: boolean
+  telemetry_exporter?: string
+  telemetry_otlp_endpoint?: string
+  telemetry_content_logging?: boolean
 }
 
 export interface ReviewRule {
@@ -30,6 +34,26 @@ export interface ProjectPolicy {
   fail_on: string
   ignore_paths: string[]
   rules?: ReviewRule[]
+  ocr_enabled?: boolean | null
+  ocr_concurrency?: number
+  ocr_timeout_minutes?: number
+  ocr_max_tools?: number
+  ocr_default_severity?: 'critical' | 'major' | 'minor' | 'info' | ''
+  ocr_background?: string
+  ocr_audience?: 'human' | 'agent' | ''
+  ocr_provider?: string
+  ocr_url?: string
+  ocr_model?: string
+  ocr_max_git_procs?: number
+  ocr_use_anthropic?: boolean
+  ocr_extra_body?: string
+  ocr_language?: string
+  ocr_binary?: string
+  ocr_tools_path?: string
+  ocr_telemetry_enabled?: boolean
+  ocr_telemetry_exporter?: string
+  ocr_telemetry_otlp_endpoint?: string
+  ocr_telemetry_content_logging?: boolean
 }
 
 export interface ProjectPolicyList {
@@ -106,4 +130,42 @@ export interface ReviewerAgent {
   tags: string[] | null
   CreatedAt: string
   UpdatedAt: string
+}
+
+export interface LLMProvider {
+  name: string
+  protocol: string
+  base_url?: string
+  default_model?: string[]
+}
+
+export interface CustomProvider {
+  id: number
+  name: string
+  protocol: string
+  url?: string
+  api_key?: string
+  model?: string
+  auth_header?: string
+  extra_body?: string
+  enabled: boolean
+}
+
+export interface RulesCheckResult {
+  applicable: boolean
+  rule?: string
+  message?: string
+}
+
+export interface OCRVersion {
+  version: string
+  commit?: string
+  platform?: string
+  build_time?: string
+}
+
+export interface ViewerStatus {
+  running: boolean
+  addr?: string
+  message?: string
 }

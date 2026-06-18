@@ -23,7 +23,7 @@ func NewOrchestrator(config DiscussionConfig) *Orchestrator {
 func (o *Orchestrator) RunDiscussion(ctx context.Context, findings []Finding, agents []string, requirements []string) (*DiscussionResult, error) {
 	if !o.config.Enabled {
 		return &DiscussionResult{
-			Summary: "Discussion disabled",
+			Summary: "discussion disabled",
 		}, nil
 	}
 
@@ -36,15 +36,15 @@ func (o *Orchestrator) RunDiscussion(ctx context.Context, findings []Finding, ag
 	hlog.Infof("starting discussion with %d agents and %d findings", len(agents), len(findings))
 
 	// Generate discussion prompts
-	prompts := GenerateDiscussionPrompts(findings, agents, requirements)
+	prompts := generateDiscussionPrompts(findings, agents, requirements)
 	if len(prompts) > o.config.MaxPrompts {
 		prompts = prompts[:o.config.MaxPrompts]
 	}
 
 	// Create discussion entries
-	entries := make([]DiscussionEntry, 0, len(prompts))
+	entries := make([]discussionEntry, 0, len(prompts))
 	for _, prompt := range prompts {
-		entry := DiscussionEntry{
+		entry := discussionEntry{
 			ID:         uuid.New().String(),
 			AgentName:  prompt.AgentName,
 			FindingID:  prompt.FindingID,
@@ -66,16 +66,16 @@ func (o *Orchestrator) RunDiscussion(ctx context.Context, findings []Finding, ag
 }
 
 // analyzeDiscussion analyzes the discussion entries and generates results
-func (o *Orchestrator) analyzeDiscussion(findings []Finding, entries []DiscussionEntry) *DiscussionResult {
+func (o *Orchestrator) analyzeDiscussion(findings []Finding, entries []discussionEntry) *DiscussionResult {
 	// Group entries by finding
-	entriesByFinding := make(map[string][]DiscussionEntry)
+	entriesByFinding := make(map[string][]discussionEntry)
 	for _, entry := range entries {
 		entriesByFinding[entry.FindingID] = append(entriesByFinding[entry.FindingID], entry)
 	}
 
 	// Analyze each finding
-	var consensus []ConsensusItem
-	var disagreements []DisagreementItem
+	var consensus []consensusItem
+	var disagreements []disagreementItem
 	var updatedFindings []Finding
 
 	for _, finding := range findings {
@@ -91,48 +91,50 @@ func (o *Orchestrator) analyzeDiscussion(findings []Finding, entries []Discussio
 		connectCount := 0
 		for _, entry := range findingEntries {
 			switch entry.Response {
-			case ResponseAgree:
+			case responseAgree:
 				agreeCount++
-			case ResponseChallenge:
+			case responseChallenge:
 				challengeCount++
-			case ResponseConnect:
+			case responseConnect:
 				connectCount++
 			}
 		}
 
 		// Determine consensus or disagreement
-		if challengeCount == 0 && agreeCount > 0 {
+		switch {
+		case challengeCount == 0 && agreeCount > 0:
 			// Consensus
 			agents := make([]string, 0)
 			for _, entry := range findingEntries {
-				if entry.Response == ResponseAgree {
+				if entry.Response == responseAgree {
 					agents = append(agents, entry.AgentName)
 				}
 			}
-			consensus = append(consensus, ConsensusItem{
+			consensus = append(consensus, consensusItem{
 				FindingID:  finding.ID,
 				Agents:     agents,
 				Confidence: float64(agreeCount) / float64(len(findingEntries)),
-				Summary:    fmt.Sprintf("All agents agree on this finding"),
+				Summary:    "All agents agree on this finding",
 			})
 
 			// Update finding confidence
 			updatedFinding := finding
 			updatedFinding.Confidence = float64(agreeCount) / float64(len(findingEntries))
 			updatedFindings = append(updatedFindings, updatedFinding)
-		} else if challengeCount > 0 {
+		case challengeCount > 0:
 			// Disagreement
-			positions := make([]AgentPosition, 0)
+			positions := make([]agentPosition, 0)
 			for _, entry := range findingEntries {
-				if entry.Response == ResponseChallenge {
-					positions = append(positions, AgentPosition{
+				switch entry.Response {
+				case responseChallenge:
+					positions = append(positions, agentPosition{
 						AgentName:  entry.AgentName,
 						Position:   "challenge",
 						Evidence:   entry.Content,
 						Confidence: entry.Confidence,
 					})
-				} else if entry.Response == ResponseAgree {
-					positions = append(positions, AgentPosition{
+				case responseAgree:
+					positions = append(positions, agentPosition{
 						AgentName:  entry.AgentName,
 						Position:   "agree",
 						Evidence:   entry.Content,
@@ -140,9 +142,9 @@ func (o *Orchestrator) analyzeDiscussion(findings []Finding, entries []Discussio
 					})
 				}
 			}
-			disagreements = append(disagreements, DisagreementItem{
-				FindingID: finding.ID,
-				Positions: positions,
+			disagreements = append(disagreements, disagreementItem{
+				FindingID:  finding.ID,
+				Positions:  positions,
 				Resolution: determineResolution(positions),
 			})
 
@@ -150,7 +152,7 @@ func (o *Orchestrator) analyzeDiscussion(findings []Finding, entries []Discussio
 			updatedFinding := finding
 			updatedFinding.Confidence = finding.Confidence * 0.7
 			updatedFindings = append(updatedFindings, updatedFinding)
-		} else {
+		default:
 			updatedFindings = append(updatedFindings, finding)
 		}
 	}
@@ -168,13 +170,14 @@ func (o *Orchestrator) analyzeDiscussion(findings []Finding, entries []Discussio
 }
 
 // determineResolution determines the resolution for a disagreement
-func determineResolution(positions []AgentPosition) string {
+func determineResolution(positions []agentPosition) string {
 	agreeCount := 0
 	challengeCount := 0
 	for _, pos := range positions {
-		if pos.Position == "agree" {
+		switch pos.Position {
+		case "agree":
 			agreeCount++
-		} else if pos.Position == "challenge" {
+		case "challenge":
 			challengeCount++
 		}
 	}
@@ -188,13 +191,13 @@ func determineResolution(positions []AgentPosition) string {
 }
 
 // generateResponseContent generates content for a discussion response
-func generateResponseContent(prompt DiscussionPrompt) string {
+func generateResponseContent(prompt discussionPrompt) string {
 	switch prompt.ResponseType {
-	case ResponseAgree:
+	case responseAgree:
 		return fmt.Sprintf("I agree with this finding. %s", generateAgreeReason(prompt.Finding))
-	case ResponseChallenge:
+	case responseChallenge:
 		return fmt.Sprintf("I challenge this finding. %s", generateChallengeReason(prompt.Finding))
-	case ResponseConnect:
+	case responseConnect:
 		return fmt.Sprintf("This connects to other findings. %s", generateConnectReason(prompt.Finding, prompt.OtherFindings))
 	default:
 		return "No comment"
@@ -251,8 +254,8 @@ func generateConnectReason(finding Finding, otherFindings []Finding) string {
 }
 
 // generateDiscussionSummary generates a summary of the discussion
-func generateDiscussionSummary(consensus []ConsensusItem, disagreements []DisagreementItem, findings []Finding) string {
-	summary := fmt.Sprintf("Discussion completed with %d findings. ", len(findings))
+func generateDiscussionSummary(consensus []consensusItem, disagreements []disagreementItem, findings []Finding) string {
+	summary := fmt.Sprintf("discussion completed with %d findings. ", len(findings))
 
 	if len(consensus) > 0 {
 		summary += fmt.Sprintf("%d findings have consensus. ", len(consensus))

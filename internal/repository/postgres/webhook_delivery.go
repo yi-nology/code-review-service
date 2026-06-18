@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
@@ -33,7 +34,7 @@ func (r *WebhookDeliveryRepo) Get(ctx context.Context, provider, installationID,
 		Where("provider = ? AND installation_id = ? AND delivery_id = ?", provider, installationID, deliveryID).
 		First(&d).Error
 	if err != nil {
-		if err == gormLib.ErrRecordNotFound {
+		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err

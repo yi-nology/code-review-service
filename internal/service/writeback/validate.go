@@ -5,11 +5,10 @@ import (
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/types"
 
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
-
-const reportMarker = "<!-- review-service:summary -->"
 
 type ValidatedComment struct {
 	Comment
@@ -94,46 +93,17 @@ func FormatInlineComment(severity review.Severity, title, body, suggestionCode, 
 }
 
 func FormatSummaryBody(summary string, findings []review.Finding, maxComments int) string {
-	var out strings.Builder
-	out.WriteString(reportMarker)
-	out.WriteString("\n## AI Code Review\n\n")
-	out.WriteString(summary)
-	out.WriteString("\n\n")
-
-	counts := make(map[review.Severity]int)
-	for _, f := range findings {
-		counts[f.Severity]++
-	}
-	fmt.Fprintf(&out,
-		"**Findings:** %d critical, %d major, %d minor, %d info\n",
-		counts[review.SeverityCritical],
-		counts[review.SeverityMajor],
-		counts[review.SeverityMinor],
-		counts[review.SeverityInfo],
-	)
-
-	if len(findings) == 0 {
-		return out.String()
-	}
-
-	limit := len(findings)
-	if maxComments > 0 && limit > maxComments {
-		limit = maxComments
-	}
-	out.WriteString("\n### Findings\n")
-	for i, f := range findings[:limit] {
-		fmt.Fprintf(&out, "\n%d. **[%s] %s**", i+1, strings.ToUpper(string(f.Severity)), f.Title)
-		if f.Path != "" {
-			fmt.Fprintf(&out, " - `%s", f.Path)
-			if f.Line > 0 {
-				fmt.Fprintf(&out, ":%d", f.Line)
-			}
-			out.WriteString("`")
+	ff := make([]types.FormatFinding, len(findings))
+	for i, f := range findings {
+		ff[i] = types.FormatFinding{
+			Severity:      string(f.Severity),
+			Title:         f.Title,
+			Path:          f.Path,
+			Line:          f.Line,
+			Body:          f.Body,
+			ExistingCode:  f.ExistingCode,
+			SuggestedCode: f.SuggestionCode,
 		}
-		out.WriteString("\n")
 	}
-	if limit < len(findings) {
-		fmt.Fprintf(&out, "\n_%d additional finding(s) omitted._\n", len(findings)-limit)
-	}
-	return out.String()
+	return types.FormatReviewReport("<!-- review-service:summary -->", summary, ff, maxComments, false)
 }

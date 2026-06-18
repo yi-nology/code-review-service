@@ -113,18 +113,18 @@ func (n *GitCodeNormalizer) normalizeMergeRequest(rawBody []byte) (*ChangeEvent,
 	}
 
 	return &ChangeEvent{
-		Provider:       "gitcode",
-		EventType:      "merge_request",
-		Action:         action,
-		RepositoryID:   repoID,
-		Repository:     repoPath,
-		Number:         iid,
-		BaseSHA:        baseSHA,
-		HeadSHA:        headSHA,
-		Sender:         sender,
-		Author:         sender,
-		AuthorName:     authorName,
-		AuthorAvatar:   authorAvatar,
+		Provider:     "gitcode",
+		EventType:    "merge_request",
+		Action:       action,
+		RepositoryID: repoID,
+		Repository:   repoPath,
+		Number:       iid,
+		BaseSHA:      baseSHA,
+		HeadSHA:      headSHA,
+		Sender:       sender,
+		Author:       sender,
+		AuthorName:   authorName,
+		AuthorAvatar: authorAvatar,
 	}, nil
 }
 

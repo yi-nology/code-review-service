@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/oekit/pkg/slicex"
 	"github.com/google/uuid"
 )
@@ -17,9 +18,6 @@ type DefaultAggregator struct {
 
 // AggregatorConfig contains aggregator configuration
 type AggregatorConfig struct {
-	// DeduplicationThreshold is the similarity threshold for deduplication (0-1)
-	DeduplicationThreshold float64
-
 	// ConfidenceWeights defines weights for confidence calculation
 	ConfidenceWeights ConfidenceWeights
 }
@@ -39,7 +37,6 @@ type ConfidenceWeights struct {
 // DefaultAggregatorConfig returns default aggregator configuration
 func DefaultAggregatorConfig() AggregatorConfig {
 	return AggregatorConfig{
-		DeduplicationThreshold: 0.8,
 		ConfidenceWeights: ConfidenceWeights{
 			AgentCount: 0.5,
 			Severity:   0.3,
@@ -91,7 +88,7 @@ func (a *DefaultAggregator) Aggregate(results []AgentResult) AggregatedResult {
 	// Sort by severity and confidence
 	sort.Slice(deduplicated, func(i, j int) bool {
 		if deduplicated[i].Severity != deduplicated[j].Severity {
-			return severityOrder(deduplicated[i].Severity) < severityOrder(deduplicated[j].Severity)
+			return types.SeverityRank(deduplicated[i].Severity) > types.SeverityRank(deduplicated[j].Severity)
 		}
 		return deduplicated[i].Confidence > deduplicated[j].Confidence
 	})
@@ -181,7 +178,7 @@ func (a *DefaultAggregator) mergeFindings(findings []FindingWithAgent) FindingWi
 
 	// Use the highest severity
 	for _, f := range findings {
-		if severityOrder(f.Severity) < severityOrder(merged.Severity) {
+		if types.SeverityRank(f.Severity) > types.SeverityRank(merged.Severity) {
 			merged.Severity = f.Severity
 		}
 	}
@@ -301,22 +298,6 @@ func (a *DefaultAggregator) generateSummary(findings []Finding, results []AgentR
 	parts = append(parts, fmt.Sprintf("由 %d 个代理审查", len(results)))
 
 	return strings.Join(parts, "，")
-}
-
-// severityOrder returns the order of severity (lower = more severe)
-func severityOrder(severity string) int {
-	switch strings.ToLower(severity) {
-	case "critical":
-		return 0
-	case "major":
-		return 1
-	case "minor":
-		return 2
-	case "info":
-		return 3
-	default:
-		return 4
-	}
 }
 
 // GenerateID generates a unique ID for a finding

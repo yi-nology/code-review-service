@@ -293,7 +293,7 @@ export const sessionApi = {
 export const progressApi = {
   // Get progress for a review
   getProgress(reviewId: string): Promise<ReviewProgress> {
-    return request.get(`/reviews/${reviewId}/progress/status`)
+    return request.get(`/reviews/${reviewId}/progress/status`).then((response: any) => response.progress || response)
   },
 
   // Get active reviews

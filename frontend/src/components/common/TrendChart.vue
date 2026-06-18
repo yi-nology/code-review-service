@@ -16,7 +16,7 @@ const padBottom = 30
 
 const uid = Math.random().toString(36).slice(2, 8)
 
-const hasData = computed(() => props.data.length > 1)
+const hasData = computed(() => props.data.length >= 1)
 
 const linePath = computed(() => {
   if (props.data.length < 2) return ''
@@ -32,7 +32,7 @@ const areaPath = computed(() => {
 })
 
 function xToPx(i: number): number {
-  if (props.data.length <= 1) return padLeft
+  if (props.data.length <= 1) return (padLeft + chartWidth - padRight) / 2
   const span = chartWidth - padLeft - padRight
   return padLeft + (span * i) / (props.data.length - 1)
 }
@@ -71,7 +71,7 @@ function formatPeriod(period: string): string {
     </div>
   </div>
   <div v-else class="empty-chart">
-    <p>数据不足，至少需要 2 个数据点才能绘制趋势图</p>
+    <p>暂无趋势数据</p>
   </div>
 </template>
 

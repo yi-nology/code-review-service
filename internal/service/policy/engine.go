@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/yi-nology/code-review-service/internal/service/types"
 )
 
 type Config struct {
@@ -32,16 +34,16 @@ func NewEngine(cfg Config) *Engine {
 }
 
 func (e *Engine) Evaluate(findings []Finding) Decision {
-	threshold := severityRank(e.cfg.FailOn)
+	threshold := types.SeverityRank(e.cfg.FailOn)
 	if threshold == 0 {
-		threshold = severityRank("critical")
+		threshold = types.SeverityRank("critical")
 	}
 
 	for _, finding := range findings {
 		if e.ignored(finding.Path) {
 			continue
 		}
-		if severityRank(finding.Severity) >= threshold {
+		if types.SeverityRank(finding.Severity) >= threshold {
 			return Decision{
 				Passed: false,
 				Reason: fmt.Sprintf("%s issue found", finding.Severity),
@@ -75,19 +77,4 @@ func MatchesPath(patterns []string, path string) bool {
 		}
 	}
 	return false
-}
-
-func severityRank(severity string) int {
-	switch severity {
-	case "info":
-		return 1
-	case "minor":
-		return 2
-	case "major":
-		return 3
-	case "critical":
-		return 4
-	default:
-		return 0
-	}
 }

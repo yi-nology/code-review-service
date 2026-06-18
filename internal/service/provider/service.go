@@ -282,9 +282,10 @@ func (s *GitProviderService) TestWithToken(ctx context.Context, platform, baseUR
 	if err != nil {
 		return &models.GitTestResult{Connected: false, Platform: platform, Message: fmt.Sprintf("初始化失败: %v", err)}, nil
 	}
-	result, err := p.TestConnection(ctx)
-	if err != nil {
-		return &models.GitTestResult{Connected: false, Platform: platform, Message: err.Error()}, nil
+	result, connErr := p.TestConnection(ctx)
+	if connErr != nil {
+		//nolint:nilerr // Connection test failures are represented in the response payload.
+		return &models.GitTestResult{Connected: false, Platform: platform, Message: connErr.Error()}, nil
 	}
 	return &models.GitTestResult{
 		Connected: result.Connected,
@@ -292,24 +293,4 @@ func (s *GitProviderService) TestWithToken(ctx context.Context, platform, baseUR
 		UserName:  result.UserName,
 		Message:   result.Message,
 	}, nil
-}
-
-type GitProviderAdapter struct {
-	svc *GitProviderService
-}
-
-func NewGitProviderAdapter(svc *GitProviderService) *GitProviderAdapter {
-	return &GitProviderAdapter{svc: svc}
-}
-
-func (a *GitProviderAdapter) GetCRDiff(ctx context.Context, platform, owner, repo string, number int) (string, error) {
-	return a.svc.GetCRDiffString(ctx, platform, owner, repo, number)
-}
-
-func (a *GitProviderAdapter) CreateComment(ctx context.Context, platform, owner, repo string, number int, body string) (string, error) {
-	return a.svc.CreateComment(ctx, platform, owner, repo, number, body)
-}
-
-func (a *GitProviderAdapter) HasProvider(platform string) bool {
-	return a.svc.HasProvider(platform)
 }

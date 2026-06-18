@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
@@ -22,7 +23,7 @@ func (r *GlobalRulesRepo) Get(ctx context.Context) (*models.GlobalRules, error) 
 		Order("id DESC").
 		First(&rules).Error
 	if err != nil {
-		if err == gormLib.ErrRecordNotFound {
+		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return &models.GlobalRules{}, nil
 		}
 		return nil, err
@@ -35,7 +36,7 @@ func (r *GlobalRulesRepo) Save(ctx context.Context, rules *models.GlobalRules) e
 	err := r.db.WithContext(ctx).
 		Order("id DESC").
 		First(&existing).Error
-	if err != nil && err != gormLib.ErrRecordNotFound {
+	if err != nil && !errors.Is(err, gormLib.ErrRecordNotFound) {
 		return err
 	}
 	if existing.ID > 0 {

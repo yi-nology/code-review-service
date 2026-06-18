@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	ekitGorm "github.com/oekit/gormx"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	ekitGorm "github.com/oekit/gormx"
 
 	gormLib "gorm.io/gorm"
 )

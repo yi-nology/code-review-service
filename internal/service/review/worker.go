@@ -50,10 +50,10 @@ func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval,
 		}
 	})
 
-	go func() {
+	async.GoSafe(func() {
 		<-ctx.Done()
 		s.inFlight.Wait()
-	}()
+	})
 }
 
 func (s *Service) WaitInFlight() {
@@ -93,7 +93,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 			continue
 		}
 
-		provider, ok := s.providers.Get(req.Provider)
+		provider, ok := s.Providers.Get(req.Provider)
 		if !ok {
 			err := fmt.Errorf("%w: %q", ErrUnsupportedProvider, req.Provider)
 			s.recordFailure(context.Background(), review.ReviewID, req, err)
@@ -101,7 +101,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 			continue
 		}
 		s.inFlight.Add(1)
-		go func() {
+		async.GoSafe(func() {
 			defer s.inFlight.Done()
 
 			// Create progress tracker for this review
@@ -109,19 +109,10 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 			if s.progressManager != nil {
 				tracker := s.progressManager.CreateTracker(review.ReviewID, review.ReviewID, 1)
 				progressReporter = tracker
-				defer func() {
-					if r := recover(); r != nil {
-						// If there's a panic, report error to tracker
-						if tracker != nil {
-							tracker.SetError(fmt.Sprintf("panic: %v", r))
-						}
-						s.progressManager.RemoveTracker(review.ReviewID)
-						panic(r) // re-panic
-					}
-				}()
+				defer s.progressManager.RemoveTracker(review.ReviewID)
 			}
 
-			if _, err := s.run(ctx, review.ReviewID, req, provider, progressReporter); err != nil && ctx.Err() == nil {
+			if _, err := s.Executor.Execute(ctx, review.ReviewID, req, provider, progressReporter); err != nil && ctx.Err() == nil {
 				hlog.Error("async review failed", "worker_id", workerID, "review_id", review.ReviewID, "error", err)
 				// Report error to progress tracker
 				if progressReporter != nil {
@@ -130,11 +121,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 					}
 				}
 			}
-			// Remove tracker after review completes (success or failure)
-			if s.progressManager != nil {
-				s.progressManager.RemoveTracker(review.ReviewID)
-			}
-		}()
+		})
 		timer.Reset(0)
 	}
 }

@@ -10,9 +10,7 @@ import (
 	"time"
 
 	"github.com/oekit/core"
-	"github.com/oekit/bootstrap/nacos"
 	"github.com/oekit/tracing"
-	svcPolicy "github.com/yi-nology/code-review-service/internal/service/policy"
 )
 
 var env = flag.String("env", "local", "environment: local, dev, prod")
@@ -36,9 +34,12 @@ func Load() *Config {
 	return cfg
 }
 
-func envString(key string) string    { return os.Getenv(key) }
-func envInt(key string) (int, bool)  { v, err := strconv.Atoi(os.Getenv(key)); return v, err == nil }
-func envBool(key string) (bool, bool) { v, err := strconv.ParseBool(os.Getenv(key)); return v, err == nil }
+func envString(key string) string   { return os.Getenv(key) }
+func envInt(key string) (int, bool) { v, err := strconv.Atoi(os.Getenv(key)); return v, err == nil }
+func envBool(key string) (bool, bool) {
+	v, err := strconv.ParseBool(os.Getenv(key))
+	return v, err == nil
+}
 
 func applyEnvOverrides(cfg *Config) {
 	if v := envString("REVIEW_TOKEN"); v != "" {
@@ -150,19 +151,6 @@ func (c *Config) GetWorkerPollInterval() time.Duration {
 
 func (c *Config) GetWorkerStaleAfter() time.Duration {
 	return parseDuration(c.Review.WorkerStaleAfter, 15*time.Minute)
-}
-
-func (c *Config) GetPolicyConfig() svcPolicy.Config {
-	return svcPolicy.Config{
-		FailOn:      c.Policy.FailOn,
-		MaxComments: c.Policy.MaxComments,
-		SummaryOnly: c.Policy.SummaryOnly,
-		IgnorePaths: c.Policy.IgnorePaths,
-	}
-}
-
-func (c *Config) GetNacosConfig() nacos.Bootstrap {
-	return c.Nacos
 }
 
 func (c *Config) GetTracingConfig() *tracing.Config {

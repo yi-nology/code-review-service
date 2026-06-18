@@ -3,7 +3,6 @@ package session_service
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelSession "github.com/yi-nology/code-review-service/biz/model/session"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
 )
 
 var handlerInst *SessionHandler
@@ -63,7 +61,7 @@ func ListSessions(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(http.StatusOK, map[string]interface{}{
+	common.Success(c, map[string]interface{}{
 		"sessions":    sessions,
 		"total":       total,
 		"page":        page,
@@ -86,7 +84,7 @@ func GetSessions(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(http.StatusOK, map[string]interface{}{
+	common.Success(c, map[string]interface{}{
 		"sessions": sessions,
 	})
 }
@@ -112,7 +110,7 @@ func CreateSession(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(consts.StatusCreated, session)
+	common.Success(c, session)
 }
 
 func GetActiveSession(ctx context.Context, c *app.RequestContext) {

@@ -24,7 +24,7 @@
       <div class="panel-heading">
         <div>
           <h3>粘贴链接</h3>
-          <p>支持 GitHub Pull Request、GitLab Merge Request、Gitea Pull Request、GitCode CR 链接，粘贴后自动识别平台、仓库和编号。</p>
+          <p>支持 PR/MR/CR 链接和 compare 分支对比链接，粘贴后自动识别平台、仓库、编号或对比分支。</p>
         </div>
         <el-button :icon="DocumentCopy" @click="pasteFromClipboard">读取剪贴板</el-button>
       </div>
@@ -34,7 +34,7 @@
         class="url-box"
         type="textarea"
         :rows="3"
-        placeholder="例如：https://github.com/owner/repo/pull/42"
+        placeholder="例如：https://github.com/owner/repo/pull/42 或 https://github.com/owner/repo/compare/main...feature"
         clearable
         @input="onUrlInput"
         @paste="onUrlPaste"
@@ -50,12 +50,22 @@
         </div>
         <el-button type="primary" plain @click="applyParsedUrl('pr')">去选择详情</el-button>
       </div>
+      <div v-else-if="parsedCompareUrl" class="parse-card success">
+        <div class="parse-main">
+          <el-icon><Select /></el-icon>
+          <div>
+            <strong>已识别 {{ getProviderLabel(parsedCompareUrl.provider) }} 分支对比</strong>
+            <span>{{ parsedCompareUrl.repo }} · {{ parsedCompareUrl.head_branch }} → {{ parsedCompareUrl.base_branch }}</span>
+          </div>
+        </div>
+        <el-button type="primary" plain @click="applyParsedCompareUrl('branch')">去分支对比</el-button>
+      </div>
       <div v-else-if="urlInput.trim()" class="parse-card danger">
         <div class="parse-main">
           <el-icon><Warning /></el-icon>
           <div>
             <strong>暂时无法解析这个链接</strong>
-            <span>请确认链接包含仓库路径和 PR/MR/CR 编号。</span>
+            <span>请确认链接包含仓库路径、PR/MR/CR 编号，或 compare 的 base...head 分支。</span>
           </div>
         </div>
       </div>
@@ -94,6 +104,8 @@
             style="width: 100%"
             filterable
             remote
+            allow-create
+            default-first-option
             reserve-keyword
             :remote-method="searchRepos"
             :loading="reposLoading"
@@ -193,6 +205,8 @@
             style="width: 100%"
             filterable
             remote
+            allow-create
+            default-first-option
             reserve-keyword
             :remote-method="searchRepos"
             :loading="reposLoading"
@@ -212,16 +226,38 @@
 
       <div class="branch-picker">
         <el-form-item label="基准分支" required>
-          <el-select v-model="createForm.base_branch" style="width: 100%" filterable :loading="branchesLoading" placeholder="例如 main/master" :disabled="!selectedRepo">
+          <el-select
+            v-model="createForm.base_branch"
+            style="width: 100%"
+            filterable
+            allow-create
+            default-first-option
+            :loading="branchesLoading"
+            placeholder="例如 main/master"
+            :disabled="!selectedRepo"
+          >
             <el-option v-for="b in branches" :key="b.name" :label="b.name" :value="b.name" />
           </el-select>
         </el-form-item>
         <el-button class="swap-button" :icon="Switch" :disabled="!createForm.base_branch || !createForm.head_branch" @click="swapBranches" />
         <el-form-item label="目标分支" required>
-          <el-select v-model="createForm.head_branch" style="width: 100%" filterable :loading="branchesLoading" placeholder="选择要审查的分支" :disabled="!selectedRepo">
+          <el-select
+            v-model="createForm.head_branch"
+            style="width: 100%"
+            filterable
+            allow-create
+            default-first-option
+            :loading="branchesLoading"
+            placeholder="选择要审查的分支"
+            :disabled="!selectedRepo"
+          >
             <el-option v-for="b in branches" :key="b.name" :label="b.name" :value="b.name" />
           </el-select>
         </el-form-item>
+      </div>
+
+      <div v-if="selectedRepo && !branchesLoading && branches.length === 0" class="manual-hint">
+        分支列表暂不可用，可以直接输入基准分支和目标分支名称。
       </div>
 
       <div v-if="branchSummary" class="branch-summary">
@@ -285,7 +321,7 @@ import {
 } from '@element-plus/icons-vue'
 import { createReview } from '@/api/review'
 import { getGitPlatforms, getProviderRepos, getProviderBranches, getProviderPulls, getBranchSHA } from '@/api/config'
-import { parseMRUrl, getProviderLabel } from '@/utils/url-parser'
+import { parseMRUrl, parseCompareUrl, getProviderLabel } from '@/utils/url-parser'
 import type { GitPlatform, PlatformRepo, PlatformBranch, PlatformPullRequest } from '@/types/config'
 import SubmitOptions from './SubmitOptions.vue'
 
@@ -313,6 +349,7 @@ const creating = ref(false)
 const inputMode = ref<InputMode>('url')
 const urlInput = ref('')
 const parsedUrl = ref<{ provider: string; repo: string; number: number } | null>(null)
+const parsedCompareUrl = ref<{ provider: string; repo: string; base_branch: string; head_branch: string } | null>(null)
 const submitMode = ref<'async' | 'sync'>('async')
 const showAdvanced = ref<string[]>([])
 
@@ -375,7 +412,7 @@ const branchSummary = computed(() => {
 
 const canSubmit = computed(() => {
   if (!createForm.provider) return false
-  if (inputMode.value === 'url') return !!parsedUrl.value
+  if (inputMode.value === 'url') return !!parsedUrl.value || !!parsedCompareUrl.value
   if (inputMode.value === 'pr') return !!createForm.repo && selectedPR.value !== null
   if (inputMode.value === 'branch') {
     return !!createForm.repo
@@ -388,7 +425,9 @@ const canSubmit = computed(() => {
 
 const submitHint = computed(() => {
   if (inputMode.value === 'url') {
-    return parsedUrl.value ? `${parsedUrl.value.repo} #${parsedUrl.value.number}` : '粘贴链接后即可提交'
+    if (parsedUrl.value) return `${parsedUrl.value.repo} #${parsedUrl.value.number}`
+    if (parsedCompareUrl.value) return `${parsedCompareUrl.value.head_branch} → ${parsedCompareUrl.value.base_branch}`
+    return '粘贴链接后即可提交'
   }
   if (inputMode.value === 'pr') {
     return selectedPRInfo.value ? `将审查 #${selectedPRInfo.value.number}` : '请选择仓库和 PR/MR/CR'
@@ -408,7 +447,9 @@ function switchMode(mode: InputMode) {
 
 function onUrlInput() {
   parsedUrl.value = parseMRUrl(urlInput.value)
+  parsedCompareUrl.value = parsedUrl.value ? null : parseCompareUrl(urlInput.value)
   if (parsedUrl.value) syncParsedUrlToForm()
+  if (parsedCompareUrl.value) syncParsedCompareUrlToForm()
 }
 
 function onUrlPaste() {
@@ -435,12 +476,31 @@ function syncParsedUrlToForm() {
   selectedPR.value = parsedUrl.value.number
 }
 
+function syncParsedCompareUrlToForm() {
+  if (!parsedCompareUrl.value) return
+  createForm.provider = parsedCompareUrl.value.provider
+  createForm.repo = parsedCompareUrl.value.repo
+  createForm.base_branch = parsedCompareUrl.value.base_branch
+  createForm.head_branch = parsedCompareUrl.value.head_branch
+  selectedRepo.value = parsedCompareUrl.value.repo
+  selectedPR.value = null
+  selectedPRInfo.value = null
+}
+
 function applyParsedUrl(nextMode: InputMode = 'pr') {
   if (!parsedUrl.value) return
   syncParsedUrlToForm()
   inputMode.value = nextMode
   ensureReposLoaded()
   reloadPullRequests()
+}
+
+function applyParsedCompareUrl(nextMode: InputMode = 'branch') {
+  if (!parsedCompareUrl.value) return
+  syncParsedCompareUrlToForm()
+  inputMode.value = nextMode
+  ensureReposLoaded()
+  reloadBranches()
 }
 
 async function loadPlatforms() {
@@ -517,6 +577,7 @@ function searchRepos(query: string) {
 async function onRepoChange(repoFullName: string) {
   if (!repoFullName) return
   createForm.repo = repoFullName
+  selectedRepo.value = repoFullName
   selectedPR.value = null
   selectedPRInfo.value = null
   createForm.base_sha = ''
@@ -594,6 +655,7 @@ function resetForm() {
   inputMode.value = 'url'
   urlInput.value = ''
   parsedUrl.value = null
+  parsedCompareUrl.value = null
   submitMode.value = 'async'
   showAdvanced.value = []
   createForm.provider = availablePlatforms.value[0]?.provider || 'github'
@@ -620,6 +682,7 @@ async function handleSubmit() {
   creating.value = true
   try {
     if (inputMode.value === 'url') syncParsedUrlToForm()
+    if (inputMode.value === 'url') syncParsedCompareUrlToForm()
 
     const payload: Record<string, any> = {
       provider: createForm.provider,
@@ -638,7 +701,8 @@ async function handleSubmit() {
       }
     }
 
-    if (inputMode.value === 'branch') {
+    const isBranchReview = inputMode.value === 'branch' || (inputMode.value === 'url' && !!parsedCompareUrl.value)
+    if (isBranchReview) {
       const repoParts = splitRepo(createForm.repo)
       if (repoParts) {
         try {
@@ -949,6 +1013,17 @@ watch(visible, async (v) => {
   color: #707782;
   font-size: 13px;
   margin: 0;
+}
+
+.manual-hint {
+  background: #fff7e8;
+  border: 1px solid #f2d7a2;
+  border-radius: 8px;
+  color: #8a5a10;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: -4px 0 14px;
+  padding: 10px 12px;
 }
 
 .sha-collapse {

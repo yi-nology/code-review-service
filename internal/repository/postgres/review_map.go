@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
@@ -29,7 +30,7 @@ func (r *ReviewMapRepo) GetByMapID(ctx context.Context, mapID string) (*models.R
 	var m models.ReviewMap
 	err := r.db.WithContext(ctx).Where("map_id = ?", mapID).First(&m).Error
 	if err != nil {
-		if err == gormLib.ErrRecordNotFound {
+		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err
@@ -52,7 +53,7 @@ func (r *ReviewMapRepo) GetBySessionID(ctx context.Context, sessionID string) (*
 	var m models.ReviewMap
 	err := r.db.WithContext(ctx).Where("session_id = ?", sessionID).First(&m).Error
 	if err != nil {
-		if err == gormLib.ErrRecordNotFound {
+		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err

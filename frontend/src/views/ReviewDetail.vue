@@ -38,7 +38,13 @@
         />
 
         <!-- 实时进度追踪器 -->
-        <ProgressTracker v-if="showProgressTracker" :review-id="detail.review_id" />
+        <ProgressTracker
+          v-if="showProgressTracker"
+          :review-id="detail.review_id"
+          :review-status="detail.status"
+          :sessions="sessions"
+          :history="detail.history"
+        />
 
         <section class="summary-strip">
           <div class="summary-result" :class="getSummaryClass(detail)">
@@ -387,6 +393,7 @@ import { getReview, getReviewMaps, getReviewMap } from '@/api/review'
 import { sessionApi, type ReviewSession } from '@/api/session'
 import { getProviderLabel } from '@/utils/url-parser'
 import { getStatusLabel, getStatusType, getSeverityType } from '@/utils/status'
+import { formatDateTime } from '@/utils/format'
 import type { ReviewDetail } from '@/types/review'
 
 const router = useRouter()
@@ -402,7 +409,11 @@ let pollTimer: ReturnType<typeof setTimeout> | null = null
 let fetchInFlight = false
 const descriptionColumns = computed(() => viewportWidth.value < 720 ? 1 : 2)
 const ocrDescriptionColumns = computed(() => viewportWidth.value < 720 ? 1 : 3)
-const showProgressTracker = computed(() => detail.value && ['queued', 'running'].includes(detail.value.status))
+const showProgressTracker = computed(() => Boolean(detail.value && (
+  ['queued', 'running', 'failed', 'success', 'completed'].includes(detail.value.status) ||
+  sessions.value.length > 0 ||
+  (detail.value.history?.length || 0) > 0
+)))
 
 // Debug mode
 const debugMode = ref(localStorage.getItem('review-debug-mode') === 'true')
@@ -536,7 +547,7 @@ function getEventType(status: string) {
 }
 
 function formatTime(time: string) {
-  return new Date(time).toLocaleString('zh-CN')
+  return formatDateTime(time)
 }
 
 function formatDetails(details: Record<string, any>) {

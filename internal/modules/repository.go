@@ -1,0 +1,20 @@
+package modules
+
+import (
+	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres"
+	"github.com/yi-nology/code-review-service/internal/service/session"
+
+	"go.uber.org/fx"
+	"gorm.io/gorm"
+)
+
+var RepositoryModule = fx.Options(
+	fx.Provide(repository.NewRepoContainer),
+	fx.Provide(NewSessionRepository),
+	fx.Provide(session.NewSessionService),
+)
+
+func NewSessionRepository(db *gorm.DB) postgres.SessionRepository {
+	return postgres.NewPostgresSessionRepository(db)
+}

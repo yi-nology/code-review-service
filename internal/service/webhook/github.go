@@ -110,19 +110,19 @@ func (n *GitHubNormalizer) normalizePullRequest(rawBody []byte) (*ChangeEvent, e
 	}
 
 	return &ChangeEvent{
-		Provider:       "github",
-		DeliveryID:     deliveryID,
-		EventType:      "pull_request",
-		Action:         action,
-		RepositoryID:   repoID,
-		Repository:     repoFullName,
-		Number:         number,
-		BaseSHA:        baseSHA,
-		HeadSHA:        headSHA,
-		Sender:         sender,
-		Author:         author,
-		AuthorName:     authorName,
-		AuthorAvatar:   authorAvatar,
+		Provider:     "github",
+		DeliveryID:   deliveryID,
+		EventType:    "pull_request",
+		Action:       action,
+		RepositoryID: repoID,
+		Repository:   repoFullName,
+		Number:       number,
+		BaseSHA:      baseSHA,
+		HeadSHA:      headSHA,
+		Sender:       sender,
+		Author:       author,
+		AuthorName:   authorName,
+		AuthorAvatar: authorAvatar,
 	}, nil
 }
 

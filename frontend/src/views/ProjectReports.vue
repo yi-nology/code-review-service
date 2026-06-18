@@ -80,6 +80,15 @@
             <el-option label="严重问题" value="critical_count" />
             <el-option label="最近活跃" value="last_review_at" />
           </el-select>
+          <el-date-picker
+            v-model="dateRange"
+            class="date-range"
+            type="daterange"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            unlink-panels
+            @change="applyFilters"
+          />
           <el-button type="primary" plain @click="applyFilters">筛选</el-button>
           <el-button v-if="hasFilters" link @click="resetFilters">重置</el-button>
         </div>
@@ -192,8 +201,9 @@ const router = useRouter()
 const loading = ref(false)
 const projects = ref<ProjectSummary[]>([])
 const filters = reactive({ provider: '', repo: '', sort: 'avg_score' })
+const dateRange = ref<[Date, Date] | []>([])
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
-const hasFilters = computed(() => Boolean(filters.provider || filters.repo))
+const hasFilters = computed(() => Boolean(filters.provider || filters.repo || dateRange.value.length))
 
 const summaryStats = computed(() => {
   const list = projects.value
@@ -214,6 +224,7 @@ async function fetchProjects() {
   try {
     const result = await getProjects({
       ...filters,
+      ...dateParams(),
       page: pagination.page,
       page_size: pagination.pageSize,
     })
@@ -233,6 +244,7 @@ function resetFilters() {
   filters.provider = ''
   filters.repo = ''
   filters.sort = 'avg_score'
+  dateRange.value = []
   applyFilters()
 }
 
@@ -242,7 +254,27 @@ function handlePageSizeChange() {
 }
 
 function goToDetail(row: ProjectSummary) {
-  router.push({ path: '/projects/reports/detail', query: { provider: row.provider, repo: row.repo } })
+  router.push({
+    path: '/projects/reports/detail',
+    query: {
+      provider: row.provider,
+      repo: row.repo,
+      ...dateParams(),
+    },
+  })
+}
+
+function dateParams() {
+  if (dateRange.value.length !== 2) return {}
+  const [from, to] = dateRange.value
+  const start = new Date(from)
+  const end = new Date(to)
+  start.setHours(0, 0, 0, 0)
+  end.setHours(23, 59, 59, 999)
+  return {
+    from: start.toISOString(),
+    to: end.toISOString(),
+  }
 }
 
 function scoreClass(score: number) {
@@ -390,6 +422,10 @@ onMounted(fetchProjects)
 
 .repo-search {
   width: 260px;
+}
+
+.date-range {
+  width: 280px;
 }
 
 .project-table {
@@ -540,6 +576,10 @@ onMounted(fetchProjects)
   }
 
   .repo-search {
+    width: 100%;
+  }
+
+  .date-range {
     width: 100%;
   }
 

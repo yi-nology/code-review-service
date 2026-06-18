@@ -110,8 +110,8 @@ func TestBuildReportIncompleteRun(t *testing.T) {
 
 func TestBuildReportWithWarnings(t *testing.T) {
 	result := &review.Result{
-		Summary: "review with warnings",
-		OCR:     review.OCRMetadata{Engine: "test", Status: "success"},
+		Summary:  "review with warnings",
+		OCR:      review.OCRMetadata{Engine: "test", Status: "success"},
 		Findings: []review.Finding{},
 		Warnings: []review.OCRWarning{
 			{Type: "config", Message: "missing config"},
@@ -265,7 +265,7 @@ func TestBuildReportVolumeMultiplierLargePR(t *testing.T) {
 	result := &review.Result{
 		Summary: "large PR with one critical",
 		OCR:     review.OCRMetadata{Engine: "test", Status: "success"},
-		Scope: review.ScopeMetadata{ChangedLines: 1000},
+		Scope:   review.ScopeMetadata{ChangedLines: 1000},
 		Findings: []review.Finding{
 			{Severity: review.SeverityCritical, Title: "Critical", Body: "critical vulnerability"},
 		},
@@ -288,7 +288,7 @@ func TestBuildReportVolumeMultiplierSmallPR(t *testing.T) {
 	result := &review.Result{
 		Summary: "small PR with one critical",
 		OCR:     review.OCRMetadata{Engine: "test", Status: "success"},
-		Scope: review.ScopeMetadata{ChangedLines: 10},
+		Scope:   review.ScopeMetadata{ChangedLines: 10},
 		Findings: []review.Finding{
 			{Severity: review.SeverityCritical, Title: "Critical", Body: "critical vulnerability"},
 		},

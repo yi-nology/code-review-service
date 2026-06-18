@@ -6,12 +6,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/oekit/pkg"
+	"github.com/oekit/pkg/slicex"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
 
 // AgentManager manages multiple review agents
 type AgentManager struct {
-	agents     []ReviewAgent
+	agents     []reviewAgent
 	aggregator ResultAggregator
 	config     ManagerConfig
 	mu         sync.RWMutex
@@ -42,7 +44,7 @@ func NewAgentManager(config ManagerConfig, aggregator ResultAggregator) *AgentMa
 }
 
 // RegisterAgent registers a review agent
-func (m *AgentManager) RegisterAgent(agent ReviewAgent) {
+func (m *AgentManager) RegisterAgent(agent reviewAgent) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.agents = append(m.agents, agent)
@@ -50,23 +52,23 @@ func (m *AgentManager) RegisterAgent(agent ReviewAgent) {
 }
 
 // RegisterAgents registers multiple review agents
-func (m *AgentManager) RegisterAgents(agents []ReviewAgent) {
+func (m *AgentManager) RegisterAgents(agents []reviewAgent) {
 	for _, agent := range agents {
 		m.RegisterAgent(agent)
 	}
 }
 
 // GetAgents returns all registered agents
-func (m *AgentManager) GetAgents() []ReviewAgent {
+func (m *AgentManager) GetAgents() []reviewAgent {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	agents := make([]ReviewAgent, len(m.agents))
+	agents := make([]reviewAgent, len(m.agents))
 	copy(agents, m.agents)
 	return agents
 }
 
 // GetAgent returns an agent by name
-func (m *AgentManager) GetAgent(name string) (ReviewAgent, error) {
+func (m *AgentManager) GetAgent(name string) (reviewAgent, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	for _, agent := range m.agents {
@@ -77,118 +79,67 @@ func (m *AgentManager) GetAgent(name string) (ReviewAgent, error) {
 	return nil, fmt.Errorf("agent not found: %s", name)
 }
 
-// RunAgents runs all registered agents in parallel
-func (m *AgentManager) RunAgents(ctx context.Context, workspace Workspace) (AggregatedResult, error) {
-	return m.RunAgentsWithFilter(ctx, workspace, nil)
-}
-
-// RunAgentsWithFilter runs agents matching the filter in parallel
-func (m *AgentManager) RunAgentsWithFilter(ctx context.Context, workspace Workspace, filter func(ReviewAgent) bool) (AggregatedResult, error) {
+// getFilteredAgents returns agents matching the filter
+func (m *AgentManager) getFilteredAgents(filter func(reviewAgent) bool) []reviewAgent {
 	m.mu.RLock()
-	agents := make([]ReviewAgent, len(m.agents))
+	agents := make([]reviewAgent, len(m.agents))
 	copy(agents, m.agents)
 	m.mu.RUnlock()
 
-	// Apply filter
 	if filter != nil {
-		var filtered []ReviewAgent
-		for _, agent := range agents {
-			if filter(agent) {
-				filtered = append(filtered, agent)
-			}
-		}
-		agents = filtered
+		agents = slicex.Filter(agents, filter)
 	}
+	return agents
+}
 
+// RunAgents runs all registered agents in parallel
+func (m *AgentManager) RunAgents(ctx context.Context, workspace Workspace) (AggregatedResult, error) {
+	return m.RunAgentsWithCallback(ctx, workspace, nil)
+}
+
+// RunAgentsWithFilter runs agents matching the filter in parallel
+func (m *AgentManager) RunAgentsWithFilter(ctx context.Context, workspace Workspace, filter func(reviewAgent) bool) (AggregatedResult, error) {
+	agents := m.getFilteredAgents(filter)
 	if len(agents) == 0 {
 		return AggregatedResult{}, fmt.Errorf("no agents available for review")
 	}
 
-	// Create context with total timeout
 	ctx, cancel := context.WithTimeout(ctx, m.config.TotalTimeout)
 	defer cancel()
 
 	hlog.Infof("starting review with %d agents", len(agents))
-
-	// Create channels for results and errors
-	results := make(chan AgentResult, len(agents))
-	errors := make(chan error, len(agents))
-
-	// Create semaphore for concurrency control
-	sem := make(chan struct{}, m.config.MaxConcurrency)
-
-	// Start agents
-	var wg sync.WaitGroup
 	startTime := time.Now()
 
-	for _, agent := range agents {
-		wg.Add(1)
-		go func(a ReviewAgent) {
-			defer wg.Done()
+	// 使用 pipeline.ParallelFlow 简化并发控制
+	parallel := pipeline.NewParallel(m.config.MaxConcurrency)
 
-			// Acquire semaphore
-			sem <- struct{}{}
-			defer func() { <-sem }()
+	var (
+		mu           sync.Mutex
+		agentResults []AgentResult
+		agentErrors  []error
+	)
 
-			// Create agent context with timeout
-			agentTimeout := m.config.AgentTimeout
-			if agentTimeout <= 0 {
-				agentTimeout = 5 * time.Minute
-			}
-			agentCtx, agentCancel := context.WithTimeout(ctx, agentTimeout)
-			defer agentCancel()
-
-			// Run agent
-			hlog.Infof("starting agent: %s", a.Name())
-			agentStart := time.Now()
-
-			result, err := a.Review(agentCtx, workspace)
+	for _, a := range agents {
+		agent := a
+		parallel.Add(func(ctx context.Context) error {
+			result, err := m.runSingleAgent(ctx, agent, workspace)
 			if err != nil {
-				hlog.Errorf("agent %s failed: %v", a.Name(), err)
-				errors <- fmt.Errorf("agent %s failed: %w", a.Name(), err)
-				return
-			}
-
-			result.Duration = time.Since(agentStart)
-			hlog.Infof("agent %s completed in %v with %d findings", a.Name(), result.Duration, len(result.Findings))
-
-			results <- result
-		}(agent)
-	}
-
-	// Wait for all agents to complete
-	go func() {
-		wg.Wait()
-		close(results)
-		close(errors)
-	}()
-
-	// Collect results
-	var agentResults []AgentResult
-	var agentErrors []error
-
-	for {
-		select {
-		case result, ok := <-results:
-			if !ok {
-				results = nil
-			} else {
-				agentResults = append(agentResults, result)
-			}
-		case err, ok := <-errors:
-			if !ok {
-				errors = nil
-			} else {
+				mu.Lock()
 				agentErrors = append(agentErrors, err)
+				mu.Unlock()
+				return nil // 不中断其他 agent
 			}
-		}
-
-		if results == nil && errors == nil {
-			break
-		}
+			mu.Lock()
+			agentResults = append(agentResults, result)
+			mu.Unlock()
+			return nil
+		})
 	}
 
-	// Log errors
+	// 并发执行所有 agent
+	_ = parallel.Run(ctx)
+
+	// 记录错误
 	if len(agentErrors) > 0 {
 		hlog.Warnf("%d agents failed:", len(agentErrors))
 		for _, err := range agentErrors {
@@ -196,12 +147,12 @@ func (m *AgentManager) RunAgentsWithFilter(ctx context.Context, workspace Worksp
 		}
 	}
 
-	// Check if we have any results
+	// 检查是否有结果
 	if len(agentResults) == 0 {
 		return AggregatedResult{}, fmt.Errorf("all agents failed: %v", agentErrors)
 	}
 
-	// Aggregate results
+	// 聚合结果
 	aggregated := m.aggregator.Aggregate(agentResults)
 	aggregated.Duration = time.Since(startTime)
 
@@ -218,11 +169,9 @@ func (m *AgentManager) RunAgent(ctx context.Context, agentName string, workspace
 		return AgentResult{}, err
 	}
 
-	// Create context with timeout
 	ctx, cancel := context.WithTimeout(ctx, m.config.AgentTimeout)
 	defer cancel()
 
-	// Run agent
 	startTime := time.Now()
 	result, err := agent.Review(ctx, workspace)
 	if err != nil {
@@ -235,133 +184,88 @@ func (m *AgentManager) RunAgent(ctx context.Context, agentName string, workspace
 
 // AgentStatus represents the status of an agent
 type AgentStatus struct {
-	Name      string        `json:"name"`
-	Status    string        `json:"status"`
-	Progress  float64       `json:"progress"`
-	Message   string        `json:"message"`
-	Duration  time.Duration `json:"duration"`
-	Error     string        `json:"error,omitempty"`
+	Name     string        `json:"name"`
+	Status   string        `json:"status"`
+	Progress float64       `json:"progress"`
+	Message  string        `json:"message"`
+	Duration time.Duration `json:"duration"`
+	Error    string        `json:"error,omitempty"`
 }
 
 // RunAgentsWithCallback runs agents with progress callbacks
 func (m *AgentManager) RunAgentsWithCallback(ctx context.Context, workspace Workspace, callback func(status AgentStatus)) (AggregatedResult, error) {
-	m.mu.RLock()
-	agents := make([]ReviewAgent, len(m.agents))
-	copy(agents, m.agents)
-	m.mu.RUnlock()
-
+	agents := m.getFilteredAgents(nil)
 	if len(agents) == 0 {
 		return AggregatedResult{}, fmt.Errorf("no agents available for review")
 	}
 
-	// Create context with total timeout
 	ctx, cancel := context.WithTimeout(ctx, m.config.TotalTimeout)
 	defer cancel()
 
 	hlog.Infof("starting review with %d agents", len(agents))
-
-	// Create channels for results and errors
-	results := make(chan AgentResult, len(agents))
-	errors := make(chan error, len(agents))
-
-	// Create semaphore for concurrency control
-	sem := make(chan struct{}, m.config.MaxConcurrency)
-
-	// Start agents
-	var wg sync.WaitGroup
 	startTime := time.Now()
 
-	for _, agent := range agents {
-		wg.Add(1)
-		go func(a ReviewAgent) {
-			defer wg.Done()
+	// 使用 pipeline.ParallelFlow 简化并发控制
+	parallel := pipeline.NewParallel(m.config.MaxConcurrency)
 
-			// Acquire semaphore
-			sem <- struct{}{}
-			defer func() { <-sem }()
+	var (
+		mu           sync.Mutex
+		agentResults []AgentResult
+		agentErrors  []error
+	)
 
-			// Create agent context with timeout
-			agentTimeout := m.config.AgentTimeout
-			if agentTimeout <= 0 {
-				agentTimeout = 5 * time.Minute
-			}
-			agentCtx, agentCancel := context.WithTimeout(ctx, agentTimeout)
-			defer agentCancel()
-
-			// Report status
-			callback(AgentStatus{
-				Name:     a.Name(),
-				Status:   "running",
-				Progress: 0,
-				Message:  "starting review",
-			})
-
-			// Run agent
-			agentStart := time.Now()
-			result, err := a.Review(agentCtx, workspace)
-			if err != nil {
-				hlog.Errorf("agent %s failed: %v", a.Name(), err)
+	for _, a := range agents {
+		agent := a
+		parallel.Add(func(ctx context.Context) error {
+			// 报告状态
+			if callback != nil {
 				callback(AgentStatus{
-					Name:     a.Name(),
-					Status:   "failed",
+					Name:     agent.Name(),
+					Status:   "running",
 					Progress: 0,
-					Message:  err.Error(),
-					Duration: time.Since(agentStart),
-					Error:    err.Error(),
+					Message:  "starting review",
 				})
-				errors <- fmt.Errorf("agent %s failed: %w", a.Name(), err)
-				return
 			}
 
-			result.Duration = time.Since(agentStart)
-			hlog.Infof("agent %s completed in %v with %d findings", a.Name(), result.Duration, len(result.Findings))
-
-			// Report status
-			callback(AgentStatus{
-				Name:     a.Name(),
-				Status:   "completed",
-				Progress: 100,
-				Message:  fmt.Sprintf("found %d findings", len(result.Findings)),
-				Duration: result.Duration,
-			})
-
-			results <- result
-		}(agent)
-	}
-
-	// Wait for all agents to complete
-	go func() {
-		wg.Wait()
-		close(results)
-		close(errors)
-	}()
-
-	// Collect results
-	var agentResults []AgentResult
-	var agentErrors []error
-
-	for {
-		select {
-		case result, ok := <-results:
-			if !ok {
-				results = nil
-			} else {
-				agentResults = append(agentResults, result)
-			}
-		case err, ok := <-errors:
-			if !ok {
-				errors = nil
-			} else {
+			result, err := m.runSingleAgent(ctx, agent, workspace)
+			if err != nil {
+				hlog.Errorf("agent %s failed: %v", agent.Name(), err)
+				if callback != nil {
+					callback(AgentStatus{
+						Name:    agent.Name(),
+						Status:  "failed",
+						Message: err.Error(),
+						Error:   err.Error(),
+					})
+				}
+				mu.Lock()
 				agentErrors = append(agentErrors, err)
+				mu.Unlock()
+				return nil // 不中断其他 agent
 			}
-		}
 
-		if results == nil && errors == nil {
-			break
-		}
+			// 报告完成状态
+			if callback != nil {
+				callback(AgentStatus{
+					Name:     agent.Name(),
+					Status:   "completed",
+					Progress: 100,
+					Message:  fmt.Sprintf("found %d findings", len(result.Findings)),
+					Duration: result.Duration,
+				})
+			}
+
+			mu.Lock()
+			agentResults = append(agentResults, result)
+			mu.Unlock()
+			return nil
+		})
 	}
 
-	// Log errors
+	// 并发执行所有 agent
+	_ = parallel.Run(ctx)
+
+	// 记录错误
 	if len(agentErrors) > 0 {
 		hlog.Warnf("%d agents failed:", len(agentErrors))
 		for _, err := range agentErrors {
@@ -369,12 +273,12 @@ func (m *AgentManager) RunAgentsWithCallback(ctx context.Context, workspace Work
 		}
 	}
 
-	// Check if we have any results
+	// 检查是否有结果
 	if len(agentResults) == 0 {
 		return AggregatedResult{}, fmt.Errorf("all agents failed: %v", agentErrors)
 	}
 
-	// Aggregate results
+	// 聚合结果
 	aggregated := m.aggregator.Aggregate(agentResults)
 	aggregated.Duration = time.Since(startTime)
 
@@ -382,4 +286,27 @@ func (m *AgentManager) RunAgentsWithCallback(ctx context.Context, workspace Work
 		aggregated.Duration, len(aggregated.Findings), aggregated.Confidence)
 
 	return aggregated, nil
+}
+
+// runSingleAgent runs a single agent with timeout
+func (m *AgentManager) runSingleAgent(ctx context.Context, agent reviewAgent, workspace Workspace) (AgentResult, error) {
+	agentTimeout := m.config.AgentTimeout
+	if agentTimeout <= 0 {
+		agentTimeout = 5 * time.Minute
+	}
+	agentCtx, agentCancel := context.WithTimeout(ctx, agentTimeout)
+	defer agentCancel()
+
+	hlog.Infof("starting agent: %s", agent.Name())
+	agentStart := time.Now()
+
+	result, err := agent.Review(agentCtx, workspace)
+	if err != nil {
+		return AgentResult{}, fmt.Errorf("agent %s failed: %w", agent.Name(), err)
+	}
+
+	result.Duration = time.Since(agentStart)
+	hlog.Infof("agent %s completed in %v with %d findings", agent.Name(), result.Duration, len(result.Findings))
+
+	return result, nil
 }

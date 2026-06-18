@@ -128,11 +128,11 @@ func BuildReport(result *Result) Report {
 			result.OCR.FilesReviewed > 0 ||
 			len(result.Findings) > 0,
 		Score: Score{
-			Value:          value,
-			Grade:          scoreGrade(value),
-			Version:        scoreVersion,
-			Deductions:     deductions,
-			ChangedLines:   changedLines,
+			Value:           value,
+			Grade:           scoreGrade(value),
+			Version:         scoreVersion,
+			Deductions:      deductions,
+			ChangedLines:    changedLines,
 			FindingsDensity: mathx.Round(density, 2),
 		},
 	}

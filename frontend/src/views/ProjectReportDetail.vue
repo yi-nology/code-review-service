@@ -11,10 +11,16 @@
           <h1>{{ repo || '项目报告' }}</h1>
           <p>{{ providerLabel(provider) }} 项目维度代码审查报告</p>
         </div>
-        <el-button type="primary" :disabled="!detail" @click="exportMarkdown">
-          <el-icon><Download /></el-icon>
-          导出 Markdown
-        </el-button>
+        <div class="header-actions">
+          <el-button :disabled="!detail" @click="exportJSON">
+            <el-icon><Download /></el-icon>
+            导出 JSON
+          </el-button>
+          <el-button type="primary" :disabled="!detail" @click="exportMarkdown">
+            <el-icon><Download /></el-icon>
+            导出 Markdown
+          </el-button>
+        </div>
       </header>
 
       <div v-if="missingParams" class="empty-state">
@@ -22,6 +28,19 @@
       </div>
 
       <div v-else v-loading="loading" class="report-shell">
+        <div class="report-controls">
+          <el-date-picker
+            v-model="dateRange"
+            class="date-range"
+            type="daterange"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            unlink-panels
+          />
+          <el-button type="primary" plain @click="applyDateRange">更新报告</el-button>
+          <el-button v-if="hasDateRange" link @click="clearDateRange">清除时间范围</el-button>
+        </div>
+
         <el-row v-if="detail" :gutter="16" class="stats-row">
           <el-col :xs="12" :sm="12" :md="6">
             <el-card shadow="never" class="stat-card score">
@@ -210,7 +229,11 @@ const contributors = ref<ContributorSummary[]>([])
 
 const provider = computed(() => String(route.query.provider || ''))
 const repo = computed(() => String(route.query.repo || ''))
+const from = computed(() => String(route.query.from || ''))
+const to = computed(() => String(route.query.to || ''))
 const missingParams = computed(() => !provider.value || !repo.value)
+const dateRange = ref<[Date, Date] | []>([])
+const hasDateRange = computed(() => dateRange.value.length === 2)
 
 const gradeItems = computed(() => {
   const dist = detail.value?.grade_distribution || {}
@@ -221,7 +244,8 @@ async function fetchReport() {
   if (missingParams.value) return
   loading.value = true
   try {
-    const params = { provider: provider.value, repo: repo.value }
+    syncDateRangeFromQuery()
+    const params = reportParams()
     const [project, trendData, categoryData, fileData, contributorData] = await Promise.all([
       getProject(params),
       getProjectTrend(params),
@@ -237,6 +261,52 @@ async function fetchReport() {
   } finally {
     loading.value = false
   }
+}
+
+function reportParams() {
+  return {
+    provider: provider.value,
+    repo: repo.value,
+    ...(from.value ? { from: from.value } : {}),
+    ...(to.value ? { to: to.value } : {}),
+  }
+}
+
+function syncDateRangeFromQuery() {
+  if (!from.value || !to.value) {
+    dateRange.value = []
+    return
+  }
+  dateRange.value = [new Date(from.value), new Date(to.value)]
+}
+
+function dateParamsFromPicker() {
+  if (dateRange.value.length !== 2) return {}
+  const [startDate, endDate] = dateRange.value
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  start.setHours(0, 0, 0, 0)
+  end.setHours(23, 59, 59, 999)
+  return {
+    from: start.toISOString(),
+    to: end.toISOString(),
+  }
+}
+
+function applyDateRange() {
+  router.push({
+    path: '/projects/reports/detail',
+    query: {
+      provider: provider.value,
+      repo: repo.value,
+      ...dateParamsFromPicker(),
+    },
+  })
+}
+
+function clearDateRange() {
+  dateRange.value = []
+  applyDateRange()
 }
 
 function categoryPercent(count: number) {
@@ -264,6 +334,7 @@ function exportMarkdown() {
   const content = `# ${report.repo} 代码审查项目报告
 
 - 平台: ${providerLabel(report.provider)}
+- 时间范围: ${formatReportRange()}
 - 生成时间: ${new Date().toLocaleString('zh-CN')}
 - 最近审查: ${formatDateFull(report.last_review_at)}
 
@@ -296,18 +367,46 @@ ${fileLines}
 
 ${contributorLines}
 `
-  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${report.repo.replace(/[\\/]/g, '-')}-review-report.md`
-  a.click()
-  URL.revokeObjectURL(url)
+  downloadReport(content, 'text/markdown;charset=utf-8', 'md')
   ElMessage.success('项目报告已导出')
 }
 
+function exportJSON() {
+  if (!detail.value) return
+  const payload = {
+    generated_at: new Date().toISOString(),
+    range: { from: from.value || null, to: to.value || null },
+    detail: detail.value,
+    trend: trend.value,
+    categories: categories.value,
+    files: files.value,
+    contributors: contributors.value,
+  }
+  downloadReport(JSON.stringify(payload, null, 2), 'application/json;charset=utf-8', 'json')
+  ElMessage.success('项目报告 JSON 已导出')
+}
+
+function downloadReport(content: string, type: string, extension: string) {
+  if (!detail.value) return
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${detail.value.repo.replace(/[\\/]/g, '-')}-review-report.${extension}`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function formatReportRange() {
+  if (!from.value || !to.value) return '全部时间'
+  return `${formatDateFull(from.value)} 至 ${formatDateFull(to.value)}`
+}
+
 watch(() => route.query, fetchReport)
-onMounted(fetchReport)
+onMounted(() => {
+  syncDateRangeFromQuery()
+  fetchReport()
+})
 </script>
 
 <style scoped>
@@ -355,6 +454,29 @@ onMounted(fetchReport)
   margin: 0;
   color: var(--app-muted);
   font-size: 14px;
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.report-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+
+.date-range {
+  width: 300px;
 }
 
 .stats-row {
@@ -555,6 +677,14 @@ onMounted(fetchReport)
 
   .page-header {
     flex-direction: column;
+  }
+
+  .header-actions {
+    justify-content: flex-start;
+  }
+
+  .date-range {
+    width: 100%;
   }
 
   .report-grid {

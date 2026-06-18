@@ -59,7 +59,7 @@ func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
 
 	agents := slicex.Map(allAgents, func(a models.ReviewerAgent) *modelProjectAgent.ProjectAgentConfig {
 		agent := &modelProjectAgent.ProjectAgentConfig{
-			AgentID:         int64(a.ID),
+			AgentID:         safeInt64(a.ID),
 			Name:            a.Name,
 			DisplayName:     a.DisplayName,
 			Description:     a.Description,
@@ -90,7 +90,7 @@ func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	_, err := handlerInst.reviewerAgentRepo.GetByID(ctx, uint(req.AgentID))
+	_, err := handlerInst.reviewerAgentRepo.GetByID(ctx, safeUint(req.AgentID))
 	if err != nil {
 		common.Fail(c, common.NotFound("agent not found"))
 		return
@@ -99,7 +99,7 @@ func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
 	pa := &models.ProjectAgent{
 		Provider: req.Provider,
 		Repo:     req.Repo,
-		AgentID:  uint(req.AgentID),
+		AgentID:  safeUint(req.AgentID),
 		Enabled:  req.Enabled,
 		Priority: int(req.Priority),
 	}
@@ -132,7 +132,7 @@ func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
 		pa := &models.ProjectAgent{
 			Provider: req.Provider,
 			Repo:     req.Repo,
-			AgentID:  uint(agentReq.AgentID),
+			AgentID:  safeUint(agentReq.AgentID),
 			Enabled:  agentReq.Enabled,
 			Priority: int(agentReq.Priority),
 		}
@@ -154,7 +154,7 @@ func DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	if err := handlerInst.projectAgentRepo.Delete(ctx, req.Provider, req.Repo, uint(req.AgentID)); err != nil {
+	if err := handlerInst.projectAgentRepo.Delete(ctx, req.Provider, req.Repo, safeUint(req.AgentID)); err != nil {
 		hlog.Errorf("delete project agent failed: %v", err)
 		common.Fail(c, err)
 		return
@@ -167,4 +167,19 @@ func DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
 
 func GetProjectAgentConfig(ctx context.Context, provider, repo string) ([]models.ProjectAgent, error) {
 	return handlerInst.projectAgentRepo.GetEnabledByProject(ctx, provider, repo)
+}
+
+func safeInt64(v uint) int64 {
+	const maxInt64 = ^uint(0) >> 1
+	if v > maxInt64 {
+		return int64(maxInt64)
+	}
+	return int64(v)
+}
+
+func safeUint(v int64) uint {
+	if v < 0 {
+		return 0
+	}
+	return uint(v)
 }

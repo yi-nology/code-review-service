@@ -7,121 +7,137 @@ import (
 )
 
 func rootMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _apiMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _v1Mw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _settingsMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _agentsMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _listrevieweragentsMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _deleterevieweragentMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _updaterevieweragentMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _createrevieweragentMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _ocrMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _getocrsettingsMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _testllmMw() []app.HandlerFunc {
-	// your code...
+	return nil
+}
+
+func _listllmprovidersMw() []app.HandlerFunc {
+	return nil
+}
+
+func _listcustomprovidersMw() []app.HandlerFunc {
+	return nil
+}
+
+func _createcustomproviderMw() []app.HandlerFunc {
+	return nil
+}
+
+func _updatecustomproviderMw() []app.HandlerFunc {
+	return nil
+}
+
+func _deletecustomproviderMw() []app.HandlerFunc {
+	return nil
+}
+
+func _rulescheckMw() []app.HandlerFunc {
+	return nil
+}
+
+func _ocrversionMw() []app.HandlerFunc {
+	return nil
+}
+
+func _viewerstatusMw() []app.HandlerFunc {
+	return nil
+}
+
+func _startviewerMw() []app.HandlerFunc {
+	return nil
+}
+
+func _stopviewerMw() []app.HandlerFunc {
 	return nil
 }
 
 func _updateocrsettingsMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _platformsMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _deleteplatformMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _testplatformMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _listplatformsMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _putplatformMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _deleteprojectpolicyMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _listprojectpoliciesMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _putprojectpolicyMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _rulesMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _getglobalrulesMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
 
 func _updateglobalrulesMw() []app.HandlerFunc {
-	// your code...
 	return nil
 }
