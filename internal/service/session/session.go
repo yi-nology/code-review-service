@@ -9,6 +9,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/postgres"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/types"
+	"github.com/oekit/gormx"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"gorm.io/datatypes"
 )
@@ -165,14 +166,7 @@ func (s *SessionService) GetNextRound(ctx context.Context, reviewID string) (int
 }
 
 func (s *SessionService) ListSessions(ctx context.Context, page, pageSize int) ([]*models.ReviewSession, int64, error) {
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 {
-		pageSize = 20
-	}
-	if pageSize > 100 {
-		pageSize = 100
-	}
-	return s.repo.List(ctx, (page-1)*pageSize, pageSize)
+	req := gormx.NewPageRequest(page, pageSize)
+	req.Normalize()
+	return s.repo.List(ctx, req.Offset(), req.Limit())
 }
