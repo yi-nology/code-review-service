@@ -15,8 +15,7 @@ import (
 )
 
 func ListCustomProviders(ctx context.Context, c *app.RequestContext) {
-	if handlerInst.customProvider == nil {
-		common.Fail(c, common.BadRequest("自定义 Provider 功能未配置"))
+	if !common.FeatureGuard(c, handlerInst.customProvider, "自定义 Provider") {
 		return
 	}
 	providers, err := handlerInst.customProvider.List(ctx)
@@ -32,11 +31,8 @@ func ListCustomProviders(ctx context.Context, c *app.RequestContext) {
 }
 
 func CreateCustomProvider(ctx context.Context, c *app.RequestContext) {
-	var req modelSettings.CreateCustomProviderReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSettings.CreateCustomProviderReq](c)
+	if !ok { return }
 	if strings.TrimSpace(req.Name) == "" {
 		common.Fail(c, common.BadRequest("Provider 名称不能为空"))
 		return
@@ -65,11 +61,8 @@ func CreateCustomProvider(ctx context.Context, c *app.RequestContext) {
 }
 
 func UpdateCustomProvider(ctx context.Context, c *app.RequestContext) {
-	var req modelSettings.UpdateCustomProviderReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSettings.UpdateCustomProviderReq](c)
+	if !ok { return }
 	existing, err := handlerInst.customProvider.GetByID(ctx, safeUint(req.ID))
 	if err != nil || existing == nil {
 		common.Fail(c, common.BadRequest("Provider 不存在"))
@@ -110,11 +103,8 @@ func UpdateCustomProvider(ctx context.Context, c *app.RequestContext) {
 }
 
 func DeleteCustomProvider(ctx context.Context, c *app.RequestContext) {
-	var req modelSettings.DeleteCustomProviderReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSettings.DeleteCustomProviderReq](c)
+	if !ok { return }
 	if err := handlerInst.customProvider.Delete(ctx, safeUint(req.ID)); err != nil {
 		common.Fail(c, err)
 		return

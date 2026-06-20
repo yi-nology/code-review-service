@@ -35,11 +35,8 @@ func InitHandler(progressManager *progress.ProgressManager) {
 }
 
 func HandleProgressWS(ctx context.Context, c *app.RequestContext) {
-	var req modelProgress.HandleProgressWSReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelProgress.HandleProgressWSReq](c)
+	if !ok { return }
 
 	var conn *websocket.Conn
 	err := handlerInst.upgrader.Upgrade(c, func(ws *websocket.Conn) {
@@ -88,11 +85,8 @@ func HandleProgressWS(ctx context.Context, c *app.RequestContext) {
 }
 
 func GetProgress(ctx context.Context, c *app.RequestContext) {
-	var req modelProgress.GetProgressReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelProgress.GetProgressReq](c)
+	if !ok { return }
 
 	tracker := handlerInst.progressManager.GetTracker(req.ID)
 	if tracker == nil {
@@ -105,11 +99,8 @@ func GetProgress(ctx context.Context, c *app.RequestContext) {
 }
 
 func GetActiveReviews(ctx context.Context, c *app.RequestContext) {
-	var req modelProgress.GetActiveReviewsReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	_, ok := common.Bind[modelProgress.GetActiveReviewsReq](c)
+	if !ok { return }
 
 	trackers := handlerInst.progressManager.GetActiveTrackers()
 

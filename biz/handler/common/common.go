@@ -147,3 +147,47 @@ func SafeUint(v int64) uint {
 	}
 	return uint(v)
 }
+
+// Bind 绑定并验证请求参数到泛型类型 T。
+// 失败时自动返回 400 错误响应，调用方无需处理 error。
+//
+// 用法:
+//
+//	req, ok := common.Bind[model.CreateReq](c)
+//	if !ok { return }
+func Bind[T any](c *hertzApp.RequestContext) (*T, bool) {
+	var req T
+	if err := c.BindAndValidate(&req); err != nil {
+		Fail(c, BadRequest(err.Error()))
+		return nil, false
+	}
+	return &req, true
+}
+
+// RequireFields 检查字段非空。任一为空时返回 400。
+//
+// 用法:
+//
+//	if !common.RequireFields(c, req.Provider, req.Repo) { return }
+func RequireFields(c *hertzApp.RequestContext, fields ...string) bool {
+	for _, f := range fields {
+		if f == "" {
+			Fail(c, BadRequest("required field is empty"))
+			return false
+		}
+	}
+	return true
+}
+
+// FeatureGuard 检查可选功能是否已配置。未配置时返回 400。
+//
+// 用法:
+//
+//	if !common.FeatureGuard(c, handlerInst.viewerMgr, "Viewer") { return }
+func FeatureGuard(c *hertzApp.RequestContext, feature any, name string) bool {
+	if feature == nil {
+		Fail(c, BadRequest(name+" 功能未配置"))
+		return false
+	}
+	return true
+}

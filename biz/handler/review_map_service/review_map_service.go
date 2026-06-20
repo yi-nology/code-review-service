@@ -37,11 +37,8 @@ func InitHandler(sessionService session.Service, reviewMapRepo repository.Review
 }
 
 func GenerateMap(ctx context.Context, c *app.RequestContext) {
-	var req modelReviewMap.GenerateMapReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelReviewMap.GenerateMapReq](c)
+	if !ok { return }
 
 	reviewID := req.ID
 	if req.ReviewID != nil && *req.ReviewID != "" {
@@ -89,11 +86,8 @@ func GenerateMap(ctx context.Context, c *app.RequestContext) {
 }
 
 func GetMaps(ctx context.Context, c *app.RequestContext) {
-	var req modelReviewMap.GetMapsReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelReviewMap.GetMapsReq](c)
+	if !ok { return }
 
 	maps, err := handlerInst.reviewMapRepo.GetByReviewID(ctx, req.ID)
 	if err != nil {
@@ -123,11 +117,8 @@ func GetMaps(ctx context.Context, c *app.RequestContext) {
 }
 
 func GetMap(ctx context.Context, c *app.RequestContext) {
-	var req modelReviewMap.GetMapReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelReviewMap.GetMapReq](c)
+	if !ok { return }
 
 	m, err := handlerInst.reviewMapRepo.GetByMapID(ctx, req.MapID)
 	if err != nil {
@@ -162,11 +153,8 @@ func GetMap(ctx context.Context, c *app.RequestContext) {
 }
 
 func GetSessionMap(ctx context.Context, c *app.RequestContext) {
-	var req modelReviewMap.GetSessionMapReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelReviewMap.GetSessionMapReq](c)
+	if !ok { return }
 
 	m, err := handlerInst.reviewMapRepo.GetBySessionID(ctx, req.SessionID)
 	if err != nil {
@@ -201,11 +189,8 @@ func GetSessionMap(ctx context.Context, c *app.RequestContext) {
 }
 
 func PreviewMap(ctx context.Context, c *app.RequestContext) {
-	var req modelReviewMap.PreviewMapReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelReviewMap.PreviewMapReq](c)
+	if !ok { return }
 
 	reviewMap, err := handlerInst.mapGenerator.Generate("preview", req.Diff, nil)
 	if err != nil {
@@ -271,11 +256,8 @@ func UpdateFileReviewed(ctx context.Context, c *app.RequestContext) {
 	// Decode file path (may contain encoded slashes)
 	filePath := fileID
 
-	var req UpdateFileReviewedRequest
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[UpdateFileReviewedRequest](c)
+	if !ok { return }
 
 	// Verify map exists and belongs to review
 	m, err := handlerInst.reviewMapRepo.GetByMapID(ctx, mapID)
@@ -306,11 +288,8 @@ func UpdateSectionProgress(ctx context.Context, c *app.RequestContext) {
 	mapID := c.Param("mapId")
 	sectionID := c.Param("sectionId")
 
-	var req UpdateSectionProgressRequest
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[UpdateSectionProgressRequest](c)
+	if !ok { return }
 
 	// Verify map exists and belongs to review
 	m, err := handlerInst.reviewMapRepo.GetByMapID(ctx, mapID)

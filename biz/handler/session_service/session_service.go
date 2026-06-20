@@ -43,11 +43,8 @@ func InitHandler(sessionService SessionService) {
 }
 
 func ListSessions(ctx context.Context, c *app.RequestContext) {
-	var req modelSession.ListSessionsReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSession.ListSessionsReq](c)
+	if !ok { return }
 
 	page, pageSize := common.PageParams(
 		convert.Int64ToStr(ptrx.Deref(req.Page, 0)),
@@ -71,11 +68,8 @@ func ListSessions(ctx context.Context, c *app.RequestContext) {
 }
 
 func GetSessions(ctx context.Context, c *app.RequestContext) {
-	var req modelSession.GetSessionsReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSession.GetSessionsReq](c)
+	if !ok { return }
 
 	sessions, err := handlerInst.sessionService.GetSessionsByReview(ctx, req.ID)
 	if err != nil {
@@ -90,11 +84,8 @@ func GetSessions(ctx context.Context, c *app.RequestContext) {
 }
 
 func CreateSession(ctx context.Context, c *app.RequestContext) {
-	var req modelSession.CreateSessionReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSession.CreateSessionReq](c)
+	if !ok { return }
 
 	round, err := handlerInst.sessionService.GetNextRound(ctx, req.ID)
 	if err != nil {
@@ -114,11 +105,8 @@ func CreateSession(ctx context.Context, c *app.RequestContext) {
 }
 
 func GetActiveSession(ctx context.Context, c *app.RequestContext) {
-	var req modelSession.GetActiveSessionReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSession.GetActiveSessionReq](c)
+	if !ok { return }
 
 	session, err := handlerInst.sessionService.GetActiveSession(ctx, req.ID)
 	if err != nil {
@@ -136,11 +124,8 @@ func GetActiveSession(ctx context.Context, c *app.RequestContext) {
 }
 
 func GetSession(ctx context.Context, c *app.RequestContext) {
-	var req modelSession.GetSessionReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSession.GetSessionReq](c)
+	if !ok { return }
 
 	session, err := handlerInst.sessionService.GetSession(ctx, req.SessionID)
 	if err != nil {
@@ -153,11 +138,8 @@ func GetSession(ctx context.Context, c *app.RequestContext) {
 }
 
 func UpdateSessionPhase(ctx context.Context, c *app.RequestContext) {
-	var req modelSession.UpdateSessionPhaseReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSession.UpdateSessionPhaseReq](c)
+	if !ok { return }
 
 	progress := ptrx.Deref(req.Progress, 0)
 	if err := handlerInst.sessionService.UpdatePhase(ctx, req.SessionID, models.SessionPhase(req.Phase), progress); err != nil {
@@ -172,11 +154,8 @@ func UpdateSessionPhase(ctx context.Context, c *app.RequestContext) {
 }
 
 func UpdateSessionStatus(ctx context.Context, c *app.RequestContext) {
-	var req modelSession.UpdateSessionStatusReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSession.UpdateSessionStatusReq](c)
+	if !ok { return }
 
 	if err := handlerInst.sessionService.UpdateStatus(ctx, req.SessionID, models.SessionStatus(req.Status)); err != nil {
 		hlog.Errorf("update session status failed: %v", err)
@@ -190,11 +169,8 @@ func UpdateSessionStatus(ctx context.Context, c *app.RequestContext) {
 }
 
 func UpdateSessionAgentResults(ctx context.Context, c *app.RequestContext) {
-	var req modelSession.UpdateSessionAgentResultsReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSession.UpdateSessionAgentResultsReq](c)
+	if !ok { return }
 
 	var agentResults []models.AgentResultData
 	if err := json.Unmarshal([]byte(req.AgentResults), &agentResults); err != nil {
@@ -214,11 +190,8 @@ func UpdateSessionAgentResults(ctx context.Context, c *app.RequestContext) {
 }
 
 func UpdateSessionDiscussion(ctx context.Context, c *app.RequestContext) {
-	var req modelSession.UpdateSessionDiscussionReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSession.UpdateSessionDiscussionReq](c)
+	if !ok { return }
 
 	var discussion models.DiscussionData
 	if err := json.Unmarshal([]byte(req.Discussion), &discussion); err != nil {
@@ -238,11 +211,8 @@ func UpdateSessionDiscussion(ctx context.Context, c *app.RequestContext) {
 }
 
 func UpdateSessionFinalReport(ctx context.Context, c *app.RequestContext) {
-	var req modelSession.UpdateSessionFinalReportReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSession.UpdateSessionFinalReportReq](c)
+	if !ok { return }
 
 	var finalReport models.FinalReportData
 	if err := json.Unmarshal([]byte(req.FinalReport), &finalReport); err != nil {
@@ -262,11 +232,8 @@ func UpdateSessionFinalReport(ctx context.Context, c *app.RequestContext) {
 }
 
 func CompleteSession(ctx context.Context, c *app.RequestContext) {
-	var req modelSession.CompleteSessionReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSession.CompleteSessionReq](c)
+	if !ok { return }
 
 	var finalReport models.FinalReportData
 	if err := json.Unmarshal([]byte(req.FinalReport), &finalReport); err != nil {
@@ -286,11 +253,8 @@ func CompleteSession(ctx context.Context, c *app.RequestContext) {
 }
 
 func FailSession(ctx context.Context, c *app.RequestContext) {
-	var req modelSession.FailSessionReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSession.FailSessionReq](c)
+	if !ok { return }
 
 	if err := handlerInst.sessionService.FailSession(ctx, req.SessionID, req.Reason); err != nil {
 		hlog.Errorf("fail session failed: %v", err)
@@ -304,11 +268,8 @@ func FailSession(ctx context.Context, c *app.RequestContext) {
 }
 
 func CancelSession(ctx context.Context, c *app.RequestContext) {
-	var req modelSession.CancelSessionReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSession.CancelSessionReq](c)
+	if !ok { return }
 
 	if err := handlerInst.sessionService.CancelSession(ctx, req.SessionID); err != nil {
 		hlog.Errorf("cancel session failed: %v", err)

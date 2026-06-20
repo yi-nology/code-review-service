@@ -30,11 +30,8 @@ func GetOCRSettings(ctx context.Context, c *app.RequestContext) {
 }
 
 func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
-	var req modelSettings.UpdateOCRSettingsReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSettings.UpdateOCRSettingsReq](c)
+	if !ok { return }
 	dbSettings := apiOCRSettingsToDB(req.Settings)
 	if err := validateOCRSettings(dbSettings); err != nil {
 		common.Fail(c, common.BadRequest(err.Error()))
@@ -61,8 +58,7 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 }
 
 func TestLLM(ctx context.Context, c *app.RequestContext) {
-	if handlerInst.llmTester == nil {
-		common.Fail(c, common.BadRequest("LLM 测试功能未配置"))
+	if !common.FeatureGuard(c, handlerInst.llmTester, "LLM 测试") {
 		return
 	}
 	result, err := handlerInst.llmTester.TestLLM(ctx)

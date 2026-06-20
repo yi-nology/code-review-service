@@ -32,11 +32,8 @@ func InitHandler(
 }
 
 func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
-	var req modelProjectAgent.GetProjectAgentsReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelProjectAgent.GetProjectAgentsReq](c)
+	if !ok { return }
 
 	projectAgents, err := handlerInst.projectAgentRepo.GetByProject(ctx, req.Provider, req.Repo)
 	if err != nil {
@@ -84,11 +81,8 @@ func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
 }
 
 func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
-	var req modelProjectAgent.UpdateProjectAgentReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelProjectAgent.UpdateProjectAgentReq](c)
+	if !ok { return }
 
 	_, err := handlerInst.reviewerAgentRepo.GetByID(ctx, safeUint(req.AgentID))
 	if err != nil {
@@ -116,11 +110,8 @@ func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
 }
 
 func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
-	var req modelProjectAgent.BatchUpdateProjectAgentsReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelProjectAgent.BatchUpdateProjectAgentsReq](c)
+	if !ok { return }
 
 	if err := handlerInst.projectAgentRepo.DeleteByProject(ctx, req.Provider, req.Repo); err != nil {
 		hlog.Errorf("delete project agents failed: %v", err)
@@ -148,11 +139,8 @@ func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
 }
 
 func DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
-	var req modelProjectAgent.DeleteProjectAgentReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelProjectAgent.DeleteProjectAgentReq](c)
+	if !ok { return }
 
 	if err := handlerInst.projectAgentRepo.Delete(ctx, req.Provider, req.Repo, safeUint(req.AgentID)); err != nil {
 		hlog.Errorf("delete project agent failed: %v", err)

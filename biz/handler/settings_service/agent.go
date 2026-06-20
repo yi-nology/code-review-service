@@ -27,11 +27,8 @@ func ListReviewerAgents(ctx context.Context, c *app.RequestContext) {
 }
 
 func CreateReviewerAgent(ctx context.Context, c *app.RequestContext) {
-	var req modelSettings.CreateReviewerAgentReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSettings.CreateReviewerAgentReq](c)
+	if !ok { return }
 	agent := &models.ReviewerAgent{
 		Name: req.Name, DisplayName: req.DisplayName, Description: ptrx.Deref(req.Description, ""),
 		Background: req.Background, Enabled: true,
@@ -53,11 +50,8 @@ func CreateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 }
 
 func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
-	var req modelSettings.UpdateReviewerAgentReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSettings.UpdateReviewerAgentReq](c)
+	if !ok { return }
 	id, err := parseUintID(req.ID)
 	if err != nil {
 		common.Fail(c, common.BadRequest("invalid agent id"))
@@ -94,11 +88,8 @@ func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 }
 
 func DeleteReviewerAgent(ctx context.Context, c *app.RequestContext) {
-	var req modelSettings.DeleteReviewerAgentReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSettings.DeleteReviewerAgentReq](c)
+	if !ok { return }
 	id, err := parseUintID(req.ID)
 	if err != nil {
 		common.Fail(c, common.BadRequest("invalid agent id"))

@@ -31,11 +31,8 @@ func ListPlatforms(ctx context.Context, c *app.RequestContext) {
 }
 
 func PutPlatform(ctx context.Context, c *app.RequestContext) {
-	var req modelSettings.PutPlatformReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSettings.PutPlatformReq](c)
+	if !ok { return }
 	if req.Provider == "" {
 		common.Fail(c, common.BadRequest("代码平台不能为空"))
 		return
@@ -81,11 +78,8 @@ func PutPlatform(ctx context.Context, c *app.RequestContext) {
 }
 
 func DeletePlatform(ctx context.Context, c *app.RequestContext) {
-	var req modelSettings.DeletePlatformReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSettings.DeletePlatformReq](c)
+	if !ok { return }
 	if req.Provider == "" {
 		common.Fail(c, common.BadRequest("代码平台不能为空"))
 		return
@@ -101,11 +95,8 @@ func DeletePlatform(ctx context.Context, c *app.RequestContext) {
 }
 
 func TestPlatform(ctx context.Context, c *app.RequestContext) {
-	var req modelSettings.TestPlatformReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSettings.TestPlatformReq](c)
+	if !ok { return }
 	if req.Provider == "" || req.Token == "" {
 		common.Fail(c, common.BadRequest("平台和 Token 不能为空"))
 		return

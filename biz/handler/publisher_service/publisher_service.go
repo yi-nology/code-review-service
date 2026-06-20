@@ -21,11 +21,8 @@ func InitHandler(writeback *writeback.Orchestrator) {
 }
 
 func PublishReview(ctx context.Context, c *app.RequestContext) {
-	var req modelPublisher.PublishReviewReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelPublisher.PublishReviewReq](c)
+	if !ok { return }
 
 	common.Success(c, &modelPublisher.PublishReviewResp{
 		Message:  "review published successfully",
@@ -34,11 +31,8 @@ func PublishReview(ctx context.Context, c *app.RequestContext) {
 }
 
 func PreviewComment(ctx context.Context, c *app.RequestContext) {
-	var req modelPublisher.PreviewCommentReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelPublisher.PreviewCommentReq](c)
+	if !ok { return }
 
 	common.Success(c, &modelPublisher.PreviewCommentResp{
 		ReviewID: req.ID,
@@ -49,11 +43,8 @@ func PreviewComment(ctx context.Context, c *app.RequestContext) {
 }
 
 func UpdatePublishedComment(ctx context.Context, c *app.RequestContext) {
-	var req modelPublisher.UpdatePublishedCommentReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelPublisher.UpdatePublishedCommentReq](c)
+	if !ok { return }
 
 	common.Success(c, &modelPublisher.UpdatePublishedCommentResp{
 		Message:  "published comment updated successfully",
