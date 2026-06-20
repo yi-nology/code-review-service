@@ -15,7 +15,7 @@ const request = axios.create({
 
 request.interceptors.request.use(
   (config) => {
-    const token = sessionStorage.getItem('token')
+    const token = localStorage.getItem('token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -40,7 +40,7 @@ request.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      sessionStorage.removeItem('token')
+      localStorage.removeItem('token')
       if (window.location.pathname !== '/') {
         ElMessage.error('登录已失效，请重新输入 Token')
         window.location.href = '/'

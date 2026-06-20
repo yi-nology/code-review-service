@@ -2,6 +2,7 @@ package common
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/oekit/pkg/convert"
@@ -78,6 +79,7 @@ func PageParams(pageStr, pageSizeStr string) (int, int) {
 	return page, pageSize
 }
 
+// MaskToken 脱敏 token，保留首尾各 4 字符。
 func MaskToken(token string) string {
 	if len(token) <= 8 {
 		return "***"
@@ -85,6 +87,18 @@ func MaskToken(token string) string {
 	return token[:4] + "****" + token[len(token)-4:]
 }
 
+// MaskSecret 通用脱敏，保留首尾各 visible 字符。
+func MaskSecret(val string, visible int) *string {
+	if val == "" {
+		return nil
+	}
+	if len(val) <= visible*2 {
+		return ptrx.Of("***")
+	}
+	return ptrx.Of(val[:visible] + "****" + val[len(val)-visible:])
+}
+
+// MaskWebhookSecret 脱敏 webhook secret。
 func MaskWebhookSecret(secret string) *string {
 	if secret == "" {
 		return nil
@@ -106,4 +120,30 @@ func FormatTime(t time.Time) string {
 		return ""
 	}
 	return t.UTC().Format(TimeFormat)
+}
+
+// ParseUintID 将字符串解析为 uint ID。无效时返回 error。
+func ParseUintID(s string) (uint, error) {
+	id := convert.Str2Int(s, -1)
+	if id < 0 {
+		return 0, fmt.Errorf("invalid id: %s", s)
+	}
+	return uint(id), nil
+}
+
+// SafeInt64 将 uint 安全转换为 int64，溢出时返回 MaxInt64。
+func SafeInt64(v uint) int64 {
+	const maxInt64 = ^uint(0) >> 1
+	if v > maxInt64 {
+		return int64(maxInt64)
+	}
+	return int64(v)
+}
+
+// SafeUint 将 int64 安全转换为 uint，负数时返回 0。
+func SafeUint(v int64) uint {
+	if v < 0 {
+		return 0
+	}
+	return uint(v)
 }

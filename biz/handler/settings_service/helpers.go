@@ -2,17 +2,12 @@ package settings_service
 
 import (
 	"encoding/json"
-	"fmt"
 
-	"github.com/oekit/pkg/convert"
+	"github.com/yi-nology/code-review-service/biz/handler/common"
 )
 
 func parseUintID(s string) (uint, error) {
-	id := convert.Str2Int(s, -1)
-	if id < 0 {
-		return 0, fmt.Errorf("invalid id: %s", s)
-	}
-	return uint(id), nil
+	return common.ParseUintID(s)
 }
 
 func mustMarshalJSON(v any) []byte {
@@ -21,16 +16,9 @@ func mustMarshalJSON(v any) []byte {
 }
 
 func safeInt64(v uint) int64 {
-	const maxInt64 = ^uint(0) >> 1
-	if v > maxInt64 {
-		return int64(maxInt64)
-	}
-	return int64(v)
+	return common.SafeInt64(v)
 }
 
 func safeUint(v int64) uint {
-	if v < 0 {
-		return 0
-	}
-	return uint(v)
+	return common.SafeUint(v)
 }

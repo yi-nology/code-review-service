@@ -27,6 +27,7 @@ type DatabaseConfig struct {
 	DSN          string `yaml:"dsn"`
 	MaxIdleConns int    `yaml:"max_idle_conns"`
 	MaxOpenConns int    `yaml:"max_open_conns"`
+	AutoMigrate  *bool  `yaml:"auto_migrate,omitempty"`
 }
 
 type ReviewConfig struct {

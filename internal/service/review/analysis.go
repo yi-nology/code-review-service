@@ -90,9 +90,9 @@ func analysisFromRawOCR(raw json.RawMessage, result Result) Analysis {
 				inRecommendations = true
 				continue
 			}
-			if strings.Contains(line, "失效") ||
+			if (strings.Contains(line, "失效") ||
 				strings.Contains(line, "影响") ||
-				strings.Contains(line, "风险") && !slicex.Contains(analysis.Risks, line) {
+				strings.Contains(line, "风险")) && !slicex.Contains(analysis.Risks, line) {
 				analysis.Risks = append(analysis.Risks, line)
 			}
 			if inRecommendations && line != "" && !slicex.Contains(analysis.Recommendations, line) {

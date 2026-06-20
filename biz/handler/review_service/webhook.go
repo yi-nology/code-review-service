@@ -79,7 +79,7 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 	deliveryID := normalizer.DeliveryID(string(c.GetHeader(normalizerDeliveryIDHeader(req.Provider))))
 	signature := string(c.GetHeader(normalizerSignatureHeader(req.Provider)))
 
-	result, err := h.webhookSvc.HandleWebhook(req.Provider, req.Installation, rawBody, eventType, deliveryID, signature, platform.WebhookSecret)
+	result, err := h.webhookSvc.HandleWebhook(ctx, req.Provider, req.Installation, rawBody, eventType, deliveryID, signature, platform.WebhookSecret)
 	if err != nil {
 		if strings.Contains(err.Error(), "signature verification failed") {
 			common.Fail(c, common.BizErr(401, "signature verification failed"))

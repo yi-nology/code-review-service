@@ -59,7 +59,7 @@ func (s *Service) GetNormalizer(provider string) (Normalizer, bool) {
 	return n, ok
 }
 
-func (s *Service) HandleWebhook(provider, installationID string, rawBody []byte, eventType, deliveryID, signature string, secret string) (*HandleResult, error) {
+func (s *Service) HandleWebhook(ctx context.Context, provider, installationID string, rawBody []byte, eventType, deliveryID, signature string, secret string) (*HandleResult, error) {
 	normalizer, ok := s.normalizers[provider]
 	if !ok {
 		return nil, fmt.Errorf("unsupported provider %q", provider)
@@ -72,7 +72,7 @@ func (s *Service) HandleWebhook(provider, installationID string, rawBody []byte,
 	h := sha256.Sum256(rawBody)
 	payloadSHA256 := hex.EncodeToString(h[:])
 
-	existing, err := s.deliveryRepo.Get(context.Background(), provider, installationID, deliveryID)
+	existing, err := s.deliveryRepo.Get(ctx, provider, installationID, deliveryID)
 	if err != nil {
 		return nil, fmt.Errorf("check delivery: %w", err)
 	}
@@ -91,7 +91,7 @@ func (s *Service) HandleWebhook(provider, installationID string, rawBody []byte,
 		Status:         "received",
 		ReceivedAt:     time.Now().UTC(),
 	}
-	if err := s.deliveryRepo.Create(context.Background(), delivery); err != nil {
+	if err := s.deliveryRepo.Create(ctx, delivery); err != nil {
 		return nil, fmt.Errorf("persist delivery: %w", err)
 	}
 

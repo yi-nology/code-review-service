@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -34,37 +33,33 @@ func Load() *Config {
 	return cfg
 }
 
-func envString(key string) string   { return os.Getenv(key) }
-func envInt(key string) (int, bool) { v, err := strconv.Atoi(os.Getenv(key)); return v, err == nil }
-func envBool(key string) (bool, bool) {
-	v, err := strconv.ParseBool(os.Getenv(key))
-	return v, err == nil
-}
-
 func applyEnvOverrides(cfg *Config) {
-	if v := envString("REVIEW_TOKEN"); v != "" {
+	if v := config.Get("REVIEW_TOKEN"); v != "" {
 		cfg.Auth.Token = v
 	}
-	if v := envString("HTTP_ADDR"); v != "" {
+	if v := config.Get("HTTP_ADDR"); v != "" {
 		if p, err := strconv.Atoi(strings.TrimPrefix(v, ":")); err == nil {
 			cfg.Port = p
 		}
 	}
 
-	if v := envString("DATABASE_URL"); v != "" {
+	if v := config.Get("DATABASE_URL"); v != "" {
 		cfg.Database.DSN = v
 	}
-	if v, ok := envInt("DATABASE_MAX_OPEN"); ok {
+	if v, ok := config.GetInt("DATABASE_MAX_OPEN"); ok {
 		cfg.Database.MaxOpenConns = v
 	}
-	if v, ok := envInt("DATABASE_MAX_IDLE"); ok {
+	if v, ok := config.GetInt("DATABASE_MAX_IDLE"); ok {
 		cfg.Database.MaxIdleConns = v
+	}
+	if v, ok := config.GetBool("DATABASE_AUTO_MIGRATE"); ok {
+		cfg.Database.AutoMigrate = &v
 	}
 
 	if cfg.Git.Platforms == nil {
 		cfg.Git.Platforms = make(map[string]GitPlatformConfig)
 	}
-	if token := envString("GITHUB_TOKEN"); token != "" {
+	if token := config.Get("GITHUB_TOKEN"); token != "" {
 		github := cfg.Git.Platforms["github"]
 		github.Token = token
 		github.Enabled = true
@@ -73,7 +68,7 @@ func applyEnvOverrides(cfg *Config) {
 		}
 		cfg.Git.Platforms["github"] = github
 	}
-	if token := envString("GITLAB_TOKEN"); token != "" {
+	if token := config.Get("GITLAB_TOKEN"); token != "" {
 		gitlab := cfg.Git.Platforms["gitlab"]
 		gitlab.Token = token
 		gitlab.Enabled = true
@@ -82,75 +77,64 @@ func applyEnvOverrides(cfg *Config) {
 		}
 		cfg.Git.Platforms["gitlab"] = gitlab
 	}
-	if token := envString("GITEA_TOKEN"); token != "" {
+	if token := config.Get("GITEA_TOKEN"); token != "" {
 		gitea := cfg.Git.Platforms["gitea"]
 		gitea.Token = token
 		gitea.Enabled = true
 		if gitea.BaseURL == "" {
-			gitea.BaseURL = envString("GITEA_BASE_URL")
+			gitea.BaseURL = config.Get("GITEA_BASE_URL")
 		}
 		cfg.Git.Platforms["gitea"] = gitea
 	}
 
-	if v, ok := envInt("WORKER_CONCURRENCY"); ok {
+	if v, ok := config.GetInt("WORKER_CONCURRENCY"); ok {
 		cfg.Review.WorkerConcurrency = v
 	}
-	if v := envString("WORKER_POLL_INTERVAL"); v != "" {
+	if v := config.Get("WORKER_POLL_INTERVAL"); v != "" {
 		cfg.Review.WorkerPollInterval = v
 	}
-	if v := envString("WORKER_STALE_AFTER"); v != "" {
+	if v := config.Get("WORKER_STALE_AFTER"); v != "" {
 		cfg.Review.WorkerStaleAfter = v
 	}
 
-	if v, ok := envBool("OCR_ENABLED"); ok {
+	if v, ok := config.GetBool("OCR_ENABLED"); ok {
 		cfg.OCR.Enabled = v
 	}
-	if v := envString("OCR_BINARY"); v != "" {
+	if v := config.Get("OCR_BINARY"); v != "" {
 		cfg.OCR.Binary = v
 	}
-	if v := envString("OCR_COMMAND"); v != "" {
+	if v := config.Get("OCR_COMMAND"); v != "" {
 		cfg.OCR.Command = v
 	}
 
-	if v := envString("POLICY_FAIL_ON"); v != "" {
+	if v := config.Get("POLICY_FAIL_ON"); v != "" {
 		cfg.Policy.FailOn = v
 	}
-	if v := envString("POLICY_IGNORE_PATHS"); v != "" {
+	if v := config.Get("POLICY_IGNORE_PATHS"); v != "" {
 		cfg.Policy.IgnorePaths = strings.Split(v, ",")
 	}
-	if v, ok := envInt("POLICY_MAX_COMMENTS"); ok {
+	if v, ok := config.GetInt("POLICY_MAX_COMMENTS"); ok {
 		cfg.Policy.MaxComments = v
 	}
 
-	if v := envString("NACOS_ADDR"); v != "" {
+	if v := config.Get("NACOS_ADDR"); v != "" {
 		cfg.Nacos.Addr = v
 	}
-	if v := envString("NACOS_NAMESPACE"); v != "" {
+	if v := config.Get("NACOS_NAMESPACE"); v != "" {
 		cfg.Nacos.NamespaceId = v
 	}
 
-	if v := envString("OTEL_ENDPOINT"); v != "" {
+	if v := config.Get("OTEL_ENDPOINT"); v != "" {
 		cfg.Tracing.Endpoint = v
 	}
 }
 
-func parseDuration(value string, fallback time.Duration) time.Duration {
-	if value == "" {
-		return fallback
-	}
-	d, err := time.ParseDuration(value)
-	if err != nil {
-		return fallback
-	}
-	return d
-}
-
 func (c *Config) GetWorkerPollInterval() time.Duration {
-	return parseDuration(c.Review.WorkerPollInterval, time.Second)
+	return config.ParseDuration(c.Review.WorkerPollInterval, time.Second)
 }
 
 func (c *Config) GetWorkerStaleAfter() time.Duration {
-	return parseDuration(c.Review.WorkerStaleAfter, 15*time.Minute)
+	return config.ParseDuration(c.Review.WorkerStaleAfter, 15*time.Minute)
 }
 
 func (c *Config) GetTracingConfig() *tracing.Config {

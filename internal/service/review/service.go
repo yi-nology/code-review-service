@@ -2,6 +2,7 @@ package review
 
 import (
 	"context"
+	crypto_rand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -301,10 +302,12 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 	for _, review := range result.List {
 		var req Request
 		if err := json.Unmarshal(review.Request, &req); err != nil {
+			hlog.CtxWarnf(ctx, "failed to decode review request in list, review_id=%s: %v", review.ReviewID, err)
 			continue
 		}
 		var resp Response
 		if err := json.Unmarshal(review.Response, &resp); err != nil {
+			hlog.CtxWarnf(ctx, "failed to decode review response in list, review_id=%s: %v", review.ReviewID, err)
 			continue
 		}
 
@@ -534,5 +537,7 @@ func validate(req Request) error {
 }
 
 func newReviewID(now time.Time) string {
-	return fmt.Sprintf("rv_%s_%d", now.Format("20060102"), now.UnixNano())
+	b := make([]byte, 4)
+	_, _ = crypto_rand.Read(b)
+	return fmt.Sprintf("rv_%s_%x", now.Format("20060102"), b)
 }

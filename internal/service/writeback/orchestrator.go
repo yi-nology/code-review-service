@@ -117,7 +117,7 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 
 	revEvent := EventComment
 	if !caps.BatchReview {
-		revEvent = EventComment
+		revEvent = EventReview
 	}
 
 	rev := Review{

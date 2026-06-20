@@ -24,22 +24,27 @@ func InitDB(cfg *config.DatabaseConfig) (*gormDB.DB, error) {
 		return nil, fmt.Errorf("init database: %w", err)
 	}
 
-	if err := db.AutoMigrate(
-		&models.Review{},
-		&models.OCRSettings{},
-		&models.ProjectPolicy{},
-		&models.GitPlatform{},
-		&models.WebhookDelivery{},
-		&models.ChangeRevision{},
-		&models.WritebackItem{},
-		&models.GlobalRules{},
-		&models.ReviewSession{},
-		&models.ReviewerAgent{},
-		&models.ProjectAgent{},
-		&models.ReviewMap{},
-		&models.CustomProvider{},
-	); err != nil {
-		return nil, fmt.Errorf("auto migrate: %w", err)
+	if cfg.AutoMigrate == nil || *cfg.AutoMigrate {
+		if err := db.AutoMigrate(
+			&models.Review{},
+			&models.OCRSettings{},
+			&models.ProjectPolicy{},
+			&models.GitPlatform{},
+			&models.WebhookDelivery{},
+			&models.ChangeRevision{},
+			&models.WritebackItem{},
+			&models.GlobalRules{},
+			&models.ReviewSession{},
+			&models.ReviewerAgent{},
+			&models.ProjectAgent{},
+			&models.ReviewMap{},
+			&models.CustomProvider{},
+		); err != nil {
+			return nil, fmt.Errorf("auto migrate: %w", err)
+		}
+		hlog.Infof("database auto-migration completed")
+	} else {
+		hlog.Infof("database auto-migration disabled")
 	}
 
 	hlog.Infof("database initialized successfully")

@@ -88,7 +88,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 		var req Request
 		if err := json.Unmarshal(review.Request, &req); err != nil {
 			hlog.Error("failed to decode review request", "review_id", review.ReviewID, "error", err)
-			s.recordFailure(context.Background(), review.ReviewID, req, fmt.Errorf("decode request: %w", err))
+			s.recordFailure(ctx, review.ReviewID, req, fmt.Errorf("decode request: %w", err))
 			timer.Reset(0)
 			continue
 		}
@@ -96,7 +96,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 		provider, ok := s.Providers.Get(req.Provider)
 		if !ok {
 			err := fmt.Errorf("%w: %q", ErrUnsupportedProvider, req.Provider)
-			s.recordFailure(context.Background(), review.ReviewID, req, err)
+			s.recordFailure(ctx, review.ReviewID, req, err)
 			timer.Reset(0)
 			continue
 		}

@@ -187,4 +187,5 @@ require (
 
 replace github.com/apache/thrift => github.com/apache/thrift v0.13.0
 
+// TODO: replace with a published version of ekit before deploying to production
 replace github.com/yi-nology/ekit => ../ekit
