@@ -165,8 +165,6 @@ func (s *SessionService) GetNextRound(ctx context.Context, reviewID string) (int
 	return maxRound + 1, nil
 }
 
-func (s *SessionService) ListSessions(ctx context.Context, page, pageSize int) ([]*models.ReviewSession, int64, error) {
-	req := gormx.NewPageRequest(page, pageSize)
-	req.Normalize()
-	return s.repo.List(ctx, req.Offset(), req.Limit())
+func (s *SessionService) ListSessions(ctx context.Context, page, pageSize int) (*gormx.PageResponse[models.ReviewSession], error) {
+	return s.repo.List(ctx, page, pageSize)
 }

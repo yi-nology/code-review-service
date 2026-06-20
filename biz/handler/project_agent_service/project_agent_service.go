@@ -55,7 +55,7 @@ func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
 
 	agents := slicex.Map(allAgents, func(a models.ReviewerAgent) *modelProjectAgent.ProjectAgentConfig {
 		agent := &modelProjectAgent.ProjectAgentConfig{
-			AgentID:         safeInt64(a.ID),
+			AgentID:         common.SafeInt64(a.ID),
 			Name:            a.Name,
 			DisplayName:     a.DisplayName,
 			Description:     a.Description,
@@ -83,7 +83,7 @@ func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelProjectAgent.UpdateProjectAgentReq](c)
 	if !ok { return }
 
-	_, err := handlerInst.reviewerAgentRepo.GetByID(ctx, safeUint(req.AgentID))
+	_, err := handlerInst.reviewerAgentRepo.GetByID(ctx, common.SafeUint(req.AgentID))
 	if err != nil {
 		common.Fail(c, common.NotFound("agent not found"))
 		return
@@ -92,7 +92,7 @@ func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
 	pa := &models.ProjectAgent{
 		Provider: req.Provider,
 		Repo:     req.Repo,
-		AgentID:  safeUint(req.AgentID),
+		AgentID:  common.SafeUint(req.AgentID),
 		Enabled:  req.Enabled,
 		Priority: int(req.Priority),
 	}
@@ -122,7 +122,7 @@ func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
 		pa := &models.ProjectAgent{
 			Provider: req.Provider,
 			Repo:     req.Repo,
-			AgentID:  safeUint(agentReq.AgentID),
+			AgentID:  common.SafeUint(agentReq.AgentID),
 			Enabled:  agentReq.Enabled,
 			Priority: int(agentReq.Priority),
 		}
@@ -141,7 +141,7 @@ func DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelProjectAgent.DeleteProjectAgentReq](c)
 	if !ok { return }
 
-	if err := handlerInst.projectAgentRepo.Delete(ctx, req.Provider, req.Repo, safeUint(req.AgentID)); err != nil {
+	if err := handlerInst.projectAgentRepo.Delete(ctx, req.Provider, req.Repo, common.SafeUint(req.AgentID)); err != nil {
 		hlog.Errorf("delete project agent failed: %v", err)
 		common.Fail(c, err)
 		return
@@ -154,12 +154,4 @@ func DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
 
 func GetProjectAgentConfig(ctx context.Context, provider, repo string) ([]models.ProjectAgent, error) {
 	return handlerInst.projectAgentRepo.GetEnabledByProject(ctx, provider, repo)
-}
-
-func safeInt64(v uint) int64 {
-	return common.SafeInt64(v)
-}
-
-func safeUint(v int64) uint {
-	return common.SafeUint(v)
 }

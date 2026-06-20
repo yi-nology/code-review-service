@@ -8,6 +8,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
+	"github.com/oekit/gormx"
 )
 
 // Ensure MockSessionService implements sessionService interface
@@ -118,12 +119,17 @@ func (m *MockSessionService) GetNextRound(ctx context.Context, reviewID string) 
 	return 1, nil
 }
 
-func (m *MockSessionService) ListSessions(ctx context.Context, page, pageSize int) ([]*models.ReviewSession, int64, error) {
-	var sessions []*models.ReviewSession
+func (m *MockSessionService) ListSessions(ctx context.Context, page, pageSize int) (*gormx.PageResponse[models.ReviewSession], error) {
+	var sessions []models.ReviewSession
 	for _, session := range m.sessions {
-		sessions = append(sessions, session)
+		sessions = append(sessions, *session)
 	}
-	return sessions, int64(len(sessions)), nil
+	return &gormx.PageResponse[models.ReviewSession]{
+		List:  sessions,
+		Total: int64(len(sessions)),
+		Page:  page,
+		Pages: 1,
+	}, nil
 }
 
 // MockAgent is a mock implementation of agent.ReviewAgent

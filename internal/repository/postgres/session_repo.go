@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	ekitGorm "github.com/oekit/gormx"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
+	gormLib "gorm.io/gorm"
 )
 
 // SessionRepository defines the interface for session repository operations
@@ -50,16 +51,16 @@ type SessionRepository interface {
 	Delete(ctx context.Context, sessionID string) error
 
 	// List returns sessions with pagination
-	List(ctx context.Context, offset, limit int) ([]*models.ReviewSession, int64, error)
+	List(ctx context.Context, page, pageSize int) (*ekitGorm.PageResponse[models.ReviewSession], error)
 }
 
 // PostgresSessionRepository implements SessionRepository with PostgreSQL
 type PostgresSessionRepository struct {
-	db *gorm.DB
+	db *gormLib.DB
 }
 
 // NewPostgresSessionRepository creates a new PostgreSQL session repository
-func NewPostgresSessionRepository(db *gorm.DB) *PostgresSessionRepository {
+func NewPostgresSessionRepository(db *gormLib.DB) *PostgresSessionRepository {
 	return &PostgresSessionRepository{db: db}
 }
 
@@ -84,7 +85,7 @@ func (r *PostgresSessionRepository) GetByID(ctx context.Context, sessionID strin
 		Where("session_id = ?", sessionID).
 		First(&session).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return nil, fmt.Errorf("session not found: %s", sessionID)
 		}
 		return nil, err
@@ -110,7 +111,7 @@ func (r *PostgresSessionRepository) GetActiveByReviewID(ctx context.Context, rev
 		Order("round DESC").
 		First(&session).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err
@@ -188,25 +189,12 @@ func (r *PostgresSessionRepository) Delete(ctx context.Context, sessionID string
 }
 
 // List returns sessions with pagination
-func (r *PostgresSessionRepository) List(ctx context.Context, offset, limit int) ([]*models.ReviewSession, int64, error) {
-	var sessions []*models.ReviewSession
-	var total int64
-
-	err := r.db.WithContext(ctx).
-		Model(&models.ReviewSession{}).
-		Count(&total).Error
-	if err != nil {
-		return nil, 0, err
-	}
-
-	err = r.db.WithContext(ctx).
-		Order("created_at DESC").
-		Offset(offset).
-		Limit(limit).
-		Find(&sessions).Error
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return sessions, total, nil
+func (r *PostgresSessionRepository) List(ctx context.Context, page, pageSize int) (*ekitGorm.PageResponse[models.ReviewSession], error) {
+	return ekitGorm.Paginate[models.ReviewSession](
+		r.db.WithContext(ctx),
+		ekitGorm.NewPageRequest(page, pageSize),
+		func(db *gormLib.DB) *gormLib.DB {
+			return db.Order("created_at DESC")
+		},
+	)
 }

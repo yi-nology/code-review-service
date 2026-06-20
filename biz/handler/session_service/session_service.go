@@ -8,6 +8,7 @@ import (
 	modelSession "github.com/yi-nology/code-review-service/biz/model/session"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
+	"github.com/oekit/gormx"
 	"github.com/oekit/pkg/convert"
 	"github.com/oekit/pkg/ptrx"
 
@@ -31,7 +32,7 @@ type SessionService interface {
 	CompleteSession(ctx context.Context, sessionID string, finalReport models.FinalReportData) error
 	FailSession(ctx context.Context, sessionID string, reason string) error
 	CancelSession(ctx context.Context, sessionID string) error
-	ListSessions(ctx context.Context, page, pageSize int) ([]*models.ReviewSession, int64, error)
+	ListSessions(ctx context.Context, page, pageSize int) (*gormx.PageResponse[models.ReviewSession], error)
 }
 
 type SessionHandler struct {
@@ -51,7 +52,7 @@ func ListSessions(ctx context.Context, c *app.RequestContext) {
 		convert.Int64ToStr(ptrx.Deref(req.PageSize, 0)),
 	)
 
-	sessions, total, err := handlerInst.sessionService.ListSessions(ctx, page, pageSize)
+	result, err := handlerInst.sessionService.ListSessions(ctx, page, pageSize)
 	if err != nil {
 		hlog.Errorf("list sessions failed: %v", err)
 		common.Fail(c, err)
@@ -59,11 +60,11 @@ func ListSessions(ctx context.Context, c *app.RequestContext) {
 	}
 
 	common.Success(c, map[string]interface{}{
-		"sessions":    sessions,
-		"total":       total,
-		"page":        page,
-		"page_size":   pageSize,
-		"total_pages": (total + int64(pageSize) - 1) / int64(pageSize),
+		"sessions":    result.List,
+		"total":       result.Total,
+		"page":        result.Page,
+		"page_size":   result.PageSize,
+		"total_pages": result.Pages,
 	})
 }
 

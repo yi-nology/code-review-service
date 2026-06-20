@@ -88,7 +88,6 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 	}
 
 	if result.Duplicate {
-		c.SetStatusCode(202)
 		c.JSON(202, &modelWebhook.HandleWebhookResp{Status: "duplicate"})
 		return
 	}
@@ -133,7 +132,6 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 	_ = h.webhookSvc.RecordRevision(ctx, event, resp.ReviewID)
 	_ = h.webhookSvc.MarkDeliveryProcessed(ctx, req.Provider, req.Installation, deliveryID, "accepted", "")
 
-	c.SetStatusCode(202)
 	c.JSON(202, &modelWebhook.HandleWebhookResp{
 		Status:   "accepted",
 		ReviewID: &resp.ReviewID,
