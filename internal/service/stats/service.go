@@ -6,6 +6,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/oekit/pkg/slicex"
 )
 
 type Service struct {
@@ -72,11 +73,7 @@ func (s *Service) GetContributorTrend(ctx context.Context, author, provider, rep
 	if err != nil {
 		return nil, err
 	}
-	out := make([]TrendPoint, len(points))
-	for i, p := range points {
-		out[i] = TrendPoint(p)
-	}
-	return out, nil
+	return slicex.Map(points, func(p models.TrendPoint) TrendPoint { return TrendPoint(p) }), nil
 }
 
 func (s *Service) GetContributorCategories(ctx context.Context, author, provider, repo, from, to string) ([]CategoryStat, error) {
@@ -90,11 +87,7 @@ func (s *Service) GetContributorCategories(ctx context.Context, author, provider
 	if err != nil {
 		return nil, err
 	}
-	out := make([]CategoryStat, len(cats))
-	for i, c := range cats {
-		out[i] = CategoryStat(c)
-	}
-	return out, nil
+	return slicex.Map(cats, func(c models.CategoryStat) CategoryStat { return CategoryStat(c) }), nil
 }
 
 func (s *Service) ListProjects(ctx context.Context, provider, repo, from, to, sort, order string, page, pageSize int) (*ProjectListResult, error) {
@@ -140,11 +133,7 @@ func (s *Service) GetProjectTrend(ctx context.Context, provider, repo, from, to 
 	if err != nil {
 		return nil, err
 	}
-	out := make([]ProjectTrendPoint, len(points))
-	for i, p := range points {
-		out[i] = ProjectTrendPoint(p)
-	}
-	return out, nil
+	return slicex.Map(points, func(p models.ProjectTrendPoint) ProjectTrendPoint { return ProjectTrendPoint(p) }), nil
 }
 
 func (s *Service) GetProjectCategories(ctx context.Context, provider, repo, from, to string) ([]CategoryStat, error) {
@@ -157,11 +146,7 @@ func (s *Service) GetProjectCategories(ctx context.Context, provider, repo, from
 	if err != nil {
 		return nil, err
 	}
-	out := make([]CategoryStat, len(cats))
-	for i, c := range cats {
-		out[i] = CategoryStat(c)
-	}
-	return out, nil
+	return slicex.Map(cats, func(c models.CategoryStat) CategoryStat { return CategoryStat(c) }), nil
 }
 
 func (s *Service) GetProjectFiles(ctx context.Context, provider, repo, from, to string) ([]FileRiskStat, error) {
@@ -174,11 +159,7 @@ func (s *Service) GetProjectFiles(ctx context.Context, provider, repo, from, to 
 	if err != nil {
 		return nil, err
 	}
-	out := make([]FileRiskStat, len(files))
-	for i, f := range files {
-		out[i] = FileRiskStat(f)
-	}
-	return out, nil
+	return slicex.Map(files, func(f models.FileRiskStat) FileRiskStat { return FileRiskStat(f) }), nil
 }
 
 func (s *Service) GetProjectContributors(ctx context.Context, provider, repo, from, to string, limit int) ([]ContributorSummary, error) {
@@ -191,11 +172,7 @@ func (s *Service) GetProjectContributors(ctx context.Context, provider, repo, fr
 	if err != nil {
 		return nil, err
 	}
-	out := make([]ContributorSummary, len(contributors))
-	for i, c := range contributors {
-		out[i] = toContributorSummary(c)
-	}
-	return out, nil
+	return slicex.Map(contributors, func(c models.ContributorSummary) ContributorSummary { return toContributorSummary(c) }), nil
 }
 
 func toContributorSummary(s models.ContributorSummary) ContributorSummary {
@@ -228,12 +205,8 @@ func toContributorDetail(d *models.ContributorDetail) *ContributorDetail {
 }
 
 func toContributorListResult(r *models.ContributorListResult) *ContributorListResult {
-	contributors := make([]ContributorSummary, len(r.Contributors))
-	for i, c := range r.Contributors {
-		contributors[i] = toContributorSummary(c)
-	}
 	return &ContributorListResult{
-		Contributors: contributors,
+		Contributors: slicex.Map(r.Contributors, func(c models.ContributorSummary) ContributorSummary { return toContributorSummary(c) }),
 		Total:        r.Total,
 		Page:         r.Page,
 		PageSize:     r.PageSize,
@@ -269,12 +242,8 @@ func toProjectDetail(d *models.ProjectDetail) *ProjectDetail {
 }
 
 func toProjectListResult(r *models.ProjectListResult) *ProjectListResult {
-	projects := make([]ProjectSummary, len(r.Projects))
-	for i, p := range r.Projects {
-		projects[i] = toProjectSummary(p)
-	}
 	return &ProjectListResult{
-		Projects: projects,
+		Projects: slicex.Map(r.Projects, func(p models.ProjectSummary) ProjectSummary { return toProjectSummary(p) }),
 		Total:    r.Total,
 		Page:     r.Page,
 		PageSize: r.PageSize,

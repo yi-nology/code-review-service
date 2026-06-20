@@ -10,6 +10,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/requirements"
 	"github.com/yi-nology/code-review-service/internal/service/reviewmap"
+	"github.com/oekit/pkg/slicex"
 	"github.com/oekit/workflow"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
@@ -182,10 +183,7 @@ func (s *discussionStep) Run(ctx context.Context, req workflow.Request, sess wor
 	}
 
 	// 获取 agent 名称
-	agentNames := make([]string, 0, len(rs.AggregatedResult.AgentResults))
-	for _, result := range rs.AggregatedResult.AgentResults {
-		agentNames = append(agentNames, result.AgentName)
-	}
+	agentNames := slicex.Map(rs.AggregatedResult.AgentResults, func(r agent.AgentResult) string { return r.AgentName })
 
 	// 转换 findings 到 discussion 格式
 	discussionFindings := make([]discussion.Finding, len(rs.AggregatedResult.Findings))

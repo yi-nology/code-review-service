@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/service/types"
+	"github.com/oekit/pkg/slicex"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
 
@@ -68,10 +69,7 @@ func (o *Orchestrator) RunDiscussion(ctx context.Context, findings []Finding, ag
 // analyzeDiscussion analyzes the discussion entries and generates results
 func (o *Orchestrator) analyzeDiscussion(findings []Finding, entries []discussionEntry) *DiscussionResult {
 	// Group entries by finding
-	entriesByFinding := make(map[string][]discussionEntry)
-	for _, entry := range entries {
-		entriesByFinding[entry.FindingID] = append(entriesByFinding[entry.FindingID], entry)
-	}
+	entriesByFinding := slicex.GroupBy(entries, func(e discussionEntry) string { return e.FindingID })
 
 	// Analyze each finding
 	var consensus []consensusItem

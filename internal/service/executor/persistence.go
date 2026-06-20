@@ -49,8 +49,8 @@ func (s *Service) updateStatus(ctx context.Context, id, status string) error {
 		if status != previousStatus {
 			resp.History = append(resp.History, review.Event{
 				Stage:     status,
-				Status:    statusEventState(status),
-				Message:   statusEventMessage(status),
+				Status:    review.StatusEventState(status),
+				Message:   review.StatusEventMessage(status),
 				CreatedAt: time.Now().UTC(),
 			})
 		}
@@ -88,8 +88,8 @@ func (s *Service) updateWithRawOCR(ctx context.Context, id string, req review.Re
 	if response.Status != "" && response.Status != previousStatus {
 		response.History = append(response.History, review.Event{
 			Stage:     response.Status,
-			Status:    statusEventState(response.Status),
-			Message:   statusEventMessage(response.Status),
+			Status:    review.StatusEventState(response.Status),
+			Message:   review.StatusEventMessage(response.Status),
 			CreatedAt: time.Now().UTC(),
 		})
 	}
@@ -128,25 +128,5 @@ func (s *Service) updateWithOCRInput(ctx context.Context, id string, ocrInput re
 	return s.reviewRepo.Save(ctx, r)
 }
 
-func statusEventState(status string) string {
-	if status == "failed" {
-		return "failed"
-	}
-	if status == "running" {
-		return "running"
-	}
-	return "completed"
-}
-
-func statusEventMessage(status string) string {
-	switch status {
-	case "running":
-		return "worker claimed the task and started execution"
-	case "success":
-		return "review report and quality gate generated"
-	case "failed":
-		return "review execution failed"
-	default:
-		return status
-	}
-}
+// StatusEventState and StatusEventMessage are now in review package.
+// Use review.StatusEventState / review.StatusEventMessage.

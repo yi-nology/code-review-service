@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/oekit/pkg/convert"
 )
 
 type GitLabNormalizer struct{}
@@ -37,7 +39,7 @@ func (n *GitLabNormalizer) normalizePush(rawBody []byte) (*ChangeEvent, error) {
 	var repoPath, repoID string
 	if proj, ok := payload["project"].(map[string]any); ok {
 		repoPath, _ = proj["path_with_namespace"].(string)
-		repoID = fmt.Sprintf("%v", proj["id"])
+		repoID = convert.AnyToStr(proj["id"])
 	}
 
 	headSHA, _ := payload["after"].(string)
@@ -114,7 +116,7 @@ func (n *GitLabNormalizer) normalizeMergeRequest(rawBody []byte) (*ChangeEvent, 
 
 	var repoID string
 	if proj, ok := payload["project"].(map[string]any); ok {
-		repoID = fmt.Sprintf("%v", proj["id"])
+		repoID = convert.AnyToStr(proj["id"])
 	}
 
 	var sender string

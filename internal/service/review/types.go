@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/oekit/pkg/ptrx"
 	"github.com/oekit/pkg/stringx"
 )
 
@@ -73,14 +74,12 @@ func CompletedGate(passed bool, reason string) Gate {
 	if passed {
 		status = GatePassed
 	}
-	return Gate{Status: status, Passed: ptrOf(passed), Reason: reason}
+	return Gate{Status: status, Passed: ptrx.Of(passed), Reason: reason}
 }
 
 func ErrorGate(reason string) Gate {
-	return Gate{Status: GateError, Passed: ptrOf(false), Reason: reason}
+	return Gate{Status: GateError, Passed: ptrx.Of(false), Reason: reason}
 }
-
-func ptrOf(b bool) *bool { return &b }
 
 type Record struct {
 	ID                 string          `json:"id"`

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/oekit/pkg/stringx"
 )
 
 func ParseOpenCodeReviewOutput(output []byte, defaultSeverity string) (review.Result, error) {
@@ -110,10 +111,7 @@ func firstLine(value string) string {
 		return "代码评审意见"
 	}
 	line, _, _ := strings.Cut(value, "\n")
-	if len([]rune(line)) <= 120 {
-		return line
-	}
-	return string([]rune(line)[:120])
+	return stringx.FirstN(line, 120)
 }
 
 func summaryText(parsed openCodeReviewOutput, findings int) string {
