@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
-	"github.com/google/uuid"
 )
 
 // Orchestrator manages the discussion process
@@ -45,7 +45,7 @@ func (o *Orchestrator) RunDiscussion(ctx context.Context, findings []Finding, ag
 	entries := make([]discussionEntry, 0, len(prompts))
 	for _, prompt := range prompts {
 		entry := discussionEntry{
-			ID:         uuid.New().String(),
+			ID:         types.GenerateID(),
 			AgentName:  prompt.AgentName,
 			FindingID:  prompt.FindingID,
 			Response:   prompt.ResponseType,

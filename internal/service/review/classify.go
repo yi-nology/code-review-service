@@ -1,6 +1,8 @@
 package review
 
-import "strings"
+import (
+	"github.com/oekit/pkg/stringx"
+)
 
 var categoryKeywords = []struct {
 	Category string
@@ -13,12 +15,10 @@ var categoryKeywords = []struct {
 }
 
 func classifyFinding(finding Finding) string {
-	text := strings.ToLower(finding.Title + " " + finding.Body)
+	text := finding.Title + " " + finding.Body
 	for _, entry := range categoryKeywords {
-		for _, kw := range entry.Keywords {
-			if strings.Contains(text, kw) {
-				return entry.Category
-			}
+		if stringx.ContainsAny(text, entry.Keywords...) {
+			return entry.Category
 		}
 	}
 	return "可维护性"

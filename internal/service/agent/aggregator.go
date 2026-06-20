@@ -8,7 +8,6 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/oekit/pkg/slicex"
-	"github.com/google/uuid"
 )
 
 // DefaultAggregator implements ResultAggregator with deduplication and confidence scoring
@@ -300,7 +299,4 @@ func (a *DefaultAggregator) generateSummary(findings []Finding, results []AgentR
 	return strings.Join(parts, "，")
 }
 
-// GenerateID generates a unique ID for a finding
-func GenerateID() string {
-	return uuid.New().String()
-}
+

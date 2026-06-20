@@ -8,8 +8,8 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
-	"github.com/google/uuid"
 	"gorm.io/datatypes"
 )
 
@@ -31,7 +31,7 @@ func (s *SessionService) CreateSession(ctx context.Context, reviewID string, rou
 	}
 
 	session := &models.ReviewSession{
-		SessionID: uuid.New().String(),
+		SessionID: types.GenerateID(),
 		ReviewID:  reviewID,
 		Round:     round,
 		Phase:     string(models.SessionPhaseContext),

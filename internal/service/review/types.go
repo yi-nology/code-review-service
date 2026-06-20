@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"time"
+
+	"github.com/oekit/pkg/stringx"
 )
 
 type Request struct {
@@ -117,11 +119,11 @@ func NormalizeSeverity(value string) Severity {
 func InferSeverity(content, fallback string) Severity {
 	lower := strings.ToLower(content)
 	switch {
-	case strings.Contains(lower, "critical"), strings.Contains(content, "严重问题"), strings.Contains(content, "致命"):
+	case stringx.ContainsAny(lower, "critical") || stringx.ContainsAny(content, "严重问题", "致命"):
 		return SeverityCritical
-	case strings.Contains(lower, "minor"), strings.Contains(content, "轻微问题"):
+	case stringx.ContainsAny(lower, "minor") || stringx.ContainsAny(content, "轻微问题"):
 		return SeverityMinor
-	case strings.Contains(lower, "info"), strings.Contains(content, "提示"):
+	case stringx.ContainsAny(lower, "info") || stringx.ContainsAny(content, "提示"):
 		return SeverityInfo
 	default:
 		return NormalizeSeverity(fallback)

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/service/types"
-	"github.com/google/uuid"
 )
 
 // reviewRunner defines the interface for running reviews
@@ -97,7 +96,7 @@ func (a *ocrAgent) Review(ctx context.Context, workspace Workspace) (AgentResult
 	findings := make([]Finding, len(result.Findings))
 	for i, f := range result.Findings {
 		findings[i] = Finding{
-			ID:         uuid.New().String(),
+			ID:         types.GenerateID(),
 			Severity:   f.Severity,
 			Category:   inferCategoryFromReview(f),
 			Path:       f.Path,

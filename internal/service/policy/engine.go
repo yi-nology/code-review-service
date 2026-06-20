@@ -1,8 +1,7 @@
 package policy
 
 import (
-	"strings"
-
+	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/oekit/pkg/pathx"
 )
 
@@ -32,16 +31,16 @@ func NewEngine(cfg Config) *Engine {
 }
 
 func (e *Engine) Evaluate(findings []Finding) Decision {
-	threshold := severityRank(e.cfg.FailOn)
+	threshold := types.SeverityRank(e.cfg.FailOn)
 	if threshold == 0 {
-		threshold = severityRank("critical")
+		threshold = types.SeverityRank("critical")
 	}
 
 	for _, finding := range findings {
 		if e.ignored(finding.Path) {
 			continue
 		}
-		if severityRank(finding.Severity) >= threshold {
+		if types.SeverityRank(finding.Severity) >= threshold {
 			return Decision{
 				Passed: false,
 				Reason: finding.Severity + " issue found",
@@ -56,23 +55,6 @@ func (e *Engine) ignored(path string) bool {
 	return pathx.MatchesPath(e.cfg.IgnorePaths, path)
 }
 
-// MatchesPath 检查路径是否匹配模式列表。
-// 委托给 ekit 的 pathx.MatchesPath。
 func MatchesPath(patterns []string, path string) bool {
 	return pathx.MatchesPath(patterns, path)
-}
-
-func severityRank(severity string) int {
-	switch strings.ToLower(severity) {
-	case "critical":
-		return 4
-	case "major":
-		return 3
-	case "minor":
-		return 2
-	case "info":
-		return 1
-	default:
-		return 0
-	}
 }
