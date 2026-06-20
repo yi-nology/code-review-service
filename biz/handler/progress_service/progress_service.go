@@ -2,8 +2,6 @@ package progress_service
 
 import (
 	"context"
-	"net/http"
-	"time"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelProgress "github.com/yi-nology/code-review-service/biz/model/progress"
@@ -95,7 +93,7 @@ func GetProgress(ctx context.Context, c *app.RequestContext) {
 	}
 
 	p := tracker.GetProgress()
-	c.JSON(http.StatusOK, &modelProgress.GetProgressResp{Progress: convertProgress(p)})
+	common.Success(c, &modelProgress.GetProgressResp{Progress: convertProgress(p)})
 }
 
 func GetActiveReviews(ctx context.Context, c *app.RequestContext) {
@@ -114,12 +112,12 @@ func GetActiveReviews(ctx context.Context, c *app.RequestContext) {
 			Phase:     string(p.Phase),
 			Status:    p.Status,
 			Progress:  p.Progress,
-			StartTime: p.StartTime.Format(time.RFC3339),
-			UpdatedAt: p.UpdatedAt.Format(time.RFC3339),
+		StartTime: common.FormatTime(p.StartTime),
+		UpdatedAt: common.FormatTime(p.UpdatedAt),
 		})
 	}
 
-	c.JSON(http.StatusOK, &modelProgress.GetActiveReviewsResp{
+	common.Success(c, &modelProgress.GetActiveReviewsResp{
 		Reviews: reviews,
 		Total:   int64(len(reviews)),
 	})
@@ -135,8 +133,8 @@ func convertProgress(p *progress.ReviewProgress) *modelProgress.ReviewProgress {
 		Progress:    p.Progress,
 		Phases:      convertPhases(p.Phases),
 		AgentStatus: convertAgentStatus(p.AgentStatus),
-		StartTime:   p.StartTime.Format(time.RFC3339),
-		UpdatedAt:   p.UpdatedAt.Format(time.RFC3339),
+		StartTime:   common.FormatTime(p.StartTime),
+		UpdatedAt:   common.FormatTime(p.UpdatedAt),
 	}
 	if p.Error != "" {
 		progress.Error = &p.Error
@@ -155,11 +153,11 @@ func convertPhases(phases []progress.PhaseInfo) []*modelProgress.PhaseInfo {
 			Progress:    phase.Progress,
 		}
 		if !phase.StartTime.IsZero() {
-			startTime := phase.StartTime.Format(time.RFC3339)
+			startTime := common.FormatTime(phase.StartTime)
 			item.StartTime = &startTime
 		}
 		if !phase.EndTime.IsZero() {
-			endTime := phase.EndTime.Format(time.RFC3339)
+			endTime := common.FormatTime(phase.EndTime)
 			item.EndTime = &endTime
 		}
 		if phase.Duration > 0 {

@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
@@ -230,7 +231,7 @@ func (s *synthesisStep) Run(ctx context.Context, req workflow.Request, sess work
 		copy(reqFindings, rs.AggregatedResult.Findings)
 
 		parser := requirements.NewParser()
-		parsedReqs := parser.ParseRequirements(fmt.Sprintf("%v", rs.Request.Requirements))
+		parsedReqs := parser.ParseRequirements(strings.Join(rs.Request.Requirements, "\n"))
 		requirementEval := requirements.NewEvaluator()
 		rs.Requirements = requirementEval.Evaluate(reqFindings, parsedReqs)
 	}

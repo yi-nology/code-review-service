@@ -11,7 +11,6 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
 )
 
 var handlerInst *ProjectAgentHandler
@@ -73,7 +72,7 @@ func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
 		return agent
 	})
 
-	c.JSON(consts.StatusOK, &modelProjectAgent.GetProjectAgentsResp{
+	common.Success(c, &modelProjectAgent.GetProjectAgentsResp{
 		Provider: req.Provider,
 		Repo:     req.Repo,
 		Agents:   agents,
@@ -104,7 +103,7 @@ func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(consts.StatusOK, &modelProjectAgent.UpdateProjectAgentResp{
+	common.Success(c, &modelProjectAgent.UpdateProjectAgentResp{
 		Message: "project agent updated",
 	})
 }
@@ -132,7 +131,7 @@ func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
 		}
 	}
 
-	c.JSON(consts.StatusOK, &modelProjectAgent.BatchUpdateProjectAgentsResp{
+	common.Success(c, &modelProjectAgent.BatchUpdateProjectAgentsResp{
 		Message: "project agents updated",
 		Count:   int64(len(req.Agents)),
 	})
@@ -148,7 +147,7 @@ func DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(consts.StatusOK, &modelProjectAgent.DeleteProjectAgentResp{
+	common.Success(c, &modelProjectAgent.DeleteProjectAgentResp{
 		Message: "project agent deleted",
 	})
 }
