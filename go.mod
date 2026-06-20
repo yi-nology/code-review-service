@@ -3,7 +3,7 @@ module github.com/yi-nology/code-review-service
 go 1.26
 
 require (
-	github.com/yi-nology/ekit v0.7.0
+	github.com/yi-nology/ekit v0.7.4
 	github.com/apache/thrift v0.23.0
 	github.com/cloudwego/hertz v0.10.4
 	github.com/google/uuid v1.6.0
@@ -186,6 +186,3 @@ require (
 )
 
 replace github.com/apache/thrift => github.com/apache/thrift v0.13.0
-
-// TODO: replace with a published version of ekit before deploying to production
-replace github.com/yi-nology/ekit => ../ekit
