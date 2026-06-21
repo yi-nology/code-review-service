@@ -2,39 +2,46 @@ package middleware
 
 import (
 	"context"
-	"crypto/subtle"
-	"net/http"
 	"strings"
 
-	"github.com/oekit/pkg/slicex"
+	mw "github.com/oekit/middleware"
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
-func BearerTokenAuth(token string) app.HandlerFunc {
-	return func(ctx context.Context, c *app.RequestContext) {
-		if token == "" {
-			c.Next(ctx)
-			return
-		}
-
-		path := string(c.Path())
-		if isHealthOrMetricsPath(path) || strings.HasPrefix(path, "/swagger") || strings.HasPrefix(path, "/api/v1/webhooks") {
-			c.Next(ctx)
-			return
-		}
-
-		header := string(c.GetHeader("Authorization"))
-		t, ok := strings.CutPrefix(header, "Bearer ")
-		if !ok || subtle.ConstantTimeCompare([]byte(t), []byte(token)) != 1 {
-			c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-			c.Abort()
-			return
-		}
-
-		c.Next(ctx)
-	}
+// DefaultSkipPaths 是不需要认证和日志记录的默认路径列表。
+var DefaultSkipPaths = []string{
+	"/ping", "/healthz", "/health", "/ready", "/readyz",
+	"/metrics", "/buildVersion",
 }
 
-func isHealthOrMetricsPath(path string) bool {
-	return slicex.Contains([]string{"/ping", "/healthz", "/metrics", "/health", "/ready"}, path)
+// BearerTokenAuth 返回 Bearer Token 认证中间件。
+// 委托给 ekit 的 mw.BearerTokenAuth。
+func BearerTokenAuth(token string) app.HandlerFunc {
+	return mw.BearerTokenAuth(mw.BearerTokenConfig{
+		Token:     token,
+		SkipPaths: DefaultSkipPaths,
+		SkipFunc: func(path string) bool {
+			return strings.HasPrefix(path, "/swagger") ||
+				strings.HasPrefix(path, "/api/v1/webhooks")
+		},
+	})
+}
+
+// SecurityHeaders 返回安全响应头中间件。
+// 包含适配 Element Plus 和 WebSocket 的 CSP 策略。
+func SecurityHeaders() app.HandlerFunc {
+	return func(ctx context.Context, c *app.RequestContext) {
+		c.Header("Content-Security-Policy",
+			"default-src 'self'; "+
+				"script-src 'self'; "+
+				"style-src 'self' 'unsafe-inline'; "+
+				"img-src 'self' data: blob:; "+
+				"connect-src 'self' ws: wss:; "+
+				"font-src 'self' data:; "+
+				"frame-ancestors 'none'")
+		c.Header("Referrer-Policy", "no-referrer")
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("X-Frame-Options", "DENY")
+		c.Next(ctx)
+	}
 }

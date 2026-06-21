@@ -1,7 +1,13 @@
 <template>
   <div class="project-agent-config">
-    <div v-if="loading" class="loading">
-      <el-skeleton :rows="3" animated />
+    <div
+      v-if="loading"
+      class="loading"
+    >
+      <el-skeleton
+        :rows="3"
+        animated
+      />
     </div>
 
     <div v-else>
@@ -18,11 +24,23 @@
                 @change="handleToggle(agent)"
               />
               <span class="agent-name">{{ agent.display_name }}</span>
-              <el-tag v-if="!agent.enabled" type="info" size="small">全局禁用</el-tag>
+              <el-tag
+                v-if="!agent.enabled"
+                type="info"
+                size="small"
+              >
+                全局禁用
+              </el-tag>
             </div>
-            <p class="agent-desc">{{ agent.description }}</p>
+            <p class="agent-desc">
+              {{ agent.description }}
+            </p>
             <div class="agent-background">
-              <el-text class="background-text" truncated :title="agent.background">
+              <el-text
+                class="background-text"
+                truncated
+                :title="agent.background"
+              >
                 {{ agent.background }}
               </el-text>
             </div>
@@ -40,12 +58,19 @@
         </div>
       </div>
 
-      <div v-if="agents.length === 0" class="empty">
+      <div
+        v-if="agents.length === 0"
+        class="empty"
+      >
         暂无可用的审查员，请先在代理设置中创建
       </div>
 
       <div class="actions">
-        <el-button type="primary" @click="handleSave" :loading="saving">
+        <el-button
+          type="primary"
+          :loading="saving"
+          @click="handleSave"
+        >
           保存配置
         </el-button>
       </div>
@@ -150,7 +175,7 @@ onMounted(() => {
 
 <style scoped>
 .project-agent-config {
-  padding: 16px 0;
+  padding: 4px 0;
 }
 
 .loading {
@@ -160,23 +185,24 @@ onMounted(() => {
 .agent-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .agent-item {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 16px;
-  background: #f5f7fa;
-  border-radius: 8px;
-  border: 1px solid transparent;
+  padding: 14px;
+  background: #f7f8fc;
+  border: 1px solid var(--app-border, #e4e7ed);
+  border-radius: 10px;
   transition: all 0.2s;
+  gap: 12px;
 }
 
 .agent-item.enabled {
-  background: #ecf5ff;
-  border-color: #409eff;
+  background: #eef0ff;
+  border-color: var(--app-primary, #5b5bd6);
 }
 
 .agent-info {
@@ -188,27 +214,30 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
 }
 
 .agent-name {
   font-weight: 600;
   font-size: 14px;
+  color: var(--app-text, #303133);
 }
 
 .agent-desc {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   font-size: 13px;
-  color: #666;
+  color: #707782;
+  line-height: 1.5;
 }
 
 .agent-background {
-  max-width: 400px;
+  max-width: 420px;
 }
 
 .background-text {
   font-size: 12px;
-  color: #909399;
+  color: #9aa2b1;
 }
 
 .agent-priority {
@@ -216,22 +245,33 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-  margin-left: 16px;
 }
 
 .priority-label {
   font-size: 13px;
-  color: #666;
+  color: #707782;
 }
 
 .empty {
   text-align: center;
-  color: #999;
-  padding: 40px 0;
+  color: #9aa2b1;
+  padding: 36px 0;
+  font-size: 13px;
 }
 
 .actions {
-  margin-top: 20px;
+  margin-top: 18px;
   text-align: right;
+}
+
+@media (max-width: 600px) {
+  .agent-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .agent-priority {
+    margin-left: 0;
+  }
 }
 </style>

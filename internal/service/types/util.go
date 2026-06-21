@@ -1,29 +1,24 @@
 package types
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
-	"strings"
-	"time"
+
+	"github.com/oekit/pkg/stringx"
 )
 
+// GenerateID 生成基于时间戳的唯一 ID。
+// 委托给 ekit 的 stringx.GenerateID。
 func GenerateID() string {
-	b := make([]byte, 4)
-	_, _ = rand.Read(b)
-	return time.Now().Format("20060102150405") + "-" + hex.EncodeToString(b)
+	return stringx.GenerateID()
 }
 
+// ContainsAny 检查 text 中是否包含 keywords 中的任意一个关键词（不区分大小写）。
+// 委托给 ekit 的 stringx.ContainsAny。
 func ContainsAny(text string, keywords ...string) bool {
-	lower := strings.ToLower(text)
-	for _, kw := range keywords {
-		if strings.Contains(lower, strings.ToLower(kw)) {
-			return true
-		}
-	}
-	return false
+	return stringx.ContainsAny(text, keywords...)
 }
 
+// ResolvePRNumber 根据 provider 类型解析 PR/MR 编号。
 func ResolvePRNumber(provider string, pullRequestID, mergeRequestIID string) int {
 	var num int
 	switch provider {

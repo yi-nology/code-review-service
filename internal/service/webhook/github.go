@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/oekit/pkg/convert"
 )
 
 type GitHubNormalizer struct{}
@@ -39,7 +41,7 @@ func (n *GitHubNormalizer) normalizePush(rawBody []byte) (*ChangeEvent, error) {
 	var repoFullName, repoID string
 	if repo, ok := payload["repository"].(map[string]any); ok {
 		repoFullName, _ = repo["full_name"].(string)
-		repoID = fmt.Sprintf("%v", repo["id"])
+		repoID = convert.AnyToStr(repo["id"])
 	}
 
 	headSHA, _ := payload["after"].(string)
@@ -92,10 +94,10 @@ func (n *GitHubNormalizer) normalizePullRequest(rawBody []byte) (*ChangeEvent, e
 	var repoFullName, repoID string
 	if repo, ok := payload["repository"].(map[string]any); ok {
 		repoFullName, _ = repo["full_name"].(string)
-		repoID = fmt.Sprintf("%v", repo["id"])
+		repoID = convert.AnyToStr(repo["id"])
 	}
 
-	deliveryID := fmt.Sprintf("%v", payload["delivery_id"])
+	deliveryID := convert.AnyToStr(payload["delivery_id"])
 
 	var sender string
 	if s, ok := payload["sender"].(map[string]any); ok {

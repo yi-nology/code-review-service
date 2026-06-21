@@ -2,6 +2,7 @@ package common
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/oekit/pkg/convert"
@@ -78,6 +79,7 @@ func PageParams(pageStr, pageSizeStr string) (int, int) {
 	return page, pageSize
 }
 
+// MaskToken 脱敏 token，保留首尾各 4 字符。
 func MaskToken(token string) string {
 	if len(token) <= 8 {
 		return "***"
@@ -85,6 +87,18 @@ func MaskToken(token string) string {
 	return token[:4] + "****" + token[len(token)-4:]
 }
 
+// MaskSecret 通用脱敏，保留首尾各 visible 字符。
+func MaskSecret(val string, visible int) *string {
+	if val == "" {
+		return nil
+	}
+	if len(val) <= visible*2 {
+		return ptrx.Of("***")
+	}
+	return ptrx.Of(val[:visible] + "****" + val[len(val)-visible:])
+}
+
+// MaskWebhookSecret 脱敏 webhook secret。
 func MaskWebhookSecret(secret string) *string {
 	if secret == "" {
 		return nil
@@ -106,4 +120,74 @@ func FormatTime(t time.Time) string {
 		return ""
 	}
 	return t.UTC().Format(TimeFormat)
+}
+
+// ParseUintID 将字符串解析为 uint ID。无效时返回 error。
+func ParseUintID(s string) (uint, error) {
+	id := convert.Str2Int(s, -1)
+	if id < 0 {
+		return 0, fmt.Errorf("invalid id: %s", s)
+	}
+	return uint(id), nil
+}
+
+// SafeInt64 将 uint 安全转换为 int64，溢出时返回 MaxInt64。
+func SafeInt64(v uint) int64 {
+	const maxInt64 = ^uint(0) >> 1
+	if v > maxInt64 {
+		return int64(maxInt64)
+	}
+	return int64(v)
+}
+
+// SafeUint 将 int64 安全转换为 uint，负数时返回 0。
+func SafeUint(v int64) uint {
+	if v < 0 {
+		return 0
+	}
+	return uint(v)
+}
+
+// Bind 绑定并验证请求参数到泛型类型 T。
+// 失败时自动返回 400 错误响应，调用方无需处理 error。
+//
+// 用法:
+//
+//	req, ok := common.Bind[model.CreateReq](c)
+//	if !ok { return }
+func Bind[T any](c *hertzApp.RequestContext) (*T, bool) {
+	var req T
+	if err := c.BindAndValidate(&req); err != nil {
+		Fail(c, BadRequest(err.Error()))
+		return nil, false
+	}
+	return &req, true
+}
+
+// RequireFields 检查字段非空。任一为空时返回 400。
+//
+// 用法:
+//
+//	if !common.RequireFields(c, req.Provider, req.Repo) { return }
+func RequireFields(c *hertzApp.RequestContext, fields ...string) bool {
+	for _, f := range fields {
+		if f == "" {
+			Fail(c, BadRequest("required field is empty"))
+			return false
+		}
+	}
+	return true
+}
+
+// FeatureGuard 检查可选功能是否已配置。未配置时返回 400。
+//
+// 用法:
+//
+//	if !common.FeatureGuard(c, handlerInst.viewerMgr, "Viewer") { return }
+func FeatureGuard(c *hertzApp.RequestContext, feature any, name string) bool {
+	if feature == nil {
+		Fail(c, BadRequest(name+" 功能未配置"))
+		return false
+	}
+	return true
 }

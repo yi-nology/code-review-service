@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/service/types"
+	"github.com/oekit/pkg/slicex"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
-	"github.com/google/uuid"
 )
 
 // Orchestrator manages the discussion process
@@ -45,7 +46,7 @@ func (o *Orchestrator) RunDiscussion(ctx context.Context, findings []Finding, ag
 	entries := make([]discussionEntry, 0, len(prompts))
 	for _, prompt := range prompts {
 		entry := discussionEntry{
-			ID:         uuid.New().String(),
+			ID:         types.GenerateID(),
 			AgentName:  prompt.AgentName,
 			FindingID:  prompt.FindingID,
 			Response:   prompt.ResponseType,
@@ -68,10 +69,7 @@ func (o *Orchestrator) RunDiscussion(ctx context.Context, findings []Finding, ag
 // analyzeDiscussion analyzes the discussion entries and generates results
 func (o *Orchestrator) analyzeDiscussion(findings []Finding, entries []discussionEntry) *DiscussionResult {
 	// Group entries by finding
-	entriesByFinding := make(map[string][]discussionEntry)
-	for _, entry := range entries {
-		entriesByFinding[entry.FindingID] = append(entriesByFinding[entry.FindingID], entry)
-	}
+	entriesByFinding := slicex.GroupBy(entries, func(e discussionEntry) string { return e.FindingID })
 
 	// Analyze each finding
 	var consensus []consensusItem

@@ -1,6 +1,10 @@
 package requirements
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/oekit/pkg/stringx"
+)
 
 type Evaluator struct{}
 
@@ -85,38 +89,25 @@ func (e *Evaluator) generateSummary(coverage *CoverageAssessment) string {
 	}
 	summary := "Requirements coverage: "
 	if met > 0 {
-		summary += pluralize(met, "requirement") + " met"
+		summary += stringx.Pluralize(met, "requirement") + " met"
 	}
 	if partial > 0 {
 		if met > 0 {
 			summary += ", "
 		}
-		summary += pluralize(partial, "requirement") + " partially met"
+		summary += stringx.Pluralize(partial, "requirement") + " partially met"
 	}
 	if missing > 0 {
 		if met+partial > 0 {
 			summary += ", "
 		}
-		summary += pluralize(missing, "requirement") + " missing"
+		summary += stringx.Pluralize(missing, "requirement") + " missing"
 	}
 	if unclear > 0 {
 		if met+partial+missing > 0 {
 			summary += ", "
 		}
-		summary += pluralize(unclear, "requirement") + " unclear"
+		summary += stringx.Pluralize(unclear, "requirement") + " unclear"
 	}
 	return summary
-}
-
-func pluralize(count int, word string) string {
-	if count == 1 {
-		return "1 " + word
-	}
-	if strings.HasSuffix(word, "y") {
-		return strings.TrimSuffix(word, "y") + "ies"
-	}
-	if strings.HasSuffix(word, "s") || strings.HasSuffix(word, "sh") || strings.HasSuffix(word, "ch") || strings.HasSuffix(word, "x") || strings.HasSuffix(word, "z") {
-		return word + "es"
-	}
-	return word + "s"
 }

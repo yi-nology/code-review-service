@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/oekit/pkg"
+	"github.com/oekit/concurrency/async"
 	"github.com/oekit/pkg/slicex"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
@@ -110,36 +110,8 @@ func (m *AgentManager) RunAgentsWithFilter(ctx context.Context, workspace Worksp
 	hlog.Infof("starting review with %d agents", len(agents))
 	startTime := time.Now()
 
-	// 使用 pipeline.ParallelFlow 简化并发控制
-	parallel := pipeline.NewParallel(m.config.MaxConcurrency)
+	agentResults, agentErrors := m.runParallel(ctx, agents, workspace, nil)
 
-	var (
-		mu           sync.Mutex
-		agentResults []AgentResult
-		agentErrors  []error
-	)
-
-	for _, a := range agents {
-		agent := a
-		parallel.Add(func(ctx context.Context) error {
-			result, err := m.runSingleAgent(ctx, agent, workspace)
-			if err != nil {
-				mu.Lock()
-				agentErrors = append(agentErrors, err)
-				mu.Unlock()
-				return nil // 不中断其他 agent
-			}
-			mu.Lock()
-			agentResults = append(agentResults, result)
-			mu.Unlock()
-			return nil
-		})
-	}
-
-	// 并发执行所有 agent
-	_ = parallel.Run(ctx)
-
-	// 记录错误
 	if len(agentErrors) > 0 {
 		hlog.Warnf("%d agents failed:", len(agentErrors))
 		for _, err := range agentErrors {
@@ -147,12 +119,10 @@ func (m *AgentManager) RunAgentsWithFilter(ctx context.Context, workspace Worksp
 		}
 	}
 
-	// 检查是否有结果
 	if len(agentResults) == 0 {
 		return AggregatedResult{}, fmt.Errorf("all agents failed: %v", agentErrors)
 	}
 
-	// 聚合结果
 	aggregated := m.aggregator.Aggregate(agentResults)
 	aggregated.Duration = time.Since(startTime)
 
@@ -205,19 +175,53 @@ func (m *AgentManager) RunAgentsWithCallback(ctx context.Context, workspace Work
 	hlog.Infof("starting review with %d agents", len(agents))
 	startTime := time.Now()
 
-	// 使用 pipeline.ParallelFlow 简化并发控制
-	parallel := pipeline.NewParallel(m.config.MaxConcurrency)
+	agentResults, agentErrors := m.runParallel(ctx, agents, workspace, callback)
+
+	if len(agentErrors) > 0 {
+		hlog.Warnf("%d agents failed:", len(agentErrors))
+		for _, err := range agentErrors {
+			hlog.Warnf("  - %v", err)
+		}
+	}
+
+	if len(agentResults) == 0 {
+		return AggregatedResult{}, fmt.Errorf("all agents failed: %v", agentErrors)
+	}
+
+	aggregated := m.aggregator.Aggregate(agentResults)
+	aggregated.Duration = time.Since(startTime)
+
+	hlog.Infof("review completed in %v with %d findings (confidence: %.2f)",
+		aggregated.Duration, len(aggregated.Findings), aggregated.Confidence)
+
+	return aggregated, nil
+}
+
+// runParallel runs agents in parallel with concurrency control.
+func (m *AgentManager) runParallel(ctx context.Context, agents []reviewAgent, workspace Workspace, callback func(AgentStatus)) ([]AgentResult, []error) {
+	var sem chan struct{}
+	if m.config.MaxConcurrency > 0 {
+		sem = make(chan struct{}, m.config.MaxConcurrency)
+	}
 
 	var (
 		mu           sync.Mutex
 		agentResults []AgentResult
 		agentErrors  []error
+		wg           sync.WaitGroup
 	)
 
 	for _, a := range agents {
 		agent := a
-		parallel.Add(func(ctx context.Context) error {
-			// 报告状态
+		wg.Add(1)
+		async.GoSafe(func() {
+			defer wg.Done()
+
+			if sem != nil {
+				sem <- struct{}{}
+				defer func() { <-sem }()
+			}
+
 			if callback != nil {
 				callback(AgentStatus{
 					Name:     agent.Name(),
@@ -241,10 +245,9 @@ func (m *AgentManager) RunAgentsWithCallback(ctx context.Context, workspace Work
 				mu.Lock()
 				agentErrors = append(agentErrors, err)
 				mu.Unlock()
-				return nil // 不中断其他 agent
+				return
 			}
 
-			// 报告完成状态
 			if callback != nil {
 				callback(AgentStatus{
 					Name:     agent.Name(),
@@ -258,34 +261,11 @@ func (m *AgentManager) RunAgentsWithCallback(ctx context.Context, workspace Work
 			mu.Lock()
 			agentResults = append(agentResults, result)
 			mu.Unlock()
-			return nil
 		})
 	}
 
-	// 并发执行所有 agent
-	_ = parallel.Run(ctx)
-
-	// 记录错误
-	if len(agentErrors) > 0 {
-		hlog.Warnf("%d agents failed:", len(agentErrors))
-		for _, err := range agentErrors {
-			hlog.Warnf("  - %v", err)
-		}
-	}
-
-	// 检查是否有结果
-	if len(agentResults) == 0 {
-		return AggregatedResult{}, fmt.Errorf("all agents failed: %v", agentErrors)
-	}
-
-	// 聚合结果
-	aggregated := m.aggregator.Aggregate(agentResults)
-	aggregated.Duration = time.Since(startTime)
-
-	hlog.Infof("review completed in %v with %d findings (confidence: %.2f)",
-		aggregated.Duration, len(aggregated.Findings), aggregated.Confidence)
-
-	return aggregated, nil
+	wg.Wait()
+	return agentResults, agentErrors
 }
 
 // runSingleAgent runs a single agent with timeout

@@ -85,7 +85,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  const hasToken = Boolean(sessionStorage.getItem('token'))
+  const hasToken = Boolean(localStorage.getItem('token'))
 
   if (!hasToken && to.path !== '/') {
     return { path: '/' }

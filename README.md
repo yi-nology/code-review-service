@@ -1,8 +1,63 @@
-# Review Service
+# Review Service / 代码评审服务
 
-Minimal service-shaped code review gateway for GitHub, GitLab, and Gitea CI.
+[English](#english) | [中文](#中文)
 
-## Run
+---
+
+# English
+
+## Overview
+
+Review Service is a code review gateway that integrates with GitHub, GitLab, Gitea, GitCode, and Tencent Code. It uses AI-powered analysis (via Open Code Review) to automatically review pull requests and merge requests, providing actionable feedback directly on the code platform.
+
+### Key Features
+
+- **Multi-platform support**: GitHub, GitLab, Gitea, GitCode, Tencent Code
+- **AI-powered analysis**: Uses Open Code Review (OCR) for intelligent code review
+- **Multi-agent workflow**: Parallel review agents with aggregation and discussion
+- **Real-time progress**: WebSocket-based progress tracking
+- **Quality gates**: Configurable severity thresholds for pass/fail decisions
+- **Inline comments**: Findings written back as inline PR/MR comments
+- **Web console**: Browser-based UI for viewing and managing reviews
+- **Session management**: Multi-round review sessions with history
+- **Review maps**: Visual code architecture maps with Mermaid diagrams
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Web Console (Vue.js)                  │
+├─────────────────────────────────────────────────────────┤
+│                    HTTP API (Hertz)                      │
+├──────────┬──────────┬──────────┬──────────┬─────────────┤
+│  Review  │ Settings │ Session  │ Progress │   Stats     │
+│ Handler  │ Handler  │ Handler  │ Handler  │  Handler    │
+├──────────┴──────────┴──────────┴──────────┴─────────────┤
+│                   Service Layer (fx)                     │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
+│  │ Executor │ │ Workflow │ │  Agent   │ │ Webhook  │  │
+│  │ Service  │ │ Engine   │ │ Manager  │ │ Service  │  │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘  │
+├─────────────────────────────────────────────────────────┤
+│                  Repository Layer (GORM)                 │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
+│  │  Review  │ │ Session  │ │ Settings │ │  Stats   │  │
+│  │   Repo   │ │   Repo   │ │   Repo   │ │   Repo   │  │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘  │
+├─────────────────────────────────────────────────────────┤
+│              PostgreSQL + Git Platform SDK               │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Quick Start
+
+### Prerequisites
+
+- Go 1.26+
+- PostgreSQL 14+
+- Open Code Review binary (for AI-powered reviews)
+
+### Run
 
 ```sh
 DATABASE_URL='postgres://review_service:review_service@localhost:5432/review_service?sslmode=disable' \
@@ -10,256 +65,309 @@ REVIEW_TOKEN=dev-token \
 go run .
 ```
 
-Enable Alibaba Open Code Review:
+### With OCR enabled
 
 ```sh
 OCR_ENABLED=true \
 OCR_BINARY=ocr \
-REVIEW_TOKEN=dev-token \
 DATABASE_URL='postgres://review_service:review_service@localhost:5432/review_service?sslmode=disable' \
+REVIEW_TOKEN=dev-token \
 go run .
 ```
 
-The `ocr` binary must be available in `PATH` when `OCR_ENABLED=true`. The Docker image installs it from the official Alibaba Open Code Review GitHub release.
-
-Health check:
+### Health check
 
 ```sh
 curl http://localhost:8080/healthz
 curl http://localhost:8080/readyz
 ```
 
-`/healthz` is a liveness check. `/readyz` verifies that the configured review store is reachable.
-
-## Web Console
-
-Run the frontend dev server alongside the Go service:
+### Web Console
 
 ```sh
 cd frontend && npm install && npm run dev
 ```
 
-The frontend dev proxy targets `http://localhost:8081` by default, matching `etc/config-local.yaml`. If you start the Go service on another port, override it before running Vite:
+Open `http://localhost:3000/` and connect with `REVIEW_TOKEN`.
+
+## API Reference
+
+### Create Review
 
 ```sh
-VITE_API_PROXY_TARGET=http://localhost:8080 npm run dev
-```
-
-Open `http://localhost:3000/` and connect with the value of `REVIEW_TOKEN`.
-
-The console uses a Chinese interface and provides:
-
-- Paginated access to all stored review records
-- Review status, gate, and finding summaries across the full filtered result
-- Provider, status, and repository filters
-- Complete review reports with request metadata, SHAs, timestamps, gate reasons, findings, and errors
-- Versioned code quality scoring with visible deductions and severity totals
-- Open Code Review file, duration, token, cache, warning, and completion metrics
-- Side-by-side existing and suggested code for actionable improvements
-- Manual review creation for GitHub, GitLab, and Gitea
-
-The token is kept in browser session storage and is sent as a Bearer token to the same-origin API. In production, build the frontend (`npm run build`) and serve the `dist/` directory via the Go service or a reverse proxy.
-
-Create a synchronous review:
-
-```sh
-curl -sS -X POST http://localhost:8080/api/v1/reviews \
+curl -X POST http://localhost:8080/api/v1/reviews \
   -H "Authorization: Bearer dev-token" \
   -H "Content-Type: application/json" \
   -d '{
-    "provider": "gitlab",
-    "repo": "group/project",
-    "project_id": "123",
-    "merge_request_iid": "15",
-    "base_sha": "abc123",
-    "head_sha": "def456",
+    "provider": "github",
+    "repo": "owner/repo",
+    "pull_request_id": "42",
     "callback_mode": "comment",
-    "wait": true
+    "wait": false
   }'
 ```
 
-Set `"wait": false` to receive `202 Accepted` immediately. Poll the returned ID:
+### Get Review
 
 ```sh
-curl -sS "$REVIEW_SERVICE_URL/api/v1/reviews/$REVIEW_ID" \
-  -H "Authorization: Bearer $REVIEW_TOKEN"
-```
-
-The status progresses through `queued`, `running`, and then `success` or `failed`.
-
-List stored reviews with server-side pagination:
-
-```sh
-curl -sS "http://localhost:8080/api/v1/reviews?provider=gitlab&status=success&page=1&page_size=50" \
+curl http://localhost:8080/api/v1/reviews/{review_id} \
   -H "Authorization: Bearer dev-token"
 ```
 
-The response includes `total`, `page`, `page_size`, `total_pages`, aggregate `stats`, and the current page of `items`.
-
-## CI Trigger
+### List Reviews
 
 ```sh
-payload=$(jq -n \
-  --arg provider "gitlab" \
-  --arg repo "$CI_PROJECT_PATH" \
-  --arg project_id "$CI_PROJECT_ID" \
-  --arg merge_request_iid "$CI_MERGE_REQUEST_IID" \
-  --arg base_sha "$CI_MERGE_REQUEST_TARGET_BRANCH_SHA" \
-  --arg head_sha "$CI_COMMIT_SHA" \
-  '{
-    provider: $provider,
-    repo: $repo,
-    project_id: $project_id,
-    merge_request_iid: $merge_request_iid,
-    base_sha: $base_sha,
-    head_sha: $head_sha,
-    callback_mode: "comment",
-    wait: true
-  }')
+curl "http://localhost:8080/api/v1/reviews?provider=github&status=success&page=1&page_size=50" \
+  -H "Authorization: Bearer dev-token"
+```
 
-resp=$(curl -sS -X POST "$REVIEW_SERVICE_URL/api/v1/reviews" \
-  -H "Authorization: Bearer $REVIEW_TOKEN" \
-  -H "Idempotency-Key: $CI_PIPELINE_ID:$CI_JOB_ID:$CI_COMMIT_SHA" \
+### Webhook Endpoint
+
+```sh
+curl -X POST http://localhost:8080/api/v1/webhooks \
   -H "Content-Type: application/json" \
-  -d "$payload")
-
-gate_status=$(echo "$resp" | jq -r '.gate.status')
-if [ "$gate_status" != "passed" ]; then
-  echo "$resp"
-  exit 1
-fi
+  -d '{
+    "provider": "github",
+    "installation": "install-123",
+    "body": "<raw webhook payload>"
+  }'
 ```
-
-## Idempotent Requests
-
-CI callers should send an `Idempotency-Key` header. Repeating the same key with the same JSON payload returns the existing review instead of creating another model run:
-
-```sh
-Idempotency-Key: gitlab:123:15:def456
-```
-
-Keys are limited to 200 characters. Reusing a key with a different payload returns `409 Conflict`. PostgreSQL enforces uniqueness across service replicas.
 
 ## Configuration
 
-| Env | Default | Purpose |
-| --- | --- | --- |
+| Env | Default | Description |
+|-----|---------|-------------|
 | `HTTP_ADDR` | `:8080` | HTTP listen address |
-| `REVIEW_TOKEN` | `dev-token` | Bearer token expected from CI |
-| `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error` |
-| `POLICY_FAIL_ON` | `critical` | Severity threshold that fails the gate |
-| `POLICY_MAX_COMMENTS` | `20` | Reserved for comment publisher limiting |
-| `POLICY_SUMMARY_ONLY` | `false` | Reserved for summary-only publishing |
-| `POLICY_IGNORE_PATHS` | `vendor/**,dist/**,*.pb.go` | Comma-separated ignore patterns |
-| `PROJECT_SETTINGS_PATH` | `data/project-settings.json` | Per-project gate and ignored-path policy file |
-| `OCR_COMMAND` | empty | Optional external reviewer command returning JSON |
-| `OCR_ENABLED` | `false` | Enable the Alibaba Open Code Review runner; when `false`, reviews return empty results |
-| `OCR_BINARY` | `ocr` | Path to the Alibaba OCR executable |
-| `OCR_RULE` | empty | Optional OCR custom rule JSON path |
-| `OCR_DEFAULT_SEVERITY` | `major` | Severity assigned to OCR comments |
-| `DATABASE_URL` | empty | PostgreSQL connection URL (required) |
-| `DATABASE_MAX_OPEN` | `10` | Maximum open PostgreSQL connections |
-| `DATABASE_MAX_IDLE` | `5` | Maximum idle PostgreSQL connections |
-| `WORKER_CONCURRENCY` | `2` | Number of in-process review workers; `0` disables workers |
-| `WORKER_POLL_INTERVAL` | `1s` | Delay when no queued review is available |
-| `WORKER_STALE_AFTER` | `15m` | Requeue running reviews older than this on startup |
-| `GIT_ALLOW_REPO_URLS` | `false` | Allow request payloads to contain direct HTTP(S) or SSH repository URLs |
-| `GIT_ALLOW_LOCAL_REPOS` | `false` | Allow absolute paths and `file://` repositories; development only |
-| `GIT_ALLOW_INSECURE_HTTP` | `false` | Allow direct repository URLs using plain HTTP |
-| `GIT_FETCH_TIMEOUT` | `2m` | Maximum time for repository preparation and diff generation |
-| `REVIEW_MAX_DIFF_BYTES` | `5242880` | Maximum generated diff size before review is rejected |
-| `GITHUB_BASE_URL` | `https://github.com` | GitHub Enterprise base URL |
-| `GITHUB_API_URL` | auto | GitHub REST API URL |
-| `GITHUB_TOKEN` | empty | Token used when fetching GitHub repos |
-| `GITLAB_BASE_URL` | `https://gitlab.com` | GitLab base URL |
-| `GITLAB_API_URL` | auto | GitLab v4 API URL |
-| `GITLAB_TOKEN` | empty | Token used when fetching GitLab repos |
-| `GITEA_BASE_URL` | empty | Gitea base URL, required for path-style Gitea repos |
-| `GITEA_API_URL` | auto | Gitea v1 API URL |
-| `GITEA_TOKEN` | empty | Token used when fetching Gitea repos |
+| `REVIEW_TOKEN` | - | Bearer token for API authentication |
+| `DATABASE_URL` | - | PostgreSQL connection URL |
+| `OCR_ENABLED` | `false` | Enable AI-powered code review |
+| `OCR_BINARY` | `ocr` | Path to Open Code Review binary |
+| `WORKER_CONCURRENCY` | `2` | Number of background review workers |
+| `POLICY_FAIL_ON` | `critical` | Severity threshold for quality gate |
+| `POLICY_MAX_COMMENTS` | `20` | Maximum inline comments per review |
+| `GITHUB_TOKEN` | - | GitHub API token |
+| `GITLAB_TOKEN` | - | GitLab API token |
+| `GITEA_TOKEN` | - | Gitea API token |
 
-## Comment Publishing
+## Development
 
-Set `POLICY_MAX_COMMENTS` to a positive value to publish one Markdown summary comment (default `20`). Set `POLICY_MAX_COMMENTS=0` to disable publishing.
-
-- GitHub requires `pull_request_id` and `GITHUB_TOKEN`.
-- GitLab requires `merge_request_iid`, plus `project_id` or `repo`, and `GITLAB_TOKEN`.
-- Gitea requires `pull_request_id`, `GITEA_BASE_URL`, and `GITEA_TOKEN`.
-
-`POLICY_MAX_COMMENTS` limits the findings included in the summary. Set `POLICY_SUMMARY_ONLY=true` to publish counts without individual finding details.
-
-## PostgreSQL
-
-Set `DATABASE_URL` in production:
+### Build
 
 ```sh
-DATABASE_URL='postgres://review_service:secret@postgres:5432/review_service?sslmode=require'
+go build ./...
 ```
 
-The service checks the connection and applies the embedded schema migration during startup. Review requests, responses, findings, statuses, and timestamps survive service restarts.
-
-Asynchronous requests are claimed from PostgreSQL with `FOR UPDATE SKIP LOCKED`, so multiple service replicas can process the queue without claiming the same review. Stale `running` reviews are returned to `queued` during worker startup.
-
-Set `WORKER_CONCURRENCY=0` on API-only replicas, and use a positive value on worker-enabled replicas.
-
-## Repository Security
-
-By default, request payloads must use a repository slug such as `group/project`. The service builds the clone URL from the configured provider base URL.
-
-Direct URLs, SSH URLs, local paths, and `file://` repositories are rejected by default. `base_sha` and `head_sha` must be 7-64 hexadecimal characters, preventing Git option injection.
-
-For local-only testing with filesystem repositories:
+### Test
 
 ```sh
-GIT_ALLOW_LOCAL_REPOS=true go run .
+go test ./...
 ```
 
-Do not enable local repositories on a shared or internet-accessible service.
-
-For local development:
+### Lint
 
 ```sh
-docker compose up --build
+golangci-lint run ./...
 ```
 
-To run the PostgreSQL integration test:
+---
+
+# 中文
+
+## 概述
+
+Review Service 是一个代码评审网关，支持 GitHub、GitLab、Gitea、GitCode 和腾讯工蜂。它使用 AI 驱动的分析（通过 Open Code Review）自动审查 Pull Request 和 Merge Request，并将可操作的反馈直接发布到代码平台。
+
+### 核心功能
+
+- **多平台支持**：GitHub、GitLab、Gitea、GitCode、腾讯工蜂
+- **AI 驱动分析**：使用 Open Code Review (OCR) 进行智能代码评审
+- **多 Agent 工作流**：并行评审 Agent，支持聚合和讨论
+- **实时进度**：基于 WebSocket 的进度追踪
+- **质量门禁**：可配置的严重级别阈值
+- **行内评论**：评审结果作为行内评论写回 PR/MR
+- **Web 控制台**：基于浏览器的评审管理界面
+- **会话管理**：多轮评审会话，支持历史记录
+- **评审地图**：可视化代码架构图（Mermaid 图表）
+
+## 架构设计
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  Web 控制台 (Vue.js)                      │
+├─────────────────────────────────────────────────────────┤
+│                    HTTP API (Hertz)                      │
+├──────────┬──────────┬──────────┬──────────┬─────────────┤
+│  Review  │ Settings │ Session  │ Progress │   Stats     │
+│ Handler  │ Handler  │ Handler  │ Handler  │  Handler    │
+├──────────┴──────────┴──────────┴──────────┴─────────────┤
+│                服务层 (uber/fx 依赖注入)                   │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
+│  │ Executor │ │ Workflow │ │  Agent   │ │ Webhook  │  │
+│  │ Service  │ │ Engine   │ │ Manager  │ │ Service  │  │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘  │
+├─────────────────────────────────────────────────────────┤
+│                   数据访问层 (GORM)                       │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
+│  │  Review  │ │ Session  │ │ Settings │ │  Stats   │  │
+│  │   Repo   │ │   Repo   │ │   Repo   │ │   Repo   │  │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘  │
+├─────────────────────────────────────────────────────────┤
+│              PostgreSQL + Git Platform SDK               │
+└─────────────────────────────────────────────────────────┘
+```
+
+## 快速开始
+
+### 环境要求
+
+- Go 1.26+
+- PostgreSQL 14+
+- Open Code Review 二进制文件（用于 AI 评审）
+
+### 运行
 
 ```sh
-TEST_DATABASE_URL='postgres://review_service:review_service@localhost:5432/review_service?sslmode=disable' \
-go test ./internal/store -run TestPostgresStoreRoundTrip
+DATABASE_URL='postgres://review_service:review_service@localhost:5432/review_service?sslmode=disable' \
+REVIEW_TOKEN=dev-token \
+go run .
 ```
 
-When `OCR_ENABLED=true`, the service runs:
+### 启用 OCR
 
 ```sh
-ocr review \
-  --repo "$REVIEW_WORKSPACE_DIR" \
-  --from "$REVIEW_BASE_SHA" \
-  --to "$REVIEW_HEAD_SHA" \
-  --format json
+OCR_ENABLED=true \
+OCR_BINARY=ocr \
+DATABASE_URL='postgres://review_service:review_service@localhost:5432/review_service?sslmode=disable' \
+REVIEW_TOKEN=dev-token \
+go run .
 ```
 
-OCR comments are converted from its native `path`, `content`, `start_line`, `end_line`, `existing_code`, and `suggestion_code` fields into service findings. OCR does not currently emit severity, so comments use `OCR_DEFAULT_SEVERITY`.
+### 健康检查
 
-The service stores the original OCR JSON for audit purposes but does not expose model `thinking` fields in the API, web console, or PR comments. A deterministic `severity-v1` score starts at 100 and records every deduction in the report: critical `25`, major `12`, minor `5`, info `1`, OCR warnings up to `15`, and incomplete OCR execution `20`. This score is a service policy signal, not a score emitted by Alibaba Open Code Review.
-
-The legacy `OCR_COMMAND` integration remains available when `OCR_ENABLED=false`. It should print a JSON object compatible with:
-
-```json
-{
-  "summary": "发现 1 个问题",
-  "findings": [
-    {
-      "severity": "critical",
-      "path": "internal/api/server.go",
-      "line": 42,
-      "title": "nil dereference",
-      "body": "..."
-    }
-  ]
-}
+```sh
+curl http://localhost:8080/healthz
+curl http://localhost:8080/readyz
 ```
 
-The command receives `REVIEW_PROVIDER`, `REVIEW_REPO`, `REVIEW_BASE_SHA`, `REVIEW_HEAD_SHA`, and `REVIEW_WORKSPACE_DIR` in its environment. The computed diff is passed on stdin.
+### Web 控制台
 
-// test writeback at Sun Jun 14 06:38:16 CST 2026
+```sh
+cd frontend && npm install && npm run dev
+```
+
+打开 `http://localhost:3000/`，使用 `REVIEW_TOKEN` 连接。
+
+## API 接口
+
+### 创建评审
+
+```sh
+curl -X POST http://localhost:8080/api/v1/reviews \
+  -H "Authorization: Bearer dev-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "github",
+    "repo": "owner/repo",
+    "pull_request_id": "42",
+    "callback_mode": "comment",
+    "wait": false
+  }'
+```
+
+### 查询评审
+
+```sh
+curl http://localhost:8080/api/v1/reviews/{review_id} \
+  -H "Authorization: Bearer dev-token"
+```
+
+### 评审列表
+
+```sh
+curl "http://localhost:8080/api/v1/reviews?provider=github&status=success&page=1&page_size=50" \
+  -H "Authorization: Bearer dev-token"
+```
+
+### Webhook 端点
+
+```sh
+curl -X POST http://localhost:8080/api/v1/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "github",
+    "installation": "install-123",
+    "body": "<原始 webhook payload>"
+  }'
+```
+
+## 配置项
+
+| 环境变量 | 默认值 | 说明 |
+|---------|--------|------|
+| `HTTP_ADDR` | `:8080` | HTTP 监听地址 |
+| `REVIEW_TOKEN` | - | API 认证 Bearer Token |
+| `DATABASE_URL` | - | PostgreSQL 连接 URL |
+| `OCR_ENABLED` | `false` | 启用 AI 代码评审 |
+| `OCR_BINARY` | `ocr` | Open Code Review 二进制路径 |
+| `WORKER_CONCURRENCY` | `2` | 后台评审 Worker 数量 |
+| `POLICY_FAIL_ON` | `critical` | 质量门禁严重级别阈值 |
+| `POLICY_MAX_COMMENTS` | `20` | 每次评审最大行内评论数 |
+| `GITHUB_TOKEN` | - | GitHub API Token |
+| `GITLAB_TOKEN` | - | GitLab API Token |
+| `GITEA_TOKEN` | - | Gitea API Token |
+
+## 开发指南
+
+### 构建
+
+```sh
+go build ./...
+```
+
+### 测试
+
+```sh
+go test ./...
+```
+
+### 代码检查
+
+```sh
+golangci-lint run ./...
+```
+
+## 项目结构
+
+```
+├── biz/
+│   ├── handler/          # HTTP 处理器
+│   ├── model/            # Thrift 生成的数据模型
+│   └── router/           # 路由注册
+├── frontend/             # Vue.js 前端
+├── idl/                  # Thrift IDL 定义
+├── internal/
+│   ├── config/           # 配置加载
+│   ├── errors/           # 统一错误类型
+│   ├── middleware/        # HTTP 中间件
+│   ├── modules/          # uber/fx 依赖注入模块
+│   ├── repository/       # 数据访问层接口和实现
+│   └── service/          # 业务逻辑层
+│       ├── agent/        # 多 Agent 管理
+│       ├── discussion/   # Agent 讨论编排
+│       ├── executor/     # 评审执行器
+│       ├── ocr/          # OCR 子组件
+│       ├── policy/       # 质量门禁策略
+│       ├── progress/     # 进度追踪
+│       ├── provider/     # Git 平台适配
+│       ├── requirements/ # 需求解析
+│       ├── review/       # 评审核心逻辑
+│       ├── reviewmap/    # 评审地图生成
+│       ├── runner/       # OCR 运行器
+│       ├── session/      # 会话管理
+│       ├── stats/        # 统计分析
+│       ├── types/        # 共享类型
+│       ├── webhook/      # Webhook 处理
+│       ├── workflow/     # 多阶段工作流
+│       └── writeback/    # 评论回写
+└── swagger/              # Swagger UI
+```

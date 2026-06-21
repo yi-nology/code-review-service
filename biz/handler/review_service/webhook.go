@@ -36,11 +36,8 @@ func InitWebhookHandler(webhookSvc *webhook.Service, reviewSvc ReviewCreator, pl
 }
 
 func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContext) {
-	var req modelWebhook.HandleWebhookReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelWebhook.HandleWebhookReq](c)
+	if !ok { return }
 
 	if req.Provider == "" || req.Installation == "" {
 		common.Fail(c, common.BadRequest("provider and installation are required"))
@@ -79,7 +76,7 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 	deliveryID := normalizer.DeliveryID(string(c.GetHeader(normalizerDeliveryIDHeader(req.Provider))))
 	signature := string(c.GetHeader(normalizerSignatureHeader(req.Provider)))
 
-	result, err := h.webhookSvc.HandleWebhook(req.Provider, req.Installation, rawBody, eventType, deliveryID, signature, platform.WebhookSecret)
+	result, err := h.webhookSvc.HandleWebhook(ctx, req.Provider, req.Installation, rawBody, eventType, deliveryID, signature, platform.WebhookSecret)
 	if err != nil {
 		if strings.Contains(err.Error(), "signature verification failed") {
 			common.Fail(c, common.BizErr(401, "signature verification failed"))
@@ -91,7 +88,6 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 	}
 
 	if result.Duplicate {
-		c.SetStatusCode(202)
 		c.JSON(202, &modelWebhook.HandleWebhookResp{Status: "duplicate"})
 		return
 	}
@@ -136,7 +132,6 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 	_ = h.webhookSvc.RecordRevision(ctx, event, resp.ReviewID)
 	_ = h.webhookSvc.MarkDeliveryProcessed(ctx, req.Provider, req.Installation, deliveryID, "accepted", "")
 
-	c.SetStatusCode(202)
 	c.JSON(202, &modelWebhook.HandleWebhookResp{
 		Status:   "accepted",
 		ReviewID: &resp.ReviewID,

@@ -11,7 +11,6 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
-	"github.com/cloudwego/hertz/pkg/protocol/consts"
 )
 
 var handlerInst *ProjectAgentHandler
@@ -32,11 +31,8 @@ func InitHandler(
 }
 
 func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
-	var req modelProjectAgent.GetProjectAgentsReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelProjectAgent.GetProjectAgentsReq](c)
+	if !ok { return }
 
 	projectAgents, err := handlerInst.projectAgentRepo.GetByProject(ctx, req.Provider, req.Repo)
 	if err != nil {
@@ -59,7 +55,7 @@ func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
 
 	agents := slicex.Map(allAgents, func(a models.ReviewerAgent) *modelProjectAgent.ProjectAgentConfig {
 		agent := &modelProjectAgent.ProjectAgentConfig{
-			AgentID:         safeInt64(a.ID),
+			AgentID:         common.SafeInt64(a.ID),
 			Name:            a.Name,
 			DisplayName:     a.DisplayName,
 			Description:     a.Description,
@@ -76,7 +72,7 @@ func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
 		return agent
 	})
 
-	c.JSON(consts.StatusOK, &modelProjectAgent.GetProjectAgentsResp{
+	common.Success(c, &modelProjectAgent.GetProjectAgentsResp{
 		Provider: req.Provider,
 		Repo:     req.Repo,
 		Agents:   agents,
@@ -84,13 +80,10 @@ func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
 }
 
 func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
-	var req modelProjectAgent.UpdateProjectAgentReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelProjectAgent.UpdateProjectAgentReq](c)
+	if !ok { return }
 
-	_, err := handlerInst.reviewerAgentRepo.GetByID(ctx, safeUint(req.AgentID))
+	_, err := handlerInst.reviewerAgentRepo.GetByID(ctx, common.SafeUint(req.AgentID))
 	if err != nil {
 		common.Fail(c, common.NotFound("agent not found"))
 		return
@@ -99,7 +92,7 @@ func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
 	pa := &models.ProjectAgent{
 		Provider: req.Provider,
 		Repo:     req.Repo,
-		AgentID:  safeUint(req.AgentID),
+		AgentID:  common.SafeUint(req.AgentID),
 		Enabled:  req.Enabled,
 		Priority: int(req.Priority),
 	}
@@ -110,17 +103,14 @@ func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(consts.StatusOK, &modelProjectAgent.UpdateProjectAgentResp{
+	common.Success(c, &modelProjectAgent.UpdateProjectAgentResp{
 		Message: "project agent updated",
 	})
 }
 
 func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
-	var req modelProjectAgent.BatchUpdateProjectAgentsReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelProjectAgent.BatchUpdateProjectAgentsReq](c)
+	if !ok { return }
 
 	if err := handlerInst.projectAgentRepo.DeleteByProject(ctx, req.Provider, req.Repo); err != nil {
 		hlog.Errorf("delete project agents failed: %v", err)
@@ -132,7 +122,7 @@ func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
 		pa := &models.ProjectAgent{
 			Provider: req.Provider,
 			Repo:     req.Repo,
-			AgentID:  safeUint(agentReq.AgentID),
+			AgentID:  common.SafeUint(agentReq.AgentID),
 			Enabled:  agentReq.Enabled,
 			Priority: int(agentReq.Priority),
 		}
@@ -141,45 +131,27 @@ func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
 		}
 	}
 
-	c.JSON(consts.StatusOK, &modelProjectAgent.BatchUpdateProjectAgentsResp{
+	common.Success(c, &modelProjectAgent.BatchUpdateProjectAgentsResp{
 		Message: "project agents updated",
 		Count:   int64(len(req.Agents)),
 	})
 }
 
 func DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
-	var req modelProjectAgent.DeleteProjectAgentReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelProjectAgent.DeleteProjectAgentReq](c)
+	if !ok { return }
 
-	if err := handlerInst.projectAgentRepo.Delete(ctx, req.Provider, req.Repo, safeUint(req.AgentID)); err != nil {
+	if err := handlerInst.projectAgentRepo.Delete(ctx, req.Provider, req.Repo, common.SafeUint(req.AgentID)); err != nil {
 		hlog.Errorf("delete project agent failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
 
-	c.JSON(consts.StatusOK, &modelProjectAgent.DeleteProjectAgentResp{
+	common.Success(c, &modelProjectAgent.DeleteProjectAgentResp{
 		Message: "project agent deleted",
 	})
 }
 
 func GetProjectAgentConfig(ctx context.Context, provider, repo string) ([]models.ProjectAgent, error) {
 	return handlerInst.projectAgentRepo.GetEnabledByProject(ctx, provider, repo)
-}
-
-func safeInt64(v uint) int64 {
-	const maxInt64 = ^uint(0) >> 1
-	if v > maxInt64 {
-		return int64(maxInt64)
-	}
-	return int64(v)
-}
-
-func safeUint(v int64) uint {
-	if v < 0 {
-		return 0
-	}
-	return uint(v)
 }

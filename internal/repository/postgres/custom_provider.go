@@ -5,14 +5,14 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
-	"gorm.io/gorm"
+	gormLib "gorm.io/gorm"
 )
 
 type customProviderRepo struct {
-	db *gorm.DB
+	db *gormLib.DB
 }
 
-func NewCustomProviderRepo(db *gorm.DB) *customProviderRepo {
+func NewCustomProviderRepo(db *gormLib.DB) *customProviderRepo {
 	return &customProviderRepo{db: db}
 }
 

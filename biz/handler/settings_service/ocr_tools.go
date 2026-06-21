@@ -12,17 +12,13 @@ import (
 )
 
 func RulesCheck(ctx context.Context, c *app.RequestContext) {
-	var req modelSettings.RulesCheckReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelSettings.RulesCheckReq](c)
+	if !ok { return }
 	if req.Path == "" {
 		common.Fail(c, common.BadRequest("文件路径不能为空"))
 		return
 	}
-	if handlerInst.rulesChecker == nil {
-		common.Fail(c, common.BadRequest("规则检查功能未配置"))
+	if !common.FeatureGuard(c, handlerInst.rulesChecker, "规则检查") {
 		return
 	}
 	result, err := handlerInst.rulesChecker.RulesCheck(ctx, req.Path)
@@ -41,8 +37,7 @@ func RulesCheck(ctx context.Context, c *app.RequestContext) {
 }
 
 func OCRVersion(ctx context.Context, c *app.RequestContext) {
-	if handlerInst.ocrVersioner == nil {
-		common.Fail(c, common.BadRequest("OCR 版本查询功能未配置"))
+	if !common.FeatureGuard(c, handlerInst.ocrVersioner, "OCR 版本查询") {
 		return
 	}
 	result, err := handlerInst.ocrVersioner.OCRVersion(ctx)
@@ -64,8 +59,7 @@ func OCRVersion(ctx context.Context, c *app.RequestContext) {
 }
 
 func ViewerStatus(ctx context.Context, c *app.RequestContext) {
-	if handlerInst.viewerMgr == nil {
-		common.Fail(c, common.BadRequest("Viewer 功能未配置"))
+	if !common.FeatureGuard(c, handlerInst.viewerMgr, "Viewer") {
 		return
 	}
 	result, err := handlerInst.viewerMgr.ViewerStatus(ctx)
@@ -84,13 +78,9 @@ func ViewerStatus(ctx context.Context, c *app.RequestContext) {
 }
 
 func StartViewer(ctx context.Context, c *app.RequestContext) {
-	var req modelSettings.StartViewerReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
-	if handlerInst.viewerMgr == nil {
-		common.Fail(c, common.BadRequest("Viewer 功能未配置"))
+	req, ok := common.Bind[modelSettings.StartViewerReq](c)
+	if !ok { return }
+	if !common.FeatureGuard(c, handlerInst.viewerMgr, "Viewer") {
 		return
 	}
 	addr := ptrx.Deref(req.Addr, "")
@@ -110,8 +100,7 @@ func StartViewer(ctx context.Context, c *app.RequestContext) {
 }
 
 func StopViewer(ctx context.Context, c *app.RequestContext) {
-	if handlerInst.viewerMgr == nil {
-		common.Fail(c, common.BadRequest("Viewer 功能未配置"))
+	if !common.FeatureGuard(c, handlerInst.viewerMgr, "Viewer") {
 		return
 	}
 	result, err := handlerInst.viewerMgr.StopViewer(ctx)
@@ -130,8 +119,7 @@ func StopViewer(ctx context.Context, c *app.RequestContext) {
 }
 
 func ListLLMProviders(ctx context.Context, c *app.RequestContext) {
-	if handlerInst.providerLister == nil {
-		common.Fail(c, common.BadRequest("LLM Provider 列表功能未配置"))
+	if !common.FeatureGuard(c, handlerInst.providerLister, "LLM Provider 列表") {
 		return
 	}
 	providers, err := handlerInst.providerLister.ListLLMProviders(ctx)

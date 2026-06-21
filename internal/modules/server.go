@@ -22,9 +22,13 @@ var ServerModule = fx.Options(
 )
 
 func RegisterGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
+	h.Use(mw.RecoveryMiddleware())
+	h.Use(mw.CORSMiddleware())
+
+	skipPaths := middleware.DefaultSkipPaths
 	stack := mw.DefaultMiddleware(mw.StackConfig{
 		ServiceName: "review-service",
-		SkipPaths:   []string{"/metrics", "/ping", "/health", "/buildVersion", "/swagger"},
+		SkipPaths:   skipPaths,
 		Registry:    emetrics.Registry,
 	})
 	for _, m := range stack {

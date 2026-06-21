@@ -1,7 +1,9 @@
 <template>
   <div class="requirements-coverage">
-    <h3>需求覆盖</h3>
-    <div v-if="requirements.length === 0" class="empty">
+    <div
+      v-if="requirements.length === 0"
+      class="empty"
+    >
       暂无需求
     </div>
     <div v-else>
@@ -45,14 +47,27 @@
               {{ (req.confidence * 100).toFixed(0) }}%
             </span>
           </div>
-          <p class="requirement-text">{{ req.requirement }}</p>
-          <div v-if="req.evidence" class="evidence">
+          <p class="requirement-text">
+            {{ req.requirement }}
+          </p>
+          <div
+            v-if="req.evidence"
+            class="evidence"
+          >
             <strong>证据:</strong> {{ req.evidence }}
           </div>
-          <div v-if="req.findings && req.findings.length > 0" class="related-findings">
+          <div
+            v-if="req.findings && req.findings.length > 0"
+            class="related-findings"
+          >
             <strong>相关发现:</strong>
             <ul>
-              <li v-for="finding in req.findings" :key="finding">{{ finding }}</li>
+              <li
+                v-for="finding in req.findings"
+                :key="finding"
+              >
+                {{ finding }}
+              </li>
             </ul>
           </div>
         </div>
@@ -113,44 +128,37 @@ function getScoreColor(score: number): string {
 
 <style scoped>
 .requirements-coverage {
-  padding: 20px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-}
-
-.requirements-coverage h3 {
-  margin: 0 0 20px;
-  font-size: 18px;
-  color: #303133;
+  width: 100%;
 }
 
 .empty {
-  padding: 40px;
+  padding: 28px 12px;
   text-align: center;
   color: #909399;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .coverage-summary {
   display: flex;
   align-items: center;
-  gap: 32px;
-  margin-bottom: 24px;
-  padding: 20px;
-  background: #f5f7fa;
-  border-radius: 8px;
+  gap: 28px;
+  margin-bottom: 20px;
+  padding: 18px;
+  background: #f7f8fc;
+  border: 1px solid var(--app-border, #e4e7ed);
+  border-radius: 10px;
+  flex-wrap: wrap;
 }
 
 .score {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .score-label {
-  font-size: 14px;
+  font-size: 13px;
   color: #606266;
 }
 
@@ -168,13 +176,13 @@ function getScoreColor(score: number): string {
 
 .stat-value {
   font-size: 24px;
-  font-weight: 600;
-  color: #303133;
+  font-weight: 700;
+  color: var(--app-text, #303133);
 }
 
 .stat-label {
   font-size: 12px;
-  color: #909399;
+  color: #9aa2b1;
 }
 
 .requirements-list {
@@ -184,14 +192,15 @@ function getScoreColor(score: number): string {
 }
 
 .requirement {
-  padding: 16px;
-  background: #f5f7fa;
-  border-radius: 8px;
+  padding: 14px;
+  background: #f7f8fc;
+  border: 1px solid var(--app-border, #e4e7ed);
   border-left: 4px solid #dcdfe6;
+  border-radius: 10px;
 }
 
 .requirement.met {
-  border-left-color: #67c23a;
+  border-left-color: var(--app-success, #67c23a);
   background: #f0f9eb;
 }
 
@@ -201,13 +210,13 @@ function getScoreColor(score: number): string {
 }
 
 .requirement.missing {
-  border-left-color: #f56c6c;
+  border-left-color: var(--app-danger, #f56c6c);
   background: #fef0f0;
 }
 
 .requirement.unclear {
   border-left-color: #909399;
-  background: #f5f7fa;
+  background: #f7f8fc;
 }
 
 .requirement-header {
@@ -220,23 +229,23 @@ function getScoreColor(score: number): string {
 .status-badge {
   padding: 2px 8px;
   border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .status-badge.met {
   background: #e1f3d8;
-  color: #67c23a;
+  color: #529b2e;
 }
 
 .status-badge.partial {
   background: #faecd8;
-  color: #e6a23c;
+  color: #b88230;
 }
 
 .status-badge.missing {
   background: #fde2e2;
-  color: #f56c6c;
+  color: #c45656;
 }
 
 .status-badge.unclear {
@@ -246,37 +255,38 @@ function getScoreColor(score: number): string {
 
 .confidence {
   font-size: 12px;
-  color: #909399;
+  color: #9aa2b1;
   font-weight: 500;
 }
 
 .requirement-text {
   margin: 0 0 8px;
-  font-size: 14px;
-  color: #303133;
+  font-size: 13px;
+  color: var(--app-text, #303133);
   line-height: 1.6;
 }
 
 .evidence {
   padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
-  font-size: 13px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 6px;
+  font-size: 12px;
   color: #606266;
   margin-bottom: 8px;
+  line-height: 1.5;
 }
 
 .evidence strong {
-  color: #303133;
+  color: var(--app-text, #303133);
 }
 
 .related-findings {
-  font-size: 13px;
+  font-size: 12px;
   color: #606266;
 }
 
 .related-findings strong {
-  color: #303133;
+  color: var(--app-text, #303133);
 }
 
 .related-findings ul {

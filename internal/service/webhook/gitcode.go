@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/oekit/pkg/convert"
 )
 
 type GitCodeNormalizer struct{}
@@ -39,7 +41,7 @@ func (n *GitCodeNormalizer) normalizePush(rawBody []byte) (*ChangeEvent, error) 
 	var repoFullName, repoID string
 	if repo, ok := payload["repository"].(map[string]any); ok {
 		repoFullName, _ = repo["full_name"].(string)
-		repoID = fmt.Sprintf("%v", repo["id"])
+		repoID = convert.AnyToStr(repo["id"])
 	}
 
 	headSHA, _ := payload["after"].(string)
@@ -98,7 +100,7 @@ func (n *GitCodeNormalizer) normalizeMergeRequest(rawBody []byte) (*ChangeEvent,
 	var repoPath, repoID string
 	if proj, ok := payload["project"].(map[string]any); ok {
 		repoPath, _ = proj["path_with_namespace"].(string)
-		repoID = fmt.Sprintf("%v", proj["id"])
+		repoID = convert.AnyToStr(proj["id"])
 	}
 
 	var sender string

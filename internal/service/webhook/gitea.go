@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/oekit/pkg/convert"
 )
 
 type GiteaNormalizer struct{}
@@ -46,7 +48,7 @@ func (n *GiteaNormalizer) normalizePush(rawBody []byte) (*ChangeEvent, error) {
 	var repoFullName, repoID string
 	if repo, ok := payload["repository"].(map[string]any); ok {
 		repoFullName, _ = repo["full_name"].(string)
-		repoID = fmt.Sprintf("%v", repo["id"])
+		repoID = convert.AnyToStr(repo["id"])
 	}
 
 	// Extract head SHA
@@ -110,7 +112,7 @@ func (n *GiteaNormalizer) normalizePullRequest(rawBody []byte) (*ChangeEvent, er
 	var repoFullName, repoID string
 	if repo, ok := payload["repository"].(map[string]any); ok {
 		repoFullName, _ = repo["full_name"].(string)
-		repoID = fmt.Sprintf("%v", repo["id"])
+		repoID = convert.AnyToStr(repo["id"])
 	}
 
 	var sender string
@@ -128,7 +130,7 @@ func (n *GiteaNormalizer) normalizePullRequest(rawBody []byte) (*ChangeEvent, er
 		authorAvatar, _ = user["avatar_url"].(string)
 	}
 
-	deliveryID := fmt.Sprintf("gitea-%v", payload["delivery_id"])
+	deliveryID := "gitea-" + convert.AnyToStr(payload["delivery_id"])
 
 	return &ChangeEvent{
 		Provider:     "gitea",

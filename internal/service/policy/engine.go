@@ -1,11 +1,8 @@
 package policy
 
 import (
-	"fmt"
-	"path/filepath"
-	"strings"
-
 	"github.com/yi-nology/code-review-service/internal/service/types"
+	"github.com/oekit/pkg/pathx"
 )
 
 type Config struct {
@@ -46,7 +43,7 @@ func (e *Engine) Evaluate(findings []Finding) Decision {
 		if types.SeverityRank(finding.Severity) >= threshold {
 			return Decision{
 				Passed: false,
-				Reason: fmt.Sprintf("%s issue found", finding.Severity),
+				Reason: finding.Severity + " issue found",
 			}
 		}
 	}
@@ -55,26 +52,9 @@ func (e *Engine) Evaluate(findings []Finding) Decision {
 }
 
 func (e *Engine) ignored(path string) bool {
-	return MatchesPath(e.cfg.IgnorePaths, path)
+	return pathx.MatchesPath(e.cfg.IgnorePaths, path)
 }
 
 func MatchesPath(patterns []string, path string) bool {
-	path = filepath.ToSlash(strings.TrimSpace(path))
-	if path == "" {
-		return false
-	}
-
-	for _, pattern := range patterns {
-		pattern = filepath.ToSlash(strings.TrimSpace(pattern))
-		if pattern == "" {
-			continue
-		}
-		if ok, _ := filepath.Match(pattern, path); ok {
-			return true
-		}
-		if strings.HasSuffix(pattern, "/**") && strings.HasPrefix(path, strings.TrimSuffix(pattern, "**")) {
-			return true
-		}
-	}
-	return false
+	return pathx.MatchesPath(patterns, path)
 }

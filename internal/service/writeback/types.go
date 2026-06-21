@@ -13,6 +13,7 @@ type Event string
 
 const (
 	EventComment        Event = "comment"
+	EventReview         Event = "review"
 	EventApprove        Event = "approve"
 	EventRequestChanges Event = "request_changes"
 )

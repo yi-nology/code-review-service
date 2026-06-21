@@ -44,11 +44,8 @@ func InitHandler(svc svcApp.ReviewService, gitMgr svcApp.GitProviderManager) {
 // ==================== Review ====================
 
 func CreateReview(ctx context.Context, c *app.RequestContext) {
-	var req modelReview.CreateReviewReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelReview.CreateReviewReq](c)
+	if !ok { return }
 
 	svcReq := review.Request{
 		Provider:        req.Provider,
@@ -82,11 +79,8 @@ func CreateReview(ctx context.Context, c *app.RequestContext) {
 }
 
 func GetReview(ctx context.Context, c *app.RequestContext) {
-	var req modelReview.GetReviewReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelReview.GetReviewReq](c)
+	if !ok { return }
 
 	record, ok, err := handlerInst.reviewSvc.Get(ctx, req.ID)
 	if err != nil {
@@ -103,11 +97,8 @@ func GetReview(ctx context.Context, c *app.RequestContext) {
 }
 
 func ListReviews(ctx context.Context, c *app.RequestContext) {
-	var req modelReview.ListReviewsReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelReview.ListReviewsReq](c)
+	if !ok { return }
 
 	page, pageSize := common.PageParams(
 		convert.Int64ToStr(ptrx.Deref(req.Page, 0)),
@@ -162,11 +153,8 @@ func ListReviews(ctx context.Context, c *app.RequestContext) {
 }
 
 func PreviewReview(ctx context.Context, c *app.RequestContext) {
-	var req modelReview.PreviewReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelReview.PreviewReq](c)
+	if !ok { return }
 
 	svcReq := review.Request{
 		Provider:        req.Provider,
@@ -188,11 +176,8 @@ func PreviewReview(ctx context.Context, c *app.RequestContext) {
 }
 
 func RerunReview(ctx context.Context, c *app.RequestContext) {
-	var req modelReview.ReviewActionReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelReview.ReviewActionReq](c)
+	if !ok { return }
 
 	resp, err := handlerInst.reviewSvc.Requeue(ctx, req.ID)
 	if err != nil {
@@ -213,11 +198,8 @@ func RerunReview(ctx context.Context, c *app.RequestContext) {
 }
 
 func CancelReview(ctx context.Context, c *app.RequestContext) {
-	var req modelReview.ReviewActionReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelReview.ReviewActionReq](c)
+	if !ok { return }
 
 	resp, err := handlerInst.reviewSvc.Cancel(ctx, req.ID)
 	if err != nil {
@@ -250,11 +232,8 @@ func HandleWebhook(ctx context.Context, c *app.RequestContext) {
 // ==================== Platform ====================
 
 func ListProviderRepos(ctx context.Context, c *app.RequestContext) {
-	var req modelPlatform.ListProviderReposReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelPlatform.ListProviderReposReq](c)
+	if !ok { return }
 	if handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
 		common.Fail(c, common.BadRequest(fmt.Sprintf("未配置的代码平台: %s", req.Provider)))
 		return
@@ -279,11 +258,8 @@ func ListProviderRepos(ctx context.Context, c *app.RequestContext) {
 }
 
 func ListProviderBranches(ctx context.Context, c *app.RequestContext) {
-	var req modelPlatform.ListProviderBranchesReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelPlatform.ListProviderBranchesReq](c)
+	if !ok { return }
 	if handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
 		common.Fail(c, common.BadRequest(fmt.Sprintf("未配置的代码平台: %s", req.Provider)))
 		return
@@ -302,11 +278,8 @@ func ListProviderBranches(ctx context.Context, c *app.RequestContext) {
 }
 
 func ListProviderPulls(ctx context.Context, c *app.RequestContext) {
-	var req modelPlatform.ListProviderPullsReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelPlatform.ListProviderPullsReq](c)
+	if !ok { return }
 	if handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
 		common.Fail(c, common.BadRequest(fmt.Sprintf("未配置的代码平台: %s", req.Provider)))
 		return
@@ -342,11 +315,8 @@ func ListProviderPulls(ctx context.Context, c *app.RequestContext) {
 }
 
 func GetBranchSHA(ctx context.Context, c *app.RequestContext) {
-	var req modelPlatform.GetBranchSHAReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelPlatform.GetBranchSHAReq](c)
+	if !ok { return }
 	if handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
 		common.Fail(c, common.BadRequest(fmt.Sprintf("未配置的代码平台: %s", req.Provider)))
 		return

@@ -303,7 +303,3 @@ export async function batchUpdateProjectAgents(provider: string, repo: string, a
 }[]): Promise<void> {
   return request.post('/settings/project-agents/batch', { provider, repo, agents }) as any
 }
-
-export async function deleteProjectAgent(provider: string, repo: string, agentId: number): Promise<void> {
-  return request.delete('/settings/project-agents', { data: { provider, repo, agent_id: agentId } }) as any
-}

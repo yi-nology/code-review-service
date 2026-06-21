@@ -3,8 +3,6 @@ package review_map_service
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-	"time"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelReviewMap "github.com/yi-nology/code-review-service/biz/model/review_map"
@@ -37,11 +35,8 @@ func InitHandler(sessionService session.Service, reviewMapRepo repository.Review
 }
 
 func GenerateMap(ctx context.Context, c *app.RequestContext) {
-	var req modelReviewMap.GenerateMapReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelReviewMap.GenerateMapReq](c)
+	if !ok { return }
 
 	reviewID := req.ID
 	if req.ReviewID != nil && *req.ReviewID != "" {
@@ -85,15 +80,12 @@ func GenerateMap(ctx context.Context, c *app.RequestContext) {
 		hlog.Errorf("save review map failed: %v", err)
 	}
 
-	c.JSON(http.StatusOK, reviewMap)
+	common.Success(c, reviewMap)
 }
 
 func GetMaps(ctx context.Context, c *app.RequestContext) {
-	var req modelReviewMap.GetMapsReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelReviewMap.GetMapsReq](c)
+	if !ok { return }
 
 	maps, err := handlerInst.reviewMapRepo.GetByReviewID(ctx, req.ID)
 	if err != nil {
@@ -112,22 +104,19 @@ func GetMaps(ctx context.Context, c *app.RequestContext) {
 			Summary:      m.Summary,
 			FileCount:    int64(m.FileCount),
 			SectionCount: int64(m.SectionCount),
-			CreatedAt:    m.CreatedAt.Format(time.RFC3339),
+			CreatedAt:    common.FormatTime(m.CreatedAt),
 		}
 	})
 
-	c.JSON(http.StatusOK, &modelReviewMap.GetMapsResp{
+	common.Success(c, &modelReviewMap.GetMapsResp{
 		Maps:  result,
 		Total: int64(len(result)),
 	})
 }
 
 func GetMap(ctx context.Context, c *app.RequestContext) {
-	var req modelReviewMap.GetMapReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelReviewMap.GetMapReq](c)
+	if !ok { return }
 
 	m, err := handlerInst.reviewMapRepo.GetByMapID(ctx, req.MapID)
 	if err != nil {
@@ -145,7 +134,7 @@ func GetMap(ctx context.Context, c *app.RequestContext) {
 	_ = json.Unmarshal(m.Sections, &sections)
 	_ = json.Unmarshal(m.Dependencies, &dependencies)
 
-	c.JSON(http.StatusOK, map[string]interface{}{
+	common.Success(c, map[string]interface{}{
 		"id":            m.MapID,
 		"review_id":     m.ReviewID,
 		"session_id":    m.SessionID,
@@ -162,11 +151,8 @@ func GetMap(ctx context.Context, c *app.RequestContext) {
 }
 
 func GetSessionMap(ctx context.Context, c *app.RequestContext) {
-	var req modelReviewMap.GetSessionMapReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelReviewMap.GetSessionMapReq](c)
+	if !ok { return }
 
 	m, err := handlerInst.reviewMapRepo.GetBySessionID(ctx, req.SessionID)
 	if err != nil {
@@ -184,7 +170,7 @@ func GetSessionMap(ctx context.Context, c *app.RequestContext) {
 	_ = json.Unmarshal(m.Sections, &sections)
 	_ = json.Unmarshal(m.Dependencies, &dependencies)
 
-	c.JSON(http.StatusOK, map[string]interface{}{
+	common.Success(c, map[string]interface{}{
 		"id":            m.MapID,
 		"review_id":     m.ReviewID,
 		"session_id":    m.SessionID,
@@ -201,11 +187,8 @@ func GetSessionMap(ctx context.Context, c *app.RequestContext) {
 }
 
 func PreviewMap(ctx context.Context, c *app.RequestContext) {
-	var req modelReviewMap.PreviewMapReq
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[modelReviewMap.PreviewMapReq](c)
+	if !ok { return }
 
 	reviewMap, err := handlerInst.mapGenerator.Generate("preview", req.Diff, nil)
 	if err != nil {
@@ -214,7 +197,7 @@ func PreviewMap(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(http.StatusOK, reviewMap)
+	common.Success(c, reviewMap)
 }
 
 func convertSessionFindings(sess *models.ReviewSession) []reviewmap.Finding {
@@ -271,11 +254,8 @@ func UpdateFileReviewed(ctx context.Context, c *app.RequestContext) {
 	// Decode file path (may contain encoded slashes)
 	filePath := fileID
 
-	var req UpdateFileReviewedRequest
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[UpdateFileReviewedRequest](c)
+	if !ok { return }
 
 	// Verify map exists and belongs to review
 	m, err := handlerInst.reviewMapRepo.GetByMapID(ctx, mapID)
@@ -294,7 +274,7 @@ func UpdateFileReviewed(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	common.Success(c, map[string]string{"status": "ok"})
 }
 
 type UpdateSectionProgressRequest struct {
@@ -306,11 +286,8 @@ func UpdateSectionProgress(ctx context.Context, c *app.RequestContext) {
 	mapID := c.Param("mapId")
 	sectionID := c.Param("sectionId")
 
-	var req UpdateSectionProgressRequest
-	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
-		return
-	}
+	req, ok := common.Bind[UpdateSectionProgressRequest](c)
+	if !ok { return }
 
 	// Verify map exists and belongs to review
 	m, err := handlerInst.reviewMapRepo.GetByMapID(ctx, mapID)
@@ -329,5 +306,5 @@ func UpdateSectionProgress(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	common.Success(c, map[string]string{"status": "ok"})
 }

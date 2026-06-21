@@ -20,6 +20,10 @@ export default defineConfig(({ mode }) => {
           target: apiProxyTarget,
           changeOrigin: true,
         },
+        '/ping': {
+          target: apiProxyTarget,
+          changeOrigin: true,
+        },
       },
     },
     build: {

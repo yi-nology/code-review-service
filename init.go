@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/config"
@@ -12,6 +13,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"go.uber.org/fx"
+	"go.uber.org/fx/fxevent"
 )
 
 func runApp(cfg *config.Config, app *bootstrap.App) error {
@@ -32,7 +34,7 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 		modules.HandlerModule,
 		modules.ServerModule,
 		modules.WorkerModule,
-		fx.NopLogger,
+		fx.WithLogger(func() fxevent.Logger { return &fxevent.ConsoleLogger{W: os.Stderr} }),
 	)
 
 	ctx := app.Context()

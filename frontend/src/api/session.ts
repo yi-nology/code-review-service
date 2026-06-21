@@ -200,20 +200,7 @@ export interface Dependency {
   strength: string
 }
 
-// Persona types
-export interface ReviewerPersona {
-  id: string
-  name: string
-  display_name: string
-  description: string
-  focus_areas: string[]
-  prompt_template: string
-  category: string
-  tags: string[]
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
+// Persona types removed: backend has no /personas endpoints; agents cover this.
 
 // Session API
 export const sessionApi = {
@@ -333,63 +320,3 @@ export const progressApi = {
   },
 }
 
-// Review Map API
-export const reviewMapApi = {
-  // Get maps for a review
-  getMaps(reviewId: string): Promise<{ maps: ReviewMap[] }> {
-    return request.get(`/reviews/${reviewId}/maps`)
-  },
-
-  // Get a specific map
-  getMap(reviewId: string, mapId: string): Promise<ReviewMap> {
-    return request.get(`/reviews/${reviewId}/maps/${mapId}`)
-  },
-
-  // Generate a map
-  generateMap(reviewId: string): Promise<ReviewMap> {
-    return request.post(`/reviews/${reviewId}/maps`)
-  },
-
-  // Update file reviewed status
-  updateFileReviewed(reviewId: string, mapId: string, filePath: string, reviewed: boolean): Promise<void> {
-    return request.put(`/reviews/${reviewId}/maps/${mapId}/files/${encodeURIComponent(filePath)}/reviewed`, { reviewed })
-  },
-
-  // Update all files in a section
-  updateSectionProgress(reviewId: string, mapId: string, sectionId: string, reviewed: boolean): Promise<void> {
-    return request.put(`/reviews/${reviewId}/maps/${mapId}/sections/${sectionId}/progress`, { reviewed })
-  },
-}
-
-// Persona API
-export const personaApi = {
-  // list personas
-  listPersonas(): Promise<{ personas: ReviewerPersona[] }> {
-    return request.get('/personas')
-  },
-
-  // Get a specific persona
-  getPersona(id: string): Promise<ReviewerPersona> {
-    return request.get(`/personas/${id}`)
-  },
-
-  // Create a persona
-  createPersona(persona: Partial<ReviewerPersona>): Promise<ReviewerPersona> {
-    return request.post('/personas', persona)
-  },
-
-  // Update a persona
-  updatePersona(id: string, persona: Partial<ReviewerPersona>): Promise<ReviewerPersona> {
-    return request.put(`/personas/${id}`, persona)
-  },
-
-  // Delete a persona
-  deletePersona(id: string): Promise<void> {
-    return request.delete(`/personas/${id}`)
-  },
-
-  // Search personas
-  searchPersonas(query: string): Promise<{ personas: ReviewerPersona[] }> {
-    return request.get('/personas/search', { params: { q: query } })
-  },
-}

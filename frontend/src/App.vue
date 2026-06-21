@@ -47,7 +47,7 @@
             进入控制台
             <el-icon><ArrowRight /></el-icon>
           </el-button>
-          <small>Token 仅保存在当前浏览器会话中。</small>
+          <small>Token 仅保存在本地浏览器中，不会上传服务器。</small>
         </form>
       </section>
     </main>
@@ -76,10 +76,14 @@ async function handleLogin() {
   error.value = ''
   logging.value = true
   try {
-    await axios.get('/api/v1/reviews?page=1&page_size=1', {
+    const resp = await axios.get('/api/v1/reviews?page=1&page_size=1', {
       headers: { Authorization: `Bearer ${value}` },
       timeout: 10000,
     })
+    if (resp.data?.code !== 0) {
+      error.value = resp.data?.message || 'Token 无效，请检查后重试'
+      return
+    }
     auth.setToken(value)
     await router.replace('/reviews')
   } catch (err: any) {

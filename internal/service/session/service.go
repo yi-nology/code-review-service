@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/oekit/gormx"
 )
 
 type Service interface {
@@ -20,5 +21,5 @@ type Service interface {
 	FailSession(ctx context.Context, sessionID string, reason string) error
 	CancelSession(ctx context.Context, sessionID string) error
 	GetNextRound(ctx context.Context, reviewID string) (int, error)
-	ListSessions(ctx context.Context, page, pageSize int) ([]*models.ReviewSession, int64, error)
+	ListSessions(ctx context.Context, page, pageSize int) (*gormx.PageResponse[models.ReviewSession], error)
 }

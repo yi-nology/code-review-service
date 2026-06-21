@@ -40,8 +40,8 @@ func (s *Service) updateWithRawOCR(ctx context.Context, id string, req Request, 
 	if response.Status != "" && response.Status != previousStatus {
 		response.History = append(response.History, Event{
 			Stage:     response.Status,
-			Status:    statusEventState(response.Status),
-			Message:   statusEventMessage(response.Status),
+			Status:    StatusEventState(response.Status),
+				Message:   StatusEventMessage(response.Status),
 			CreatedAt: time.Now().UTC(),
 		})
 	}
@@ -55,7 +55,8 @@ func (s *Service) updateWithRawOCR(ctx context.Context, id string, req Request, 
 	return s.reviewRepo.Save(ctx, review)
 }
 
-func statusEventState(status string) string {
+// StatusEventState maps a review status to a progress event state.
+func StatusEventState(status string) string {
 	if status == "failed" {
 		return "failed"
 	}
@@ -65,7 +66,8 @@ func statusEventState(status string) string {
 	return "completed"
 }
 
-func statusEventMessage(status string) string {
+// StatusEventMessage maps a review status to a human-readable progress event message.
+func StatusEventMessage(status string) string {
 	switch status {
 	case "running":
 		return "worker claimed the task and started execution"

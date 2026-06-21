@@ -1,10 +1,15 @@
 <template>
   <div class="discussion-viewer">
-    <h3>审查员讨论</h3>
-    <div v-if="entries.length === 0" class="empty">
+    <div
+      v-if="entries.length === 0"
+      class="empty"
+    >
       暂无讨论记录
     </div>
-    <div v-else class="entries">
+    <div
+      v-else
+      class="entries"
+    >
       <div
         v-for="entry in entries"
         :key="entry.id"
@@ -23,7 +28,10 @@
         </div>
         <div class="entry-content">
           <p>{{ entry.content }}</p>
-          <div v-if="entry.evidence" class="evidence">
+          <div
+            v-if="entry.evidence"
+            class="evidence"
+          >
             <strong>证据:</strong> {{ entry.evidence }}
           </div>
         </div>
@@ -31,7 +39,10 @@
           <span class="confidence">
             置信度: {{ (entry.confidence * 100).toFixed(0) }}%
           </span>
-          <span v-if="entry.finding_id" class="finding-ref">
+          <span
+            v-if="entry.finding_id"
+            class="finding-ref"
+          >
             关联发现: {{ entry.finding_id }}
           </span>
         </div>
@@ -86,40 +97,32 @@ function formatTime(dateStr: string): string {
 
 <style scoped>
 .discussion-viewer {
-  padding: 20px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-}
-
-.discussion-viewer h3 {
-  margin: 0 0 20px;
-  font-size: 18px;
-  color: #303133;
+  width: 100%;
 }
 
 .empty {
-  padding: 40px;
+  padding: 28px 12px;
   text-align: center;
   color: #909399;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .entries {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .entry {
-  padding: 16px;
-  background: #f5f7fa;
-  border-radius: 8px;
+  padding: 14px;
+  background: #f7f8fc;
+  border: 1px solid var(--app-border, #e4e7ed);
   border-left: 4px solid #dcdfe6;
+  border-radius: 10px;
 }
 
 .entry.agree {
-  border-left-color: #67c23a;
+  border-left-color: var(--app-success, #67c23a);
   background: #f0f9eb;
 }
 
@@ -129,20 +132,20 @@ function formatTime(dateStr: string): string {
 }
 
 .entry.connect {
-  border-left-color: #409eff;
-  background: #ecf5ff;
+  border-left-color: var(--app-primary, #409eff);
+  background: #eef0ff;
 }
 
 .entry.surface {
   border-left-color: #909399;
-  background: #f5f7fa;
+  background: #f7f8fc;
 }
 
 .entry-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .agent-info {
@@ -153,15 +156,15 @@ function formatTime(dateStr: string): string {
 
 .agent-name {
   font-weight: 600;
-  color: #303133;
+  color: var(--app-text, #303133);
   font-size: 14px;
 }
 
 .response-type {
   padding: 2px 8px;
   border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .response-type.agree {
@@ -171,12 +174,12 @@ function formatTime(dateStr: string): string {
 
 .response-type.challenge {
   background: #faecd8;
-  color: #e6a23c;
+  color: #c08c1e;
 }
 
 .response-type.connect {
   background: #d9ecff;
-  color: #409eff;
+  color: #3984cf;
 }
 
 .response-type.surface {
@@ -186,37 +189,39 @@ function formatTime(dateStr: string): string {
 
 .entry-time {
   font-size: 12px;
-  color: #909399;
+  color: #9aa2b1;
 }
 
 .entry-content {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .entry-content p {
   margin: 0 0 8px;
-  font-size: 14px;
+  font-size: 13px;
   color: #606266;
   line-height: 1.6;
 }
 
 .evidence {
   padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
-  font-size: 13px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 6px;
+  font-size: 12px;
   color: #606266;
+  line-height: 1.5;
 }
 
 .evidence strong {
-  color: #303133;
+  color: var(--app-text, #303133);
 }
 
 .entry-meta {
   display: flex;
   gap: 16px;
+  flex-wrap: wrap;
   font-size: 12px;
-  color: #909399;
+  color: #9aa2b1;
 }
 
 .confidence {
@@ -224,6 +229,6 @@ function formatTime(dateStr: string): string {
 }
 
 .finding-ref {
-  font-family: monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 </style>

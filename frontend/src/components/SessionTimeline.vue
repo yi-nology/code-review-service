@@ -1,6 +1,5 @@
 <template>
   <div class="session-timeline">
-    <h3>会话时间线</h3>
     <div class="timeline">
       <div
         v-for="phase in phases"
@@ -21,15 +20,27 @@
         <div class="timeline-content">
           <div class="timeline-header">
             <h4>{{ phase.title }}</h4>
-            <span class="timeline-time" v-if="phase.startTime">
+            <span
+              v-if="phase.startTime"
+              class="timeline-time"
+            >
               {{ formatTime(phase.startTime) }}
             </span>
           </div>
           <p>{{ phase.description }}</p>
-          <div v-if="phase.status === 'active'" class="timeline-progress">
-            <el-progress :percentage="phase.progress" :stroke-width="4" />
+          <div
+            v-if="phase.status === 'active'"
+            class="timeline-progress"
+          >
+            <el-progress
+              :percentage="phase.progress"
+              :stroke-width="4"
+            />
           </div>
-          <div v-if="phase.duration" class="timeline-duration">
+          <div
+            v-if="phase.duration"
+            class="timeline-duration"
+          >
             耗时: {{ formatDuration(phase.duration) }}
           </div>
         </div>
@@ -156,16 +167,7 @@ function formatDuration(ms: number): string {
 
 <style scoped>
 .session-timeline {
-  padding: 20px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-}
-
-.session-timeline h3 {
-  margin: 0 0 20px;
-  font-size: 18px;
-  color: #303133;
+  width: 100%;
 }
 
 .timeline {
@@ -180,13 +182,17 @@ function formatDuration(ms: number): string {
   top: 0;
   bottom: 0;
   width: 2px;
-  background: #e4e7ed;
+  background: var(--app-border, #e4e7ed);
 }
 
 .timeline-item {
   position: relative;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   padding-left: 20px;
+}
+
+.timeline-item:last-child {
+  margin-bottom: 0;
 }
 
 .timeline-marker {
@@ -199,58 +205,62 @@ function formatDuration(ms: number): string {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: #dcdfe6;
-  color: #909399;
+  background: #e4e7ed;
+  color: #9aa2b1;
   z-index: 1;
+  font-size: 16px;
 }
 
 .timeline-item.active .timeline-marker {
-  background: #409eff;
+  background: var(--app-primary, #409eff);
   color: #fff;
 }
 
 .timeline-item.completed .timeline-marker {
-  background: #67c23a;
+  background: var(--app-success, #67c23a);
   color: #fff;
 }
 
 .timeline-content {
   padding: 12px;
-  background: #f5f7fa;
-  border-radius: 8px;
+  background: #f7f8fc;
+  border: 1px solid var(--app-border, #e4e7ed);
+  border-radius: 10px;
 }
 
 .timeline-item.active .timeline-content {
-  background: #ecf5ff;
-  border: 1px solid #409eff;
+  background: #eef0ff;
+  border-color: var(--app-primary, #409eff);
 }
 
 .timeline-item.completed .timeline-content {
   background: #f0f9eb;
+  border-color: #d8efcd;
 }
 
 .timeline-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .timeline-header h4 {
   margin: 0;
   font-size: 14px;
-  color: #303133;
+  color: var(--app-text, #303133);
 }
 
 .timeline-time {
   font-size: 12px;
-  color: #909399;
+  color: #9aa2b1;
 }
 
 .timeline-content p {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 12px;
-  color: #606266;
+  color: #707782;
+  line-height: 1.5;
 }
 
 .timeline-progress {
@@ -260,6 +270,6 @@ function formatDuration(ms: number): string {
 .timeline-duration {
   margin-top: 8px;
   font-size: 12px;
-  color: #909399;
+  color: #9aa2b1;
 }
 </style>
