@@ -80,9 +80,9 @@
       </nav>
 
       <div class="sidebar-footer">
-        <span class="health-dot" />
+        <span class="health-dot" :class="healthStatus" />
         <div class="service-status">
-          <strong>服务运行中</strong>
+          <strong>{{ healthLabel }}</strong>
           <span>Review Service Console</span>
         </div>
         <button class="logout-button" aria-label="退出登录" title="退出登录" @click="logout">
@@ -106,7 +106,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import {
   ArrowRight,
   Close,
@@ -133,6 +133,19 @@ const expandedGroups = reactive({
   project: true,
 })
 
+const healthStatus = ref<'healthy' | 'down' | 'unknown'>('unknown')
+const healthLabel = computed(() => healthStatus.value === 'healthy' ? '服务运行中' : healthStatus.value === 'down' ? '服务异常' : '检测中…')
+let healthTimer: ReturnType<typeof setInterval> | null = null
+
+async function checkHealth() {
+  try {
+    const resp = await window.fetch('/healthz', { method: 'GET' })
+    healthStatus.value = resp.ok ? 'healthy' : 'down'
+  } catch {
+    healthStatus.value = 'down'
+  }
+}
+
 function toggleGroup(group: 'system' | 'rules' | 'project') {
   expandedGroups[group] = !expandedGroups[group]
 }
@@ -140,6 +153,18 @@ function toggleGroup(group: 'system' | 'rules' | 'project') {
 function logout() {
   auth.clearToken()
 }
+
+onMounted(() => {
+  checkHealth()
+  healthTimer = setInterval(checkHealth, 30000)
+})
+
+onBeforeUnmount(() => {
+  if (healthTimer) {
+    clearInterval(healthTimer)
+    healthTimer = null
+  }
+})
 </script>
 
 <style scoped>
@@ -312,9 +337,20 @@ function logout() {
 .health-dot {
   width: 9px;
   height: 9px;
+  flex: 0 0 9px;
   border-radius: 50%;
   background: #45d6a2;
   box-shadow: 0 0 0 4px rgba(69, 214, 162, 0.12);
+}
+
+.health-dot.down {
+  background: #f56c6c;
+  box-shadow: 0 0 0 4px rgba(245, 108, 108, 0.16);
+}
+
+.health-dot.unknown {
+  background: #909399;
+  box-shadow: 0 0 0 4px rgba(144, 147, 153, 0.14);
 }
 
 .sidebar-footer strong,
