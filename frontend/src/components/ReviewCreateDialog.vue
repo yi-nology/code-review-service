@@ -75,6 +75,10 @@
         v-model:advanced="showAdvanced"
         v-model:idempotency-key="createForm.idempotency_key"
         v-model:callback-mode="createForm.callback_mode"
+        v-model:requirements="requirements"
+        v-model:ephemeral-reviewers="ephemeralReviewers"
+        @add-reviewer="ephemeralReviewers.push({ name: '', background: '' })"
+        @remove-reviewer="(i: number) => ephemeralReviewers.splice(i, 1)"
       />
     </section>
 
@@ -176,6 +180,10 @@
         v-model:advanced="showAdvanced"
         v-model:idempotency-key="createForm.idempotency_key"
         v-model:callback-mode="createForm.callback_mode"
+        v-model:requirements="requirements"
+        v-model:ephemeral-reviewers="ephemeralReviewers"
+        @add-reviewer="ephemeralReviewers.push({ name: '', background: '' })"
+        @remove-reviewer="(i: number) => ephemeralReviewers.splice(i, 1)"
       />
     </el-form>
 
@@ -287,12 +295,22 @@
         v-model:advanced="showAdvanced"
         v-model:idempotency-key="createForm.idempotency_key"
         v-model:callback-mode="createForm.callback_mode"
+        v-model:requirements="requirements"
+        v-model:ephemeral-reviewers="ephemeralReviewers"
+        @add-reviewer="ephemeralReviewers.push({ name: '', background: '' })"
+        @remove-reviewer="(i: number) => ephemeralReviewers.splice(i, 1)"
       />
     </el-form>
 
     <template #footer>
       <div class="dialog-footer">
-        <span class="submit-hint">{{ submitHint }}</span>
+        <div class="footer-left">
+          <el-button :loading="previewLoading" :disabled="!canSubmit" @click="runPreview">
+            <el-icon><View /></el-icon>
+            预览变更
+          </el-button>
+          <span class="submit-hint">{{ submitHint }}</span>
+        </div>
         <div>
           <el-button @click="visible = false">取消</el-button>
           <el-button type="primary" @click="handleSubmit" :loading="creating" :disabled="!canSubmit">
@@ -301,6 +319,28 @@
         </div>
       </div>
     </template>
+
+    <el-drawer v-model="showPreview" title="变更文件预览" direction="rtl" size="520px" append-to-body>
+      <div v-loading="previewLoading">
+      <el-alert v-if="!previewLoading && previewFiles.length === 0" type="info" :closable="false" title="暂无变更文件" description="可能尚未获取到差异，或所选范围无变更。" />
+      <div v-else class="preview-summary">
+        共 <strong>{{ previewFiles.length }}</strong> 个文件变更
+      </div>
+      <div class="preview-file-list">
+        <div v-for="(file, idx) in previewFiles" :key="idx" class="preview-file">
+          <div class="preview-file-head">
+            <el-tag v-if="file.status" size="small" :type="previewStatusType(file.status)">{{ file.status }}</el-tag>
+            <span class="preview-file-path">{{ file.path }}</span>
+            <span v-if="file.language" class="preview-file-lang">{{ file.language }}</span>
+          </div>
+          <div v-if="file.additions != null || file.deletions != null" class="preview-file-diffstat">
+            <span class="add">+{{ file.additions ?? 0 }}</span>
+            <span class="del">-{{ file.deletions ?? 0 }}</span>
+          </div>
+        </div>
+      </div>
+      </div>
+    </el-drawer>
   </el-dialog>
 </template>
 
@@ -317,12 +357,14 @@ import {
   Search,
   Select,
   Switch,
+  View,
   Warning,
 } from '@element-plus/icons-vue'
-import { createReview } from '@/api/review'
+import { createReview, previewReview } from '@/api/review'
 import { getGitPlatforms, getProviderRepos, getProviderBranches, getProviderPulls, getBranchSHA } from '@/api/config'
 import { parseMRUrl, parseCompareUrl, getProviderLabel } from '@/utils/url-parser'
 import type { GitPlatform, PlatformRepo, PlatformBranch, PlatformPullRequest } from '@/types/config'
+import type { EphemeralReviewer, PreviewFile } from '@/types/review'
 import SubmitOptions from './SubmitOptions.vue'
 
 const props = defineProps<{ modelValue: boolean }>()
@@ -368,6 +410,12 @@ const prState = ref('opened')
 
 const branches = ref<PlatformBranch[]>([])
 const branchesLoading = ref(false)
+
+const requirements = ref('')
+const ephemeralReviewers = ref<EphemeralReviewer[]>([])
+const previewFiles = ref<PreviewFile[]>([])
+const previewLoading = ref(false)
+const showPreview = ref(false)
 
 const createForm = reactive({
   provider: 'github',
@@ -642,6 +690,55 @@ function onPRChange(prNumber: number) {
   }
 }
 
+function buildPreviewPayload(): { provider: string; repo: string; base_sha?: string; head_sha?: string; pull_request_id?: string; merge_request_iid?: string } | null {
+  if (!createForm.provider || !createForm.repo) return null
+  const payload: any = { provider: createForm.provider, repo: createForm.repo }
+  const reviewNumber = inputMode.value === 'url' ? parsedUrl.value?.number : selectedPR.value
+  if ((inputMode.value === 'url' || inputMode.value === 'pr') && reviewNumber) {
+    const num = String(reviewNumber)
+    if (createForm.provider === 'gitlab') payload.merge_request_iid = num
+    else payload.pull_request_id = num
+  }
+  if (createForm.base_sha) payload.base_sha = createForm.base_sha
+  if (createForm.head_sha) payload.head_sha = createForm.head_sha
+  return payload
+}
+
+async function runPreview() {
+  const payload = buildPreviewPayload()
+  if (!payload) {
+    ElMessage.warning('请先选择平台和仓库')
+    return
+  }
+  previewLoading.value = true
+  showPreview.value = true
+  try {
+    const repoParts = splitRepo(createForm.repo)
+    const isBranchReview = inputMode.value === 'branch' || (inputMode.value === 'url' && !!parsedCompareUrl.value)
+    if (isBranchReview && repoParts) {
+      try {
+        if (!createForm.base_sha && createForm.base_branch) {
+          createForm.base_sha = await getBranchSHA(createForm.provider, repoParts.owner, repoParts.repo, createForm.base_branch)
+        }
+        if (!createForm.head_sha && createForm.head_branch) {
+          createForm.head_sha = await getBranchSHA(createForm.provider, repoParts.owner, repoParts.repo, createForm.head_branch)
+        }
+        payload.base_sha = createForm.base_sha
+        payload.head_sha = createForm.head_sha
+      } catch {
+        ElMessage.error('获取分支 SHA 失败')
+        previewLoading.value = false
+        return
+      }
+    }
+    previewFiles.value = await previewReview(payload)
+  } catch {
+    previewFiles.value = []
+  } finally {
+    previewLoading.value = false
+  }
+}
+
 function swapBranches() {
   const base = createForm.base_branch
   createForm.base_branch = createForm.head_branch
@@ -675,6 +772,10 @@ function resetForm() {
   repos.value = []
   pullRequests.value = []
   branches.value = []
+  requirements.value = ''
+  ephemeralReviewers.value = []
+  previewFiles.value = []
+  showPreview.value = false
 }
 
 async function handleSubmit() {
@@ -724,6 +825,14 @@ async function handleSubmit() {
     if (createForm.head_sha) payload.head_sha = createForm.head_sha
     if (createForm.idempotency_key) payload.idempotency_key = createForm.idempotency_key
 
+    const reqLines = requirements.value.split('\n').map((l) => l.trim()).filter(Boolean)
+    if (reqLines.length > 0) payload.requirements = reqLines
+    if (ephemeralReviewers.value.some((r) => r.background.trim())) {
+      payload.ephemeral_reviewers = ephemeralReviewers.value
+        .filter((r) => r.background.trim())
+        .map((r) => ({ name: r.name?.trim() || '', background: r.background.trim() }))
+    }
+
     const result = await createReview(payload as any)
 
     if (submitMode.value === 'sync' && result?.review_id) {
@@ -749,6 +858,16 @@ function splitRepo(fullName: string): { owner: string; repo: string } | null {
 
 function shortSha(sha?: string): string {
   return sha ? sha.slice(0, 8) : '-'
+}
+
+function previewStatusType(status: string): string {
+  const map: Record<string, string> = {
+    added: 'success',
+    modified: 'warning',
+    removed: 'danger',
+    renamed: 'info',
+  }
+  return map[status] || 'info'
 }
 
 watch(visible, async (v) => {
@@ -1038,6 +1157,13 @@ watch(visible, async (v) => {
   width: 100%;
 }
 
+.footer-left {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
 .submit-hint {
   color: #707782;
   font-size: 13px;
@@ -1070,7 +1196,8 @@ watch(visible, async (v) => {
   }
 
   .panel-heading,
-  .dialog-footer {
+  .dialog-footer,
+  .footer-left {
     align-items: stretch;
     flex-direction: column;
   }
@@ -1084,5 +1211,54 @@ watch(visible, async (v) => {
     justify-self: start;
     margin: -8px 0 8px 96px;
   }
+}
+
+.preview-summary {
+  margin-bottom: 12px;
+  color: #606266;
+  font-size: 13px;
+}
+
+.preview-file {
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.preview-file:last-child {
+  border-bottom: none;
+}
+
+.preview-file-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.preview-file-path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: #303133;
+  overflow-wrap: anywhere;
+}
+
+.preview-file-lang {
+  margin-left: auto;
+  color: #909399;
+  font-size: 11px;
+}
+
+.preview-file-diffstat {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.preview-file-diffstat .add {
+  color: #67c23a;
+  margin-right: 8px;
+}
+
+.preview-file-diffstat .del {
+  color: #f56c6c;
 }
 </style>

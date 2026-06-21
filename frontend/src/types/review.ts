@@ -171,4 +171,38 @@ export interface CreateReviewOptions {
   idempotency_key?: string
   callback_mode?: string
   wait?: boolean
+  requirements?: string[]
+  ephemeral_reviewers?: EphemeralReviewer[]
+}
+
+export interface EphemeralReviewer {
+  name?: string
+  background: string
+}
+
+export interface PreviewFile {
+  path?: string
+  language?: string
+  status?: string
+  additions?: number
+  deletions?: number
+  patch?: string
+}
+
+export interface ReviewPreviewResult {
+  files: PreviewFile[]
+}
+
+export type ReviewActionResult = ReviewDetail
+
+export interface PublishPreview {
+  review_id: string
+  summary: string
+  findings: string
+  total: number
+}
+
+export interface PublishResult {
+  message: string
+  review_id: string
 }

@@ -259,6 +259,13 @@
               </div>
             </el-card>
 
+            <!-- 发布到代码平台 -->
+            <PublishPanel
+              v-if="detail.status === 'success' && detail.report?.generated"
+              :review-id="detail.review_id"
+              :published="detail.callback_mode === 'comment'"
+            />
+
             <!-- 代码审查地图 -->
             <el-card class="review-map-card" v-if="reviewMaps.length > 0">
               <template #header>
@@ -268,6 +275,21 @@
                 </div>
               </template>
               <ReviewMap v-for="map in reviewMaps" :key="map.id" :map="map" style="margin-bottom: 16px;" />
+            </el-card>
+
+            <!-- 无地图时生成入口 -->
+            <el-card class="review-map-card" v-else-if="canGenerateMap">
+              <template #header>
+                <div class="card-header">
+                  <span>代码审查地图</span>
+                </div>
+              </template>
+              <el-empty description="本次审查尚未生成代码地图" :image-size="80">
+                <el-button type="primary" plain :loading="generatingMap" @click="handleGenerateMap">
+                  <el-icon><MagicStick /></el-icon>
+                  生成评审地图
+                </el-button>
+              </el-empty>
             </el-card>
 
             <!-- Debug 区域 - OCR 原始输入 -->
@@ -385,16 +407,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft, ArrowRight, SuccessFilled, CircleCloseFilled, InfoFilled, Refresh } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, SuccessFilled, CircleCloseFilled, InfoFilled, Refresh, MagicStick } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ReviewMap from '@/components/ReviewMap.vue'
 import ProgressTracker from '@/components/ProgressTracker.vue'
-import { getReview, getReviewMaps, getReviewMap } from '@/api/review'
+import PublishPanel from '@/components/PublishPanel.vue'
+import { getReview, getReviewMaps, getReviewMap, generateReviewMap } from '@/api/review'
 import { sessionApi, type ReviewSession } from '@/api/session'
 import { getProviderLabel } from '@/utils/url-parser'
-import { getStatusLabel, getStatusType, getSeverityType } from '@/utils/status'
+import { getStatusLabel, getStatusType, getSeverityType, getPhaseLabel, getSessionStatusType, getSessionStatusLabel } from '@/utils/status'
 import { formatDateTime } from '@/utils/format'
 import type { ReviewDetail } from '@/types/review'
+import { ElMessage } from 'element-plus/es/components/message/index'
 
 const router = useRouter()
 const route = useRoute()
@@ -402,8 +426,7 @@ const loading = ref(false)
 const detail = ref<ReviewDetail | null>(null)
 const sessions = ref<ReviewSession[]>([])
 const reviewMaps = ref<any[]>([])
-const showRawOcr = ref(false)
-const rawOcrActive = ref<string[]>([])
+const generatingMap = ref(false)
 const viewportWidth = ref(window.innerWidth)
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 let fetchInFlight = false
@@ -414,6 +437,10 @@ const showProgressTracker = computed(() => Boolean(detail.value && (
   sessions.value.length > 0 ||
   (detail.value.history?.length || 0) > 0
 )))
+
+const canGenerateMap = computed(() => Boolean(
+  detail.value && ['success', 'completed'].includes(detail.value.status) && !generatingMap.value
+))
 
 // Debug mode
 const debugMode = ref(localStorage.getItem('review-debug-mode') === 'true')
@@ -503,38 +530,17 @@ function goToSession(sess: ReviewSession) {
   router.push(`/reviews/${route.params.id}/sessions/${sess.session_id}`)
 }
 
-function getSessionStatusType(status: string): string {
-  switch (status) {
-    case 'active': return 'primary'
-    case 'completed': return 'success'
-    case 'failed': return 'danger'
-    case 'cancelled': return 'warning'
-    default: return 'info'
+async function handleGenerateMap() {
+  generatingMap.value = true
+  try {
+    await generateReviewMap(route.params.id as string)
+    ElMessage.success('评审地图已生成')
+    await fetchReviewMaps()
+  } catch {
+    ElMessage.error('生成评审地图失败，请稍后重试')
+  } finally {
+    generatingMap.value = false
   }
-}
-
-function getSessionStatusLabel(status: string): string {
-  switch (status) {
-    case 'active': return '进行中'
-    case 'completed': return '已完成'
-    case 'failed': return '失败'
-    case 'cancelled': return '已取消'
-    default: return status
-  }
-}
-
-function getPhaseLabel(phase: string): string {
-  const labels: Record<string, string> = {
-    'context': '上下文发现',
-    'change_context': '变更分析',
-    'analysis': '分析',
-    'reviews': '审查',
-    'aggregation': '聚合',
-    'discourse': '讨论',
-    'synthesis': '综合',
-    'complete': '完成',
-  }
-  return labels[phase] || phase
 }
 
 function getEventType(status: string) {

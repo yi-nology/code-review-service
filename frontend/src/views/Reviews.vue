@@ -165,9 +165,30 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column width="48" align="right">
-            <template #default>
-              <el-icon class="row-arrow"><ArrowRight /></el-icon>
+          <el-table-column width="120" align="right">
+            <template #default="{ row }">
+              <div class="row-actions" @click.stop>
+                <el-button
+                  v-if="row.status === 'queued' || row.status === 'running'"
+                  size="small"
+                  type="danger"
+                  plain
+                  :loading="actingId === row.review_id"
+                  @click="handleCancel(row)"
+                >
+                  取消
+                </el-button>
+                <el-button
+                  v-if="row.status === 'failed' || row.status === 'success'"
+                  size="small"
+                  type="primary"
+                  plain
+                  :loading="actingId === row.review_id"
+                  @click="handleRerun(row)"
+                >
+                  重新审查
+                </el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -193,6 +214,28 @@
               <strong v-if="row.report_generated">{{ row.score }}<small>分</small></strong>
               <strong v-else>--</strong>
               <small>{{ row.findings }} 个问题</small>
+              <div class="mobile-actions" @click.stop>
+                <el-button
+                  v-if="row.status === 'queued' || row.status === 'running'"
+                  size="small"
+                  type="danger"
+                  plain
+                  :loading="actingId === row.review_id"
+                  @click="handleCancel(row)"
+                >
+                  取消
+                </el-button>
+                <el-button
+                  v-if="row.status === 'failed' || row.status === 'success'"
+                  size="small"
+                  type="primary"
+                  plain
+                  :loading="actingId === row.review_id"
+                  @click="handleRerun(row)"
+                >
+                  重新审查
+                </el-button>
+              </div>
               <el-icon><ArrowRight /></el-icon>
             </span>
           </button>
@@ -243,18 +286,21 @@ import {
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ReviewCreateDialog from '@/components/ReviewCreateDialog.vue'
-import { getReviews } from '@/api/review'
+import { getReviews, cancelReview, rerunReview } from '@/api/review'
 import { getProviderLabel } from '@/utils/url-parser'
 import { getStatusLabel } from '@/utils/status'
 import { getScoreColor } from '@/utils/colors'
 import { formatDateShort, formatClock, getProviderInitial, shortId } from '@/utils/format'
 import type { Review, ListStats } from '@/types/review'
+import { ElMessage } from 'element-plus/es/components/message/index'
+import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 
 const router = useRouter()
 const loading = ref(false)
 const showCreateDialog = ref(false)
 const reviews = ref<Review[]>([])
 const stats = ref<ListStats>({ total: 0, running: 0, gate_failed: 0, findings: 0 })
+const actingId = ref('')
 
 const filters = reactive({ repo: '', provider: '', status: '' })
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
@@ -305,6 +351,41 @@ function scheduleListPolling() {
 
 function goToDetail(row: Review) {
   router.push(`/reviews/${row.review_id}`)
+}
+
+async function handleCancel(row: Review) {
+  try {
+    await ElMessageBox.confirm(`确定取消这条审查任务？(${shortId(row.review_id)})`, '取消审查', {
+      type: 'warning',
+      confirmButtonText: '取消任务',
+      cancelButtonText: '再想想',
+    })
+  } catch {
+    return
+  }
+  actingId.value = row.review_id
+  try {
+    await cancelReview(row.review_id)
+    ElMessage.success('审查任务已取消')
+    await fetchReviews(true)
+  } catch {
+    ElMessage.error('取消失败，任务可能已完成或状态不允许')
+  } finally {
+    actingId.value = ''
+  }
+}
+
+async function handleRerun(row: Review) {
+  actingId.value = row.review_id
+  try {
+    await rerunReview(row.review_id)
+    ElMessage.success('已重新加入审查队列')
+    await fetchReviews(true)
+  } catch {
+    ElMessage.error('重新审查失败，请稍后重试')
+  } finally {
+    actingId.value = ''
+  }
 }
 
 function getGateLabel(row: Review) {
@@ -710,6 +791,18 @@ onBeforeUnmount(() => {
 
 .row-arrow {
   color: #aeb5c1;
+}
+
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.mobile-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 .pagination-wrap {
