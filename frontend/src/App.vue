@@ -47,7 +47,7 @@
             进入控制台
             <el-icon><ArrowRight /></el-icon>
           </el-button>
-          <small>Token 仅保存在当前浏览器会话中。</small>
+          <small>Token 仅保存在本地浏览器中，不会上传服务器。</small>
         </form>
       </section>
     </main>

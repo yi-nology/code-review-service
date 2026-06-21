@@ -20,6 +20,10 @@ export default defineConfig(({ mode }) => {
           target: apiProxyTarget,
           changeOrigin: true,
         },
+        '/healthz': {
+          target: apiProxyTarget,
+          changeOrigin: true,
+        },
       },
     },
     build: {
