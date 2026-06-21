@@ -79,10 +79,7 @@
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
           <el-select v-model="filters.provider" placeholder="全部平台" clearable @change="applyFilters">
-              <el-option label="GitHub" value="github" />
-              <el-option label="GitLab" value="gitlab" />
-              <el-option label="Gitea" value="gitea" />
-              <el-option label="GitCode" value="gitcode" />
+              <el-option v-for="p in PROVIDER_OPTIONS" :key="p.value" :label="p.label" :value="p.value" />
           </el-select>
           <el-select v-model="filters.status" placeholder="全部状态" clearable @change="applyFilters">
               <el-option label="排队中" value="queued" />
@@ -287,7 +284,7 @@ import {
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ReviewCreateDialog from '@/components/ReviewCreateDialog.vue'
 import { getReviews, cancelReview, rerunReview } from '@/api/review'
-import { getProviderLabel } from '@/utils/url-parser'
+import { getProviderLabel, PROVIDER_OPTIONS } from '@/utils/url-parser'
 import { getStatusLabel } from '@/utils/status'
 import { getScoreColor } from '@/utils/colors'
 import { formatDateShort, formatClock, getProviderInitial, shortId } from '@/utils/format'

@@ -119,6 +119,7 @@ export const PROVIDER_OPTIONS = [
   { label: 'GitHub', value: 'github' },
   { label: 'GitLab', value: 'gitlab' },
   { label: 'Gitea', value: 'gitea' },
+  { label: 'Forgejo', value: 'forgejo' },
   { label: 'GitCode', value: 'gitcode' },
   { label: 'Gitee', value: 'gitee' },
   { label: 'Tencent Code', value: 'tencent_code' },

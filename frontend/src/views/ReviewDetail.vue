@@ -11,9 +11,30 @@
           <p v-if="detail">{{ getProviderLabel(detail.provider) }} · {{ detail.review_id }}</p>
         </div>
         <div class="header-actions">
-          <el-button 
-            :type="debugMode ? 'warning' : 'default'" 
-            plain 
+          <el-button
+            v-if="detail && (detail.status === 'queued' || detail.status === 'running')"
+            type="danger"
+            plain
+            size="small"
+            :loading="acting"
+            @click="handleCancel"
+          >
+            取消审查
+          </el-button>
+          <el-button
+            v-if="detail && (detail.status === 'failed' || detail.status === 'success')"
+            type="primary"
+            plain
+            size="small"
+            :loading="acting"
+            @click="handleRerun"
+          >
+            重新审查
+          </el-button>
+          <el-button
+            class="debug-toggle-btn"
+            :type="debugMode ? 'warning' : 'default'"
+            plain
             size="small"
             @click="toggleDebugMode"
           >
@@ -411,13 +432,14 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import ReviewMap from '@/components/ReviewMap.vue'
 import ProgressTracker from '@/components/ProgressTracker.vue'
 import PublishPanel from '@/components/PublishPanel.vue'
-import { getReview, getReviewMaps, getReviewMap, generateReviewMap } from '@/api/review'
+import { getReview, getReviewMaps, getReviewMap, generateReviewMap, cancelReview, rerunReview } from '@/api/review'
 import { sessionApi, type ReviewSession } from '@/api/session'
 import { getProviderLabel } from '@/utils/url-parser'
 import { getStatusLabel, getStatusType, getSeverityType, getPhaseLabel, getSessionStatusType, getSessionStatusLabel } from '@/utils/status'
 import { formatDateTime } from '@/utils/format'
 import type { ReviewDetail } from '@/types/review'
 import { ElMessage } from 'element-plus/es/components/message/index'
+import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 
 const router = useRouter()
 const route = useRoute()
@@ -426,6 +448,7 @@ const detail = ref<ReviewDetail | null>(null)
 const sessions = ref<ReviewSession[]>([])
 const reviewMaps = ref<any[]>([])
 const generatingMap = ref(false)
+const acting = ref(false)
 const viewportWidth = ref(window.innerWidth)
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 let fetchInFlight = false
@@ -551,6 +574,41 @@ async function handleGenerateMap() {
     ElMessage.error('生成评审地图失败，请稍后重试')
   } finally {
     generatingMap.value = false
+  }
+}
+
+async function handleCancel() {
+  try {
+    await ElMessageBox.confirm('确定取消这条审查任务？', '取消审查', {
+      type: 'warning',
+      confirmButtonText: '取消任务',
+      cancelButtonText: '再想想',
+    })
+  } catch {
+    return
+  }
+  acting.value = true
+  try {
+    await cancelReview(route.params.id as string)
+    ElMessage.success('审查任务已取消')
+    await fetchDetail()
+  } catch {
+    ElMessage.error('取消失败，任务可能已完成或状态不允许')
+  } finally {
+    acting.value = false
+  }
+}
+
+async function handleRerun() {
+  acting.value = true
+  try {
+    await rerunReview(route.params.id as string)
+    ElMessage.success('已重新加入审查队列')
+    await fetchDetail()
+  } catch {
+    ElMessage.error('重新审查失败，请稍后重试')
+  } finally {
+    acting.value = false
   }
 }
 
@@ -1043,8 +1101,13 @@ code {
   }
 
   .page-header .eyebrow,
-  .page-header > .el-button:last-child {
+  .page-header .debug-toggle-btn {
     display: none;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .summary-strip {

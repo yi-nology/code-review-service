@@ -65,10 +65,7 @@
 
         <div class="filter-bar">
           <el-select v-model="filters.provider" placeholder="全部平台" clearable @change="applyFilters">
-            <el-option label="GitHub" value="github" />
-            <el-option label="GitLab" value="gitlab" />
-            <el-option label="Gitea" value="gitea" />
-            <el-option label="GitCode" value="gitcode" />
+            <el-option v-for="p in PROVIDER_OPTIONS" :key="p.value" :label="p.label" :value="p.value" />
           </el-select>
           <el-input v-model="filters.repo" class="repo-search" placeholder="搜索仓库，例如 owner/repo" clearable @keyup.enter="applyFilters" @clear="applyFilters">
             <template #prefix><el-icon><Search /></el-icon></template>
@@ -196,6 +193,7 @@ import { getProjects } from '@/api/stats'
 import type { ProjectSummary } from '@/types/stats'
 import { formatDateRelative, getProviderInitial } from '@/utils/format'
 import { getScoreColor } from '@/utils/colors'
+import { PROVIDER_OPTIONS } from '@/utils/url-parser'
 
 const router = useRouter()
 const loading = ref(false)

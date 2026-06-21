@@ -97,12 +97,7 @@
             <div class="form-grid">
               <el-form-item label="代码平台" required>
                 <el-select v-model="form.provider" :disabled="editing" class="full-control" @change="handleProviderChange">
-                  <el-option label="GitHub" value="github" />
-                  <el-option label="GitLab" value="gitlab" />
-                  <el-option label="Gitea" value="gitea" />
-                  <el-option label="GitCode" value="gitcode" />
-                  <el-option label="Gitee" value="gitee" />
-                  <el-option label="Tencent Code" value="tencent_code" />
+                  <el-option v-for="p in PROVIDER_OPTIONS" :key="p.value" :label="p.label" :value="p.value" />
                 </el-select>
               </el-form-item>
 
@@ -189,7 +184,7 @@ import {
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { getGitPlatforms, saveGitPlatform, deleteGitPlatform, testGitPlatform } from '@/api/config'
-import { getProviderLabel } from '@/utils/url-parser'
+import { getProviderLabel, PROVIDER_OPTIONS } from '@/utils/url-parser'
 import type { GitPlatform, GitTestResult } from '@/types/config'
 
 const loading = ref(false)
@@ -204,7 +199,8 @@ const testResult = ref<GitTestResult | null>(null)
 const providerDefaults: Record<string, { baseUrl: string; hint: string }> = {
   github: { baseUrl: 'https://api.github.com', hint: '适用于 GitHub Cloud；企业版请填写对应 API 地址。' },
   gitlab: { baseUrl: 'https://gitlab.com', hint: '支持 GitLab.com 和自建 GitLab，通常填写站点根地址。' },
-  gitea: { baseUrl: '', hint: '填写 Gitea/Forgejo 站点根地址，例如 https://git.example.com。' },
+  gitea: { baseUrl: '', hint: '填写 Gitea 站点根地址，例如 https://git.example.com。' },
+  forgejo: { baseUrl: '', hint: '填写 Forgejo 站点根地址（兼容 Gitea API）。' },
   gitcode: { baseUrl: 'https://api.gitcode.com/api/v5', hint: '适用于 GitCode API v5。' },
   gitee: { baseUrl: 'https://gitee.com', hint: '适用于 Gitee 公开云服务或兼容部署。' },
   tencent_code: { baseUrl: '', hint: '填写腾讯工蜂/代码平台服务地址。' },
