@@ -327,15 +327,10 @@
         共 <strong>{{ previewFiles.length }}</strong> 个文件变更
       </div>
       <div class="preview-file-list">
-        <div v-for="(file, idx) in previewFiles" :key="idx" class="preview-file">
+        <div v-for="(path, idx) in previewFiles" :key="idx" class="preview-file">
           <div class="preview-file-head">
-            <el-tag v-if="file.status" size="small" :type="previewStatusType(file.status)">{{ file.status }}</el-tag>
-            <span class="preview-file-path">{{ file.path }}</span>
-            <span v-if="file.language" class="preview-file-lang">{{ file.language }}</span>
-          </div>
-          <div v-if="file.additions != null || file.deletions != null" class="preview-file-diffstat">
-            <span class="add">+{{ file.additions ?? 0 }}</span>
-            <span class="del">-{{ file.deletions ?? 0 }}</span>
+            <el-icon class="preview-file-icon"><Document /></el-icon>
+            <span class="preview-file-path">{{ path }}</span>
           </div>
         </div>
       </div>
@@ -350,6 +345,7 @@ import { ElMessage } from 'element-plus/es/components/message/index'
 import {
   Collection,
   Connection,
+  Document,
   DocumentCopy,
   Link,
   Refresh,
@@ -364,7 +360,7 @@ import { createReview, previewReview } from '@/api/review'
 import { getGitPlatforms, getProviderRepos, getProviderBranches, getProviderPulls, getBranchSHA } from '@/api/config'
 import { parseMRUrl, parseCompareUrl, getProviderLabel } from '@/utils/url-parser'
 import type { GitPlatform, PlatformRepo, PlatformBranch, PlatformPullRequest } from '@/types/config'
-import type { EphemeralReviewer, PreviewFile } from '@/types/review'
+import type { EphemeralReviewer } from '@/types/review'
 import SubmitOptions from './SubmitOptions.vue'
 
 const props = defineProps<{ modelValue: boolean }>()
@@ -413,7 +409,7 @@ const branchesLoading = ref(false)
 
 const requirements = ref('')
 const ephemeralReviewers = ref<EphemeralReviewer[]>([])
-const previewFiles = ref<PreviewFile[]>([])
+const previewFiles = ref<string[]>([])
 const previewLoading = ref(false)
 const showPreview = ref(false)
 
@@ -488,6 +484,8 @@ const submitHint = computed(() => {
 
 function switchMode(mode: InputMode) {
   inputMode.value = mode
+  previewFiles.value = []
+  showPreview.value = false
   if (mode !== 'url' && createForm.provider) ensureReposLoaded()
   if (mode === 'pr' && selectedRepo.value) reloadPullRequests()
   if (mode === 'branch' && selectedRepo.value) reloadBranches()
@@ -860,16 +858,6 @@ function shortSha(sha?: string): string {
   return sha ? sha.slice(0, 8) : '-'
 }
 
-function previewStatusType(status: string): string {
-  const map: Record<string, string> = {
-    added: 'success',
-    modified: 'warning',
-    removed: 'danger',
-    renamed: 'info',
-  }
-  return map[status] || 'info'
-}
-
 watch(visible, async (v) => {
   if (v) {
     resetForm()
@@ -1232,7 +1220,12 @@ watch(visible, async (v) => {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
+}
+
+.preview-file-icon {
+  color: #909399;
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
 .preview-file-path {
@@ -1240,25 +1233,5 @@ watch(visible, async (v) => {
   font-size: 12px;
   color: #303133;
   overflow-wrap: anywhere;
-}
-
-.preview-file-lang {
-  margin-left: auto;
-  color: #909399;
-  font-size: 11px;
-}
-
-.preview-file-diffstat {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
-}
-
-.preview-file-diffstat .add {
-  color: #67c23a;
-  margin-right: 8px;
-}
-
-.preview-file-diffstat .del {
-  color: #f56c6c;
 }
 </style>

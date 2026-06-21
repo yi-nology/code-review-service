@@ -1,7 +1,6 @@
 import request from './request'
 import type {
   ReviewDetail, ListResult, ListOptions, CreateReviewOptions,
-  PreviewFile, ReviewPreviewResult,
 } from '@/types/review'
 
 export async function getReviews(params: ListOptions): Promise<ListResult> {
@@ -34,7 +33,7 @@ export async function previewReview(opts: {
   project_id?: string
   pull_request_id?: string
   merge_request_iid?: string
-}): Promise<PreviewFile[]> {
+}): Promise<string[]> {
   const res: any = await request.post('/reviews/preview', opts, { timeout: 60000 })
   return res?.files ?? []
 }
@@ -61,13 +60,10 @@ export async function getReviewMap(reviewId: string, mapId: string): Promise<any
   return request.get(`/reviews/${reviewId}/maps/${mapId}`) as any
 }
 
-export async function generateReviewMap(reviewId: string): Promise<any> {
-  const res: any = await request.post(`/reviews/${reviewId}/maps`, {}, { timeout: 300000 })
-  return res?.map ?? res
-}
-
-export async function previewReviewMap(reviewId: string): Promise<any> {
-  const res: any = await request.post(`/reviews/${reviewId}/maps/preview`, {}, { timeout: 300000 })
+export async function generateReviewMap(reviewId: string, sessionId: string, diff?: string): Promise<any> {
+  const body: Record<string, string> = { session_id: sessionId }
+  if (diff) body.diff = diff
+  const res: any = await request.post(`/reviews/${reviewId}/maps`, body, { timeout: 300000 })
   return res?.map ?? res
 }
 

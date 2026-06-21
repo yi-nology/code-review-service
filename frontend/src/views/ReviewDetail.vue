@@ -263,7 +263,6 @@
             <PublishPanel
               v-if="detail.status === 'success' && detail.report?.generated"
               :review-id="detail.review_id"
-              :published="detail.callback_mode === 'comment'"
             />
 
             <!-- 代码审查地图 -->
@@ -439,8 +438,16 @@ const showProgressTracker = computed(() => Boolean(detail.value && (
 )))
 
 const canGenerateMap = computed(() => Boolean(
-  detail.value && ['success', 'completed'].includes(detail.value.status) && !generatingMap.value
+  detail.value
+  && ['success', 'completed'].includes(detail.value.status)
+  && !generatingMap.value
+  && sessions.value.length > 0
 ))
+
+const mapSessionId = computed(() => {
+  const completed = sessions.value.find((s) => s.status === 'completed')
+  return (completed || sessions.value[sessions.value.length - 1])?.session_id || ''
+})
 
 // Debug mode
 const debugMode = ref(localStorage.getItem('review-debug-mode') === 'true')
@@ -531,9 +538,13 @@ function goToSession(sess: ReviewSession) {
 }
 
 async function handleGenerateMap() {
+  if (!mapSessionId.value) {
+    ElMessage.warning('暂无可用会话，无法生成评审地图')
+    return
+  }
   generatingMap.value = true
   try {
-    await generateReviewMap(route.params.id as string)
+    await generateReviewMap(route.params.id as string, mapSessionId.value)
     ElMessage.success('评审地图已生成')
     await fetchReviewMaps()
   } catch {

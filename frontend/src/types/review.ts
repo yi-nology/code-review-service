@@ -180,21 +180,6 @@ export interface EphemeralReviewer {
   background: string
 }
 
-export interface PreviewFile {
-  path?: string
-  language?: string
-  status?: string
-  additions?: number
-  deletions?: number
-  patch?: string
-}
-
-export interface ReviewPreviewResult {
-  files: PreviewFile[]
-}
-
-export type ReviewActionResult = ReviewDetail
-
 export interface PublishPreview {
   review_id: string
   summary: string
