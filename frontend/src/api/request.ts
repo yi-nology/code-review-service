@@ -31,6 +31,14 @@ request.interceptors.response.use(
     const body = response.data
     if (body && typeof body === 'object' && 'code' in body && 'data' in body) {
       if (body.code !== 0) {
+        if (body.code === 401) {
+          localStorage.removeItem('token')
+          if (window.location.pathname !== '/') {
+            ElMessage.error('登录已失效，请重新输入 Token')
+            window.location.href = '/'
+            return new Promise(() => {})
+          }
+        }
         ElMessage.error(body.message || '请求失败')
         return Promise.reject(new Error(body.message))
       }

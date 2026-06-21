@@ -76,10 +76,14 @@ async function handleLogin() {
   error.value = ''
   logging.value = true
   try {
-    await axios.get('/api/v1/reviews?page=1&page_size=1', {
+    const resp = await axios.get('/api/v1/reviews?page=1&page_size=1', {
       headers: { Authorization: `Bearer ${value}` },
       timeout: 10000,
     })
+    if (resp.data?.code !== 0) {
+      error.value = resp.data?.message || 'Token 无效，请检查后重试'
+      return
+    }
     auth.setToken(value)
     await router.replace('/reviews')
   } catch (err: any) {

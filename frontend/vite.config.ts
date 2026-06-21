@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
           target: apiProxyTarget,
           changeOrigin: true,
         },
-        '/healthz': {
+        '/ping': {
           target: apiProxyTarget,
           changeOrigin: true,
         },

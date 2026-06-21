@@ -139,7 +139,7 @@ let healthTimer: ReturnType<typeof setInterval> | null = null
 
 async function checkHealth() {
   try {
-    const resp = await window.fetch('/healthz', { method: 'GET' })
+    const resp = await window.fetch('/ping', { method: 'GET' })
     healthStatus.value = resp.ok ? 'healthy' : 'down'
   } catch {
     healthStatus.value = 'down'
