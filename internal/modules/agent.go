@@ -31,8 +31,9 @@ func InitAgentManager(lc fx.Lifecycle, cfg *config.Config, repos *repository.Rep
 				DefaultSeverity: "major",
 				Concurrency:     2,
 				MaxGitProcs:     4,
-				TimeoutMinutes:  10,
+				TimeoutMinutes:  30,
 			})
+			agentMgr.SetFactory(runnerFactory) // 阶段 5：使 manager 具备构造 ephemeral agent 的能力
 			agentLoader := agent.NewAgentLoader(agentMgr, runnerFactory, 10*time.Minute)
 
 			enabledAgents, err := repos.ReviewerAgent.ListEnabled(ctx)

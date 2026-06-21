@@ -34,7 +34,7 @@ type ocrLLMConfig struct {
 	Model        string          `json:"model,omitempty"`
 	AuthToken    string          `json:"auth_token,omitempty"`
 	AuthHeader   string          `json:"auth_header,omitempty"`
-	UseAnthropic bool            `json:"use_anthropic,omitempty"`
+	UseAnthropic bool            `json:"use_anthropic"`
 	ExtraBody    json.RawMessage `json:"extra_body,omitempty"`
 }
 
