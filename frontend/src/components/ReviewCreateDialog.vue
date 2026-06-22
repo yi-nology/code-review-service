@@ -82,61 +82,64 @@
       />
     </section>
 
-    <el-form
-      v-if="inputMode === 'pr'"
-      :model="createForm"
-      label-width="0"
-      class="create-form create-panel"
-    >
+    <div v-if="inputMode === 'pr'" class="create-panel">
       <div class="panel-heading compact">
         <div>
           <h3>选择 PR/CR</h3>
-          <p>先选平台和仓库，再从打开中的 PR/MR/CR 里挑一个。</p>
+          <p>选择平台和仓库，然后点击要审查的 PR/MR/CR。</p>
         </div>
-        <el-button :icon="Refresh" :loading="prsLoading" :disabled="!selectedRepo" @click="reloadPullRequests">刷新列表</el-button>
       </div>
 
-      <div class="form-grid">
-        <el-form-item>
-          <el-select v-model="createForm.provider" style="width: 100%" placeholder="选择平台" @change="onPlatformChange">
-            <el-option v-for="p in availablePlatforms" :key="p.provider" :label="getProviderLabel(p.provider)" :value="p.provider" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-select
-            v-model="selectedRepo"
-            style="width: 100%"
-            filterable
-            remote
-            allow-create
-            default-first-option
-            reserve-keyword
-            :remote-method="searchRepos"
-            :loading="reposLoading"
-            placeholder="输入 owner/repo 或仓库名"
-            @change="onRepoChange"
-            @focus="ensureReposLoaded"
-          >
-            <el-option v-for="r in filteredRepos" :key="r.full_name" :label="r.full_name" :value="r.full_name">
-              <div class="repo-option">
-                <span class="repo-option-name">{{ r.full_name }}</span>
-                <span v-if="r.description" class="repo-option-desc">{{ r.description }}</span>
-              </div>
-            </el-option>
-          </el-select>
-        </el-form-item>
+      <div class="pr-config-row">
+        <el-select v-model="createForm.provider" placeholder="选择平台" @change="onPlatformChange" class="pr-config-platform">
+          <el-option v-for="p in availablePlatforms" :key="p.provider" :label="getProviderLabel(p.provider)" :value="p.provider" />
+        </el-select>
+        <el-select
+          v-model="selectedRepo"
+          filterable
+          remote
+          allow-create
+          default-first-option
+          reserve-keyword
+          :remote-method="searchRepos"
+          :loading="reposLoading"
+          placeholder="搜索或输入 owner/repo"
+          @change="onRepoChange"
+          @focus="ensureReposLoaded"
+          class="pr-config-repo"
+        >
+          <el-option v-for="r in filteredRepos" :key="r.full_name" :label="r.full_name" :value="r.full_name">
+            <div class="repo-option">
+              <span class="repo-option-name">{{ r.full_name }}</span>
+              <span v-if="r.description" class="repo-option-desc">{{ r.description }}</span>
+            </div>
+          </el-option>
+        </el-select>
+        <el-button :icon="Refresh" :loading="prsLoading" :disabled="!selectedRepo" @click="reloadPullRequests" circle />
       </div>
 
-      <div v-if="selectedRepo" class="pr-picker">
-        <div class="pr-picker-toolbar">
-          <el-radio-group v-model="prState" size="small" @change="reloadPullRequests">
-            <el-radio-button value="opened">打开中</el-radio-button>
-            <el-radio-button value="all">全部</el-radio-button>
-          </el-radio-group>
-          <el-input v-model="prKeyword" :prefix-icon="Search" placeholder="搜索标题、编号、分支" clearable size="small" />
+      <div v-if="selectedRepo" class="pr-panel">
+        <div class="pr-panel-header">
+          <div class="pr-panel-title">
+            <span>PR 列表</span>
+            <el-tag size="small" type="info">{{ filteredPullRequests.length }} / {{ pullRequests.length }}</el-tag>
+          </div>
+          <div class="pr-panel-controls">
+            <el-radio-group v-model="prState" size="small" @change="reloadPullRequests">
+              <el-radio-button value="opened">打开中</el-radio-button>
+              <el-radio-button value="all">全部</el-radio-button>
+            </el-radio-group>
+            <el-input v-model="prKeyword" :prefix-icon="Search" placeholder="搜索标题、编号、分支" clearable size="small" class="pr-panel-search" />
+          </div>
         </div>
 
-        <div v-loading="prsLoading" class="pr-list">
+        <div v-if="prsLoading" class="pr-list">
+          <div v-for="i in 4" :key="i" class="pr-card-skeleton">
+            <el-skeleton :rows="2" animated />
+          </div>
+        </div>
+
+        <div v-else-if="filteredPullRequests.length > 0" class="pr-list">
           <button
             v-for="pr in filteredPullRequests"
             :key="pr.number"
@@ -144,19 +147,37 @@
             :class="['pr-card', { selected: selectedPR === pr.number }]"
             @click="onPRChange(pr.number)"
           >
-            <div class="pr-card-head">
+            <div class="pr-card-main">
               <span class="pr-card-num">#{{ pr.number }}</span>
               <strong class="pr-card-title">{{ pr.title }}</strong>
+              <el-tag v-if="pr.state && pr.state !== 'opened'" size="small" :type="pr.state === 'closed' ? 'info' : 'success'">{{ pr.state === 'closed' ? '已关闭' : '已合并' }}</el-tag>
             </div>
             <div class="pr-card-meta">
-              <span class="pr-card-branch">{{ pr.source_branch || '?' }} → {{ pr.target_branch || '?' }}</span>
-              <span v-if="pr.author" class="pr-card-author">{{ pr.author.name || pr.author.username }}</span>
+              <span class="pr-card-branch">
+                <el-icon><Right /></el-icon>
+                {{ pr.source_branch || '?' }} → {{ pr.target_branch || '?' }}
+              </span>
+              <span v-if="pr.author" class="pr-card-author">
+                <img v-if="pr.author.avatar_url" :src="pr.author.avatar_url" class="pr-card-avatar" />
+                {{ pr.author.name || pr.author.username }}
+              </span>
             </div>
           </button>
-          <el-empty v-if="!prsLoading && filteredPullRequests.length === 0" description="暂无符合条件的 PR/MR/CR" :image-size="60" />
         </div>
+
+        <el-empty v-else description="没有符合条件的 PR/MR/CR" :image-size="72">
+          <template #description>
+            <p>没有符合条件的 PR/MR/CR</p>
+            <small v-if="prKeyword">尝试清除搜索关键词，或切换到「全部」状态</small>
+            <small v-else>该仓库当前没有 PR/MR/CR，可以切换到「分支对比」模式</small>
+          </template>
+        </el-empty>
       </div>
-      <el-empty v-else description="选择仓库后展示 PR/MR/CR 列表" :image-size="60" />
+
+      <div v-else class="pr-empty-hint">
+        <el-icon size="28"><Connection /></el-icon>
+        <p>请先选择代码平台和仓库</p>
+      </div>
 
       <submit-options
         v-model:mode="submitMode"
@@ -168,7 +189,7 @@
         @add-reviewer="ephemeralReviewers.push({ name: '', background: '' })"
         @remove-reviewer="(i: number) => ephemeralReviewers.splice(i, 1)"
       />
-    </el-form>
+    </div>
 
     <el-form
       v-if="inputMode === 'branch'"
@@ -1021,25 +1042,78 @@ watch(visible, async (v) => {
   white-space: nowrap;
 }
 
-.pr-picker {
-  margin-top: 14px;
-}
-
-.pr-picker-toolbar {
+.pr-config-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
-.pr-picker-toolbar .el-input {
+.pr-config-platform {
+  width: 130px;
+  flex-shrink: 0;
+}
+
+.pr-config-repo {
   flex: 1;
   min-width: 0;
 }
 
+.pr-empty-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 180px;
+  color: #9aa2b1;
+}
+
+.pr-empty-hint p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.pr-panel {
+  border: 1px solid var(--app-border, #e4e7ed);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.pr-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f7f8fc;
+  border-bottom: 1px solid var(--app-border, #e4e7ed);
+  flex-wrap: wrap;
+}
+
+.pr-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--app-text, #303133);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pr-panel-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pr-panel-search {
+  width: 180px;
+}
+
 .pr-list {
-  max-height: 320px;
+  max-height: 340px;
   overflow-y: auto;
+  padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1048,28 +1122,28 @@ watch(visible, async (v) => {
 .pr-card {
   display: block;
   width: 100%;
-  padding: 11px 13px;
-  border: 1px solid var(--app-border, #e4e7ed);
+  padding: 10px 12px;
+  border: 1.5px solid transparent;
   border-radius: 10px;
   background: #f7f8fc;
   text-align: left;
   cursor: pointer;
-  transition: 160ms ease;
+  transition: 140ms ease;
 }
 
 .pr-card:hover {
-  border-color: var(--app-primary, #5b5bd6);
+  border-color: #c5c8f0;
   background: #fff;
-  box-shadow: 0 4px 12px rgba(91, 91, 214, 0.08);
+  box-shadow: 0 4px 12px rgba(91, 91, 214, 0.07);
 }
 
 .pr-card.selected {
   border-color: var(--app-primary, #5b5bd6);
   background: #eef0ff;
-  box-shadow: 0 4px 12px rgba(91, 91, 214, 0.12);
+  box-shadow: 0 4px 14px rgba(91, 91, 214, 0.14);
 }
 
-.pr-card-head {
+.pr-card-main {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1078,8 +1152,11 @@ watch(visible, async (v) => {
 
 .pr-card-num {
   flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 5px;
   color: var(--app-primary, #5b5bd6);
-  font-size: 12px;
+  background: rgba(91, 91, 214, 0.1);
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -1096,19 +1173,43 @@ watch(visible, async (v) => {
 .pr-card-meta {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   margin-top: 5px;
+  padding-left: 2px;
 }
 
 .pr-card-branch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
   color: #909399;
 }
 
+.pr-card-branch .el-icon {
+  font-size: 10px;
+}
+
 .pr-card-author {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11px;
   color: #9aa2b1;
+}
+
+.pr-card-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pr-card-skeleton {
+  padding: 12px;
+  border-radius: 10px;
+  background: #f7f8fc;
 }
 
 .branch-flow {
@@ -1203,8 +1304,17 @@ watch(visible, async (v) => {
   .mode-switch,
   .form-grid,
   .branch-picker,
-  .pr-picker-toolbar {
+  .pr-panel-controls {
     grid-template-columns: 1fr;
+  }
+
+  .pr-config-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pr-config-platform {
+    width: 100%;
   }
 
   .panel-heading,
