@@ -83,6 +83,7 @@ type Service struct {
 	progressManager *progress.ProgressManager
 	Executor        Executor
 	inFlight        sync.WaitGroup
+	concurrencySem  chan struct{}
 }
 
 func NewService(cfg ServiceConfig) *Service {

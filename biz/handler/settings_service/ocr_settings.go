@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/service/ocr"
 
 	"github.com/oekit/pkg/ptrx"
 
@@ -43,6 +45,24 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 		existing, err := handlerInst.ocrRepo.Get(ctx)
 		if err == nil && existing != nil {
 			dbSettings.AuthToken = existing.AuthToken
+		}
+	}
+	// OCR 启用时，保存前预检 LLM 连通性，防止错误配置入库后评审静默失败。
+	// 通过类型断言调用 Tester 的具体方法；测试 mock 不实现该方法时自动跳过预检。
+	// 带 15s 超时，避免 OCR 子进程卡住阻塞保存请求。
+	if dbSettings.Enabled {
+		if tester, ok := handlerInst.llmTester.(*ocr.Tester); ok {
+			testCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+			result, err := tester.TestLLMWithSettings(testCtx, dbSettings)
+			cancel()
+			if err != nil {
+				common.Fail(c, common.BadRequest("配置未保存：LLM 连通测试执行失败："+err.Error()+"。请修正 LLM 配置后重试"))
+				return
+			}
+			if result != nil && !result.Success {
+				common.Fail(c, common.BadRequest("配置未保存：LLM 连通测试失败："+result.Message+"。请修正 LLM 配置后重试"))
+				return
+			}
 		}
 	}
 	if err := handlerInst.ocrRepo.Save(ctx, dbSettings); err != nil {

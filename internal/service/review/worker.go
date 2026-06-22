@@ -24,6 +24,14 @@ func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval,
 		staleAfter = 15 * time.Minute
 	}
 
+	// 并发槽：限制同时进行的 review 数 = worker concurrency。
+	// 修复 #5.3/#17：原 worker spawn goroutine 后立即再 claim，并发不受 worker 数限制，
+	// webhook 涌入时瞬间起几十个 OCR 进程压垮 LLM endpoint（雪崩根因）。
+	if s.concurrencySem == nil {
+		s.concurrencySem = make(chan struct{}, concurrency)
+		hlog.Infof("review concurrency limit=%d（同时进行的 review 上限）", concurrency)
+	}
+
 	// 启动时：重排所有 running 评审（服务重启后全是孤儿，必须重新处理）
 	orphaned, err := s.reviewRepo.RequeueStale(ctx, time.Now().UTC().Add(1*time.Hour))
 	if err != nil {
@@ -91,8 +99,17 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 		case <-timer.C:
 		}
 
+		// 获取并发槽（阻塞直到有可用容量），限制同时进行的 review 数。
+		select {
+		case s.concurrencySem <- struct{}{}:
+		case <-ctx.Done():
+			return
+		}
+		release := func() { <-s.concurrencySem }
+
 		reviews, err := s.reviewRepo.ClaimQueued(ctx, 1)
 		if err != nil {
+			release()
 			if ctx.Err() == nil {
 				hlog.Error("claim queued review failed", "worker_id", workerID, "error", err)
 			}
@@ -100,6 +117,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 			continue
 		}
 		if len(reviews) == 0 {
+			release()
 			timer.Reset(pollInterval)
 			continue
 		}
@@ -109,6 +127,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 		if err := json.Unmarshal(review.Request, &req); err != nil {
 			hlog.Error("failed to decode review request", "review_id", review.ReviewID, "error", err)
 			s.recordFailure(ctx, review.ReviewID, req, fmt.Errorf("decode request: %w", err))
+			release()
 			timer.Reset(0)
 			continue
 		}
@@ -117,12 +136,14 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 		if !ok {
 			err := fmt.Errorf("%w: %q", ErrUnsupportedProvider, req.Provider)
 			s.recordFailure(ctx, review.ReviewID, req, err)
+			release()
 			timer.Reset(0)
 			continue
 		}
 		s.inFlight.Add(1)
 		async.GoSafe(func() {
 			defer s.inFlight.Done()
+			defer release()
 
 			// Create progress tracker for this review
 			var progressReporter progress.ProgressReporter

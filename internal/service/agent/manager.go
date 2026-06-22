@@ -27,6 +27,16 @@ func (m *AgentManager) SetFactory(factory reviewRunnerFactory) {
 	m.factory = factory
 }
 
+// UpdateTimeouts 根据用户配置的 OCR 超时同步 agent 框架超时。
+// AgentTimeout 必须大于单次 OCR 超时，否则 OCR 还没跑完就被 agent 框架杀掉（#25：用户改
+// OCRSettings.TimeoutMinutes 后，硬编码的 35min 会让大超时配置的评审被误杀）。
+func (m *AgentManager) UpdateTimeouts(ocrTimeout time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.config.AgentTimeout = ocrTimeout + 5*time.Minute
+	m.config.TotalTimeout = ocrTimeout + 10*time.Minute
+}
+
 // EphemeralSpec 描述一个临时的、不入库的 reviewer（阶段 5）。
 type EphemeralSpec struct {
 	Name       string // 实例名，需在本次评审内唯一
