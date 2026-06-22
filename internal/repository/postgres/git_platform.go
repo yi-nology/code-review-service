@@ -37,7 +37,7 @@ func (r *GitPlatformRepo) Save(ctx context.Context, p *models.GitPlatform) error
 	return r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "provider"}, {Name: "installation_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"base_url", "token", "webhook_secret", "enabled", "updated_at"}),
+			DoUpdates: clause.AssignmentColumns([]string{"base_url", "token", "webhook_secret", "enabled", "updated_at", "deleted_at"}),
 		}).
 		Create(p).Error
 }
