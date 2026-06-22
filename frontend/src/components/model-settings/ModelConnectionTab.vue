@@ -55,16 +55,17 @@
     <el-form-item>
       <el-button type="primary" @click="save" :loading="saving">保存配置</el-button>
       <el-button @click="testLLM" :loading="testingLLM">测试 LLM 连接</el-button>
-      <el-button @click="showVersion = true" :loading="loadingVersion">查看版本</el-button>
+      <el-button @click="fetchVersion" :loading="loadingVersion">查看版本</el-button>
     </el-form-item>
 
     <el-dialog v-model="showVersion" title="OCR 版本信息" width="400px">
-      <el-descriptions :column="1" border v-if="ocrVersion">
+      <el-skeleton v-if="loadingVersion" :rows="3" animated />
+      <el-descriptions :column="1" border v-else-if="ocrVersion">
         <el-descriptions-item label="版本">{{ ocrVersion.version }}</el-descriptions-item>
         <el-descriptions-item label="Commit" v-if="ocrVersion.commit">{{ ocrVersion.commit }}</el-descriptions-item>
-        <el-descriptions-item label="平台" v-if="ocrVersion.platform">{{ ocrVersion.platform }}</el-descriptions-item>
         <el-descriptions-item label="构建时间" v-if="ocrVersion.build_time">{{ ocrVersion.build_time }}</el-descriptions-item>
       </el-descriptions>
+      <el-empty v-else description="获取版本信息失败" :image-size="60" />
     </el-dialog>
   </el-form>
 </template>
@@ -82,6 +83,18 @@ const customProviders = ref<CustomProvider[]>([])
 const ocrVersion = ref<OCRVersion | null>(null)
 const showVersion = ref(false)
 const loadingVersion = ref(false)
+
+async function fetchVersion() {
+  loadingVersion.value = true
+  showVersion.value = true
+  try {
+    ocrVersion.value = await getOCRVersion()
+  } catch {
+    ocrVersion.value = null
+  } finally {
+    loadingVersion.value = false
+  }
+}
 
 onMounted(async () => {
   try {
