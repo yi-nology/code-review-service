@@ -8570,10 +8570,11 @@ func (p *ListItem) String() string {
 }
 
 type ListStats struct {
-	Total      int64 `thrift:"total,1" form:"total" json:"total"`
-	Running    int64 `thrift:"running,2" form:"running" json:"running"`
-	GateFailed int64 `thrift:"gate_failed,3" form:"gate_failed" json:"gate_failed"`
-	Findings   int64 `thrift:"findings,4" form:"findings" json:"findings"`
+	Total       int64 `thrift:"total,1" form:"total" json:"total"`
+	Running     int64 `thrift:"running,2" form:"running" json:"running"`
+	GateFailed  int64 `thrift:"gate_failed,3" form:"gate_failed" json:"gate_failed"`
+	Findings    int64 `thrift:"findings,4" form:"findings" json:"findings"`
+	TotalTokens int64 `thrift:"total_tokens,5,optional" form:"total_tokens" json:"total_tokens,omitempty"`
 }
 
 func NewListStats() *ListStats {

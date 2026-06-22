@@ -32,10 +32,11 @@ type ListItem struct {
 }
 
 type ListStats struct {
-	Total      int `json:"total"`
-	Running    int `json:"running"`
-	GateFailed int `json:"gate_failed"`
-	Findings   int `json:"findings"`
+	Total       int   `json:"total"`
+	Running     int   `json:"running"`
+	GateFailed  int   `json:"gate_failed"`
+	Findings    int   `json:"findings"`
+	TotalTokens int64 `json:"total_tokens"`
 }
 
 type ListResult struct {

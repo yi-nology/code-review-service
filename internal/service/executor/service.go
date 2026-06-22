@@ -232,6 +232,12 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 	scope := workspace.Scope
 	scope.ChangedLines = review.CountDiffLines(workspace.Diff)
 
+	// 汇总各 agent 的 token 使用（#21：原 workflow 路径 OCRMetadata 硬编码、token 全零，
+	// 导致多 agent 评审在 token 成本统计里完全缺失）。
+	var workflowTokens int64
+	for _, ar := range result.AgentResults {
+		workflowTokens += ar.TokensUsed
+	}
 	dummyResult := review.Result{
 		Summary:  result.FinalReport.Summary,
 		Findings: findings,
@@ -240,6 +246,7 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 			Engine:        "workflow",
 			Status:        review.OCRStatusSuccess,
 			FilesReviewed: int64(scope.ChangedFiles),
+			TotalTokens:   workflowTokens,
 		},
 	}
 	report := review.BuildReport(&dummyResult)

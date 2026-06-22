@@ -171,9 +171,35 @@ func (r *ReviewRepo) AggregateStats(ctx context.Context, opts models.ListOptions
 		return nil, err
 	}
 
+	// Token 用量聚合（#20）：从 response jsonb 的 report.ocr 路径 SUM，
+	// 仅统计成功评审（失败评审无 token 数据）。
+	type tokenSums struct {
+		Total      int64
+		Input      int64
+		Output     int64
+		CacheRead  int64
+		CacheWrite int64
+	}
+	var tokens tokenSums
+	if err := applyFilters(r.db.WithContext(ctx).Model(&models.Review{})).
+		Where("status = ?", "success").
+		Select(`COALESCE(SUM((response->'report'->'ocr'->>'total_tokens')::bigint), 0) AS total,
+			COALESCE(SUM((response->'report'->'ocr'->>'input_tokens')::bigint), 0) AS input,
+			COALESCE(SUM((response->'report'->'ocr'->>'output_tokens')::bigint), 0) AS output,
+			COALESCE(SUM((response->'report'->'ocr'->>'cache_read_tokens')::bigint), 0) AS cache_read,
+			COALESCE(SUM((response->'report'->'ocr'->>'cache_write_tokens')::bigint), 0) AS cache_write`).
+		Scan(&tokens).Error; err != nil {
+		return nil, err
+	}
+
 	return &models.AggregateStats{
-		Running:    int(running),
-		GateFailed: int(gateFailed),
-		Findings:   int(totalFindings),
+		Running:          int(running),
+		GateFailed:       int(gateFailed),
+		Findings:         int(totalFindings),
+		TotalTokens:      tokens.Total,
+		InputTokens:      tokens.Input,
+		OutputTokens:     tokens.Output,
+		CacheReadTokens:  tokens.CacheRead,
+		CacheWriteTokens: tokens.CacheWrite,
 	}, nil
 }

@@ -158,10 +158,11 @@ func ListReviews(ctx context.Context, c *app.RequestContext) {
 		PageSize:   int64(result.PageSize),
 		TotalPages: int64(result.TotalPages),
 		Stats: &modelReview.ListStats{
-			Total:      int64(result.Stats.Total),
-			Running:    int64(result.Stats.Running),
-			GateFailed: int64(result.Stats.GateFailed),
-			Findings:   int64(result.Stats.Findings),
+			Total:       int64(result.Stats.Total),
+			Running:     int64(result.Stats.Running),
+			GateFailed:  int64(result.Stats.GateFailed),
+			Findings:    int64(result.Stats.Findings),
+			TotalTokens: result.Stats.TotalTokens,
 		},
 	})
 }

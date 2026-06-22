@@ -350,10 +350,11 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 		PageSize:   result.PageSize,
 		TotalPages: result.Pages,
 		Stats: ListStats{
-			Total:      int(result.Total),
-			Running:    agg.Running,
-			GateFailed: agg.GateFailed,
-			Findings:   agg.Findings,
+			Total:       int(result.Total),
+			Running:     agg.Running,
+			GateFailed:  agg.GateFailed,
+			Findings:    agg.Findings,
+			TotalTokens: agg.TotalTokens,
 		},
 	}, nil
 }
