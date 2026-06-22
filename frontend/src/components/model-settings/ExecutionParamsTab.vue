@@ -103,6 +103,11 @@
         :loading="viewerLoading"
       >停止 Viewer</el-button>
       <el-button @click="refreshViewerStatus" :loading="viewerLoading">刷新状态</el-button>
+      <el-button
+        v-if="viewerStatus?.running && viewerStatus?.addr"
+        type="primary"
+        @click="openViewer"
+      >打开 Viewer</el-button>
     </el-form-item>
 
     <el-divider content-position="left">执行预览</el-divider>
@@ -159,6 +164,13 @@ async function handleStopViewer() {
     viewerStatus.value = { running: false, message: e.message || '停止失败' }
   } finally {
     viewerLoading.value = false
+  }
+}
+
+function openViewer() {
+  const addr = viewerStatus.value?.addr
+  if (addr) {
+    window.open(`http://${addr}`, '_blank')
   }
 }
 
