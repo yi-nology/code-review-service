@@ -35,6 +35,7 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 		modules.HandlerModule,
 		modules.ServerModule,
 		modules.PreflightModule,
+		modules.LLMProbeModule,
 		modules.WorkerModule,
 		modules.MigrateModule,
 		fx.WithLogger(func() fxevent.Logger { return &fxevent.ConsoleLogger{W: os.Stderr} }),
