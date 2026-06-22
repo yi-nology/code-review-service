@@ -36,7 +36,7 @@
           </div>
         </div>
         <div class="status-actions">
-          <el-button type="primary" @click="showConfigDialog = true">
+          <el-button type="primary" @click="openConfigDialog">
             <el-icon><Edit /></el-icon>
             修改配置
           </el-button>
@@ -52,7 +52,7 @@
         <div class="empty-icon">🤖</div>
         <h3>尚未配置模型</h3>
         <p>选择一个服务商开始配置</p>
-        <el-button type="primary" @click="showConfigDialog = true">
+        <el-button type="primary" @click="openConfigDialog">
           <el-icon><Plus /></el-icon>
           立即配置
         </el-button>
@@ -443,11 +443,31 @@ function selectPreset(preset: ProviderPreset) {
 
 // 选择自定义
 function selectCustom() {
-  selectedPreset.value = null
-  isCustomMode.value = true
-  editForm.url = ''
-  editForm.model = ''
-  editForm.use_anthropic = false
+	selectedPreset.value = null
+	isCustomMode.value = true
+	editForm.url = ''
+	editForm.model = ''
+	editForm.use_anthropic = false
+}
+
+// 打开配置弹窗：预填当前配置（form）+ 匹配已选 preset，避免用户看到空白表单直接保存报错
+function openConfigDialog() {
+	editForm.url = form.url || ''
+	editForm.model = form.model || ''
+	editForm.auth_token = ''
+	editForm.use_anthropic = form.use_anthropic || false
+	editForm.reasoning_mode = (form.reasoning_mode as any) || 'light'
+	editForm.reasoning_budget = form.reasoning_budget || 0
+	editForm.language = form.language || 'Chinese'
+	const preset = allPresets.find(p => p.id === form.provider)
+	if (preset) {
+		selectedPreset.value = preset
+		isCustomMode.value = false
+	} else {
+		selectedPreset.value = null
+		isCustomMode.value = true
+	}
+	showConfigDialog.value = true
 }
 
 // 保存配置
