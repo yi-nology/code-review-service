@@ -3,6 +3,7 @@ package session_service
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelSession "github.com/yi-nology/code-review-service/biz/model/session"
@@ -43,6 +44,49 @@ func InitHandler(sessionService SessionService) {
 	handlerInst = &SessionHandler{sessionService: sessionService}
 }
 
+// sessionInfo 是 ReviewSession 的可序列化投影：datatypes.JSON 转 json.RawMessage，
+// 避免 sonic 序列化 named []byte（datatypes.JSON）类型报 "unsupported data type"（sessions 500 根因）。
+type sessionInfo struct {
+	SessionID    string          `json:"session_id"`
+	ReviewID     string          `json:"review_id"`
+	Round        int             `json:"round"`
+	Phase        string          `json:"phase"`
+	Status       string          `json:"status"`
+	Progress     float64         `json:"progress"`
+	AgentResults json.RawMessage `json:"agent_results,omitempty"`
+	Discussion   json.RawMessage `json:"discussion,omitempty"`
+	FinalReport  json.RawMessage `json:"final_report,omitempty"`
+	Requirements json.RawMessage `json:"requirements,omitempty"`
+	Metadata     json.RawMessage `json:"metadata,omitempty"`
+	CompletedAt  *time.Time      `json:"completed_at,omitempty"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
+}
+
+func toSessionInfo(s models.ReviewSession) sessionInfo {
+	info := sessionInfo{
+		SessionID: s.SessionID, ReviewID: s.ReviewID, Round: s.Round,
+		Phase: s.Phase, Status: s.Status, Progress: s.Progress,
+		CompletedAt: s.CompletedAt, CreatedAt: s.CreatedAt, UpdatedAt: s.UpdatedAt,
+	}
+	if len(s.AgentResults) > 0 {
+		info.AgentResults = json.RawMessage(s.AgentResults)
+	}
+	if len(s.Discussion) > 0 {
+		info.Discussion = json.RawMessage(s.Discussion)
+	}
+	if len(s.FinalReport) > 0 {
+		info.FinalReport = json.RawMessage(s.FinalReport)
+	}
+	if len(s.Requirements) > 0 {
+		info.Requirements = json.RawMessage(s.Requirements)
+	}
+	if len(s.Metadata) > 0 {
+		info.Metadata = json.RawMessage(s.Metadata)
+	}
+	return info
+}
+
 func ListSessions(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSession.ListSessionsReq](c)
 	if !ok {
@@ -61,8 +105,12 @@ func ListSessions(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	sessions := make([]sessionInfo, len(result.List))
+	for i, s := range result.List {
+		sessions[i] = toSessionInfo(s)
+	}
 	common.Success(c, map[string]interface{}{
-		"sessions":    result.List,
+		"sessions":    sessions,
 		"total":       result.Total,
 		"page":        result.Page,
 		"page_size":   result.PageSize,
@@ -76,13 +124,16 @@ func GetSessions(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	sessions, err := handlerInst.sessionService.GetSessionsByReview(ctx, req.ID)
+	rawSessions, err := handlerInst.sessionService.GetSessionsByReview(ctx, req.ID)
 	if err != nil {
 		hlog.Errorf("get sessions failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
-
+	sessions := make([]sessionInfo, len(rawSessions))
+	for i, s := range rawSessions {
+		sessions[i] = toSessionInfo(*s)
+	}
 	common.Success(c, map[string]interface{}{
 		"sessions": sessions,
 	})

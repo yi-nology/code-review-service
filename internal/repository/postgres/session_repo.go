@@ -191,7 +191,7 @@ func (r *PostgresSessionRepository) Delete(ctx context.Context, sessionID string
 // List returns sessions with pagination
 func (r *PostgresSessionRepository) List(ctx context.Context, page, pageSize int) (*ekitGorm.PageResponse[models.ReviewSession], error) {
 	return ekitGorm.Paginate[models.ReviewSession](
-		r.db.WithContext(ctx),
+		r.db.WithContext(ctx).Model(&models.ReviewSession{}),
 		ekitGorm.NewPageRequest(page, pageSize),
 		func(db *gormLib.DB) *gormLib.DB {
 			return db.Order("created_at DESC")
