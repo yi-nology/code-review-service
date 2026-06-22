@@ -137,13 +137,14 @@
               <span v-else class="muted">0</span>
             </template>
           </el-table-column>
-          <el-table-column label="风险结构" min-width="180">
+          <el-table-column label="问题分布" min-width="200">
             <template #default="{ row }">
               <div class="severity-stack">
-                <span class="critical">C {{ row.critical_count }}</span>
-                <span class="major">M {{ row.major_count }}</span>
-                <span class="minor">m {{ row.minor_count }}</span>
-                <span class="info">i {{ row.info_count }}</span>
+                <span class="critical" v-if="row.critical_count > 0" title="严重">严重 {{ row.critical_count }}</span>
+                <span class="major" v-if="row.major_count > 0" title="高风险">高风险 {{ row.major_count }}</span>
+                <span class="minor" v-if="row.minor_count > 0" title="中风险">中风险 {{ row.minor_count }}</span>
+                <span class="info" v-if="row.info_count > 0" title="提示">提示 {{ row.info_count }}</span>
+                <span v-if="row.critical_count + row.major_count + row.minor_count + row.info_count === 0" class="muted">无问题</span>
               </div>
             </template>
           </el-table-column>
@@ -535,14 +536,17 @@ onMounted(fetchProjects)
 .severity-stack {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 .severity-stack span {
-  padding: 4px 7px;
-  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 6px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .severity-stack .critical { color: #d84b5b; background: #fff0f2; }
