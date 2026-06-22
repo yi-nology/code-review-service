@@ -46,7 +46,7 @@
             <div class="stat-item">
               <span>严重问题</span>
               <strong>{{ summaryStats.criticalCount }}</strong>
-              <small>Critical 风险总量</small>
+              <small>严重风险总量</small>
             </div>
           </el-card>
         </el-col>

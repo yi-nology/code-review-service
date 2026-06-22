@@ -67,7 +67,7 @@
             <el-card shadow="never" class="stat-card critical">
               <span>严重问题</span>
               <strong>{{ detail.critical_count }}</strong>
-              <small>Major {{ detail.major_count }} 个</small>
+              <small>高风险 {{ detail.major_count }} 个</small>
             </el-card>
           </el-col>
         </el-row>
@@ -97,19 +97,19 @@
             </div>
             <div class="severity-grid">
               <div class="severity-card critical">
-                <span>Critical</span>
+                <span>严重</span>
                 <strong>{{ detail.critical_count }}</strong>
               </div>
               <div class="severity-card major">
-                <span>Major</span>
+                <span>高风险</span>
                 <strong>{{ detail.major_count }}</strong>
               </div>
               <div class="severity-card minor">
-                <span>Minor</span>
+                <span>中风险</span>
                 <strong>{{ detail.minor_count }}</strong>
               </div>
               <div class="severity-card info">
-                <span>Info</span>
+                <span>提示</span>
                 <strong>{{ detail.info_count }}</strong>
               </div>
             </div>
@@ -143,7 +143,7 @@
             <div class="panel-head">
               <div>
                 <h2>高风险文件</h2>
-                <p>按 Critical、Major 和问题总量排序</p>
+                <p>按严重、高风险和问题总量排序</p>
               </div>
             </div>
             <el-table :data="files" size="small" empty-text="暂无文件风险数据">
@@ -237,7 +237,12 @@ const hasDateRange = computed(() => dateRange.value.length === 2)
 
 const gradeItems = computed(() => {
   const dist = detail.value?.grade_distribution || {}
-  return ['A', 'B', 'C', 'D', 'F'].map((label) => ({ label, count: dist[label] || 0 }))
+  return [
+    { label: '优秀', count: dist['优秀'] || dist['A'] || 0 },
+    { label: '良好', count: dist['良好'] || dist['B'] || 0 },
+    { label: '需改进', count: dist['需改进'] || dist['C'] || dist['D'] || 0 },
+    { label: '高风险', count: dist['高风险'] || dist['F'] || 0 },
+  ]
 })
 
 async function fetchReport() {
@@ -329,7 +334,7 @@ function exportMarkdown() {
   if (!detail.value) return
   const report = detail.value
   const categoryLines = categories.value.map((item) => `- ${item.category}: ${item.count}`).join('\n') || '- 暂无'
-  const fileLines = files.value.map((item) => `- ${item.path}: ${item.count} 个问题，Critical ${item.critical_count}，Major ${item.major_count}`).join('\n') || '- 暂无'
+  const fileLines = files.value.map((item) => `- ${item.path}: ${item.count} 个问题，严重 ${item.critical_count}，高风险 ${item.major_count}`).join('\n') || '- 暂无'
   const contributorLines = contributors.value.map((item) => `- ${item.author_name || item.author}: ${item.review_count} 次审查，平均分 ${item.avg_score}，通过率 ${item.pass_rate.toFixed(0)}%`).join('\n') || '- 暂无'
   const content = `# ${report.repo} 代码审查项目报告
 
@@ -350,10 +355,10 @@ function exportMarkdown() {
 
 ## 风险分布
 
-- Critical: ${report.critical_count}
-- Major: ${report.major_count}
-- Minor: ${report.minor_count}
-- Info: ${report.info_count}
+- 严重: ${report.critical_count}
+- 高风险: ${report.major_count}
+- 中风险: ${report.minor_count}
+- 提示: ${report.info_count}
 
 ## 问题分类
 
