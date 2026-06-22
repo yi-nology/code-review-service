@@ -8,15 +8,23 @@ import (
 )
 
 type CreateReviewReq struct {
-	Provider        string  `thrift:"provider,1" form:"provider" json:"provider"`
-	Repo            string  `thrift:"repo,2" form:"repo" json:"repo"`
-	ProjectID       *string `thrift:"project_id,3,optional" form:"project_id" json:"project_id,omitempty"`
-	PullRequestID   *string `thrift:"pull_request_id,4,optional" form:"pull_request_id" json:"pull_request_id,omitempty"`
-	MergeRequestIid *string `thrift:"merge_request_iid,5,optional" form:"merge_request_iid" json:"merge_request_iid,omitempty"`
-	BaseSha         *string `thrift:"base_sha,6,optional" form:"base_sha" json:"base_sha,omitempty"`
-	HeadSha         *string `thrift:"head_sha,7,optional" form:"head_sha" json:"head_sha,omitempty"`
-	CallbackMode    *string `thrift:"callback_mode,8,optional" form:"callback_mode" json:"callback_mode,omitempty"`
-	Wait            *bool   `thrift:"wait,9,optional" form:"wait" json:"wait,omitempty"`
+	Provider           string                   `thrift:"provider,1" form:"provider" json:"provider"`
+	Repo               string                   `thrift:"repo,2" form:"repo" json:"repo"`
+	ProjectID          *string                  `thrift:"project_id,3,optional" form:"project_id" json:"project_id,omitempty"`
+	PullRequestID      *string                  `thrift:"pull_request_id,4,optional" form:"pull_request_id" json:"pull_request_id,omitempty"`
+	MergeRequestIid    *string                  `thrift:"merge_request_iid,5,optional" form:"merge_request_iid" json:"merge_request_iid,omitempty"`
+	BaseSha            *string                  `thrift:"base_sha,6,optional" form:"base_sha" json:"base_sha,omitempty"`
+	HeadSha            *string                  `thrift:"head_sha,7,optional" form:"head_sha" json:"head_sha,omitempty"`
+	CallbackMode       *string                  `thrift:"callback_mode,8,optional" form:"callback_mode" json:"callback_mode,omitempty"`
+	Wait               *bool                    `thrift:"wait,9,optional" form:"wait" json:"wait,omitempty"`
+	Requirements       []string                 `thrift:"requirements,10,optional,list<string>" form:"requirements" json:"requirements,omitempty"`
+	EphemeralReviewers []EphemeralReviewerInput `thrift:"ephemeral_reviewers,11,optional" form:"ephemeral_reviewers" json:"ephemeral_reviewers,omitempty"`
+}
+
+// EphemeralReviewerInput 是 API 层的临时 reviewer 输入（阶段 5）。
+type EphemeralReviewerInput struct {
+	Name       string `thrift:"name,1,optional" form:"name" json:"name,omitempty"`
+	Background string `thrift:"background,2" form:"background" json:"background"`
 }
 
 func NewCreateReviewReq() *CreateReviewReq {

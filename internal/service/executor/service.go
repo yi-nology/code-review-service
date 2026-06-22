@@ -173,14 +173,22 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 	s.appendHistory(ctx, id, "workflow", "running", "multi-agent review workflow started", nil)
 
 	wfReq := workflow.ReviewRequest{
-		ReviewID: id,
-		Provider: req.Provider,
-		Repo:     req.Repo,
-		BaseSHA:  workspace.BaseSHA,
-		HeadSHA:  workspace.HeadSHA,
-		Diff:     workspace.Diff,
-		Dir:      workspace.Dir,
-		Round:    1,
+		ReviewID:     id,
+		Provider:     req.Provider,
+		Repo:         req.Repo,
+		BaseSHA:      workspace.BaseSHA,
+		HeadSHA:      workspace.HeadSHA,
+		Diff:         workspace.Diff,
+		Dir:          workspace.Dir,
+		Round:        1,
+		Requirements: req.Requirements,
+	}
+	// 映射临时 reviewer：review.EphemeralReviewer → agent.EphemeralSpec（阶段 5）
+	if len(req.EphemeralReviewers) > 0 {
+		wfReq.EphemeralReviewers = make([]agent.EphemeralSpec, len(req.EphemeralReviewers))
+		for i, e := range req.EphemeralReviewers {
+			wfReq.EphemeralReviewers[i] = agent.EphemeralSpec{Name: e.Name, Background: e.Background}
+		}
 	}
 
 	result, err := s.workflow.RunReview(ctx, wfReq)
@@ -231,6 +239,14 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 	report := review.BuildReport(&dummyResult)
 	analysis := review.Analysis{
 		Overview: result.FinalReport.Summary,
+	}
+	// B2：把 Tech Lead 分析映射进 review.Analysis（前端已读该字段）
+	if result.TechLeadAnalysis != nil {
+		if result.TechLeadAnalysis.Summary != "" {
+			analysis.Overview = result.TechLeadAnalysis.Summary
+		}
+		analysis.Risks = result.TechLeadAnalysis.Risks
+		analysis.Recommendations = result.TechLeadAnalysis.Recommendations
 	}
 
 	gateEngine := s.policy

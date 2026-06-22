@@ -172,7 +172,7 @@ func (s *Service) GetProjectContributors(ctx context.Context, provider, repo, fr
 	if err != nil {
 		return nil, err
 	}
-	return slicex.Map(contributors, func(c models.ContributorSummary) ContributorSummary { return toContributorSummary(c) }), nil
+	return slicex.Map(contributors, toContributorSummary), nil
 }
 
 func toContributorSummary(s models.ContributorSummary) ContributorSummary {
@@ -206,7 +206,7 @@ func toContributorDetail(d *models.ContributorDetail) *ContributorDetail {
 
 func toContributorListResult(r *models.ContributorListResult) *ContributorListResult {
 	return &ContributorListResult{
-		Contributors: slicex.Map(r.Contributors, func(c models.ContributorSummary) ContributorSummary { return toContributorSummary(c) }),
+		Contributors: slicex.Map(r.Contributors, toContributorSummary),
 		Total:        r.Total,
 		Page:         r.Page,
 		PageSize:     r.PageSize,
@@ -243,7 +243,7 @@ func toProjectDetail(d *models.ProjectDetail) *ProjectDetail {
 
 func toProjectListResult(r *models.ProjectListResult) *ProjectListResult {
 	return &ProjectListResult{
-		Projects: slicex.Map(r.Projects, func(p models.ProjectSummary) ProjectSummary { return toProjectSummary(p) }),
+		Projects: slicex.Map(r.Projects, toProjectSummary),
 		Total:    r.Total,
 		Page:     r.Page,
 		PageSize: r.PageSize,

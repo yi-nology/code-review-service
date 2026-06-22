@@ -86,8 +86,8 @@ func InitReviewMapHandler(sessionSvc *session.SessionService, repos *repository.
 	review_map_service.InitHandler(sessionSvc, repos.ReviewMap)
 }
 
-func InitPublisherHandler(writebackOrch *writeback.Orchestrator) {
-	publisher_service.InitHandler(writebackOrch)
+func InitPublisherHandler(writebackOrch *writeback.Orchestrator, translator *writeback.Translator, reviewSvc *svcReview.Service) {
+	publisher_service.InitHandler(writebackOrch, translator, reviewSvc)
 }
 
 func InitProjectAgentHandler(repos *repository.RepoContainer) {

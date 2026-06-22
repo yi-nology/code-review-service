@@ -32,7 +32,9 @@ func ListCustomProviders(ctx context.Context, c *app.RequestContext) {
 
 func CreateCustomProvider(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.CreateCustomProviderReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if strings.TrimSpace(req.Name) == "" {
 		common.Fail(c, common.BadRequest("Provider 名称不能为空"))
 		return
@@ -62,7 +64,9 @@ func CreateCustomProvider(ctx context.Context, c *app.RequestContext) {
 
 func UpdateCustomProvider(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.UpdateCustomProviderReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	existing, err := handlerInst.customProvider.GetByID(ctx, safeUint(req.ID))
 	if err != nil || existing == nil {
 		common.Fail(c, common.BadRequest("Provider 不存在"))
@@ -104,7 +108,9 @@ func UpdateCustomProvider(ctx context.Context, c *app.RequestContext) {
 
 func DeleteCustomProvider(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.DeleteCustomProviderReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if err := handlerInst.customProvider.Delete(ctx, safeUint(req.ID)); err != nil {
 		common.Fail(c, err)
 		return

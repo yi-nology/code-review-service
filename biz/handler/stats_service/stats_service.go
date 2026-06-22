@@ -58,7 +58,9 @@ func InitHandler(statsSvc StatsService) {
 
 func ListContributors(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[modelStats.ListContributorsReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	page, pageSize := common.PageParams(
 		convert.Int64ToStr(ptrx.Deref(req.Page, 0)),
@@ -86,7 +88,9 @@ func ListContributors(ctx context.Context, c *hertzApp.RequestContext) {
 
 func GetContributor(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[modelStats.GetContributorReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	detail, err := handlerInst.statsSvc.GetContributor(
 		ctx,
@@ -110,7 +114,9 @@ func GetContributor(ctx context.Context, c *hertzApp.RequestContext) {
 
 func GetContributorTrend(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[modelStats.GetContributorTrendReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	trend, err := handlerInst.statsSvc.GetContributorTrend(
 		ctx,
@@ -130,7 +136,9 @@ func GetContributorTrend(ctx context.Context, c *hertzApp.RequestContext) {
 
 func GetContributorCategories(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[modelStats.GetContributorCategoriesReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	categories, err := handlerInst.statsSvc.GetContributorCategories(
 		ctx,
@@ -150,7 +158,9 @@ func GetContributorCategories(ctx context.Context, c *hertzApp.RequestContext) {
 
 func ListProjects(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[listProjectsReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	page, pageSize := common.PageParams(req.Page, req.PageSize)
 	result, err := handlerInst.statsSvc.ListProjects(
@@ -174,7 +184,9 @@ func ListProjects(ctx context.Context, c *hertzApp.RequestContext) {
 
 func GetProject(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[projectReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if req.Provider == "" || req.Repo == "" {
 		common.Fail(c, common.BadRequest("provider and repo are required"))
 		return
@@ -195,7 +207,9 @@ func GetProject(ctx context.Context, c *hertzApp.RequestContext) {
 
 func GetProjectTrend(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[projectReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if req.Provider == "" || req.Repo == "" {
 		common.Fail(c, common.BadRequest("provider and repo are required"))
 		return
@@ -212,7 +226,9 @@ func GetProjectTrend(ctx context.Context, c *hertzApp.RequestContext) {
 
 func GetProjectCategories(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[projectReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if req.Provider == "" || req.Repo == "" {
 		common.Fail(c, common.BadRequest("provider and repo are required"))
 		return
@@ -229,7 +245,9 @@ func GetProjectCategories(ctx context.Context, c *hertzApp.RequestContext) {
 
 func GetProjectFiles(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[projectReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if req.Provider == "" || req.Repo == "" {
 		common.Fail(c, common.BadRequest("provider and repo are required"))
 		return
@@ -246,7 +264,9 @@ func GetProjectFiles(ctx context.Context, c *hertzApp.RequestContext) {
 
 func GetProjectContributors(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[projectReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if req.Provider == "" || req.Repo == "" {
 		common.Fail(c, common.BadRequest("provider and repo are required"))
 		return

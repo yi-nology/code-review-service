@@ -43,6 +43,7 @@ func ParseOpenCodeReviewOutput(output []byte, defaultSeverity string) (review.Re
 			Body:           strings.TrimSpace(comment.Content),
 			ExistingCode:   strings.TrimSpace(comment.ExistingCode),
 			SuggestionCode: strings.TrimSpace(comment.SuggestionCode),
+			Thinking:       strings.TrimSpace(comment.Thinking),
 		})
 	}
 

@@ -110,16 +110,31 @@ type DiscussionEntry struct {
 
 // FinalReportData represents the final report of a session
 type FinalReportData struct {
-	Verdict             string            `json:"verdict"`
-	Summary             string            `json:"summary"`
-	Blockers            []FindingData     `json:"blockers"`
-	ShouldFix           []FindingData     `json:"should_fix"`
-	Suggestions         []FindingData     `json:"suggestions"`
-	Requirements        *RequirementsData `json:"requirements,omitempty"`
-	ClarifyingQuestions []string          `json:"clarifying_questions,omitempty"`
-	Score               int               `json:"score"`
-	GatePassed          bool              `json:"gate_passed"`
-	GateReason          string            `json:"gate_reason"`
+	Verdict             string                   `json:"verdict"`
+	Summary             string                   `json:"summary"`
+	Blockers            []FindingData            `json:"blockers"`
+	ShouldFix           []FindingData            `json:"should_fix"`
+	Suggestions         []FindingData            `json:"suggestions"`
+	Requirements        *RequirementsData        `json:"requirements,omitempty"`
+	ClarifyingQuestions []ClarifyingQuestionData `json:"clarifying_questions,omitempty"`
+	TechLeadAnalysis    *TechLeadAnalysisData    `json:"tech_lead_analysis,omitempty"`
+	Score               int                      `json:"score"`
+	GatePassed          bool                     `json:"gate_passed"`
+	GateReason          string                   `json:"gate_reason"`
+}
+
+// ClarifyingQuestionData 表示一条需向利益相关者澄清的问题（阶段 4）。
+type ClarifyingQuestionData struct {
+	Category string `json:"category"`
+	Question string `json:"question"`
+	Context  string `json:"context"`
+}
+
+// TechLeadAnalysisData 是 Tech Lead（Phase 3）分析的持久化产物（B2）。
+type TechLeadAnalysisData struct {
+	Summary         string   `json:"summary"`
+	Risks           []string `json:"risks"`
+	Recommendations []string `json:"recommendations"`
 }
 
 // RequirementsData represents requirements assessment

@@ -7,6 +7,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
+	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/oekit/gormx"
 )
@@ -151,6 +152,10 @@ func (a *MockAgent) Name() string {
 	return a.name
 }
 
+func (a *MockAgent) Persona() string {
+	return a.name
+}
+
 func (a *MockAgent) Focus() []string {
 	return a.focus
 }
@@ -193,11 +198,12 @@ func TestReviewWorkflow(t *testing.T) {
 	agentManager.RegisterAgent(NewMockAgent("principal", []string{"architecture"}, 1))
 	agentManager.RegisterAgent(NewMockAgent("quality", []string{"code_style"}, 2))
 
-	// Create workflow
+	// Create workflow (NoopProvider → discourse 走降级路径)
 	workflow := NewReviewWorkflow(
 		agentManager,
 		sessionService,
 		progressManager,
+		llm.NewNoopProvider(),
 		DefaultWorkflowConfig(),
 	)
 

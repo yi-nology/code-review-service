@@ -31,7 +31,9 @@ func GetOCRSettings(ctx context.Context, c *app.RequestContext) {
 
 func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.UpdateOCRSettingsReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	dbSettings := apiOCRSettingsToDB(req.Settings)
 	if err := validateOCRSettings(dbSettings); err != nil {
 		common.Fail(c, common.BadRequest(err.Error()))

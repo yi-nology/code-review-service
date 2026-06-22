@@ -41,7 +41,7 @@ func (s *Service) updateWithRawOCR(ctx context.Context, id string, req Request, 
 		response.History = append(response.History, Event{
 			Stage:     response.Status,
 			Status:    StatusEventState(response.Status),
-				Message:   StatusEventMessage(response.Status),
+			Message:   StatusEventMessage(response.Status),
 			CreatedAt: time.Now().UTC(),
 		})
 	}

@@ -26,6 +26,7 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 		modules.ProviderModule,
 		modules.RunnerModule,
 		modules.OCRModule,
+		modules.LLMModule,
 		modules.WritebackModule,
 		modules.AgentModule,
 		modules.WorkflowModule,

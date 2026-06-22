@@ -3,6 +3,7 @@ package modules
 import (
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/yi-nology/code-review-service/internal/service/llm"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
 
@@ -12,6 +13,7 @@ import (
 var WritebackModule = fx.Options(
 	fx.Provide(NewWritebackOrchestrator),
 	fx.Provide(NewWritebackPublisherAdapter),
+	fx.Provide(NewWritebackTranslator),
 )
 
 func NewWritebackOrchestrator(
@@ -34,4 +36,9 @@ func NewWritebackOrchestrator(
 
 func NewWritebackPublisherAdapter(orch *writeback.Orchestrator) *writeback.WritebackPublisherAdapter {
 	return writeback.NewWritebackPublisherAdapter(orch)
+}
+
+// NewWritebackTranslator 创建拟人化翻译器（阶段 4），复用 LLM Provider。
+func NewWritebackTranslator(provider llm.Provider) *writeback.Translator {
+	return writeback.NewTranslator(provider)
 }

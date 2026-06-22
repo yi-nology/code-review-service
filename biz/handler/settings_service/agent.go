@@ -28,16 +28,24 @@ func ListReviewerAgents(ctx context.Context, c *app.RequestContext) {
 
 func CreateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.CreateReviewerAgentReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	agent := &models.ReviewerAgent{
 		Name: req.Name, DisplayName: req.DisplayName, Description: ptrx.Deref(req.Description, ""),
-		Background: req.Background, Enabled: true,
+		Background: req.Background, Enabled: true, Redundancy: 1,
 	}
 	if req.Enabled != nil {
 		agent.Enabled = *req.Enabled
 	}
 	if req.Priority != nil {
 		agent.Priority = int(*req.Priority)
+	}
+	if req.RuleFile != nil {
+		agent.RuleFile = *req.RuleFile
+	}
+	if req.Redundancy != nil && *req.Redundancy >= 1 {
+		agent.Redundancy = int(*req.Redundancy)
 	}
 	if len(req.Tags) > 0 {
 		agent.Tags = datatypes.JSON(mustMarshalJSON(req.Tags))
@@ -51,7 +59,9 @@ func CreateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 
 func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.UpdateReviewerAgentReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	id, err := parseUintID(req.ID)
 	if err != nil {
 		common.Fail(c, common.BadRequest("invalid agent id"))
@@ -77,6 +87,12 @@ func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	if req.Priority != nil {
 		existing.Priority = int(*req.Priority)
 	}
+	if req.RuleFile != nil {
+		existing.RuleFile = *req.RuleFile
+	}
+	if req.Redundancy != nil && *req.Redundancy >= 1 {
+		existing.Redundancy = int(*req.Redundancy)
+	}
 	if req.Tags != nil {
 		existing.Tags = datatypes.JSON(mustMarshalJSON(req.Tags))
 	}
@@ -89,7 +105,9 @@ func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 
 func DeleteReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.DeleteReviewerAgentReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	id, err := parseUintID(req.ID)
 	if err != nil {
 		common.Fail(c, common.BadRequest("invalid agent id"))
@@ -114,5 +132,6 @@ func dbReviewerAgentToAPI(a *models.ReviewerAgent) *modelSettings.ReviewerAgentI
 		ID: safeInt64(a.ID), Name: a.Name, DisplayName: a.DisplayName,
 		Description: common.StrPtr(a.Description), Background: common.StrPtr(a.Background),
 		Enabled: a.Enabled, Priority: int64(a.Priority), Tags: common.StrPtr(tags),
+		RuleFile: common.StrPtr(a.RuleFile), Redundancy: int64(a.Redundancy),
 	}
 }

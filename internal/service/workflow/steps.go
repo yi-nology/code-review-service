@@ -8,6 +8,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/discussion"
+	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/requirements"
 	"github.com/yi-nology/code-review-service/internal/service/reviewmap"
@@ -44,6 +45,14 @@ func (s *contextDiscoveryStep) Run(ctx context.Context, req workflow.Request, se
 		rs.ParsedReqs = parsedReqs
 	}
 
+	// 阶段 5：发现项目约定文件（AGENTS.md / CLAUDE.md / .cursorrules 等）注入上下文
+	if standards := discoverProjectStandards(rs.Request.Dir); len(standards) > 0 {
+		if rs.Workspace.Context == nil {
+			rs.Workspace.Context = make(map[string]interface{})
+		}
+		rs.Workspace.Context["project_standards"] = standards
+	}
+
 	rs.Tracker.UpdatePhase(progress.PhaseContext, "completed", 100, "Context discovery completed")
 	return nil
 }
@@ -68,9 +77,10 @@ func (s *changeAnalysisStep) Run(ctx context.Context, req workflow.Request, sess
 	return nil
 }
 
-// analysisStep Phase 3: 总结变更和识别风险
+// analysisStep Phase 3: Tech Lead 分析（B2）——总结变更、识别风险
 type analysisStep struct {
 	sessionService sessionService
+	llmProvider    llm.Provider
 }
 
 func (s *analysisStep) Run(ctx context.Context, req workflow.Request, sess workflow.Session) error {
@@ -80,12 +90,73 @@ func (s *analysisStep) Run(ctx context.Context, req workflow.Request, sess workf
 	}
 	rs.Tracker.UpdatePhase(progress.PhaseAnalysis, "active", 0, "Summarizing changes and identifying risks")
 
+	// B2: 用 LLM 做真 Tech Lead 分析；不可用则降级（仅更新进度）
+	if analysis := s.runTechLeadAnalysis(ctx, rs); analysis != nil {
+		rs.TechLeadAnalysis = analysis
+		hlog.Infof("tech lead analysis produced: %d risks, %d recommendations", len(analysis.Risks), len(analysis.Recommendations))
+	}
+
 	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, models.SessionPhaseAnalysis, 50); err != nil {
 		hlog.Errorf("update session phase failed: %v", err)
 	}
 
 	rs.Tracker.UpdatePhase(progress.PhaseAnalysis, "completed", 100, "Analysis completed")
 	return nil
+}
+
+// runTechLeadAnalysis 调用 LLM 产出 Tech Lead 分析（B2）。LLM 不可用时返回 nil（降级）。
+func (s *analysisStep) runTechLeadAnalysis(ctx context.Context, rs *ReviewSession) *TechLeadAnalysis {
+	if s.llmProvider == nil || !s.llmProvider.Available(ctx) {
+		return nil
+	}
+	if strings.TrimSpace(rs.Request.Diff) == "" {
+		return nil
+	}
+
+	diff := rs.Request.Diff
+	const maxDiffChars = 30000
+	if len(diff) > maxDiffChars {
+		diff = diff[:maxDiffChars] + "\n... (diff truncated)"
+	}
+
+	systemPrompt := "你是一名资深技术负责人（Tech Lead），负责分析代码变更。请基于 diff 产出结构化分析：变更摘要、风险点清单、改进建议。只返回 JSON，不要任何解释或 markdown 围栏。"
+
+	// A3：从 diff 提取变更文件清单作为显式范围（无需调二进制 preview 即可获得范围感知）
+	changedFiles := extractChangedFiles(rs.Request.Diff)
+
+	var sb strings.Builder
+	if len(changedFiles) > 0 {
+		sb.WriteString("【变更文件范围】\n")
+		for _, f := range changedFiles {
+			sb.WriteString("- ")
+			sb.WriteString(f)
+			sb.WriteString("\n")
+		}
+		sb.WriteString("\n")
+	}
+	sb.WriteString("【代码变更 diff】\n```\n")
+	sb.WriteString(diff)
+	sb.WriteString("\n```\n")
+	if len(rs.Request.Requirements) > 0 {
+		sb.WriteString("\n【需求上下文】\n")
+		for _, r := range rs.Request.Requirements {
+			sb.WriteString("- ")
+			sb.WriteString(r)
+			sb.WriteString("\n")
+		}
+	}
+	sb.WriteString("\n请返回 JSON：{\"summary\": \"变更摘要\", \"risks\": [\"风险点\"], \"recommendations\": [\"改进建议\"]}")
+
+	var analysis TechLeadAnalysis
+	if err := llm.CompleteJSON(ctx, s.llmProvider, llm.CompleteRequest{
+		SystemPrompt: systemPrompt,
+		UserPrompt:   sb.String(),
+		MaxTokens:    2048,
+	}, &analysis); err != nil {
+		hlog.Warnf("tech lead LLM analysis failed (degraded): %v", err)
+		return nil
+	}
+	return &analysis
 }
 
 // parallelReviewsStep Phase 4: 并行运行多个 review agents
@@ -124,8 +195,8 @@ func (s *parallelReviewsStep) Run(ctx context.Context, req workflow.Request, ses
 
 	rs.Workspace = workspace
 
-	// 运行 agents
-	aggregatedResult, err := s.agentManager.RunAgentsWithCallback(ctx, workspace, func(status agent.AgentStatus) {
+	// 运行 agents（含 ephemeral，阶段 5）
+	aggregatedResult, err := s.agentManager.RunAgentsWithEphemeral(ctx, workspace, rs.Request.EphemeralReviewers, func(status agent.AgentStatus) {
 		rs.Tracker.UpdateAgentStatus(status.Name, status.Status, status.Progress, status.Message)
 	})
 
@@ -212,6 +283,7 @@ type synthesisStep struct {
 	sessionService     sessionService
 	enableRequirements bool
 	enableReviewMap    bool
+	llmProvider        llm.Provider
 }
 
 func (s *synthesisStep) Run(ctx context.Context, req workflow.Request, sess workflow.Session) error {
@@ -253,15 +325,39 @@ func (s *synthesisStep) Run(ctx context.Context, req workflow.Request, sess work
 	// 生成最终报告
 	if rs.AggregatedResult != nil {
 		report := generateFinalReport(*rs.AggregatedResult, rs.DiscussionResult, rs.Requirements)
+
+		// 阶段 4：用 LLM 生成澄清问题（需求歧义/范围/验收/边缘场景），LLM 不可用时为空
+		if len(rs.Request.Requirements) > 0 {
+			reqFindings := make([]requirements.Finding, len(rs.AggregatedResult.Findings))
+			copy(reqFindings, rs.AggregatedResult.Findings)
+			questions := requirements.GenerateClarifyingQuestions(ctx, s.llmProvider, rs.Request.Requirements, reqFindings)
+			report.ClarifyingQuestions = toWorkflowQuestions(questions)
+		}
+
 		rs.FinalReport = &report
 
-		// 更新 session
+		// 更新 session（持久化 TechLeadAnalysis + ClarifyingQuestions，阶段 4/B2）
 		finalReportData := models.FinalReportData{
 			Verdict:    report.Verdict,
 			Summary:    report.Summary,
 			Score:      report.Score,
 			GatePassed: report.GatePassed,
 			GateReason: report.GateReason,
+		}
+		if len(report.ClarifyingQuestions) > 0 {
+			finalReportData.ClarifyingQuestions = make([]models.ClarifyingQuestionData, len(report.ClarifyingQuestions))
+			for i, q := range report.ClarifyingQuestions {
+				finalReportData.ClarifyingQuestions[i] = models.ClarifyingQuestionData{
+					Category: q.Category, Question: q.Question, Context: q.Context,
+				}
+			}
+		}
+		if rs.TechLeadAnalysis != nil {
+			finalReportData.TechLeadAnalysis = &models.TechLeadAnalysisData{
+				Summary:         rs.TechLeadAnalysis.Summary,
+				Risks:           rs.TechLeadAnalysis.Risks,
+				Recommendations: rs.TechLeadAnalysis.Recommendations,
+			}
 		}
 		if err := s.sessionService.UpdateFinalReport(ctx, rs.SessionID, finalReportData); err != nil {
 			hlog.Errorf("update session final report failed: %v", err)
@@ -314,6 +410,18 @@ func updateFindingsFromDiscussion(findings []agent.Finding, discussionResult *di
 			findings[i].Confidence = newConfidence
 		}
 	}
+}
+
+// toWorkflowQuestions 把 requirements.ClarifyingQuestion 转为 workflow 本地类型。
+func toWorkflowQuestions(qs []requirements.ClarifyingQuestion) []ClarifyingQuestion {
+	if len(qs) == 0 {
+		return nil
+	}
+	out := make([]ClarifyingQuestion, len(qs))
+	for i, q := range qs {
+		out[i] = ClarifyingQuestion{Category: q.Category, Question: q.Question, Context: q.Context}
+	}
+	return out
 }
 
 // generateFinalReport 生成最终报告

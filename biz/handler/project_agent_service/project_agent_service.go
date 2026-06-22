@@ -32,7 +32,9 @@ func InitHandler(
 
 func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelProjectAgent.GetProjectAgentsReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	projectAgents, err := handlerInst.projectAgentRepo.GetByProject(ctx, req.Provider, req.Repo)
 	if err != nil {
@@ -81,7 +83,9 @@ func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
 
 func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelProjectAgent.UpdateProjectAgentReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	_, err := handlerInst.reviewerAgentRepo.GetByID(ctx, common.SafeUint(req.AgentID))
 	if err != nil {
@@ -110,7 +114,9 @@ func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
 
 func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelProjectAgent.BatchUpdateProjectAgentsReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	if err := handlerInst.projectAgentRepo.DeleteByProject(ctx, req.Provider, req.Repo); err != nil {
 		hlog.Errorf("delete project agents failed: %v", err)
@@ -139,7 +145,9 @@ func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
 
 func DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelProjectAgent.DeleteProjectAgentReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	if err := handlerInst.projectAgentRepo.Delete(ctx, req.Provider, req.Repo, common.SafeUint(req.AgentID)); err != nil {
 		hlog.Errorf("delete project agent failed: %v", err)

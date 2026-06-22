@@ -2,7 +2,7 @@ package agent
 
 import (
 	"context"
-
+	"fmt"
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
@@ -11,8 +11,8 @@ import (
 
 // reviewRunnerFactory creates review runners with different configurations
 type reviewRunnerFactory interface {
-	// CreateRunner creates a runner with the given background
-	CreateRunner(background string) reviewRunner
+	// CreateRunner creates a runner with the given background and rule content (路径 A1)
+	CreateRunner(background, ruleContent string) reviewRunner
 }
 
 // AgentLoader loads agents from database
@@ -47,23 +47,37 @@ func (l *AgentLoader) LoadFromDB(ctx context.Context, agents []models.ReviewerAg
 			continue
 		}
 
-		// Create runner with agent-specific background
-		runner := l.factory.CreateRunner(agentModel.Background)
-
-		// Create agent config
-		agentConfig := ocrAgentConfig{
-			Name:     agentModel.Name,
-			Priority: agentModel.Priority,
-			Focus:    extractTags(agentModel.Tags),
-			Timeout:  l.timeout,
+		// 冗余次数（路径 A4）：默认 1，<1 视为 1
+		redundancy := agentModel.Redundancy
+		if redundancy < 1 {
+			redundancy = 1
 		}
 
-		agent := newOCRAgent(runner, agentConfig)
-		l.agentManager.RegisterAgent(agent)
-		loaded++
+		for i := 1; i <= redundancy; i++ {
+			// 每个 persona 实例共享同一 runner（相同 background + rule）
+			runnerInstance := l.factory.CreateRunner(agentModel.Background, agentModel.RuleFile)
 
-		hlog.Infof("loaded agent from DB: %s (priority: %d, background: %d chars)",
-			agentModel.Name, agentModel.Priority, len(agentModel.Background))
+			// 实例名：冗余>1 时加后缀，便于聚合时区分；persona 基名保持 agentModel.Name
+			instanceName := agentModel.Name
+			if redundancy > 1 {
+				instanceName = fmt.Sprintf("%s-%d", agentModel.Name, i)
+			}
+
+			agentConfig := ocrAgentConfig{
+				Name:     instanceName,
+				Persona:  agentModel.Name,
+				Priority: agentModel.Priority,
+				Focus:    extractTags(agentModel.Tags),
+				Timeout:  l.timeout,
+			}
+
+			agentInstance := newOCRAgent(runnerInstance, agentConfig)
+			l.agentManager.RegisterAgent(agentInstance)
+			loaded++
+		}
+
+		hlog.Infof("loaded agent from DB: %s (priority: %d, background: %d chars, rule: %d chars, redundancy: %d)",
+			agentModel.Name, agentModel.Priority, len(agentModel.Background), len(agentModel.RuleFile), redundancy)
 	}
 
 	hlog.Infof("loaded %d agents from database", loaded)
@@ -72,7 +86,7 @@ func (l *AgentLoader) LoadFromDB(ctx context.Context, agents []models.ReviewerAg
 
 // LoadDefaultAgent loads a single default agent with the given background
 func (l *AgentLoader) LoadDefaultAgent(background string) {
-	runner := l.factory.CreateRunner(background)
+	runner := l.factory.CreateRunner(background, "")
 
 	agentConfig := ocrAgentConfig{
 		Name:     "default",

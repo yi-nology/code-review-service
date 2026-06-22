@@ -12,6 +12,7 @@ const (
 	responseAgree     responseType = "AGREE"
 	responseChallenge responseType = "CHALLENGE"
 	responseConnect   responseType = "CONNECT"
+	responseSurface   responseType = "SURFACE"
 )
 
 type discussionEntry struct {

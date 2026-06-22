@@ -7,6 +7,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/discussion"
+	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/oekit/workflow"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
@@ -18,6 +19,7 @@ type ReviewWorkflow struct {
 	sessionService  sessionService
 	progressManager *progress.ProgressManager
 	discussionOrch  *discussion.Orchestrator
+	llmProvider     llm.Provider
 	config          WorkflowConfig
 }
 
@@ -44,13 +46,15 @@ func NewReviewWorkflow(
 	agentManager *agent.AgentManager,
 	sessionService sessionService,
 	progressManager *progress.ProgressManager,
+	llmProvider llm.Provider,
 	config WorkflowConfig,
 ) *ReviewWorkflow {
 	return &ReviewWorkflow{
 		agentManager:    agentManager,
 		sessionService:  sessionService,
 		progressManager: progressManager,
-		discussionOrch:  discussion.NewOrchestrator(discussion.DefaultDiscussionConfig()),
+		discussionOrch:  discussion.NewOrchestrator(discussion.DefaultDiscussionConfig(), llmProvider),
+		llmProvider:     llmProvider,
 		config:          config,
 	}
 }
@@ -100,6 +104,7 @@ func (w *ReviewWorkflow) RunReview(ctx context.Context, request ReviewRequest) (
 	result.Discussion = rs.DiscussionResult
 	result.Requirements = rs.Requirements
 	result.ReviewMap = rs.ReviewMap
+	result.TechLeadAnalysis = rs.TechLeadAnalysis
 	if rs.FinalReport != nil {
 		result.FinalReport = *rs.FinalReport
 	}
@@ -123,6 +128,7 @@ func (w *ReviewWorkflow) buildPipeline() *workflow.PipeFlow {
 	// Phase 3: Analysis
 	pipe.Add(&analysisStep{
 		sessionService: w.sessionService,
+		llmProvider:    w.llmProvider,
 	})
 
 	// Phase 4: Parallel Reviews
@@ -150,6 +156,7 @@ func (w *ReviewWorkflow) buildPipeline() *workflow.PipeFlow {
 		sessionService:     w.sessionService,
 		enableRequirements: w.config.EnableRequirements,
 		enableReviewMap:    w.config.EnableReviewMap,
+		llmProvider:        w.llmProvider,
 	})
 
 	// Phase 8: Complete
