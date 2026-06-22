@@ -119,27 +119,7 @@ func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Wor
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	env := os.Environ()
-	if r.config.URL != "" {
-		env = append(env, "OCR_LLM_URL="+r.config.URL)
-	}
-	if r.config.Model != "" {
-		env = append(env, "OCR_LLM_MODEL="+r.config.Model)
-	}
-	if r.config.AuthToken != "" {
-		env = append(env, "OCR_LLM_TOKEN="+r.config.AuthToken)
-	}
-	if r.config.AuthHeader != "" {
-		env = append(env, "OCR_LLM_AUTH_HEADER="+r.config.AuthHeader)
-	}
-	if r.config.UseAnthropic {
-		env = append(env, "OCR_USE_ANTHROPIC=true")
-	}
-	if r.config.Language != "" {
-		env = append(env, "OCR_LANGUAGE="+r.config.Language)
-	}
-	if r.config.ExtraBody != "" {
-		env = append(env, "OCR_LLM_EXTRA_BODY="+r.config.ExtraBody)
-	}
+	env = AppendLLMEnv(env, r.config)
 	cmd.Env = env
 
 	var stdout bytes.Buffer

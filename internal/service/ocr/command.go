@@ -43,29 +43,4 @@ func resolveBinaryFrom(s *models.OCRSettings, fallback runner.OpenCodeReviewConf
 	return "ocr"
 }
 
-func appendLLMEnv(env []string, cfg runner.OpenCodeReviewConfig) []string {
-	if cfg.URL != "" {
-		env = append(env, "OCR_LLM_URL="+cfg.URL)
-	}
-	if cfg.Model != "" {
-		env = append(env, "OCR_LLM_MODEL="+cfg.Model)
-	}
-	if cfg.AuthToken != "" {
-		env = append(env, "OCR_LLM_TOKEN="+cfg.AuthToken)
-	}
-	if cfg.AuthHeader != "" {
-		env = append(env, "OCR_LLM_AUTH_HEADER="+cfg.AuthHeader)
-	}
-	if cfg.UseAnthropic {
-		env = append(env, "OCR_USE_ANTHROPIC=true")
-	} else {
-		env = append(env, "OCR_USE_ANTHROPIC=false")
-	}
-	if cfg.Language != "" {
-		env = append(env, "OCR_LANGUAGE="+cfg.Language)
-	}
-	if cfg.ExtraBody != "" {
-		env = append(env, "OCR_LLM_EXTRA_BODY="+cfg.ExtraBody)
-	}
-	return env
-}
+// appendLLMEnv 已迁移到 runner.AppendLLMEnv

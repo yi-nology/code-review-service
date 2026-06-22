@@ -2,6 +2,7 @@ package settings_service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
@@ -61,7 +62,7 @@ func PutPlatform(ctx context.Context, c *app.RequestContext) {
 	p := &models.GitPlatform{
 		Provider: req.Provider, BaseURL: ptrx.Deref(req.BaseURL, ""),
 		Token: token, WebhookSecret: ptrx.Deref(req.WebhookSecret, ""), Enabled: enabled,
-		InstallationID: installationID,
+		InstallationID: installationID, SkipTLS: ptrx.Deref(req.SkipTLS, false),
 	}
 	if err := handlerInst.platform.Save(ctx, p); err != nil {
 		common.Fail(c, common.BizErr(500, "保存平台配置失败"))
@@ -69,7 +70,10 @@ func PutPlatform(ctx context.Context, c *app.RequestContext) {
 	}
 	if handlerInst.gitMgr != nil {
 		if enabled {
-			_ = handlerInst.gitMgr.AddOrUpdateFromDB(p)
+			if err := handlerInst.gitMgr.AddOrUpdateFromDB(p); err != nil {
+				common.Fail(c, fmt.Errorf("注册平台失败: %w", err))
+				return
+			}
 		} else {
 			handlerInst.gitMgr.Remove(p.Provider)
 		}
@@ -111,7 +115,7 @@ func TestPlatform(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, common.BadRequest("平台和 Token 不能为空"))
 		return
 	}
-	result, err := handlerInst.gitMgr.TestWithToken(ctx, req.Provider, ptrx.Deref(req.BaseURL, ""), req.Token)
+	result, err := handlerInst.gitMgr.TestWithToken(ctx, req.Provider, ptrx.Deref(req.BaseURL, ""), req.Token, ptrx.Deref(req.SkipTLS, false))
 	if err != nil {
 		common.Success(c, &modelSettings.TestPlatformResp{
 			Result: &modelSettings.GitTestResult{Connected: false, Platform: req.Provider, Message: common.StrPtr(err.Error())},

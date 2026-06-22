@@ -56,9 +56,6 @@ func CreateCustomProvider(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, err)
 		return
 	}
-	if handlerInst.configSync != nil {
-		_ = handlerInst.configSync.Sync(ctx)
-	}
 	common.Success(c, &modelSettings.CreateCustomProviderResp{Provider: dbCustomProviderToAPI(p)})
 }
 
@@ -100,9 +97,6 @@ func UpdateCustomProvider(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, err)
 		return
 	}
-	if handlerInst.configSync != nil {
-		_ = handlerInst.configSync.Sync(ctx)
-	}
 	common.Success(c, &modelSettings.UpdateCustomProviderResp{Provider: dbCustomProviderToAPI(existing)})
 }
 
@@ -114,9 +108,6 @@ func DeleteCustomProvider(ctx context.Context, c *app.RequestContext) {
 	if err := handlerInst.customProvider.Delete(ctx, safeUint(req.ID)); err != nil {
 		common.Fail(c, err)
 		return
-	}
-	if handlerInst.configSync != nil {
-		_ = handlerInst.configSync.Sync(ctx)
 	}
 	common.Success(c, &modelSettings.DeleteCustomProviderResp{})
 }

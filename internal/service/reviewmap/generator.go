@@ -16,6 +16,16 @@ func NewGenerator() *Generator {
 
 func (g *Generator) Generate(sessionID string, diff string, findings []Finding) (*ReviewMap, error) {
 	files := g.parseDiffFiles(diff)
+	// 兜底：diff 解析出 0 文件时，从 findings 的文件路径提取
+	if len(files) == 0 && len(findings) > 0 {
+		seen := make(map[string]bool)
+		for _, f := range findings {
+			if f.Path != "" && !seen[f.Path] {
+				seen[f.Path] = true
+				files = append(files, File{Path: f.Path, Language: inferLanguage(f.Path)})
+			}
+		}
+	}
 	sections := g.groupFilesIntoSections(files)
 	g.addFindingsToSections(sections, findings)
 	dependencies := g.generateDependencies(files)
@@ -37,14 +47,28 @@ func (g *Generator) Generate(sessionID string, diff string, findings []Finding) 
 
 func (g *Generator) parseDiffFiles(diff string) []File {
 	var files []File
+	seen := make(map[string]bool)
 	for _, line := range strings.Split(diff, "\n") {
-		if strings.HasPrefix(line, "diff --git") {
+		var path string
+		switch {
+		case strings.HasPrefix(line, "diff --git"):
+			// diff --git a/foo.go b/foo.go
 			parts := strings.Fields(line)
 			if len(parts) >= 4 {
-				path := strings.TrimPrefix(parts[3], "b/")
-				files = append(files, File{Path: path, Language: inferLanguage(path)})
+				path = strings.TrimPrefix(parts[len(parts)-1], "b/")
 			}
+		case strings.HasPrefix(line, "+++ ") && !strings.HasPrefix(line, "+++ /dev/null"):
+			// +++ b/foo.go
+			path = strings.TrimSpace(strings.TrimPrefix(line, "+++"))
+			path = strings.TrimSpace(strings.TrimPrefix(path, "b/"))
+		default:
+			continue
 		}
+		if path == "" || path == "/dev/null" || seen[path] {
+			continue
+		}
+		seen[path] = true
+		files = append(files, File{Path: path, Language: inferLanguage(path)})
 	}
 	return files
 }

@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -264,19 +265,25 @@ func (s *GitProviderService) GetSupportedPlatforms() []string {
 }
 
 func (s *GitProviderService) AddOrUpdateFromDB(p *models.GitPlatform) error {
+	// 自签名证书的平台：git clone 子进程也需跳过 SSL 验证
+	if p.SkipTLS {
+		_ = os.Setenv("GIT_SSL_NO_VERIFY", "true")
+	}
 	cfg := provider.Config{
 		Platform: provider.Platform(p.Provider),
 		BaseURL:  p.BaseURL,
 		Token:    p.Token,
+		SkipTLS:  p.SkipTLS,
 	}
 	return s.AddOrUpdate(p.Provider, cfg)
 }
 
-func (s *GitProviderService) TestWithToken(ctx context.Context, platform, baseURL, token string) (*models.GitTestResult, error) {
+func (s *GitProviderService) TestWithToken(ctx context.Context, platform, baseURL, token string, skipTLS bool) (*models.GitTestResult, error) {
 	cfg := provider.Config{
 		Platform: provider.Platform(platform),
 		BaseURL:  baseURL,
 		Token:    token,
+		SkipTLS:  skipTLS,
 	}
 	p, err := provider.NewProvider(cfg)
 	if err != nil {

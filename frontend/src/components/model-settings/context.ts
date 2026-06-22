@@ -1,6 +1,6 @@
 import { inject } from 'vue'
 import type { InjectionKey, Ref } from 'vue'
-import type { OCRSettings } from '@/types/config'
+import type { OCRSettings, LLMProvider, CustomProvider } from '@/types/config'
 
 export interface ModelSettingsContext {
   form: OCRSettings
@@ -10,6 +10,9 @@ export interface ModelSettingsContext {
   save: () => void
   testLLM: () => void
   syncExtraBody: (showError?: boolean) => boolean
+  selectedProvider: Ref<LLMProvider | CustomProvider | null>
+  selectedProviderType: Ref<'builtin' | 'custom' | null>
+  selectProvider: (provider: LLMProvider | CustomProvider, type: 'builtin' | 'custom') => void
 }
 
 export const modelSettingsKey: InjectionKey<ModelSettingsContext> = Symbol('modelSettings')

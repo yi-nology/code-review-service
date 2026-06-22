@@ -81,6 +81,7 @@ func (s *changeAnalysisStep) Run(ctx context.Context, req workflow.Request, sess
 type analysisStep struct {
 	sessionService sessionService
 	llmProvider    llm.Provider
+	config         WorkflowConfig
 }
 
 func (s *analysisStep) Run(ctx context.Context, req workflow.Request, sess workflow.Session) error {
@@ -114,7 +115,7 @@ func (s *analysisStep) runTechLeadAnalysis(ctx context.Context, rs *ReviewSessio
 	}
 
 	diff := rs.Request.Diff
-	const maxDiffChars = 30000
+	maxDiffChars := s.config.GetMaxDiffChars()
 	if len(diff) > maxDiffChars {
 		diff = diff[:maxDiffChars] + "\n... (diff truncated)"
 	}
@@ -336,13 +337,16 @@ func (s *synthesisStep) Run(ctx context.Context, req workflow.Request, sess work
 
 		rs.FinalReport = &report
 
-		// 更新 session（持久化 TechLeadAnalysis + ClarifyingQuestions，阶段 4/B2）
+		// 更新 session（持久化完整报告，阶段 4/B2）
 		finalReportData := models.FinalReportData{
-			Verdict:    report.Verdict,
-			Summary:    report.Summary,
-			Score:      report.Score,
-			GatePassed: report.GatePassed,
-			GateReason: report.GateReason,
+			Verdict:     report.Verdict,
+			Summary:     report.Summary,
+			Score:       report.Score,
+			GatePassed:  report.GatePassed,
+			GateReason:  report.GateReason,
+			Blockers:    toFindingDataSlice(report.Blockers),
+			ShouldFix:   toFindingDataSlice(report.ShouldFix),
+			Suggestions: toFindingDataSlice(report.Suggestions),
 		}
 		if len(report.ClarifyingQuestions) > 0 {
 			finalReportData.ClarifyingQuestions = make([]models.ClarifyingQuestionData, len(report.ClarifyingQuestions))
@@ -424,6 +428,23 @@ func toWorkflowQuestions(qs []requirements.ClarifyingQuestion) []ClarifyingQuest
 	return out
 }
 
+// toFindingDataSlice 把 agent.Finding 转为 models.FindingData（持久化到 session）。
+func toFindingDataSlice(findings []agent.Finding) []models.FindingData {
+	if len(findings) == 0 {
+		return nil
+	}
+	out := make([]models.FindingData, len(findings))
+	for i, f := range findings {
+		out[i] = models.FindingData{
+			ID: f.ID, Severity: f.Severity, Category: f.Category,
+			Path: f.Path, Line: f.Line, EndLine: f.EndLine,
+			Title: f.Title, Body: f.Body, Suggestion: f.Suggestion,
+			Confidence: f.Confidence, Agents: f.Agents,
+		}
+	}
+	return out
+}
+
 // generateFinalReport 生成最终报告
 func generateFinalReport(
 	aggregatedResult agent.AggregatedResult,
@@ -445,10 +466,26 @@ func generateFinalReport(
 		}
 	}
 
+	// 评分：各类别递减扣分 + 上限，避免少量问题就归零
 	score := 100
-	score -= len(blockers) * 25
-	score -= len(shouldFix) * 12
-	score -= len(suggestions) * 5
+	// Blockers: 每个 -25，最多扣 75
+	deduct := len(blockers) * 25
+	if deduct > 75 {
+		deduct = 75
+	}
+	score -= deduct
+	// ShouldFix: 每个 -8，最多扣 50
+	deduct = len(shouldFix) * 8
+	if deduct > 50 {
+		deduct = 50
+	}
+	score -= deduct
+	// Suggestions: 每个 -3，最多扣 15
+	deduct = len(suggestions) * 3
+	if deduct > 15 {
+		deduct = 15
+	}
+	score -= deduct
 	if score < 0 {
 		score = 0
 	}

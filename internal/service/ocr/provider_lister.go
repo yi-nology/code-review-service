@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 )
 
@@ -57,12 +58,31 @@ func (l *ProviderLister) ListLLMProviders(ctx context.Context) ([]review.LLMProv
 				if len(fields) >= 3 {
 					p.BaseURL = fields[2]
 				}
+				// 使用预设系统获取模型列表和 URL
+				if preset := getProviderPreset(p.Name); preset != nil {
+					p.BaseURL = preset.BaseURL
+					models := make([]string, len(preset.Models))
+					for i, m := range preset.Models {
+						models[i] = m.ID
+					}
+					p.DefaultModel = models
+				}
 				providers = append(providers, p)
 			}
 		}
 	}
 
 	return providers, nil
+}
+
+// getProviderPreset 从预设系统获取提供商配置
+func getProviderPreset(name string) *llm.ProviderPreset {
+	for _, preset := range llm.Presets {
+		if preset.ID == name || strings.EqualFold(preset.ID, name) {
+			return &preset
+		}
+	}
+	return nil
 }
 
 var _ review.LLMProviderLister = (*ProviderLister)(nil)

@@ -14,7 +14,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 	svcReview "github.com/yi-nology/code-review-service/internal/service/review"
-	"github.com/yi-nology/code-review-service/internal/service/runner"
 	"github.com/yi-nology/code-review-service/internal/service/session"
 	statsSvc "github.com/yi-nology/code-review-service/internal/service/stats"
 	"github.com/yi-nology/code-review-service/internal/service/webhook"
@@ -51,7 +50,6 @@ func InitSettingsHandler(
 	rulesChecker *ocr.RulesChecker,
 	versioner *ocr.Versioner,
 	viewerMgr *ocr.ViewerManager,
-	configFileWriter *runner.ConfigFileWriter,
 ) {
 	settings_service.InitHandler(
 		repos.OCRSettings,
@@ -66,7 +64,6 @@ func InitSettingsHandler(
 		rulesChecker,
 		versioner,
 		viewerMgr,
-		configFileWriter,
 	)
 }
 

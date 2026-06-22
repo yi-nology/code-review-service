@@ -3,6 +3,7 @@ package modules
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/repository"
@@ -43,6 +44,12 @@ func NewGitProviderService(lc fx.Lifecycle, cfg *config.Config, repos *repositor
 			Platform: gitplatform.Platform(p.Provider),
 			BaseURL:  p.BaseURL,
 			Token:    p.Token,
+			SkipTLS:  p.SkipTLS,
+		}
+		// 自签名证书的平台：git clone 子进程也需要跳过 SSL 验证
+		if p.SkipTLS {
+			os.Setenv("GIT_SSL_NO_VERIFY", "true")
+			hlog.Infof("init: GIT_SSL_NO_VERIFY enabled for platform %s (self-signed cert)", p.Provider)
 		}
 	}
 
@@ -68,6 +75,17 @@ func NewGitProviderService(lc fx.Lifecycle, cfg *config.Config, repos *repositor
 	if err != nil {
 		return nil, fmt.Errorf("init git providers: %w", err)
 	}
+
+	// 用 AddOrUpdateFromDB 重新注册所有 DB 平台（确保 SkipTLS + GIT_SSL_NO_VERIFY 生效）
+	for _, p := range dbPlatforms {
+		if p.SkipTLS {
+			os.Setenv("GIT_SSL_NO_VERIFY", "true")
+		}
+		if err := svc.AddOrUpdateFromDB(&p); err != nil {
+			hlog.Errorf("init: re-register platform %s failed: %v", p.Provider, err)
+		}
+	}
+
 	hlog.Infof("git providers initialized: %v", svc.GetSupportedPlatforms())
 	return svc, nil
 }

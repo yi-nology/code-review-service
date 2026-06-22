@@ -1,8 +1,6 @@
 package settings_service
 
 import (
-	"context"
-
 	svcApp "github.com/yi-nology/code-review-service/internal/app"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/review"
@@ -23,11 +21,6 @@ type SettingsHandler struct {
 	rulesChecker   review.RulesChecker
 	ocrVersioner   review.OCRVersioner
 	viewerMgr      review.ViewerManager
-	configSync     ConfigSyncer
-}
-
-type ConfigSyncer interface {
-	Sync(ctx context.Context) error
 }
 
 func InitHandler(
@@ -43,7 +36,6 @@ func InitHandler(
 	rulesChecker review.RulesChecker,
 	ocrVersioner review.OCRVersioner,
 	viewerMgr review.ViewerManager,
-	configSync ConfigSyncer,
 ) {
 	handlerInst = &SettingsHandler{
 		ocrRepo:        ocrRepo,
@@ -58,6 +50,5 @@ func InitHandler(
 		rulesChecker:   rulesChecker,
 		ocrVersioner:   ocrVersioner,
 		viewerMgr:      viewerMgr,
-		configSync:     configSync,
 	}
 }

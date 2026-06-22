@@ -25,6 +25,16 @@ func NewAgentManager() *agent.AgentManager {
 func InitAgentManager(lc fx.Lifecycle, cfg *config.Config, repos *repository.RepoContainer, agentMgr *agent.AgentManager) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			// 读取 OCRSettings 获取推理模式配置
+			var reasoningExtraBody string
+			if ocrSettings, err := repos.OCRSettings.Get(ctx); err == nil && ocrSettings != nil {
+				mode := ocrSettings.ReasoningMode
+				if mode == "" {
+					mode = "light"
+				}
+				reasoningExtraBody = runner.ResolveExtraBody(string(ocrSettings.ExtraBody), mode, ocrSettings.ReasoningBudget, ocrSettings.Provider)
+			}
+
 			runnerFactory := agent.NewOCRRunnerFactory(runner.OpenCodeReviewConfig{
 				Binary:          cfg.OCR.Binary,
 				RulePath:        cfg.OCR.Rule,
@@ -32,6 +42,7 @@ func InitAgentManager(lc fx.Lifecycle, cfg *config.Config, repos *repository.Rep
 				Concurrency:     2,
 				MaxGitProcs:     4,
 				TimeoutMinutes:  30,
+				ExtraBody:       reasoningExtraBody,
 			})
 			agentMgr.SetFactory(runnerFactory) // 阶段 5：使 manager 具备构造 ephemeral agent 的能力
 			agentLoader := agent.NewAgentLoader(agentMgr, runnerFactory, 10*time.Minute)

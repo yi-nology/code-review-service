@@ -49,9 +49,6 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, common.BadRequest(err.Error()))
 		return
 	}
-	if handlerInst.configSync != nil {
-		_ = handlerInst.configSync.Sync(ctx)
-	}
 	resp := dbOCRSettingsToAPI(dbSettings)
 	if ptrx.Deref(resp.AuthToken, "") != "" {
 		resp.AuthToken = common.StrPtr("***")
@@ -131,6 +128,8 @@ func dbOCRSettingsToAPI(s *models.OCRSettings) *modelSettings.OCRSettings {
 		ToolsPath:        common.StrPtr(s.ToolsPath),
 		TelemetryEnabled: ptrx.Of(s.TelemetryEnabled), TelemetryExporter: common.StrPtr(s.TelemetryExporter),
 		TelemetryOtlpEndpoint: common.StrPtr(s.TelemetryOTLPEndpoint), TelemetryContentLogging: ptrx.Of(s.TelemetryContentLogging),
+		ReasoningMode:   common.StrPtr(s.ReasoningMode),
+		ReasoningBudget: ptrx.Of(int64(s.ReasoningBudget)),
 	}
 }
 
@@ -160,6 +159,8 @@ func apiOCRSettingsToDB(s *modelSettings.OCRSettings) *models.OCRSettings {
 	db.TelemetryExporter = ptrx.Deref(s.TelemetryExporter, "")
 	db.TelemetryOTLPEndpoint = ptrx.Deref(s.TelemetryOtlpEndpoint, "")
 	db.TelemetryContentLogging = ptrx.Deref(s.TelemetryContentLogging, false)
+	db.ReasoningMode = ptrx.Deref(s.ReasoningMode, "")
+	db.ReasoningBudget = int(ptrx.Deref(s.ReasoningBudget, 0))
 	if s.IsSetExtraBody() && s.ExtraBody != nil && *s.ExtraBody != "" {
 		db.ExtraBody = datatypes.JSON(*s.ExtraBody)
 	}

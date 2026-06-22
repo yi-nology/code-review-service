@@ -33,6 +33,7 @@ func (r *OCRSettingsRepo) Get(ctx context.Context) (*models.OCRSettings, error) 
 				Concurrency:     2,
 				MaxGitProcs:     4,
 				TimeoutMinutes:  10,
+				ReasoningMode:   "light",
 			}, nil
 		}
 		return nil, err

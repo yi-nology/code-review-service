@@ -235,6 +235,11 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 		Summary:  result.FinalReport.Summary,
 		Findings: findings,
 		Scope:    scope,
+		OCR: review.OCRMetadata{
+			Engine:        "workflow",
+			Status:        review.OCRStatusSuccess,
+			FilesReviewed: int64(scope.ChangedFiles),
+		},
 	}
 	report := review.BuildReport(&dummyResult)
 	analysis := review.Analysis{

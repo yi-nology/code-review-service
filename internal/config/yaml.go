@@ -38,11 +38,13 @@ type ReviewConfig struct {
 }
 
 type OCRConfig struct {
-	Enabled    bool   `yaml:"enabled"`
-	Binary     string `yaml:"binary"`
-	Rule       string `yaml:"rule"`
-	Command    string `yaml:"command"`
-	ConfigFile string `yaml:"config_file"`
+	Enabled         bool   `yaml:"enabled"`
+	Binary          string `yaml:"binary"`
+	Rule            string `yaml:"rule"`
+	Command         string `yaml:"command"`
+	ConfigFile      string `yaml:"config_file"`
+	ContextWindow   int    `yaml:"context_window"`
+	MaxOutputTokens int    `yaml:"max_output_tokens"`
 }
 
 type PolicyConfig struct {

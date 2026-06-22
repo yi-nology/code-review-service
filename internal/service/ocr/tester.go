@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/runner"
 )
 
 type Tester struct {
@@ -31,7 +32,7 @@ func (t *Tester) TestLLM(ctx context.Context) (*review.LLMTestResult, error) {
 
 	args := []string{"llm", "test"}
 	env := os.Environ()
-	env = appendLLMEnv(env, cfg)
+	env = runner.AppendLLMEnv(env, cfg)
 
 	result, err := runOCRCommand(ctx, cfg.Binary, args, env)
 	if err != nil {
