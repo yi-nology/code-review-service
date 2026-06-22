@@ -119,16 +119,13 @@
       </div>
 
       <div v-if="selectedRepo" class="pr-panel">
-        <div class="pr-panel-header">
+        <div class="pr-panel-header" v-if="pullRequests.length > 0 || prsLoading">
           <div class="pr-panel-title">
             <span>PR 列表</span>
             <el-tag size="small" type="info">{{ filteredPullRequests.length }} / {{ pullRequests.length }}</el-tag>
           </div>
           <div class="pr-panel-controls">
-            <el-radio-group v-model="prState" size="small" @change="reloadPullRequests">
-              <el-radio-button value="opened">打开中</el-radio-button>
-              <el-radio-button value="all">全部</el-radio-button>
-            </el-radio-group>
+            <el-segmented v-model="prState" :options="prStateOptions" size="small" @change="reloadPullRequests" />
             <el-input v-model="prKeyword" :prefix-icon="Search" placeholder="搜索标题、编号、分支" clearable size="small" class="pr-panel-search" />
           </div>
         </div>
@@ -165,13 +162,12 @@
           </button>
         </div>
 
-        <el-empty v-else description="没有符合条件的 PR/MR/CR" :image-size="72">
-          <template #description>
-            <p>没有符合条件的 PR/MR/CR</p>
-            <small v-if="prKeyword">尝试清除搜索关键词，或切换到「全部」状态</small>
-            <small v-else>该仓库当前没有 PR/MR/CR，可以切换到「分支对比」模式</small>
-          </template>
-        </el-empty>
+        <div v-else class="pr-panel-empty">
+          <el-icon size="36" color="#c0c4cc"><Connection /></el-icon>
+          <p>该仓库暂无{{ prState === 'opened' ? '打开中的' : '' }} PR/MR/CR</p>
+          <small v-if="prState === 'opened' && pullRequests.length === 0">可以切换到「分支对比」模式直接比较两个分支</small>
+          <small v-else-if="prKeyword">没有匹配「{{ prKeyword }}」的结果，试试清除搜索</small>
+        </div>
       </div>
 
       <div v-else class="pr-empty-hint">
@@ -407,6 +403,10 @@ const selectedPR = ref<number | null>(null)
 const selectedPRInfo = ref<PlatformPullRequest | null>(null)
 const prKeyword = ref('')
 const prState = ref('opened')
+const prStateOptions = [
+  { label: '打开中', value: 'opened' },
+  { label: '全部', value: 'all' },
+]
 
 const branches = ref<PlatformBranch[]>([])
 const branchesLoading = ref(false)
@@ -1210,6 +1210,28 @@ watch(visible, async (v) => {
   padding: 12px;
   border-radius: 10px;
   background: #f7f8fc;
+}
+
+.pr-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 160px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.pr-panel-empty p {
+  margin: 0;
+  color: #606266;
+  font-size: 14px;
+}
+
+.pr-panel-empty small {
+  color: #9aa2b1;
+  font-size: 12px;
 }
 
 .branch-flow {
