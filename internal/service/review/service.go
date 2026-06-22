@@ -178,6 +178,14 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 				return resp, nil
 			}
 		}
+		// 部分唯一索引 idx_reviews_active_change 冲突：并发创建同一 PR/MR 的 active review，
+		// 返回已存在的 active review 而非报错（#24 TOCTOU 修复）。
+		if gormx.IsUniqueViolation(err) {
+			if existing := s.findActiveReview(ctx, req); existing != nil {
+				hlog.CtxWarnf(ctx, "concurrent review create for same PR detected, returning existing active review: %s", existing.ReviewID)
+				return *existing, nil
+			}
+		}
 		return Response{}, err
 	}
 

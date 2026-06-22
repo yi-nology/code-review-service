@@ -43,6 +43,16 @@ func InitDB(cfg *config.DatabaseConfig) (*gormDB.DB, error) {
 			return nil, fmt.Errorf("auto migrate: %w", err)
 		}
 		hlog.Infof("database auto-migration completed")
+
+		// 部分唯一索引：防止并发创建同一 (provider, repo, PR/MR) 的多个 active review（#24 TOCTOU 根因修复）。
+		// GORM AutoMigrate 不支持部分索引，需手动 SQL。IF NOT EXISTS 幂等。
+		// 失败时（通常因历史已有重复 active 数据）仅告警不阻断启动，需人工清理后再重启。
+		if err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_reviews_active_change
+			ON reviews (provider, repo, (COALESCE(request->>'pull_request_id', request->>'merge_request_iid')))
+			WHERE status IN ('queued', 'running')
+			AND COALESCE(request->>'pull_request_id', request->>'merge_request_iid') != ''`).Error; err != nil {
+			hlog.Warnf("failed to create active review partial index (可能存在历史重复 active review，需人工清理): %v", err)
+		}
 	} else {
 		hlog.Infof("database auto-migration disabled")
 	}
