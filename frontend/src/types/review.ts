@@ -150,6 +150,7 @@ export interface ListStats {
   running: number
   gate_failed: number
   findings: number
+  total_tokens?: number
 }
 
 export interface ListOptions {
