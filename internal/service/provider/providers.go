@@ -72,15 +72,16 @@ func (a *gitProviderAdapter) Prepare(ctx context.Context, req review.Request) (r
 
 	cloneURL := a.svc.BuildCloneURL(a.platform, owner, repoName)
 	token := a.svc.GetToken(a.platform)
+	skipTLS := a.svc.GetSkipTLS(a.platform)
 
 	var dir, baseSHA, headSHA string
 	if hasPR {
 		dir, baseSHA, headSHA, err = cloneAndResolvePR(
-			ctx, cloneURL, token, prNumber, a.platform, sourceBranch, targetBranch, headSHAFromAPI, baseSHAFromAPI,
+			ctx, cloneURL, token, skipTLS, prNumber, a.platform, sourceBranch, targetBranch, headSHAFromAPI, baseSHAFromAPI,
 		)
 	} else {
 		var shaDiff string
-		dir, baseSHA, headSHA, shaDiff, err = cloneAndResolveSHA(ctx, cloneURL, token, req.BaseSHA, req.HeadSHA, a.maxDiffBytes)
+		dir, baseSHA, headSHA, shaDiff, err = cloneAndResolveSHA(ctx, cloneURL, token, skipTLS, req.BaseSHA, req.HeadSHA, a.maxDiffBytes)
 		if err == nil && shaDiff != "" {
 			diff = shaDiff
 		}

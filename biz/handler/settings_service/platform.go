@@ -42,7 +42,7 @@ func PutPlatform(ctx context.Context, c *app.RequestContext) {
 	}
 	token := ptrx.Deref(req.Token, "")
 	if token == "" {
-		existing, err := handlerInst.platform.Get(ctx, req.Provider)
+		existing, err := handlerInst.platform.Get(ctx, req.Provider, "default")
 		if err == nil && existing != nil {
 			token = existing.Token
 		}
@@ -82,7 +82,8 @@ func PutPlatform(ctx context.Context, c *app.RequestContext) {
 		Platform: &modelSettings.GitPlatformInfo{
 			Provider: p.Provider, BaseURL: p.BaseURL,
 			Token: common.MaskToken(p.Token), Enabled: p.Enabled,
-			WebhookSecret: common.MaskWebhookSecret(p.WebhookSecret),
+			WebhookSecret:  common.MaskWebhookSecret(p.WebhookSecret),
+			InstallationID: &p.InstallationID,
 		},
 	})
 }
@@ -96,7 +97,7 @@ func DeletePlatform(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, common.BadRequest("代码平台不能为空"))
 		return
 	}
-	if err := handlerInst.platform.Delete(ctx, req.Provider); err != nil {
+	if err := handlerInst.platform.Delete(ctx, req.Provider, "default"); err != nil {
 		common.Fail(c, err)
 		return
 	}

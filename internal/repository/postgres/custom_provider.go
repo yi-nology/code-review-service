@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
@@ -41,6 +43,19 @@ func (r *customProviderRepo) GetByName(ctx context.Context, name string) (*model
 }
 
 func (r *customProviderRepo) Create(ctx context.Context, p *models.CustomProvider) error {
+	// Unscoped 查询含软删除记录，避免"删除后再创建同名"触发 unique index 冲突。
+	var existing models.CustomProvider
+	err := r.db.WithContext(ctx).Unscoped().Where("name = ?", p.Name).First(&existing).Error
+	if err == nil {
+		if existing.DeletedAt.Valid {
+			p.ID = existing.ID
+			return r.db.WithContext(ctx).Unscoped().Save(p).Error
+		}
+		return fmt.Errorf("provider 名称 %s 已存在", p.Name)
+	}
+	if !errors.Is(err, gormLib.ErrRecordNotFound) {
+		return err
+	}
 	return r.db.WithContext(ctx).Create(p).Error
 }
 

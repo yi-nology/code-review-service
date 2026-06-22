@@ -119,19 +119,3 @@ func (s *ProviderService) GetPreset(id string) (*ProviderPreset, error) {
 	}
 	return preset, nil
 }
-
-// TestConnection 测试连接
-func (s *ProviderService) TestConnection(ctx context.Context, settings *models.OCRSettings) (*TestResult, error) {
-	// 这里应该调用 OCR 二进制文件的 llm test 命令
-	// 暂时返回成功
-	return &TestResult{
-		Success: true,
-		Message: "连接测试成功",
-	}, nil
-}
-
-// TestResult 测试结果
-type TestResult struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-}

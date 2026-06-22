@@ -15,6 +15,7 @@ import (
 func cloneAndResolvePR(
 	ctx context.Context,
 	cloneURL, token string,
+	skipTLS bool,
 	prNumber int,
 	platform, sourceBranch, targetBranch, apiHeadSHA, apiBaseSHA string,
 ) (string, string, string, error) {
@@ -23,7 +24,7 @@ func cloneAndResolvePR(
 		return "", "", "", fmt.Errorf("create temp dir: %w", err)
 	}
 
-	git, err := vcs.Clone(ctx, dir, cloneURL, token)
+	git, err := vcs.Clone(ctx, dir, cloneURL, token, skipTLS)
 	if err != nil {
 		_ = os.RemoveAll(dir)
 		return "", "", "", err
@@ -154,13 +155,13 @@ func restoreDeletedFiles(ctx context.Context, git *vcs.Git, baseSHA, headRef, he
 	return newHead
 }
 
-func cloneAndResolveSHA(ctx context.Context, cloneURL, token, baseSHA, headSHA string, maxDiffBytes int64) (string, string, string, string, error) {
+func cloneAndResolveSHA(ctx context.Context, cloneURL, token string, skipTLS bool, baseSHA, headSHA string, maxDiffBytes int64) (string, string, string, string, error) {
 	dir, err := os.MkdirTemp("", "review-workspace-*")
 	if err != nil {
 		return "", "", "", "", fmt.Errorf("create temp dir: %w", err)
 	}
 
-	git, err := vcs.Clone(ctx, dir, cloneURL, token)
+	git, err := vcs.Clone(ctx, dir, cloneURL, token, skipTLS)
 	if err != nil {
 		_ = os.RemoveAll(dir)
 		return "", "", "", "", err

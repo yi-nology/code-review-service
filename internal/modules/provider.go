@@ -3,7 +3,6 @@ package modules
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/repository"
@@ -46,15 +45,14 @@ func NewGitProviderService(lc fx.Lifecycle, cfg *config.Config, repos *repositor
 			Token:    p.Token,
 			SkipTLS:  p.SkipTLS,
 		}
-		// 自签名证书的平台：git clone 子进程也需要跳过 SSL 验证
+		// SkipTLS 通过 gitbackend InsecureSkipTLS per-request 传递，不再全局 os.Setenv。
 		if p.SkipTLS {
-			os.Setenv("GIT_SSL_NO_VERIFY", "true")
-			hlog.Infof("init: GIT_SSL_NO_VERIFY enabled for platform %s (self-signed cert)", p.Provider)
+			hlog.Infof("init: platform %s configured with SkipTLS (per-request InsecureSkipTLS)", p.Provider)
 		}
 	}
 
 	for name, pCfg := range providerConfigs {
-		existing, err := repos.GitPlatform.Get(ctx, name)
+		existing, err := repos.GitPlatform.Get(ctx, name, "default")
 		if err != nil {
 			hlog.Errorf("init: get git platform from DB %s: %v", name, err)
 			continue
@@ -76,11 +74,8 @@ func NewGitProviderService(lc fx.Lifecycle, cfg *config.Config, repos *repositor
 		return nil, fmt.Errorf("init git providers: %w", err)
 	}
 
-	// 用 AddOrUpdateFromDB 重新注册所有 DB 平台（确保 SkipTLS + GIT_SSL_NO_VERIFY 生效）
+	// 用 AddOrUpdateFromDB 重新注册所有 DB 平台（确保 SkipTLS 通过 InsecureSkipTLS 生效）
 	for _, p := range dbPlatforms {
-		if p.SkipTLS {
-			os.Setenv("GIT_SSL_NO_VERIFY", "true")
-		}
 		if err := svc.AddOrUpdateFromDB(&p); err != nil {
 			hlog.Errorf("init: re-register platform %s failed: %v", p.Provider, err)
 		}

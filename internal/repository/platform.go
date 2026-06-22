@@ -8,9 +8,9 @@ import (
 
 type GitPlatformRepository interface {
 	List(ctx context.Context) ([]models.GitPlatform, error)
-	Get(ctx context.Context, provider string) (*models.GitPlatform, error)
+	Get(ctx context.Context, provider, installationID string) (*models.GitPlatform, error)
 	Save(ctx context.Context, p *models.GitPlatform) error
-	Delete(ctx context.Context, provider string) error
+	Delete(ctx context.Context, provider, installationID string) error
 	ListEnabled(ctx context.Context) ([]models.GitPlatform, error)
 	GetByProviderAndInstallation(ctx context.Context, provider, installationID string) (*models.GitPlatform, error)
 }
