@@ -11,6 +11,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
+	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
@@ -33,6 +34,7 @@ type Service struct {
 	progressMgr     *progress.ProgressManager
 	workflow        *workflow.ReviewWorkflow
 	agentManager    *agent.AgentManager
+	llmMetrics      *llm.Metrics
 }
 
 type Config struct {
@@ -46,6 +48,7 @@ type Config struct {
 	ProgressMgr     *progress.ProgressManager
 	Workflow        *workflow.ReviewWorkflow
 	AgentManager    *agent.AgentManager
+	LLMMetrics      *llm.Metrics
 }
 
 func NewService(cfg Config) *Service {
@@ -60,6 +63,7 @@ func NewService(cfg Config) *Service {
 		progressMgr:     cfg.ProgressMgr,
 		workflow:        cfg.Workflow,
 		agentManager:    cfg.AgentManager,
+		llmMetrics:      cfg.LLMMetrics,
 	}
 }
 
@@ -289,8 +293,19 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req review.R
 	s.appendHistory(ctx, id, "ocr", "running", "code review model invoked", nil)
 	result, err := s.runner.Run(ctx, workspace)
 	if err != nil {
+		// #7：runner 路径也计入 llm.Metrics，让 /debug/llm/metrics 反映真实 OCR 调用（原仅 workflow 路径统计）
+		if s.llmMetrics != nil {
+			s.llmMetrics.Calls.Add(1)
+			s.llmMetrics.Failures.Add(1)
+		}
 		s.recordFailure(ctx, id, req, "ocr", err)
 		return review.Response{}, err
+	}
+	if s.llmMetrics != nil {
+		s.llmMetrics.Calls.Add(1)
+		s.llmMetrics.Successes.Add(1)
+		s.llmMetrics.InputTokens.Add(result.OCR.InputTokens)
+		s.llmMetrics.OutputTokens.Add(result.OCR.OutputTokens)
 	}
 	s.appendHistory(ctx, id, "ocr", "completed", "code review model analysis completed", map[string]any{
 		"files_reviewed": result.OCR.FilesReviewed,
