@@ -8,7 +8,8 @@ import (
 )
 
 type PublishReviewReq struct {
-	ID string `thrift:"id,1" json:"id" path:"id"`
+	ID   string `thrift:"id,1" json:"id" path:"id"`
+	Mode string `thrift:"mode,2,optional" form:"mode" json:"mode,omitempty"` // team | human
 }
 
 func NewPublishReviewReq() *PublishReviewReq {
@@ -334,7 +335,8 @@ func (p *PublishReviewResp) String() string {
 }
 
 type PreviewCommentReq struct {
-	ID string `thrift:"id,1" json:"id" path:"id"`
+	ID   string `thrift:"id,1" json:"id" path:"id"`
+	Mode string `thrift:"mode,2,optional" form:"mode" json:"mode,omitempty"` // team | human
 }
 
 func NewPreviewCommentReq() *PreviewCommentReq {

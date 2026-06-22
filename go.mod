@@ -11,7 +11,7 @@ require (
 	github.com/hertz-contrib/websocket v0.2.0
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/swaggo/files v1.0.1
-	github.com/yi-nology/git-platform-sdk v0.15.0
+	github.com/yi-nology/git-platform-sdk v0.17.0
 	go.uber.org/fx v1.24.0
 	golang.org/x/time v0.14.0
 	gorm.io/datatypes v1.2.5

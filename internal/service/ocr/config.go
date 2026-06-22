@@ -3,8 +3,8 @@ package ocr
 import (
 	"context"
 	"fmt"
-	"strings"
 
+	"github.com/yi-nology/code-review-service/internal/pkg/sliceutil"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/runner"
@@ -33,50 +33,23 @@ func (r *ConfigResolver) ResolveFromSettings(s *models.OCRSettings, overrides re
 
 func (r *ConfigResolver) buildConfig(s *models.OCRSettings, overrides review.OCROverrides) runner.OpenCodeReviewConfig {
 	cfg := runner.OpenCodeReviewConfig{
-		Binary:          firstNonBlank(s.Binary, r.fallback.Binary),
-		Audience:        firstNonBlank(overrides.Audience, s.Audience, r.fallback.Audience, "human"),
+		Binary:          sliceutil.FirstNonBlank(s.Binary, r.fallback.Binary),
+		Audience:        sliceutil.FirstNonBlank(overrides.Audience, s.Audience, r.fallback.Audience, "human"),
 		RulePath:        r.fallback.RulePath,
-		DefaultSeverity: firstNonBlank(overrides.DefaultSeverity, s.DefaultSeverity, r.fallback.DefaultSeverity, string(review.SeverityMajor)),
-		URL:             firstNonBlank(overrides.URL, s.URL),
-		Model:           firstNonBlank(overrides.Model, s.ModelName),
+		DefaultSeverity: sliceutil.FirstNonBlank(overrides.DefaultSeverity, s.DefaultSeverity, r.fallback.DefaultSeverity, string(review.SeverityMajor)),
+		URL:             sliceutil.FirstNonBlank(overrides.URL, s.URL),
+		Model:           sliceutil.FirstNonBlank(overrides.Model, s.ModelName),
 		AuthToken:       s.AuthToken,
 		AuthHeader:      s.AuthHeader,
 		UseAnthropic:    overrides.UseAnthropic || s.UseAnthropic,
-		ExtraBody:       firstNonBlank(overrides.ExtraBody, string(s.ExtraBody)),
-		Language:        firstNonBlank(overrides.Language, s.Language),
-		MaxTools:        firstPositive(overrides.MaxTools, s.MaxTools),
-		Background:      firstNonBlank(overrides.Background, s.Background),
-		ToolsPath:       firstNonBlank(overrides.ToolsPath, s.ToolsPath),
+		ExtraBody:       sliceutil.FirstNonBlank(overrides.ExtraBody, string(s.ExtraBody)),
+		Language:        sliceutil.FirstNonBlank(overrides.Language, s.Language),
+		MaxTools:        sliceutil.FirstPositive(overrides.MaxTools, s.MaxTools),
+		Background:      sliceutil.FirstNonBlank(overrides.Background, s.Background),
+		ToolsPath:       sliceutil.FirstNonBlank(overrides.ToolsPath, s.ToolsPath),
 	}
-	cfg.Concurrency = firstPositiveOr(overrides.Concurrency, s.Concurrency, r.fallback.Concurrency)
-	cfg.MaxGitProcs = firstPositiveOr(overrides.MaxGitProcs, s.MaxGitProcs, r.fallback.MaxGitProcs)
-	cfg.TimeoutMinutes = firstPositiveOr(overrides.TimeoutMinutes, s.TimeoutMinutes, r.fallback.TimeoutMinutes)
+	cfg.Concurrency = sliceutil.FirstPositiveOr(overrides.Concurrency, s.Concurrency, r.fallback.Concurrency)
+	cfg.MaxGitProcs = sliceutil.FirstPositiveOr(overrides.MaxGitProcs, s.MaxGitProcs, r.fallback.MaxGitProcs)
+	cfg.TimeoutMinutes = sliceutil.FirstPositiveOr(overrides.TimeoutMinutes, s.TimeoutMinutes, r.fallback.TimeoutMinutes)
 	return cfg
-}
-
-func firstPositiveOr(values ...int) int {
-	for _, v := range values {
-		if v > 0 {
-			return v
-		}
-	}
-	return 0
-}
-
-func firstNonBlank(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
-}
-
-func firstPositive(values ...int) int {
-	for _, value := range values {
-		if value > 0 {
-			return value
-		}
-	}
-	return 0
 }

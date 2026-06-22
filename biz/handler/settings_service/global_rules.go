@@ -25,7 +25,9 @@ func GetGlobalRules(ctx context.Context, c *app.RequestContext) {
 
 func UpdateGlobalRules(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.UpdateGlobalRulesReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	dbRules := apiGlobalRulesToDB(req.Rules)
 	if err := handlerInst.globalRules.Save(ctx, dbRules); err != nil {
 		common.Fail(c, common.BizErr(500, "保存全局规则失败"))

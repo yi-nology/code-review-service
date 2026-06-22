@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/yi-nology/code-review-service/internal/pkg/sliceutil"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 )
@@ -64,16 +65,21 @@ func (r *DynamicOpenCodeReviewRunner) Preview(ctx context.Context, workspace rev
 
 func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings, overrides review.OCROverrides) OpenCodeReviewConfig {
 	cfg := OpenCodeReviewConfig{
-		Binary:                  firstNonBlank(s.Binary, r.fallback.config.Binary),
-		Audience:                firstNonBlank(overrides.Audience, s.Audience, r.fallback.config.Audience, "human"),
-		RulePath:                r.fallback.config.RulePath,
-		DefaultSeverity:         firstNonBlank(overrides.DefaultSeverity, s.DefaultSeverity, r.fallback.config.DefaultSeverity, string(review.SeverityMajor)),
-		URL:                     firstNonBlank(overrides.URL, s.URL),
-		Model:                   firstNonBlank(overrides.Model, s.ModelName),
-		AuthToken:               s.AuthToken,
-		AuthHeader:              s.AuthHeader,
-		UseAnthropic:            overrides.UseAnthropic || s.UseAnthropic,
-		ExtraBody:               firstNonBlank(overrides.ExtraBody, string(s.ExtraBody)),
+		Binary:          firstNonBlank(s.Binary, r.fallback.config.Binary),
+		Audience:        firstNonBlank(overrides.Audience, s.Audience, r.fallback.config.Audience, "human"),
+		RulePath:        r.fallback.config.RulePath,
+		DefaultSeverity: firstNonBlank(overrides.DefaultSeverity, s.DefaultSeverity, r.fallback.config.DefaultSeverity, string(review.SeverityMajor)),
+		URL:             firstNonBlank(overrides.URL, s.URL),
+		Model:           firstNonBlank(overrides.Model, s.ModelName),
+		AuthToken:       s.AuthToken,
+		AuthHeader:      s.AuthHeader,
+		UseAnthropic:    overrides.UseAnthropic || s.UseAnthropic,
+		ExtraBody: ResolveExtraBody(
+			firstNonBlank(overrides.ExtraBody, string(s.ExtraBody)),
+			firstNonBlank(s.ReasoningMode, "light"),
+			s.ReasoningBudget,
+			s.Provider,
+		),
 		Language:                firstNonBlank(overrides.Language, s.Language),
 		MaxTools:                firstPositive(overrides.MaxTools, s.MaxTools),
 		Background:              firstNonBlank(overrides.Background, s.Background),
@@ -82,18 +88,11 @@ func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings, overrid
 		TelemetryExporter:       s.TelemetryExporter,
 		TelemetryOTLPEndpoint:   s.TelemetryOTLPEndpoint,
 		TelemetryContentLogging: s.TelemetryContentLogging,
+		ContextWindow:           int(s.ContextWindow),
+		MaxOutputTokens:         int(s.MaxOutputTokens),
 	}
 	cfg.Concurrency = firstPositiveOr(overrides.Concurrency, s.Concurrency, r.fallback.config.Concurrency)
 	cfg.MaxGitProcs = firstPositiveOr(overrides.MaxGitProcs, s.MaxGitProcs, r.fallback.config.MaxGitProcs)
-	cfg.TimeoutMinutes = firstPositiveOr(overrides.TimeoutMinutes, s.TimeoutMinutes, r.fallback.config.TimeoutMinutes)
+	cfg.TimeoutMinutes = sliceutil.FirstPositiveOr(overrides.TimeoutMinutes, s.TimeoutMinutes, r.fallback.config.TimeoutMinutes)
 	return cfg
-}
-
-func firstPositiveOr(values ...int) int {
-	for _, v := range values {
-		if v > 0 {
-			return v
-		}
-	}
-	return 0
 }

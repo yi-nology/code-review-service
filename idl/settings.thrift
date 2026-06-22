@@ -51,6 +51,10 @@ struct OCRSettings {
     20: optional string telemetry_exporter (api.body="telemetry_exporter")
     21: optional string telemetry_otlp_endpoint (api.body="telemetry_otlp_endpoint")
     22: optional bool telemetry_content_logging (api.body="telemetry_content_logging")
+    23: optional string reasoning_mode (api.body="reasoning_mode")
+    24: optional i64 reasoning_budget (api.body="reasoning_budget")
+    25: optional i64 context_window (api.body="context_window")
+    26: optional i64 max_output_tokens (api.body="max_output_tokens")
 }
 
 struct GetOCRSettingsResp {

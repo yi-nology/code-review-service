@@ -1168,6 +1168,8 @@ type OCRSettings struct {
 	TelemetryExporter       *string `thrift:"telemetry_exporter,20,optional" form:"telemetry_exporter" json:"telemetry_exporter,omitempty"`
 	TelemetryOtlpEndpoint   *string `thrift:"telemetry_otlp_endpoint,21,optional" form:"telemetry_otlp_endpoint" json:"telemetry_otlp_endpoint,omitempty"`
 	TelemetryContentLogging *bool   `thrift:"telemetry_content_logging,22,optional" form:"telemetry_content_logging" json:"telemetry_content_logging,omitempty"`
+	ReasoningMode           *string `thrift:"reasoning_mode,23,optional" form:"reasoning_mode" json:"reasoning_mode,omitempty"`
+	ReasoningBudget         *int64  `thrift:"reasoning_budget,24,optional" form:"reasoning_budget" json:"reasoning_budget,omitempty"`
 }
 
 func NewOCRSettings() *OCRSettings {
@@ -10038,6 +10040,7 @@ type PutPlatformReq struct {
 	Enabled        *bool   `thrift:"enabled,4,optional" form:"enabled" json:"enabled,omitempty"`
 	WebhookSecret  *string `thrift:"webhook_secret,5,optional" form:"webhook_secret" json:"webhook_secret,omitempty"`
 	InstallationID *string `thrift:"installation_id,6,optional" form:"installation_id" json:"installation_id,omitempty"`
+	SkipTLS        *bool   `thrift:"skip_tls,7,optional" form:"skip_tls" json:"skip_tls,omitempty"`
 }
 
 func NewPutPlatformReq() *PutPlatformReq {
@@ -10829,6 +10832,7 @@ type TestPlatformReq struct {
 	Provider string  `thrift:"provider,1" form:"provider" json:"provider"`
 	BaseURL  *string `thrift:"base_url,2,optional" form:"base_url" json:"base_url,omitempty"`
 	Token    string  `thrift:"token,3" form:"token" json:"token"`
+	SkipTLS  *bool   `thrift:"skip_tls,4,optional" form:"skip_tls" json:"skip_tls,omitempty"`
 }
 
 func NewTestPlatformReq() *TestPlatformReq {
@@ -11523,6 +11527,8 @@ type ReviewerAgentInfo struct {
 	Enabled     bool    `thrift:"enabled,6" form:"enabled" json:"enabled"`
 	Priority    int64   `thrift:"priority,7" form:"priority" json:"priority"`
 	Tags        *string `thrift:"tags,8,optional" form:"tags" json:"tags,omitempty"`
+	RuleFile    *string `thrift:"rule_file,9,optional" form:"rule_file" json:"rule_file,omitempty"`
+	Redundancy  int64   `thrift:"redundancy,10" form:"redundancy" json:"redundancy"`
 }
 
 func NewReviewerAgentInfo() *ReviewerAgentInfo {
@@ -12177,6 +12183,8 @@ type CreateReviewerAgentReq struct {
 	Enabled     *bool    `thrift:"enabled,5,optional" form:"enabled" json:"enabled,omitempty"`
 	Priority    *int64   `thrift:"priority,6,optional" form:"priority" json:"priority,omitempty"`
 	Tags        []string `thrift:"tags,7,optional,list<string>" form:"tags" json:"tags,omitempty"`
+	RuleFile    *string  `thrift:"rule_file,8,optional" form:"rule_file" json:"rule_file,omitempty"`
+	Redundancy  *int64   `thrift:"redundancy,9,optional" form:"redundancy" json:"redundancy,omitempty"`
 }
 
 func NewCreateReviewerAgentReq() *CreateReviewerAgentReq {
@@ -12803,6 +12811,8 @@ type UpdateReviewerAgentReq struct {
 	Enabled     *bool    `thrift:"enabled,5,optional" form:"enabled" json:"enabled,omitempty"`
 	Priority    *int64   `thrift:"priority,6,optional" form:"priority" json:"priority,omitempty"`
 	Tags        []string `thrift:"tags,7,optional,list<string>" form:"tags" json:"tags,omitempty"`
+	RuleFile    *string  `thrift:"rule_file,8,optional" form:"rule_file" json:"rule_file,omitempty"`
+	Redundancy  *int64   `thrift:"redundancy,9,optional" form:"redundancy" json:"redundancy,omitempty"`
 }
 
 func NewUpdateReviewerAgentReq() *UpdateReviewerAgentReq {

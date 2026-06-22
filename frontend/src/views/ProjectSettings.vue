@@ -240,63 +240,11 @@
                 </label>
 
                 <label class="field-block">
-                  <span>模型并发数</span>
-                  <el-input-number v-model="form.ocr_concurrency" :min="0" :max="32" />
-                  <small>0 表示继承全局默认。</small>
-                </label>
-
-                <label class="field-block">
-                  <span>Git 并发数</span>
-                  <el-input-number v-model="form.ocr_max_git_procs" :min="0" :max="64" />
-                  <small>0 表示继承全局默认。</small>
-                </label>
-
-                <label class="field-block">
-                  <span>单文件超时（分钟）</span>
-                  <el-input-number v-model="form.ocr_timeout_minutes" :min="0" :max="120" />
-                  <small>0 表示继承全局默认。</small>
-                </label>
-
-                <label class="field-block">
-                  <span>最大工具轮次</span>
-                  <el-input-number v-model="form.ocr_max_tools" :min="0" :max="100" />
-                  <small>0 表示继承全局或 OCR 内置默认值。</small>
-                </label>
-
-                <label class="field-block">
-                  <span>请求协议</span>
-                  <el-select v-model="form.ocr_use_anthropic" clearable placeholder="继承全局">
-                    <el-option label="OpenAI 兼容" :value="false" />
-                    <el-option label="Anthropic" :value="true" />
-                  </el-select>
-                </label>
-
-                <label class="field-block">
                   <span>输出语言</span>
                   <el-select v-model="form.ocr_language" clearable placeholder="继承全局">
                     <el-option label="中文" value="Chinese" />
                     <el-option label="English" value="English" />
                   </el-select>
-                </label>
-
-                <label class="field-block">
-                  <span>模型接口地址</span>
-                  <el-input v-model="form.ocr_url" placeholder="继承全局" clearable />
-                </label>
-
-                <label class="field-block">
-                  <span>模型名称</span>
-                  <el-input v-model="form.ocr_model" placeholder="继承全局" clearable />
-                </label>
-
-                <label class="field-block">
-                  <span>OCR 二进制路径</span>
-                  <el-input v-model="form.ocr_binary" placeholder="继承全局" clearable />
-                </label>
-
-                <label class="field-block">
-                  <span>工具白名单</span>
-                  <el-input v-model="form.ocr_tools_path" placeholder="继承全局" clearable />
                 </label>
               </div>
 
@@ -305,53 +253,111 @@
                 <el-input
                   v-model="form.ocr_background"
                   type="textarea"
-                  :rows="4"
+                  :rows="3"
                   placeholder="该仓库的业务背景、重点风险、审查偏好；留空继承全局默认"
                 />
               </label>
 
-              <label class="field-block full-width">
-                <span>额外请求体</span>
-                <el-input
-                  v-model="form.ocr_extra_body"
-                  type="textarea"
-                  :rows="2"
-                  placeholder='继承全局。可选 JSON 对象，如 {"temperature":0.2}'
-                />
-              </label>
+              <el-collapse class="advanced-collapse">
+                <el-collapse-item title="高级覆盖（并发 / 超时 / 模型 / 遥测）" name="advanced">
+                  <div class="field-grid two-columns">
+                    <label class="field-block">
+                      <span>模型并发数</span>
+                      <el-input-number v-model="form.ocr_concurrency" :min="0" :max="32" />
+                      <small>0 表示继承全局默认。</small>
+                    </label>
 
-              <div class="field-grid two-columns">
-                <label class="field-block">
-                  <span>遥测启用</span>
-                  <el-select v-model="form.ocr_telemetry_enabled" clearable placeholder="继承全局">
-                    <el-option label="继承全局" :value="null" />
-                    <el-option label="启用" :value="true" />
-                    <el-option label="禁用" :value="false" />
-                  </el-select>
-                </label>
+                    <label class="field-block">
+                      <span>Git 并发数</span>
+                      <el-input-number v-model="form.ocr_max_git_procs" :min="0" :max="64" />
+                      <small>0 表示继承全局默认。</small>
+                    </label>
 
-                <label class="field-block">
-                  <span>遥测导出器</span>
-                  <el-select v-model="form.ocr_telemetry_exporter" clearable placeholder="继承全局">
-                    <el-option label="OTLP" value="otlp" />
-                    <el-option label="Stdout" value="stdout" />
-                  </el-select>
-                </label>
+                    <label class="field-block">
+                      <span>单文件超时（分钟）</span>
+                      <el-input-number v-model="form.ocr_timeout_minutes" :min="0" :max="120" />
+                      <small>0 表示继承全局默认。</small>
+                    </label>
 
-                <label class="field-block">
-                  <span>OTLP 端点</span>
-                  <el-input v-model="form.ocr_telemetry_otlp_endpoint" placeholder="继承全局" clearable />
-                </label>
+                    <label class="field-block">
+                      <span>最大工具轮次</span>
+                      <el-input-number v-model="form.ocr_max_tools" :min="0" :max="100" />
+                      <small>0 表示继承全局或 OCR 内置默认值。</small>
+                    </label>
 
-                <label class="field-block">
-                  <span>遥测内容日志</span>
-                  <el-select v-model="form.ocr_telemetry_content_logging" clearable placeholder="继承全局">
-                    <el-option label="继承全局" :value="null" />
-                    <el-option label="启用" :value="true" />
-                    <el-option label="禁用" :value="false" />
-                  </el-select>
-                </label>
-              </div>
+                    <label class="field-block">
+                      <span>请求协议</span>
+                      <el-select v-model="form.ocr_use_anthropic" clearable placeholder="继承全局">
+                        <el-option label="OpenAI 兼容" :value="false" />
+                        <el-option label="Anthropic" :value="true" />
+                      </el-select>
+                    </label>
+
+                    <label class="field-block">
+                      <span>模型接口地址</span>
+                      <el-input v-model="form.ocr_url" placeholder="继承全局" clearable />
+                    </label>
+
+                    <label class="field-block">
+                      <span>模型名称</span>
+                      <el-input v-model="form.ocr_model" placeholder="继承全局" clearable />
+                    </label>
+
+                    <label class="field-block">
+                      <span>OCR 二进制路径</span>
+                      <el-input v-model="form.ocr_binary" placeholder="继承全局" clearable />
+                    </label>
+
+                    <label class="field-block">
+                      <span>工具白名单</span>
+                      <el-input v-model="form.ocr_tools_path" placeholder="继承全局" clearable />
+                    </label>
+                  </div>
+
+                  <label class="field-block full-width">
+                    <span>额外请求体</span>
+                    <el-input
+                      v-model="form.ocr_extra_body"
+                      type="textarea"
+                      :rows="2"
+                      placeholder='继承全局。可选 JSON 对象，如 {"temperature":0.2}'
+                    />
+                  </label>
+
+                  <div class="field-grid two-columns">
+                    <label class="field-block">
+                      <span>遥测启用</span>
+                      <el-select v-model="form.ocr_telemetry_enabled" clearable placeholder="继承全局">
+                        <el-option label="继承全局" :value="null" />
+                        <el-option label="启用" :value="true" />
+                        <el-option label="禁用" :value="false" />
+                      </el-select>
+                    </label>
+
+                    <label class="field-block">
+                      <span>遥测导出器</span>
+                      <el-select v-model="form.ocr_telemetry_exporter" clearable placeholder="继承全局">
+                        <el-option label="OTLP" value="otlp" />
+                        <el-option label="Stdout" value="stdout" />
+                      </el-select>
+                    </label>
+
+                    <label class="field-block">
+                      <span>OTLP 端点</span>
+                      <el-input v-model="form.ocr_telemetry_otlp_endpoint" placeholder="继承全局" clearable />
+                    </label>
+
+                    <label class="field-block">
+                      <span>遥测内容日志</span>
+                      <el-select v-model="form.ocr_telemetry_content_logging" clearable placeholder="继承全局">
+                        <el-option label="继承全局" :value="null" />
+                        <el-option label="启用" :value="true" />
+                        <el-option label="禁用" :value="false" />
+                      </el-select>
+                    </label>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
             </section>
 
             <section class="form-section">
@@ -413,7 +419,6 @@
                 <strong>{{ ocrOverrideSummary }}</strong>
               </div>
             </div>
-            <pre class="preview-json">{{ previewJson }}</pre>
             </section>
 
             <section class="panel-shell danger-card" v-if="editingExisting">
@@ -836,16 +841,14 @@ onMounted(async () => {
 .policy-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 24px;
+  gap: 20px;
   align-items: start;
-  margin-bottom: 18px;
-  padding: 24px;
-  border: 1px solid #dfe5ef;
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.96)),
-    #fff;
-  box-shadow: 0 16px 40px rgba(23, 32, 51, 0.07);
+  margin-bottom: 16px;
+  padding: 22px 24px;
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: var(--app-shadow);
 }
 
 .hero-copy h1 {
@@ -883,15 +886,15 @@ onMounted(async () => {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
   overflow: hidden;
-  border: 1px solid #e3e7ef;
-  border-radius: 8px;
-  background: #e3e7ef;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  background: var(--app-border);
 }
 
 .summary-item {
-  min-height: 74px;
-  padding: 14px 18px;
-  background: rgba(255, 255, 255, 0.86);
+  min-height: 68px;
+  padding: 12px 16px;
+  background: #fff;
 }
 
 .summary-item span,
@@ -906,9 +909,9 @@ onMounted(async () => {
 
 .summary-item strong {
   display: block;
-  margin-top: 6px;
+  margin-top: 4px;
   color: var(--app-text);
-  font-size: 27px;
+  font-size: 24px;
   line-height: 1;
 }
 
@@ -925,9 +928,9 @@ onMounted(async () => {
 
 .panel-shell {
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: 14px;
   background: #fff;
-  box-shadow: 0 12px 32px rgba(23, 32, 51, 0.055);
+  box-shadow: var(--app-shadow);
 }
 
 .panel-heading,
@@ -981,10 +984,10 @@ onMounted(async () => {
 
 .policy-item {
   width: 100%;
-  padding: 12px;
+  padding: 11px 12px;
   border: 1px solid transparent;
-  border-radius: 8px;
-  background: #f8fafc;
+  border-radius: 10px;
+  background: #f7f8fc;
   text-align: left;
   cursor: pointer;
   transition: 160ms ease;
@@ -992,9 +995,9 @@ onMounted(async () => {
 
 .policy-item:hover,
 .policy-item.active {
-  border-color: #cad2f8;
+  border-color: var(--app-primary);
   background: #fff;
-  box-shadow: 0 8px 20px rgba(91, 91, 214, 0.08);
+  box-shadow: 0 4px 14px rgba(91, 91, 214, 0.08);
 }
 
 .policy-main {
@@ -1158,11 +1161,11 @@ onMounted(async () => {
 }
 
 .gate-option {
-  min-height: 82px;
-  padding: 14px 15px;
-  border: 1px solid #e2e7f0;
-  border-radius: 8px;
-  background: #fbfcfe;
+  min-height: 76px;
+  padding: 13px 15px;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  background: #f7f8fc;
   color: var(--app-text);
   text-align: left;
   cursor: pointer;
@@ -1170,9 +1173,9 @@ onMounted(async () => {
 }
 
 .gate-option.active {
-  border-color: #aeb6ef;
+  border-color: var(--app-primary);
   background: #fff;
-  box-shadow: inset 0 0 0 1px #dce1ff, 0 8px 18px rgba(91, 91, 214, 0.08);
+  box-shadow: 0 4px 14px rgba(91, 91, 214, 0.1);
 }
 
 .gate-option strong,
@@ -1235,15 +1238,15 @@ onMounted(async () => {
   display: grid;
   gap: 1px;
   overflow: hidden;
-  margin-bottom: 14px;
-  border: 1px solid #e5e9f1;
-  border-radius: 8px;
-  background: #e5e9f1;
+  margin-bottom: 0;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  background: var(--app-border);
 }
 
 .preview-list > div {
-  padding: 11px 12px;
-  background: #fbfcfe;
+  padding: 10px 12px;
+  background: #fff;
 }
 
 .preview-list strong {
@@ -1255,18 +1258,31 @@ onMounted(async () => {
 }
 
 .preview-json {
-  max-height: 260px;
-  margin: 0;
-  padding: 12px;
-  border: 1px solid #e5e9f1;
-  border-radius: 8px;
-  background: #f8fafc;
-  overflow: auto;
-  color: #2d3748;
-  font-size: 12px;
-  line-height: 1.65;
-  white-space: pre-wrap;
-  word-break: break-word;
+  display: none;
+}
+
+.advanced-collapse {
+  margin-top: 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.advanced-collapse :deep(.el-collapse-item__header) {
+  padding: 0 16px;
+  border-bottom: 1px solid var(--app-border);
+  color: var(--app-primary);
+  font-size: 13px;
+  font-weight: 600;
+  background: #f7f8fc;
+}
+
+.advanced-collapse :deep(.el-collapse-item__content) {
+  padding: 16px;
+}
+
+.advanced-collapse :deep(.el-collapse-item__wrap) {
+  border-bottom: none;
 }
 
 .danger-card p {

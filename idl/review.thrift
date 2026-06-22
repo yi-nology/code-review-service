@@ -183,6 +183,7 @@ struct ListStats {
     2: i64 running (api.body="running")
     3: i64 gate_failed (api.body="gate_failed")
     4: i64 findings (api.body="findings")
+    5: optional i64 total_tokens (api.body="total_tokens")
 }
 
 struct ListReviewsResp {

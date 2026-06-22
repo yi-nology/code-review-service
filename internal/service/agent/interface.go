@@ -10,6 +10,7 @@ import (
 // reviewAgent defines the interface for review agents (internal only)
 type reviewAgent interface {
 	Name() string
+	Persona() string
 	Focus() []string
 	Review(ctx context.Context, workspace Workspace) (AgentResult, error)
 	Priority() int
@@ -28,6 +29,7 @@ type Workspace struct {
 // AgentResult contains the agent's review results
 type AgentResult struct {
 	AgentName  string        `json:"agent_name"`
+	Persona    string        `json:"persona"`
 	Findings   []Finding     `json:"findings"`
 	Summary    string        `json:"summary"`
 	Confidence float64       `json:"confidence"`

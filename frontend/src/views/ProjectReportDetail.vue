@@ -67,7 +67,7 @@
             <el-card shadow="never" class="stat-card critical">
               <span>严重问题</span>
               <strong>{{ detail.critical_count }}</strong>
-              <small>Major {{ detail.major_count }} 个</small>
+              <small>高风险 {{ detail.major_count }} 个</small>
             </el-card>
           </el-col>
         </el-row>
@@ -97,19 +97,19 @@
             </div>
             <div class="severity-grid">
               <div class="severity-card critical">
-                <span>Critical</span>
+                <span>严重</span>
                 <strong>{{ detail.critical_count }}</strong>
               </div>
               <div class="severity-card major">
-                <span>Major</span>
+                <span>高风险</span>
                 <strong>{{ detail.major_count }}</strong>
               </div>
               <div class="severity-card minor">
-                <span>Minor</span>
+                <span>中风险</span>
                 <strong>{{ detail.minor_count }}</strong>
               </div>
               <div class="severity-card info">
-                <span>Info</span>
+                <span>提示</span>
                 <strong>{{ detail.info_count }}</strong>
               </div>
             </div>
@@ -143,18 +143,58 @@
             <div class="panel-head">
               <div>
                 <h2>高风险文件</h2>
-                <p>按 Critical、Major 和问题总量排序</p>
+                <p>按严重、高风险和问题总量排序</p>
               </div>
             </div>
-            <el-table :data="files" size="small" empty-text="暂无文件风险数据">
-              <el-table-column label="文件" min-width="220">
+            <el-table :data="files" size="small" empty-text="暂无文件风险数据" :default-sort="{ prop: 'count', order: 'descending' }" row-key="path" @expand-change="handleFileExpand">
+              <el-table-column type="expand">
                 <template #default="{ row }">
-                  <span class="file-path">{{ row.path }}</span>
+                  <div class="file-expand">
+                    <div v-loading="loadingFileFindings[row.path]" class="file-findings">
+                      <div v-if="fileFindingsMap[row.path]?.length > 0">
+                        <div v-for="(f, idx) in fileFindingsMap[row.path]" :key="idx" class="finding-item">
+                          <el-tag size="small" :type="f.severity === 'critical' ? 'danger' : 'warning'">{{ f.severity === 'critical' ? '严重' : '高风险' }}</el-tag>
+                          <span class="finding-title">{{ f.title }}</span>
+                          <span v-if="f.line" class="finding-line">:{{ f.line }}</span>
+                        </div>
+                        <el-button size="small" plain @click="goToReviewDetail(row.path)">
+                          查看完整审查报告
+                          <el-icon><ArrowRight /></el-icon>
+                        </el-button>
+                      </div>
+                      <el-empty v-else-if="!loadingFileFindings[row.path]" description="暂无该文件的详细问题" :image-size="48" />
+                    </div>
+                  </div>
                 </template>
               </el-table-column>
-              <el-table-column label="问题" width="70" align="center" prop="count" />
-              <el-table-column label="C" width="58" align="center" prop="critical_count" />
-              <el-table-column label="M" width="58" align="center" prop="major_count" />
+              <el-table-column label="文件" min-width="280" prop="path" sortable>
+                <template #default="{ row }">
+                  <div class="file-risk-row">
+                    <span class="file-path">{{ row.path }}</span>
+                    <div class="file-severity-bar" v-if="row.count > 0">
+                      <span class="bar-critical" v-if="row.critical_count > 0" :style="{ flex: row.critical_count }" :title="`严重 ${row.critical_count}`" />
+                      <span class="bar-major" v-if="row.major_count > 0" :style="{ flex: row.major_count }" :title="`高风险 ${row.major_count}`" />
+                    </div>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="问题" width="70" align="center" prop="count" sortable>
+                <template #default="{ row }">
+                  <strong>{{ row.count }}</strong>
+                </template>
+              </el-table-column>
+              <el-table-column label="严重" width="70" align="center" prop="critical_count" sortable>
+                <template #default="{ row }">
+                  <span v-if="row.critical_count > 0" class="severity-badge critical">{{ row.critical_count }}</span>
+                  <span v-else class="muted">0</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="高风险" width="80" align="center" prop="major_count" sortable>
+                <template #default="{ row }">
+                  <span v-if="row.major_count > 0" class="severity-badge major">{{ row.major_count }}</span>
+                  <span v-else class="muted">0</span>
+                </template>
+              </el-table-column>
             </el-table>
           </section>
 
@@ -199,7 +239,7 @@
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Download } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, Download } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TrendChart from '@/components/common/TrendChart.vue'
 import {
@@ -209,6 +249,7 @@ import {
   getProjectFiles,
   getProjectTrend,
 } from '@/api/stats'
+import { getReviews, getReview } from '@/api/review'
 import type {
   CategoryStat,
   ContributorSummary,
@@ -216,6 +257,7 @@ import type {
   ProjectDetail,
   ProjectTrendPoint,
 } from '@/types/stats'
+import type { Finding } from '@/types/review'
 import { formatDateFull } from '@/utils/format'
 
 const route = useRoute()
@@ -226,6 +268,9 @@ const trend = ref<ProjectTrendPoint[]>([])
 const categories = ref<CategoryStat[]>([])
 const files = ref<FileRiskStat[]>([])
 const contributors = ref<ContributorSummary[]>([])
+const fileFindingsMap = ref<Record<string, Finding[]>>({})
+const loadingFileFindings = ref<Record<string, boolean>>({})
+const reviewIdMap = ref<Record<string, string>>({})
 
 const provider = computed(() => String(route.query.provider || ''))
 const repo = computed(() => String(route.query.repo || ''))
@@ -237,7 +282,12 @@ const hasDateRange = computed(() => dateRange.value.length === 2)
 
 const gradeItems = computed(() => {
   const dist = detail.value?.grade_distribution || {}
-  return ['A', 'B', 'C', 'D', 'F'].map((label) => ({ label, count: dist[label] || 0 }))
+  return [
+    { label: '优秀', count: dist['优秀'] || dist['A'] || 0 },
+    { label: '良好', count: dist['良好'] || dist['B'] || 0 },
+    { label: '需改进', count: dist['需改进'] || dist['C'] || dist['D'] || 0 },
+    { label: '高风险', count: dist['高风险'] || dist['F'] || 0 },
+  ]
 })
 
 async function fetchReport() {
@@ -320,6 +370,42 @@ function scoreClass(score: number) {
   return 'score-low'
 }
 
+async function loadFileFindings(filePath: string) {
+  if (fileFindingsMap.value[filePath]) return
+  loadingFileFindings.value[filePath] = true
+  try {
+    const listRes = await getReviews({ provider: provider.value, repo: repo.value, status: 'success', page: 1, page_size: 10 } as any)
+    const reviews = listRes.items || []
+    const allFindings: Finding[] = []
+    await Promise.all(reviews.slice(0, 8).map(async (r) => {
+      try {
+        const detail = await getReview(r.review_id)
+        const matched = (detail.findings || []).filter((f) => f.path === filePath)
+        matched.forEach((f) => {
+          if (!reviewIdMap.value[filePath]) reviewIdMap.value[filePath] = r.review_id
+          allFindings.push(f)
+        })
+      } catch { /* skip */ }
+    }))
+    fileFindingsMap.value[filePath] = allFindings
+  } catch {
+    fileFindingsMap.value[filePath] = []
+  } finally {
+    loadingFileFindings.value[filePath] = false
+  }
+}
+
+function handleFileExpand(row: FileRiskStat, expanded: boolean[]) {
+  if (expanded[0] && !fileFindingsMap.value[row.path]) {
+    loadFileFindings(row.path)
+  }
+}
+
+function goToReviewDetail(filePath: string) {
+  const rid = reviewIdMap.value[filePath]
+  if (rid) router.push(`/reviews/${rid}`)
+}
+
 function providerLabel(value: string) {
   const labels: Record<string, string> = { github: 'GitHub', gitlab: 'GitLab', gitea: 'Gitea', gitcode: 'GitCode' }
   return labels[value] || value
@@ -329,7 +415,7 @@ function exportMarkdown() {
   if (!detail.value) return
   const report = detail.value
   const categoryLines = categories.value.map((item) => `- ${item.category}: ${item.count}`).join('\n') || '- 暂无'
-  const fileLines = files.value.map((item) => `- ${item.path}: ${item.count} 个问题，Critical ${item.critical_count}，Major ${item.major_count}`).join('\n') || '- 暂无'
+  const fileLines = files.value.map((item) => `- ${item.path}: ${item.count} 个问题，严重 ${item.critical_count}，高风险 ${item.major_count}`).join('\n') || '- 暂无'
   const contributorLines = contributors.value.map((item) => `- ${item.author_name || item.author}: ${item.review_count} 次审查，平均分 ${item.avg_score}，通过率 ${item.pass_rate.toFixed(0)}%`).join('\n') || '- 暂无'
   const content = `# ${report.repo} 代码审查项目报告
 
@@ -350,10 +436,10 @@ function exportMarkdown() {
 
 ## 风险分布
 
-- Critical: ${report.critical_count}
-- Major: ${report.major_count}
-- Minor: ${report.minor_count}
-- Info: ${report.info_count}
+- 严重: ${report.critical_count}
+- 高风险: ${report.major_count}
+- 中风险: ${report.minor_count}
+- 提示: ${report.info_count}
 
 ## 问题分类
 
@@ -648,6 +734,92 @@ onMounted(() => {
   color: #394150;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
+  word-break: break-all;
+}
+
+.file-risk-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.file-severity-bar {
+  display: flex;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  max-width: 200px;
+}
+
+.file-severity-bar .bar-critical {
+  background: #d84b5b;
+}
+
+.file-severity-bar .bar-major {
+  background: #d98616;
+}
+
+.severity-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.severity-badge.critical {
+  color: #d84b5b;
+  background: #fff0f2;
+}
+
+.severity-badge.major {
+  color: #d98616;
+  background: #fff6e8;
+}
+
+.muted {
+  color: #c0c4cc;
+  font-size: 12px;
+}
+
+.file-expand {
+  padding: 8px 12px 12px 48px;
+}
+
+.file-findings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.finding-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #f7f8fc;
+}
+
+.finding-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: #303133;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.finding-line {
+  flex-shrink: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: #909399;
 }
 
 .author-link {

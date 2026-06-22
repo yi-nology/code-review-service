@@ -3,6 +3,7 @@ package modules
 import (
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
+	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/session"
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
@@ -19,15 +20,18 @@ func NewReviewWorkflow(
 	agentMgr *agent.AgentManager,
 	sessionSvc *session.SessionService,
 	progressMgr *progress.ProgressManager,
+	llmProvider llm.Provider,
 ) *workflow.ReviewWorkflow {
 	wfCfg := workflow.WorkflowConfig{
 		EnableDiscussion:   cfg.Agents.Discussion.Enabled,
 		EnableRequirements: cfg.Agents.Requirements.Enabled,
 		EnableReviewMap:    cfg.Agents.ReviewMap.Enabled,
 		DiscussionRounds:   cfg.Agents.Discussion.MaxRounds,
+		ContextWindow:      cfg.OCR.ContextWindow,
+		MaxOutputTokens:    cfg.OCR.MaxOutputTokens,
 	}
 	if wfCfg.DiscussionRounds <= 0 {
 		wfCfg.DiscussionRounds = 1
 	}
-	return workflow.NewReviewWorkflow(agentMgr, sessionSvc, progressMgr, wfCfg)
+	return workflow.NewReviewWorkflow(agentMgr, sessionSvc, progressMgr, llmProvider, wfCfg)
 }

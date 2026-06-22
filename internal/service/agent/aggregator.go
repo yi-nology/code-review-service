@@ -72,12 +72,19 @@ func (a *DefaultAggregator) Aggregate(results []AgentResult) AggregatedResult {
 			allFindings = append(allFindings, FindingWithAgent{
 				Finding:   finding,
 				AgentName: result.AgentName,
+				Persona:   result.Persona,
 			})
 		}
 	}
 
+	// 统计每个 persona 实际运行的实例数（= 配置的冗余数，路径 A4）
+	personaTotals := make(map[string]int)
+	for _, result := range results {
+		personaTotals[result.Persona]++
+	}
+
 	// Deduplicate findings
-	deduplicated := a.deduplicateFindings(allFindings)
+	deduplicated := a.deduplicateFindings(allFindings, personaTotals)
 
 	// Calculate confidence for each finding
 	for i := range deduplicated {
@@ -122,10 +129,11 @@ func (a *DefaultAggregator) Aggregate(results []AgentResult) AggregatedResult {
 type FindingWithAgent struct {
 	Finding
 	AgentName string
+	Persona   string
 }
 
 // deduplicateFindings removes duplicate findings from different agents
-func (a *DefaultAggregator) deduplicateFindings(findings []FindingWithAgent) []FindingWithAgent {
+func (a *DefaultAggregator) deduplicateFindings(findings []FindingWithAgent, personaTotals map[string]int) []FindingWithAgent {
 	if len(findings) == 0 {
 		return findings
 	}
@@ -140,16 +148,49 @@ func (a *DefaultAggregator) deduplicateFindings(findings []FindingWithAgent) []F
 	var deduplicated []FindingWithAgent
 	for _, group := range groups {
 		if len(group) == 1 {
+			// 单个 agent 发现：仍需判断是否属于冗余 persona 的"单次观察"
+			group[0].RedundancyStatus = computeRedundancyStatus(group, personaTotals)
 			deduplicated = append(deduplicated, group[0])
 			continue
 		}
 
 		// Merge findings in the same location
 		merged := a.mergeFindings(group)
+		merged.RedundancyStatus = computeRedundancyStatus(group, personaTotals)
 		deduplicated = append(deduplicated, merged)
 	}
 
 	return deduplicated
+}
+
+// computeRedundancyStatus 计算冗余状态（路径 A4）：
+// 同一 persona 的多个实例都发现 → confirmed（高置信）
+// 同一 persona 配置了冗余但仅部分实例发现 → single（低置信）
+// 未配置冗余 → 留空
+func computeRedundancyStatus(group []FindingWithAgent, personaTotals map[string]int) string {
+	personaHits := make(map[string]map[string]bool) // persona -> set of instance names
+	for _, fwa := range group {
+		if personaHits[fwa.Persona] == nil {
+			personaHits[fwa.Persona] = make(map[string]bool)
+		}
+		personaHits[fwa.Persona][fwa.AgentName] = true
+	}
+
+	status := ""
+	for persona, instances := range personaHits {
+		total := personaTotals[persona]
+		if total < 2 {
+			continue
+		}
+		hits := len(instances)
+		if hits >= 2 && hits == total {
+			return types.RedundancyConfirmed
+		}
+		if status == "" && hits < total {
+			status = types.RedundancySingle
+		}
+	}
+	return status
 }
 
 // mergeFindings merges multiple findings from the same location
@@ -298,5 +339,3 @@ func (a *DefaultAggregator) generateSummary(findings []Finding, results []AgentR
 
 	return strings.Join(parts, "，")
 }
-
-

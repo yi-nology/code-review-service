@@ -21,6 +21,10 @@ export interface OCRSettings {
   telemetry_exporter?: string
   telemetry_otlp_endpoint?: string
   telemetry_content_logging?: boolean
+  reasoning_mode?: 'disabled' | 'light' | 'medium' | 'full' | 'custom'
+  reasoning_budget?: number
+  context_window?: number
+  max_output_tokens?: number
 }
 
 export interface ReviewRule {

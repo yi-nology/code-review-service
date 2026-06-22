@@ -24,10 +24,13 @@ func (r *GitPlatformRepo) List(ctx context.Context) ([]models.GitPlatform, error
 	return list, err
 }
 
-func (r *GitPlatformRepo) Get(ctx context.Context, provider string) (*models.GitPlatform, error) {
+func (r *GitPlatformRepo) Get(ctx context.Context, provider, installationID string) (*models.GitPlatform, error) {
 	var p models.GitPlatform
-	err := r.db.WithContext(ctx).Where("provider = ?", provider).First(&p).Error
+	err := r.db.WithContext(ctx).Where("provider = ? AND installation_id = ?", provider, installationID).First(&p).Error
 	if err != nil {
+		if errors.Is(err, gormLib.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &p, nil
@@ -37,13 +40,14 @@ func (r *GitPlatformRepo) Save(ctx context.Context, p *models.GitPlatform) error
 	return r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "provider"}, {Name: "installation_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"base_url", "token", "webhook_secret", "enabled", "updated_at"}),
+			DoUpdates: clause.AssignmentColumns([]string{"base_url", "token", "webhook_secret", "enabled", "skip_tls", "updated_at", "deleted_at"}),
 		}).
 		Create(p).Error
 }
 
-func (r *GitPlatformRepo) Delete(ctx context.Context, provider string) error {
-	return r.db.WithContext(ctx).Where("provider = ?", provider).Delete(&models.GitPlatform{}).Error
+// Delete 按 (provider, installation_id) 精确软删，避免多 installation 场景下误删同 provider 的其它 installation。
+func (r *GitPlatformRepo) Delete(ctx context.Context, provider, installationID string) error {
+	return r.db.WithContext(ctx).Where("provider = ? AND installation_id = ?", provider, installationID).Delete(&models.GitPlatform{}).Error
 }
 
 func (r *GitPlatformRepo) ListEnabled(ctx context.Context) ([]models.GitPlatform, error) {

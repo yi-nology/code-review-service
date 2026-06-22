@@ -16,7 +16,31 @@ type AgentManager struct {
 	agents     []reviewAgent
 	aggregator ResultAggregator
 	config     ManagerConfig
+	factory    reviewRunnerFactory // 用于构造 ephemeral agent 的 runner（阶段 5）
 	mu         sync.RWMutex
+}
+
+// SetFactory 注入 runner 工厂，使 AgentManager 具备构造临时（ephemeral）agent 的能力。
+func (m *AgentManager) SetFactory(factory reviewRunnerFactory) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.factory = factory
+}
+
+// UpdateTimeouts 根据用户配置的 OCR 超时同步 agent 框架超时。
+// AgentTimeout 必须大于单次 OCR 超时，否则 OCR 还没跑完就被 agent 框架杀掉（#25：用户改
+// OCRSettings.TimeoutMinutes 后，硬编码的 35min 会让大超时配置的评审被误杀）。
+func (m *AgentManager) UpdateTimeouts(ocrTimeout time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.config.AgentTimeout = ocrTimeout + 5*time.Minute
+	m.config.TotalTimeout = ocrTimeout + 10*time.Minute
+}
+
+// EphemeralSpec 描述一个临时的、不入库的 reviewer（阶段 5）。
+type EphemeralSpec struct {
+	Name       string // 实例名，需在本次评审内唯一
+	Background string // 评审侧重点，透传 OCR --background
 }
 
 // ManagerConfig contains manager configuration
@@ -30,8 +54,8 @@ type ManagerConfig struct {
 func DefaultManagerConfig() ManagerConfig {
 	return ManagerConfig{
 		MaxConcurrency: 4,
-		AgentTimeout:   5 * time.Minute,
-		TotalTimeout:   30 * time.Minute,
+		AgentTimeout:   35 * time.Minute,
+		TotalTimeout:   40 * time.Minute,
 	}
 }
 
@@ -164,15 +188,45 @@ type AgentStatus struct {
 
 // RunAgentsWithCallback runs agents with progress callbacks
 func (m *AgentManager) RunAgentsWithCallback(ctx context.Context, workspace Workspace, callback func(status AgentStatus)) (AggregatedResult, error) {
+	return m.RunAgentsWithEphemeral(ctx, workspace, nil, callback)
+}
+
+// RunAgentsWithEphemeral 运行已注册 agent + 临时（ephemeral）agent（阶段 5）。
+// ephemeral agent 仅存在于本次调用，不入库、不持久化。
+func (m *AgentManager) RunAgentsWithEphemeral(ctx context.Context, workspace Workspace, ephemeral []EphemeralSpec, callback func(status AgentStatus)) (AggregatedResult, error) {
 	agents := m.getFilteredAgents(nil)
-	if len(agents) == 0 {
+	if len(agents) == 0 && len(ephemeral) == 0 {
 		return AggregatedResult{}, fmt.Errorf("no agents available for review")
+	}
+
+	// 构造 ephemeral agent（需要 factory）
+	if len(ephemeral) > 0 {
+		m.mu.RLock()
+		factory := m.factory
+		m.mu.RUnlock()
+		if factory == nil {
+			hlog.Warnf("ephemeral reviewers requested but no runner factory configured; skipping %d ephemeral", len(ephemeral))
+		} else {
+			for _, spec := range ephemeral {
+				name := spec.Name
+				if name == "" {
+					name = "ephemeral"
+				}
+				runner := factory.CreateRunner(spec.Background, "")
+				agents = append(agents, newOCRAgent(runner, ocrAgentConfig{
+					Name:     name,
+					Persona:  name,
+					Priority: 100, // 临时 agent 优先级较低
+					Focus:    []string{"ad-hoc"},
+				}))
+			}
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, m.config.TotalTimeout)
 	defer cancel()
 
-	hlog.Infof("starting review with %d agents", len(agents))
+	hlog.Infof("starting review with %d agents (%d ephemeral)", len(agents), len(ephemeral))
 	startTime := time.Now()
 
 	agentResults, agentErrors := m.runParallel(ctx, agents, workspace, callback)

@@ -21,7 +21,7 @@ type ReviewService interface {
 type GitProviderManager interface {
 	AddOrUpdateFromDB(p *models.GitPlatform) error
 	Remove(name string)
-	TestWithToken(ctx context.Context, platform, baseURL, token string) (*models.GitTestResult, error)
+	TestWithToken(ctx context.Context, platform, baseURL, token string, skipTLS bool) (*models.GitTestResult, error)
 	HasProvider(platform string) bool
 	ListRepos(ctx context.Context, platform string, opts provider.ListRepoOptions) ([]*provider.PlatformRepo, error)
 	ListBranches(ctx context.Context, platform, owner, repo string) ([]*provider.PlatformBranch, error)

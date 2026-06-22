@@ -54,6 +54,16 @@
             </div>
           </el-card>
         </el-col>
+        <el-col :xs="12" :sm="12" :md="6">
+          <el-card shadow="never" class="stat-card tokens">
+            <div class="stat-icon"><el-icon><Coin /></el-icon></div>
+            <div class="stat-item">
+              <span>累计 Tokens</span>
+              <strong>{{ stats.total_tokens ? stats.total_tokens.toLocaleString() : 0 }}</strong>
+              <small>评审消耗</small>
+            </div>
+          </el-card>
+        </el-col>
       </el-row>
 
       <el-card class="records-card">
@@ -296,7 +306,7 @@ const router = useRouter()
 const loading = ref(false)
 const showCreateDialog = ref(false)
 const reviews = ref<Review[]>([])
-const stats = ref<ListStats>({ total: 0, running: 0, gate_failed: 0, findings: 0 })
+const stats = ref<ListStats>({ total: 0, running: 0, gate_failed: 0, findings: 0, total_tokens: 0 })
 const actingId = ref('')
 
 const filters = reactive({ repo: '', provider: '', status: '' })

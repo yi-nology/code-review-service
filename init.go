@@ -26,6 +26,7 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 		modules.ProviderModule,
 		modules.RunnerModule,
 		modules.OCRModule,
+		modules.LLMModule,
 		modules.WritebackModule,
 		modules.AgentModule,
 		modules.WorkflowModule,
@@ -33,7 +34,9 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 		modules.WebhookModule,
 		modules.HandlerModule,
 		modules.ServerModule,
+		modules.PreflightModule,
 		modules.WorkerModule,
+		modules.MigrateModule,
 		fx.WithLogger(func() fxevent.Logger { return &fxevent.ConsoleLogger{W: os.Stderr} }),
 	)
 

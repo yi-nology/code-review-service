@@ -11,7 +11,6 @@ import (
 var RunnerModule = fx.Options(
 	fx.Provide(NewOpenCodeReviewRunner),
 	fx.Provide(NewDynamicOpenCodeReviewRunner),
-	fx.Provide(NewConfigFileWriter),
 )
 
 func NewOpenCodeReviewRunner(cfg *config.Config) *runner.OpenCodeReviewRunner {
@@ -28,8 +27,4 @@ func NewDynamicOpenCodeReviewRunner(
 	repos *repository.RepoContainer,
 ) *runner.DynamicOpenCodeReviewRunner {
 	return runner.NewDynamicOpenCodeReviewRunner(fallback, repos.OCRSettings, repos.GlobalRules)
-}
-
-func NewConfigFileWriter(repos *repository.RepoContainer, cfg *config.Config) *runner.ConfigFileWriter {
-	return runner.NewConfigFileWriter(repos.OCRSettings, repos.CustomProvider, cfg.OCR.ConfigFile)
 }

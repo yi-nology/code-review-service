@@ -13,7 +13,9 @@ import (
 
 func RulesCheck(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.RulesCheckReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if req.Path == "" {
 		common.Fail(c, common.BadRequest("文件路径不能为空"))
 		return
@@ -79,7 +81,9 @@ func ViewerStatus(ctx context.Context, c *app.RequestContext) {
 
 func StartViewer(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.StartViewerReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if !common.FeatureGuard(c, handlerInst.viewerMgr, "Viewer") {
 		return
 	}

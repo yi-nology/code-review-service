@@ -30,7 +30,9 @@ func ListProjectPolicies(ctx context.Context, c *app.RequestContext) {
 
 func PutProjectPolicy(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.PutProjectPolicyReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	dbPolicy := apiProjectPolicyToDB(req.Policy)
 	if err := validateProjectPolicy(dbPolicy); err != nil {
 		common.Fail(c, common.BadRequest(err.Error()))
@@ -45,7 +47,9 @@ func PutProjectPolicy(ctx context.Context, c *app.RequestContext) {
 
 func DeleteProjectPolicy(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.DeleteProjectPolicyReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if req.Provider == "" || req.Repo == "" {
 		common.Fail(c, common.BadRequest("代码平台和仓库不能为空"))
 		return

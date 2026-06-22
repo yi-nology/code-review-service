@@ -8,9 +8,10 @@ import (
 )
 
 type Git struct {
-	backend gitbackend.GitBackend
-	dir     string
-	auth    gitbackend.AuthConfig
+	backend  gitbackend.GitBackend
+	dir      string
+	auth     gitbackend.AuthConfig
+	insecure bool
 }
 
 func newBackend() gitbackend.GitBackend {
@@ -32,18 +33,19 @@ func tokenAuth(token string) gitbackend.AuthConfig {
 	}
 }
 
-func Clone(ctx context.Context, dir, url, token string) (*Git, error) {
+func Clone(ctx context.Context, dir, url, token string, skipTLS bool) (*Git, error) {
 	b := newBackend()
 	auth := tokenAuth(token)
 	err := b.Clone(ctx, gitbackend.CloneOptions{
-		URL:  url,
-		Path: dir,
-		Auth: auth,
+		URL:             url,
+		Path:            dir,
+		Auth:            auth,
+		InsecureSkipTLS: skipTLS,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("git clone: %w", err)
 	}
-	return &Git{backend: b, dir: dir, auth: auth}, nil
+	return &Git{backend: b, dir: dir, auth: auth, insecure: skipTLS}, nil
 }
 
 func Open(dir, token string) (*Git, error) {
@@ -58,20 +60,22 @@ func (g *Git) Dir() string { return g.dir }
 
 func (g *Git) Fetch(ctx context.Context, refspec string) error {
 	_, err := g.backend.Fetch(ctx, gitbackend.FetchOptions{
-		RepoPath: g.dir,
-		Remote:   "origin",
-		Branches: []string{refspec},
-		Auth:     g.auth,
+		RepoPath:        g.dir,
+		Remote:          "origin",
+		Branches:        []string{refspec},
+		Auth:            g.auth,
+		InsecureSkipTLS: g.insecure,
 	})
 	return err
 }
 
 func (g *Git) FetchAll(ctx context.Context) error {
 	_, err := g.backend.Fetch(ctx, gitbackend.FetchOptions{
-		RepoPath: g.dir,
-		Remote:   "origin",
-		Tags:     true,
-		Auth:     g.auth,
+		RepoPath:        g.dir,
+		Remote:          "origin",
+		Tags:            true,
+		Auth:            g.auth,
+		InsecureSkipTLS: g.insecure,
 	})
 	if err != nil {
 		return err
@@ -82,11 +86,12 @@ func (g *Git) FetchAll(ctx context.Context) error {
 	}
 	for _, branch := range branches {
 		_, _ = g.backend.Fetch(ctx, gitbackend.FetchOptions{
-			RepoPath: g.dir,
-			Remote:   "origin",
-			Branches: []string{branch},
-			Tags:     true,
-			Auth:     g.auth,
+			RepoPath:        g.dir,
+			Remote:          "origin",
+			Branches:        []string{branch},
+			Tags:            true,
+			Auth:            g.auth,
+			InsecureSkipTLS: g.insecure,
 		})
 	}
 	return nil

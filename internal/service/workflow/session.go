@@ -25,6 +25,7 @@ type ReviewSession struct {
 	DiscussionResult *discussion.DiscussionResult
 	Requirements     *requirements.CoverageAssessment
 	ReviewMap        *reviewmap.ReviewMap
+	TechLeadAnalysis *TechLeadAnalysis
 	FinalReport      *FinalReport
 
 	// 进度追踪
@@ -42,28 +43,46 @@ type ReviewRequest struct {
 	Dir          string
 	Requirements []string
 	Round        int
+	// EphemeralReviewers 是本次评审临时加入的 reviewer（阶段 5），不入库。
+	EphemeralReviewers []agent.EphemeralSpec
 }
 
 // ReviewResult contains the final review result
 type ReviewResult struct {
-	SessionID    string
-	Round        int
-	AgentResults []agent.AgentResult
-	Discussion   *discussion.DiscussionResult
-	Requirements *requirements.CoverageAssessment
-	ReviewMap    *reviewmap.ReviewMap
-	FinalReport  FinalReport
-	Duration     time.Duration
+	SessionID        string
+	Round            int
+	AgentResults     []agent.AgentResult
+	Discussion       *discussion.DiscussionResult
+	Requirements     *requirements.CoverageAssessment
+	ReviewMap        *reviewmap.ReviewMap
+	TechLeadAnalysis *TechLeadAnalysis
+	FinalReport      FinalReport
+	Duration         time.Duration
 }
 
 // FinalReport contains the final review report
 type FinalReport struct {
-	Verdict     string
-	Summary     string
-	Blockers    []agent.Finding
-	ShouldFix   []agent.Finding
-	Suggestions []agent.Finding
-	Score       int
-	GatePassed  bool
-	GateReason  string
+	Verdict             string
+	Summary             string
+	Blockers            []agent.Finding
+	ShouldFix           []agent.Finding
+	Suggestions         []agent.Finding
+	Score               int
+	GatePassed          bool
+	GateReason          string
+	ClarifyingQuestions []ClarifyingQuestion `json:"clarifying_questions,omitempty"`
+}
+
+// ClarifyingQuestion 是需向利益相关者澄清的问题（阶段 4）。
+type ClarifyingQuestion struct {
+	Category string `json:"category"`
+	Question string `json:"question"`
+	Context  string `json:"context"`
+}
+
+// TechLeadAnalysis 是 Tech Lead（Phase 3）的 LLM 分析产物（B2）。
+type TechLeadAnalysis struct {
+	Summary         string   `json:"summary"`
+	Risks           []string `json:"risks"`
+	Recommendations []string `json:"recommendations"`
 }

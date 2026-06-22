@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
@@ -41,6 +43,19 @@ func (r *ReviewerAgentRepo) GetByName(ctx context.Context, name string) (*models
 }
 
 func (r *ReviewerAgentRepo) Create(ctx context.Context, agent *models.ReviewerAgent) error {
+	// Unscoped 查询含软删除记录，避免"删除后再创建同名"触发 unique index 冲突。
+	var existing models.ReviewerAgent
+	err := r.db.WithContext(ctx).Unscoped().Where("name = ?", agent.Name).First(&existing).Error
+	if err == nil {
+		if existing.DeletedAt.Valid {
+			agent.ID = existing.ID
+			return r.db.WithContext(ctx).Unscoped().Save(agent).Error
+		}
+		return fmt.Errorf("agent 名称 %s 已存在", agent.Name)
+	}
+	if !errors.Is(err, gormLib.ErrRecordNotFound) {
+		return err
+	}
 	return r.db.WithContext(ctx).Create(agent).Error
 }
 

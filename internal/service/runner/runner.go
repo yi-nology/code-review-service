@@ -27,7 +27,9 @@ func (r *OpenCodeReviewRunner) Config() OpenCodeReviewConfig {
 	return r.config
 }
 
-const defaultOCRMaxRetries = 1
+// defaultOCRMaxRetries 默认不重试：LLM endpoint 不可达 / DNS 失败 / 配置错误这类
+// 不可重试的错误重试只会成倍放大超时窗口（默认每次 10.5min）。需要重试时显式配置。
+const defaultOCRMaxRetries = 0
 
 func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspace) (review.Result, error) {
 	if strings.TrimSpace(workspace.Dir) == "" {
@@ -65,7 +67,7 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 			}
 		}
 
-		result, err := r.runOnce(attemptCtx, workspace)
+		result, err := r.runOnce(attemptCtx, workspace, timeout)
 		cancel()
 		if err == nil {
 			return result, nil
@@ -79,7 +81,7 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 	return review.Result{}, lastErr
 }
 
-func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Workspace) (review.Result, error) {
+func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Workspace, timeout time.Duration) (review.Result, error) {
 	fromRef := workspace.BaseSHA
 	toRef := workspace.HeadSHA
 	if fromRef == "" {
@@ -119,27 +121,7 @@ func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Wor
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	env := os.Environ()
-	if r.config.URL != "" {
-		env = append(env, "OCR_LLM_URL="+r.config.URL)
-	}
-	if r.config.Model != "" {
-		env = append(env, "OCR_LLM_MODEL="+r.config.Model)
-	}
-	if r.config.AuthToken != "" {
-		env = append(env, "OCR_LLM_TOKEN="+r.config.AuthToken)
-	}
-	if r.config.AuthHeader != "" {
-		env = append(env, "OCR_LLM_AUTH_HEADER="+r.config.AuthHeader)
-	}
-	if r.config.UseAnthropic {
-		env = append(env, "OCR_USE_ANTHROPIC=true")
-	}
-	if r.config.Language != "" {
-		env = append(env, "OCR_LANGUAGE="+r.config.Language)
-	}
-	if r.config.ExtraBody != "" {
-		env = append(env, "OCR_LLM_EXTRA_BODY="+r.config.ExtraBody)
-	}
+	env = AppendLLMEnv(env, r.config)
 	cmd.Env = env
 
 	var stdout bytes.Buffer
@@ -153,13 +135,19 @@ func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Wor
 	progressReporter := progress.ProgressReporterFromContext(ctx)
 
 	if err := cmd.Start(); err != nil {
-		return review.Result{}, fmt.Errorf("open-code-review start failed: %s", err.Error())
+		return review.Result{}, &BinaryMissingError{Binary: r.config.Binary, Err: err}
 	}
 
 	var stderrLines []string
 	var stderrMu sync.Mutex
+	var stderrWg sync.WaitGroup
+	stderrWg.Add(1)
 	async.GoSafe(func() {
+		defer stderrWg.Done()
 		scanner := bufio.NewScanner(stderrPipe)
+		// 扩大缓冲到 1MB，避免 OCR 输出的长 JSON/堆栈（>64KB 默认限制）被截断丢弃，
+		// 导致失败时拿不到根因（如 LLM 错误堆栈）。
+		scanner.Buffer(make([]byte, 0, 64*1024), 1<<20)
 		for scanner.Scan() {
 			line := scanner.Text()
 			stderrMu.Lock()
@@ -171,7 +159,7 @@ func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Wor
 			}
 		}
 		if err := scanner.Err(); err != nil {
-			_ = err
+			hlog.Warnf("ocr stderr scanner error: %v", err)
 		}
 	})
 
@@ -188,6 +176,7 @@ func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Wor
 
 	err = cmd.Wait()
 	close(done)
+	stderrWg.Wait() // 等 stderr goroutine 读完，避免拿到被截断的 stderr（超时/取消场景尤其关键）
 	if err != nil {
 		if cmd.Process != nil {
 			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
@@ -195,11 +184,7 @@ func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Wor
 		stderrMu.Lock()
 		message := strings.Join(stderrLines, "\n")
 		stderrMu.Unlock()
-		message = strings.TrimSpace(message)
-		if message == "" {
-			message = err.Error()
-		}
-		return review.Result{}, fmt.Errorf("open-code-review failed: %s", message)
+		return review.Result{}, classifyExitError(ctx, err, timeout, message)
 	}
 
 	return ParseOpenCodeReviewOutput(stdout.Bytes(), r.config.DefaultSeverity)

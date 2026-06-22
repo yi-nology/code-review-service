@@ -38,6 +38,7 @@ type reviewFinding struct {
 	Body           string
 	ExistingCode   string
 	SuggestionCode string
+	Thinking       string
 }
 
 // ocrAgent wraps the existing OpenCodeReviewRunner as a reviewAgent
@@ -49,6 +50,7 @@ type ocrAgent struct {
 // ocrAgentConfig contains OCR agent configuration
 type ocrAgentConfig struct {
 	Name     string
+	Persona  string
 	Priority int
 	Focus    []string
 	Timeout  time.Duration
@@ -64,6 +66,14 @@ func newOCRAgent(runner reviewRunner, config ocrAgentConfig) *ocrAgent {
 
 // Name returns the agent name
 func (a *ocrAgent) Name() string {
+	return a.config.Name
+}
+
+// Persona 返回 agent 的 persona 基名（冗余展开时多个实例共享同一 persona，路径 A4）
+func (a *ocrAgent) Persona() string {
+	if a.config.Persona != "" {
+		return a.config.Persona
+	}
 	return a.config.Name
 }
 
@@ -105,6 +115,7 @@ func (a *ocrAgent) Review(ctx context.Context, workspace Workspace) (AgentResult
 			Title:      f.Title,
 			Body:       f.Body,
 			Suggestion: f.SuggestionCode,
+			Thinking:   f.Thinking,
 			Confidence: 0.8,
 			Agents:     []string{a.config.Name},
 		}
@@ -112,6 +123,7 @@ func (a *ocrAgent) Review(ctx context.Context, workspace Workspace) (AgentResult
 
 	return AgentResult{
 		AgentName:  a.config.Name,
+		Persona:    a.Persona(),
 		Findings:   findings,
 		Summary:    result.Summary,
 		Confidence: 0.8,

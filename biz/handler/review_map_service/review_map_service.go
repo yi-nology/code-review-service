@@ -36,7 +36,9 @@ func InitHandler(sessionService session.Service, reviewMapRepo repository.Review
 
 func GenerateMap(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelReviewMap.GenerateMapReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	reviewID := req.ID
 	if req.ReviewID != nil && *req.ReviewID != "" {
@@ -85,7 +87,9 @@ func GenerateMap(ctx context.Context, c *app.RequestContext) {
 
 func GetMaps(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelReviewMap.GetMapsReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	maps, err := handlerInst.reviewMapRepo.GetByReviewID(ctx, req.ID)
 	if err != nil {
@@ -116,7 +120,9 @@ func GetMaps(ctx context.Context, c *app.RequestContext) {
 
 func GetMap(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelReviewMap.GetMapReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	m, err := handlerInst.reviewMapRepo.GetByMapID(ctx, req.MapID)
 	if err != nil {
@@ -152,7 +158,9 @@ func GetMap(ctx context.Context, c *app.RequestContext) {
 
 func GetSessionMap(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelReviewMap.GetSessionMapReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	m, err := handlerInst.reviewMapRepo.GetBySessionID(ctx, req.SessionID)
 	if err != nil {
@@ -188,7 +196,9 @@ func GetSessionMap(ctx context.Context, c *app.RequestContext) {
 
 func PreviewMap(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelReviewMap.PreviewMapReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	reviewMap, err := handlerInst.mapGenerator.Generate("preview", req.Diff, nil)
 	if err != nil {
@@ -255,7 +265,9 @@ func UpdateFileReviewed(ctx context.Context, c *app.RequestContext) {
 	filePath := fileID
 
 	req, ok := common.Bind[UpdateFileReviewedRequest](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	// Verify map exists and belongs to review
 	m, err := handlerInst.reviewMapRepo.GetByMapID(ctx, mapID)
@@ -287,7 +299,9 @@ func UpdateSectionProgress(ctx context.Context, c *app.RequestContext) {
 	sectionID := c.Param("sectionId")
 
 	req, ok := common.Bind[UpdateSectionProgressRequest](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	// Verify map exists and belongs to review
 	m, err := handlerInst.reviewMapRepo.GetByMapID(ctx, mapID)

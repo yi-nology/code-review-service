@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/oekit/pkg/convert"
 )
@@ -151,7 +152,7 @@ func (n *GiteaNormalizer) normalizePullRequest(rawBody []byte) (*ChangeEvent, er
 
 func (n *GiteaNormalizer) VerifySignature(body []byte, signature string, secret string) bool {
 	if secret == "" {
-		return true
+		return allowInsecureSignature()
 	}
 	if signature == "" {
 		return false
@@ -171,5 +172,5 @@ func (n *GiteaNormalizer) DeliveryID(headerValue string) string {
 	if headerValue != "" {
 		return headerValue
 	}
-	return "gitea-unknown"
+	return fmt.Sprintf("gitea-%d", time.Now().UnixNano())
 }

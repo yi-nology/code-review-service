@@ -37,7 +37,9 @@ func InitWebhookHandler(webhookSvc *webhook.Service, reviewSvc ReviewCreator, pl
 
 func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelWebhook.HandleWebhookReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	if req.Provider == "" || req.Installation == "" {
 		common.Fail(c, common.BadRequest("provider and installation are required"))

@@ -210,6 +210,15 @@ func (s *GitProviderService) GetToken(platform string) string {
 	return cfg.Token
 }
 
+// GetSkipTLS 返回该平台是否需要跳过 TLS 校验（自签名证书场景）。
+// 仅对该平台的 git 子进程生效，不污染全局环境。
+func (s *GitProviderService) GetSkipTLS(platform string) bool {
+	s.mu.RLock()
+	cfg, ok := s.configs[platform]
+	s.mu.RUnlock()
+	return ok && cfg.SkipTLS
+}
+
 func (s *GitProviderService) ListRepos(ctx context.Context, platform string, opts provider.ListRepoOptions) ([]*provider.PlatformRepo, error) {
 	p, err := s.GetProvider(platform)
 	if err != nil {
@@ -264,19 +273,24 @@ func (s *GitProviderService) GetSupportedPlatforms() []string {
 }
 
 func (s *GitProviderService) AddOrUpdateFromDB(p *models.GitPlatform) error {
+	// SkipTLS 通过 gitbackend 的 InsecureSkipTLS 选项 per-request 传递给 git 子进程，
+	// 不再污染全局 os.Environ（历史上曾用 os.Setenv("GIT_SSL_NO_VERIFY") 导致
+	// 配过一个自签名平台后所有平台 clone 都跳过 TLS 校验）。
 	cfg := provider.Config{
 		Platform: provider.Platform(p.Provider),
 		BaseURL:  p.BaseURL,
 		Token:    p.Token,
+		SkipTLS:  p.SkipTLS,
 	}
 	return s.AddOrUpdate(p.Provider, cfg)
 }
 
-func (s *GitProviderService) TestWithToken(ctx context.Context, platform, baseURL, token string) (*models.GitTestResult, error) {
+func (s *GitProviderService) TestWithToken(ctx context.Context, platform, baseURL, token string, skipTLS bool) (*models.GitTestResult, error) {
 	cfg := provider.Config{
 		Platform: provider.Platform(platform),
 		BaseURL:  baseURL,
 		Token:    token,
+		SkipTLS:  skipTLS,
 	}
 	p, err := provider.NewProvider(cfg)
 	if err != nil {

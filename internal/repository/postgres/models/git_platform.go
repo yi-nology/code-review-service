@@ -10,6 +10,7 @@ type GitPlatform struct {
 	Token          string `gorm:"type:text;not null" json:"-"`
 	WebhookSecret  string `gorm:"type:text;column:webhook_secret" json:"webhook_secret,omitempty"`
 	Enabled        bool   `gorm:"not null;default:true" json:"enabled"`
+	SkipTLS        bool   `gorm:"not null;default:false" json:"skip_tls"`
 }
 
 func (GitPlatform) TableName() string {

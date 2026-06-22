@@ -2,27 +2,72 @@ package publisher_service
 
 import (
 	"context"
+	"strings"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelPublisher "github.com/yi-nology/code-review-service/biz/model/publisher"
+	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
 
 	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
 
 var handlerInst *PublisherHandler //nolint:unused // initialized by InitHandler, used by route handlers
 
-type PublisherHandler struct {
-	writeback *writeback.Orchestrator
+// reviewGetter 是 publisher 需要的"按 ID 取评审"能力（最小接口，避免耦合具体实现）。
+type reviewGetter interface {
+	Get(ctx context.Context, reviewID string) (review.Record, bool, error)
 }
 
-func InitHandler(writeback *writeback.Orchestrator) {
-	handlerInst = &PublisherHandler{writeback: writeback}
+type PublisherHandler struct {
+	writeback  *writeback.Orchestrator
+	translator *writeback.Translator
+	reviewSvc  reviewGetter
+}
+
+// InitHandler 注入 writeback 编排器、拟人化翻译器、评审服务。
+func InitHandler(writeback *writeback.Orchestrator, translator *writeback.Translator, reviewSvc reviewGetter) {
+	handlerInst = &PublisherHandler{
+		writeback:  writeback,
+		translator: translator,
+		reviewSvc:  reviewSvc,
+	}
 }
 
 func PublishReview(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelPublisher.PublishReviewReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
+
+	record, found, err := handlerInst.reviewSvc.Get(ctx, req.ID)
+	if err != nil || !found {
+		common.Fail(c, common.NotFound("review not found"))
+		return
+	}
+
+	findings := record.Response.Findings
+	result := review.Result{
+		Summary:  record.Response.Summary,
+		Findings: findings,
+	}
+
+	// human 模式：用 LLM 把多 agent findings 改写为第一人称自然语言
+	if strings.EqualFold(req.Mode, "human") && handlerInst.translator != nil {
+		translated, terr := handlerInst.translator.TranslateToHumanVoice(ctx, findings, record.Response.Summary)
+		if terr != nil {
+			hlog.Warnf("human translation failed, falling back to team mode: %v", terr)
+		} else {
+			result.Summary = translated.Markdown
+		}
+	}
+
+	// 发布（diff 为空 → orchestrator 自动降级为 summary-only）
+	if err := handlerInst.writeback.Publish(ctx, record.Request, result, ""); err != nil {
+		common.Fail(c, err)
+		return
+	}
 
 	common.Success(c, &modelPublisher.PublishReviewResp{
 		Message:  "review published successfully",
@@ -32,22 +77,71 @@ func PublishReview(ctx context.Context, c *app.RequestContext) {
 
 func PreviewComment(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelPublisher.PreviewCommentReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
+
+	record, found, err := handlerInst.reviewSvc.Get(ctx, req.ID)
+	if err != nil || !found {
+		common.Fail(c, common.NotFound("review not found"))
+		return
+	}
+
+	findings := record.Response.Findings
+	summary := record.Response.Summary
+
+	// human 模式：预览拟人化改写结果（LLM 不可用时自动降级为模板格式）
+	if strings.EqualFold(req.Mode, "human") && handlerInst.translator != nil {
+		translated, _ := handlerInst.translator.TranslateToHumanVoice(ctx, findings, summary)
+		if translated.Markdown != "" {
+			summary = translated.Markdown
+		}
+	}
 
 	common.Success(c, &modelPublisher.PreviewCommentResp{
 		ReviewID: req.ID,
-		Summary:  "",
-		Findings: "",
-		Total:    0,
+		Summary:  summary,
+		Findings: formatFindingsPreview(findings),
+		Total:    int64(len(findings)),
 	})
 }
 
 func UpdatePublishedComment(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelPublisher.UpdatePublishedCommentReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	common.Success(c, &modelPublisher.UpdatePublishedCommentResp{
 		Message:  "published comment updated successfully",
 		ReviewID: req.ID,
 	})
+}
+
+// formatFindingsPreview 把 findings 摘要为可读字符串供预览。
+func formatFindingsPreview(findings []review.Finding) string {
+	if len(findings) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	limit := len(findings)
+	if limit > 20 {
+		limit = 20
+	}
+	for i := 0; i < limit; i++ {
+		f := findings[i]
+		if f.Title != "" {
+			sb.WriteString("- [")
+			sb.WriteString(string(f.Severity))
+			sb.WriteString("] ")
+			sb.WriteString(f.Path)
+			sb.WriteString(": ")
+			sb.WriteString(f.Title)
+			sb.WriteString("\n")
+		}
+	}
+	if len(findings) > limit {
+		sb.WriteString("...\n")
+	}
+	return sb.String()
 }

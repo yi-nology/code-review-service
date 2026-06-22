@@ -3,24 +3,28 @@ package discussion
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/oekit/pkg/slicex"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
 
-// Orchestrator manages the discussion process
+// Orchestrator manages the discussion process.
 type Orchestrator struct {
-	config DiscussionConfig
+	config   DiscussionConfig
+	provider llm.Provider // B1: LLM 驱动真讨论；nil 或不可用时降级到模板逻辑
 }
 
-// NewOrchestrator creates a new discussion orchestrator
-func NewOrchestrator(config DiscussionConfig) *Orchestrator {
-	return &Orchestrator{config: config}
+// NewOrchestrator creates a new discussion orchestrator.
+// provider 为 LLM 调用抽象；传 nil 或不可用时自动降级到模板逻辑，保证可用。
+func NewOrchestrator(config DiscussionConfig, provider llm.Provider) *Orchestrator {
+	return &Orchestrator{config: config, provider: provider}
 }
 
-// RunDiscussion runs a discussion round
+// RunDiscussion runs a discussion round.
 func (o *Orchestrator) RunDiscussion(ctx context.Context, findings []Finding, agents []string, requirements []string) (*DiscussionResult, error) {
 	if !o.config.Enabled {
 		return &DiscussionResult{
@@ -36,34 +40,111 @@ func (o *Orchestrator) RunDiscussion(ctx context.Context, findings []Finding, ag
 
 	hlog.Infof("starting discussion with %d agents and %d findings", len(agents), len(findings))
 
-	// Generate discussion prompts
-	prompts := generateDiscussionPrompts(findings, agents, requirements)
-	if len(prompts) > o.config.MaxPrompts {
-		prompts = prompts[:o.config.MaxPrompts]
-	}
-
-	// Create discussion entries
-	entries := make([]discussionEntry, 0, len(prompts))
-	for _, prompt := range prompts {
-		entry := discussionEntry{
-			ID:         types.GenerateID(),
-			AgentName:  prompt.AgentName,
-			FindingID:  prompt.FindingID,
-			Response:   prompt.ResponseType,
-			Content:    generateResponseContent(prompt),
-			Confidence: 0.8, // Default confidence
-			CreatedAt:  time.Now(),
-		}
-		entries = append(entries, entry)
+	// B1: 优先用 LLM 驱动真讨论（每个 agent 一次调用，集中表态）
+	entries, newFindings, err := o.runLLMDiscourse(ctx, findings, agents, requirements)
+	if err != nil {
+		hlog.Warnf("LLM discourse unavailable, falling back to template logic: %v", err)
+		entries = o.fallbackEntries(findings, agents, requirements)
+		newFindings = nil
 	}
 
 	// Analyze discussion results
 	result := o.analyzeDiscussion(findings, entries)
+	result.NewFindings = newFindings
 
 	hlog.Infof("discussion completed: %d consensus, %d disagreements, %d new findings",
 		len(result.Consensus), len(result.Disagreements), len(result.NewFindings))
 
 	return result, nil
+}
+
+// runLLMDiscourse 用 LLM 驱动真讨论（B1）。每个 agent 一次调用，对该 agent 未提交的
+// 所有 findings 集中表态（AGREE/CHALLENGE/CONNECT），并可 SURFACE 新发现。
+func (o *Orchestrator) runLLMDiscourse(ctx context.Context, findings []Finding, agents []string, requirements []string) ([]discussionEntry, []Finding, error) {
+	if o.provider == nil || !o.provider.Available(ctx) {
+		return nil, nil, llm.ErrNotConfigured
+	}
+
+	var allEntries []discussionEntry
+	var newFindings []Finding
+
+	for _, agentName := range agents {
+		systemPrompt := buildDiscourseSystemPrompt(agentName)
+		userPrompt := buildDiscourseUserPrompt(findings, agentName, requirements)
+
+		var items []llmDiscussionItem
+		err := llm.CompleteJSON(ctx, o.provider, llm.CompleteRequest{
+			SystemPrompt: systemPrompt,
+			UserPrompt:   userPrompt,
+			MaxTokens:    4096,
+		}, &items)
+		if err != nil {
+			hlog.Warnf("LLM discourse for agent %s failed: %v", agentName, err)
+			continue // 单个 agent 失败不阻塞其他 agent
+		}
+
+		for _, item := range items {
+			// SURFACE 新发现（B1 关键：之前 NewFindings 永远为空）
+			if item.Response == string(responseSurface) || item.FindingID == "SURFACE" {
+				body := item.Content
+				if strings.TrimSpace(item.Evidence) != "" {
+					body = fmt.Sprintf("%s\n\n证据: %s", item.Content, item.Evidence)
+				}
+				newFindings = append(newFindings, Finding{
+					ID:         types.GenerateID(),
+					Severity:   "major",
+					Category:   "discussion_surface",
+					Title:      truncate(item.Content, 120),
+					Body:       body,
+					Confidence: normalizeConfidence(item.Confidence),
+					Agents:     []string{agentName},
+				})
+				continue
+			}
+
+			resp := responseType(item.Response)
+			if resp != responseAgree && resp != responseChallenge && resp != responseConnect {
+				continue
+			}
+			allEntries = append(allEntries, discussionEntry{
+				ID:         types.GenerateID(),
+				AgentName:  agentName,
+				FindingID:  item.FindingID,
+				Response:   resp,
+				Content:    item.Content,
+				Evidence:   item.Evidence,
+				Confidence: normalizeConfidence(item.Confidence),
+				CreatedAt:  time.Now(),
+			})
+		}
+	}
+
+	if len(allEntries) == 0 && len(newFindings) == 0 {
+		return nil, nil, fmt.Errorf("llm discourse produced no usable entries")
+	}
+	return allEntries, newFindings, nil
+}
+
+// fallbackEntries 是降级路径：LLM 不可用时用模板逻辑生成讨论条目。
+func (o *Orchestrator) fallbackEntries(findings []Finding, agents []string, requirements []string) []discussionEntry {
+	prompts := generateDiscussionPrompts(findings, agents, requirements)
+	if len(prompts) > o.config.MaxPrompts {
+		prompts = prompts[:o.config.MaxPrompts]
+	}
+
+	entries := make([]discussionEntry, 0, len(prompts))
+	for _, prompt := range prompts {
+		entries = append(entries, discussionEntry{
+			ID:         types.GenerateID(),
+			AgentName:  prompt.AgentName,
+			FindingID:  prompt.FindingID,
+			Response:   prompt.ResponseType,
+			Content:    generateResponseContent(prompt),
+			Confidence: 0.8,
+			CreatedAt:  time.Now(),
+		})
+	}
+	return entries
 }
 
 // analyzeDiscussion analyzes the discussion entries and generates results
@@ -103,21 +184,31 @@ func (o *Orchestrator) analyzeDiscussion(findings []Finding, entries []discussio
 		case challengeCount == 0 && agreeCount > 0:
 			// Consensus
 			agents := make([]string, 0)
+			confSum := 0.0
 			for _, entry := range findingEntries {
 				if entry.Response == responseAgree {
 					agents = append(agents, entry.AgentName)
+					confSum += entry.Confidence
 				}
 			}
+			// B3: 置信度动态化 = AGREE 平均置信度 × 同意比率
+			avgConf := 0.0
+			if agreeCount > 0 {
+				avgConf = confSum / float64(agreeCount)
+			}
+			agreementRatio := float64(agreeCount) / float64(len(findingEntries))
+			finalConfidence := avgConf * agreementRatio
+
 			consensus = append(consensus, consensusItem{
 				FindingID:  finding.ID,
 				Agents:     agents,
-				Confidence: float64(agreeCount) / float64(len(findingEntries)),
+				Confidence: finalConfidence,
 				Summary:    "All agents agree on this finding",
 			})
 
 			// Update finding confidence
 			updatedFinding := finding
-			updatedFinding.Confidence = float64(agreeCount) / float64(len(findingEntries))
+			updatedFinding.Confidence = finalConfidence
 			updatedFindings = append(updatedFindings, updatedFinding)
 		case challengeCount > 0:
 			// Disagreement

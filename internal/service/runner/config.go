@@ -1,6 +1,11 @@
 package runner
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/yi-nology/code-review-service/internal/pkg/sliceutil"
+)
 
 const (
 	defaultBinary         = "ocr"
@@ -34,6 +39,8 @@ type OpenCodeReviewConfig struct {
 	TelemetryExporter       string
 	TelemetryOTLPEndpoint   string
 	TelemetryContentLogging bool
+	ContextWindow           int // 上下文窗口大小（tokens），0=模型默认
+	MaxOutputTokens         int // 最大输出 tokens，0=模型默认
 }
 
 func NewOpenCodeReviewRunner(config OpenCodeReviewConfig) *OpenCodeReviewRunner {
@@ -58,20 +65,54 @@ func NewOpenCodeReviewRunner(config OpenCodeReviewConfig) *OpenCodeReviewRunner 
 	return &OpenCodeReviewRunner{config: config}
 }
 
-func firstNonBlank(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
-}
+// 使用共享工具函数
+var firstNonBlank = sliceutil.FirstNonBlank
+var firstPositive = sliceutil.FirstPositive
+var firstPositiveOr = sliceutil.FirstPositiveOr
 
-func firstPositive(values ...int) int {
-	for _, value := range values {
-		if value > 0 {
-			return value
-		}
+// AppendLLMEnv 将 LLM 配置追加到环境变量列表
+// 这是统一的环境变量构建函数，所有 OCR 命令调用都应使用此函数
+func AppendLLMEnv(env []string, cfg OpenCodeReviewConfig) []string {
+	if cfg.URL != "" {
+		env = append(env, "OCR_LLM_URL="+cfg.URL)
 	}
-	return 0
+	if cfg.Model != "" {
+		env = append(env, "OCR_LLM_MODEL="+cfg.Model)
+	}
+	if cfg.AuthToken != "" {
+		env = append(env, "OCR_LLM_TOKEN="+cfg.AuthToken)
+	}
+	if cfg.AuthHeader != "" {
+		env = append(env, "OCR_LLM_AUTH_HEADER="+cfg.AuthHeader)
+	}
+	if cfg.UseAnthropic {
+		env = append(env, "OCR_USE_ANTHROPIC=true")
+	} else {
+		env = append(env, "OCR_USE_ANTHROPIC=false")
+	}
+	if cfg.Language != "" {
+		env = append(env, "OCR_LANGUAGE="+cfg.Language)
+	}
+	if cfg.ExtraBody != "" {
+		env = append(env, "OCR_LLM_EXTRA_BODY="+cfg.ExtraBody)
+	}
+	if cfg.ContextWindow > 0 {
+		env = append(env, fmt.Sprintf("OCR_CONTEXT_WINDOW=%d", cfg.ContextWindow))
+	}
+	if cfg.MaxOutputTokens > 0 {
+		env = append(env, fmt.Sprintf("OCR_MAX_OUTPUT_TOKENS=%d", cfg.MaxOutputTokens))
+	}
+	if cfg.TelemetryEnabled {
+		env = append(env, "OCR_ENABLE_TELEMETRY=true")
+	}
+	if cfg.TelemetryExporter != "" {
+		env = append(env, "OCR_TELEMETRY_EXPORTER="+cfg.TelemetryExporter)
+	}
+	if cfg.TelemetryOTLPEndpoint != "" {
+		env = append(env, "OCR_TELEMETRY_OTLP_ENDPOINT="+cfg.TelemetryOTLPEndpoint)
+	}
+	if cfg.TelemetryContentLogging {
+		env = append(env, "OCR_CONTENT_LOGGING=true")
+	}
+	return env
 }

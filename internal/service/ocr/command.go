@@ -2,6 +2,7 @@ package ocr
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
 	"strings"
 	"syscall"
@@ -26,7 +27,25 @@ func runOCRCommand(ctx context.Context, binary string, args []string, env []stri
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	err := cmd.Run()
+	if err := cmd.Start(); err != nil {
+		return &ocrCommandResult{}, fmt.Errorf("ocr command start failed: %w", err)
+	}
+
+	// ctx 超时/取消时杀整个进程组，避免 OCR 起的子进程（如 git/LLM 重试）变孤儿。
+	// exec.CommandContext 默认只 kill 主进程，进程组里的孩子会存活。
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			if cmd.Process != nil {
+				_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+			}
+		case <-done:
+		}
+	}()
+
+	err := cmd.Wait()
+	close(done)
 	return &ocrCommandResult{
 		stdout: stdout.String(),
 		stderr: stderr.String(),
@@ -43,29 +62,4 @@ func resolveBinaryFrom(s *models.OCRSettings, fallback runner.OpenCodeReviewConf
 	return "ocr"
 }
 
-func appendLLMEnv(env []string, cfg runner.OpenCodeReviewConfig) []string {
-	if cfg.URL != "" {
-		env = append(env, "OCR_LLM_URL="+cfg.URL)
-	}
-	if cfg.Model != "" {
-		env = append(env, "OCR_LLM_MODEL="+cfg.Model)
-	}
-	if cfg.AuthToken != "" {
-		env = append(env, "OCR_LLM_TOKEN="+cfg.AuthToken)
-	}
-	if cfg.AuthHeader != "" {
-		env = append(env, "OCR_LLM_AUTH_HEADER="+cfg.AuthHeader)
-	}
-	if cfg.UseAnthropic {
-		env = append(env, "OCR_USE_ANTHROPIC=true")
-	} else {
-		env = append(env, "OCR_USE_ANTHROPIC=false")
-	}
-	if cfg.Language != "" {
-		env = append(env, "OCR_LANGUAGE="+cfg.Language)
-	}
-	if cfg.ExtraBody != "" {
-		env = append(env, "OCR_LLM_EXTRA_BODY="+cfg.ExtraBody)
-	}
-	return env
-}
+// appendLLMEnv 已迁移到 runner.AppendLLMEnv

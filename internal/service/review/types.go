@@ -23,6 +23,17 @@ type Request struct {
 	AuthorName      string `json:"author_name,omitempty"`
 	AuthorAvatar    string `json:"author_avatar,omitempty"`
 	Sender          string `json:"sender,omitempty"`
+	// Requirements 是需求/spec/验收标准，透传给 workflow 做需求感知评审（阶段 4）。
+	Requirements []string `json:"requirements,omitempty"`
+	// EphemeralReviewers 是本次评审临时加入的 reviewer 描述（阶段 5），不入库。
+	EphemeralReviewers []EphemeralReviewer `json:"ephemeral_reviewers,omitempty"`
+}
+
+// EphemeralReviewer 描述一个临时的、不入库的 reviewer（阶段 5）。
+// 在 executor 层映射为 agent.EphemeralSpec。
+type EphemeralReviewer struct {
+	Name       string `json:"name,omitempty"`
+	Background string `json:"background"`
 }
 
 type Response struct {
@@ -140,4 +151,5 @@ type Finding struct {
 	Body           string   `json:"body"`
 	ExistingCode   string   `json:"existing_code,omitempty"`
 	SuggestionCode string   `json:"suggestion_code,omitempty"`
+	Thinking       string   `json:"thinking,omitempty"`
 }

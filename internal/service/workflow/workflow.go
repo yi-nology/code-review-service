@@ -7,6 +7,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/discussion"
+	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/oekit/workflow"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
@@ -18,6 +19,7 @@ type ReviewWorkflow struct {
 	sessionService  sessionService
 	progressManager *progress.ProgressManager
 	discussionOrch  *discussion.Orchestrator
+	llmProvider     llm.Provider
 	config          WorkflowConfig
 }
 
@@ -27,6 +29,8 @@ type WorkflowConfig struct {
 	EnableRequirements bool
 	EnableReviewMap    bool
 	DiscussionRounds   int
+	ContextWindow      int // 上下文窗口大小（tokens），0=模型默认
+	MaxOutputTokens    int // 最大输出 tokens，0=模型默认
 }
 
 // DefaultWorkflowConfig returns default workflow configuration
@@ -36,7 +40,35 @@ func DefaultWorkflowConfig() WorkflowConfig {
 		EnableRequirements: true,
 		EnableReviewMap:    true,
 		DiscussionRounds:   1,
+		ContextWindow:      0,
+		MaxOutputTokens:    0,
 	}
+}
+
+// GetMaxDiffChars 根据上下文窗口大小计算合适的 diff 截断字符数
+// 经验公式：diff 应占上下文窗口的 30-40%，留空间给系统提示、用户提示和输出
+func (c *WorkflowConfig) GetMaxDiffChars() int {
+	if c.ContextWindow <= 0 {
+		// 未配置上下文窗口，使用默认值
+		return 30000
+	}
+	// 按上下文窗口的 35% 计算 diff 上限，但不少于 10000，不超过 500000
+	limit := int(float64(c.ContextWindow) * 0.35 / 4) // 假设平均 4 chars/token
+	if limit < 10000 {
+		limit = 10000
+	}
+	if limit > 500000 {
+		limit = 500000
+	}
+	return limit
+}
+
+// GetMaxOutputTokensForStep 根据配置返回特定步骤的最大输出 tokens
+func (c *WorkflowConfig) GetMaxOutputTokensForStep(defaultTokens int) int {
+	if c.MaxOutputTokens > 0 {
+		return c.MaxOutputTokens
+	}
+	return defaultTokens
 }
 
 // NewReviewWorkflow creates a new review workflow
@@ -44,13 +76,15 @@ func NewReviewWorkflow(
 	agentManager *agent.AgentManager,
 	sessionService sessionService,
 	progressManager *progress.ProgressManager,
+	llmProvider llm.Provider,
 	config WorkflowConfig,
 ) *ReviewWorkflow {
 	return &ReviewWorkflow{
 		agentManager:    agentManager,
 		sessionService:  sessionService,
 		progressManager: progressManager,
-		discussionOrch:  discussion.NewOrchestrator(discussion.DefaultDiscussionConfig()),
+		discussionOrch:  discussion.NewOrchestrator(discussion.DefaultDiscussionConfig(), llmProvider),
+		llmProvider:     llmProvider,
 		config:          config,
 	}
 }
@@ -100,6 +134,7 @@ func (w *ReviewWorkflow) RunReview(ctx context.Context, request ReviewRequest) (
 	result.Discussion = rs.DiscussionResult
 	result.Requirements = rs.Requirements
 	result.ReviewMap = rs.ReviewMap
+	result.TechLeadAnalysis = rs.TechLeadAnalysis
 	if rs.FinalReport != nil {
 		result.FinalReport = *rs.FinalReport
 	}
@@ -123,6 +158,8 @@ func (w *ReviewWorkflow) buildPipeline() *workflow.PipeFlow {
 	// Phase 3: Analysis
 	pipe.Add(&analysisStep{
 		sessionService: w.sessionService,
+		llmProvider:    w.llmProvider,
+		config:         w.config,
 	})
 
 	// Phase 4: Parallel Reviews
@@ -150,6 +187,7 @@ func (w *ReviewWorkflow) buildPipeline() *workflow.PipeFlow {
 		sessionService:     w.sessionService,
 		enableRequirements: w.config.EnableRequirements,
 		enableReviewMap:    w.config.EnableReviewMap,
+		llmProvider:        w.llmProvider,
 	})
 
 	// Phase 8: Complete

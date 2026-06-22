@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/oekit/pkg/convert"
 )
@@ -132,7 +133,7 @@ func (n *TencentCodeNormalizer) normalizeMergeRequest(rawBody []byte) (*ChangeEv
 
 func (n *TencentCodeNormalizer) VerifySignature(body []byte, signature string, secret string) bool {
 	if secret == "" {
-		return true
+		return allowInsecureSignature()
 	}
 	if signature == "" {
 		return false
@@ -151,5 +152,5 @@ func (n *TencentCodeNormalizer) DeliveryID(headerValue string) string {
 	if headerValue != "" {
 		return headerValue
 	}
-	return "tencent-unknown"
+	return fmt.Sprintf("tencent-%d", time.Now().UnixNano())
 }

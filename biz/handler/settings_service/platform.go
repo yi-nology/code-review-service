@@ -2,6 +2,7 @@ package settings_service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
@@ -32,14 +33,16 @@ func ListPlatforms(ctx context.Context, c *app.RequestContext) {
 
 func PutPlatform(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.PutPlatformReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if req.Provider == "" {
 		common.Fail(c, common.BadRequest("代码平台不能为空"))
 		return
 	}
 	token := ptrx.Deref(req.Token, "")
 	if token == "" {
-		existing, err := handlerInst.platform.Get(ctx, req.Provider)
+		existing, err := handlerInst.platform.Get(ctx, req.Provider, "default")
 		if err == nil && existing != nil {
 			token = existing.Token
 		}
@@ -52,10 +55,14 @@ func PutPlatform(ctx context.Context, c *app.RequestContext) {
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
+	installationID := ptrx.Deref(req.InstallationID, "")
+	if installationID == "" {
+		installationID = "default"
+	}
 	p := &models.GitPlatform{
 		Provider: req.Provider, BaseURL: ptrx.Deref(req.BaseURL, ""),
 		Token: token, WebhookSecret: ptrx.Deref(req.WebhookSecret, ""), Enabled: enabled,
-		InstallationID: ptrx.Deref(req.InstallationID, ""),
+		InstallationID: installationID, SkipTLS: ptrx.Deref(req.SkipTLS, false),
 	}
 	if err := handlerInst.platform.Save(ctx, p); err != nil {
 		common.Fail(c, common.BizErr(500, "保存平台配置失败"))
@@ -63,7 +70,10 @@ func PutPlatform(ctx context.Context, c *app.RequestContext) {
 	}
 	if handlerInst.gitMgr != nil {
 		if enabled {
-			_ = handlerInst.gitMgr.AddOrUpdateFromDB(p)
+			if err := handlerInst.gitMgr.AddOrUpdateFromDB(p); err != nil {
+				common.Fail(c, fmt.Errorf("注册平台失败: %w", err))
+				return
+			}
 		} else {
 			handlerInst.gitMgr.Remove(p.Provider)
 		}
@@ -72,19 +82,22 @@ func PutPlatform(ctx context.Context, c *app.RequestContext) {
 		Platform: &modelSettings.GitPlatformInfo{
 			Provider: p.Provider, BaseURL: p.BaseURL,
 			Token: common.MaskToken(p.Token), Enabled: p.Enabled,
-			WebhookSecret: common.MaskWebhookSecret(p.WebhookSecret),
+			WebhookSecret:  common.MaskWebhookSecret(p.WebhookSecret),
+			InstallationID: &p.InstallationID,
 		},
 	})
 }
 
 func DeletePlatform(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.DeletePlatformReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if req.Provider == "" {
 		common.Fail(c, common.BadRequest("代码平台不能为空"))
 		return
 	}
-	if err := handlerInst.platform.Delete(ctx, req.Provider); err != nil {
+	if err := handlerInst.platform.Delete(ctx, req.Provider, "default"); err != nil {
 		common.Fail(c, err)
 		return
 	}
@@ -96,12 +109,14 @@ func DeletePlatform(ctx context.Context, c *app.RequestContext) {
 
 func TestPlatform(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.TestPlatformReq](c)
-	if !ok { return }
+	if !ok {
+		return
+	}
 	if req.Provider == "" || req.Token == "" {
 		common.Fail(c, common.BadRequest("平台和 Token 不能为空"))
 		return
 	}
-	result, err := handlerInst.gitMgr.TestWithToken(ctx, req.Provider, ptrx.Deref(req.BaseURL, ""), req.Token)
+	result, err := handlerInst.gitMgr.TestWithToken(ctx, req.Provider, ptrx.Deref(req.BaseURL, ""), req.Token, ptrx.Deref(req.SkipTLS, false))
 	if err != nil {
 		common.Success(c, &modelSettings.TestPlatformResp{
 			Result: &modelSettings.GitTestResult{Connected: false, Platform: req.Provider, Message: common.StrPtr(err.Error())},

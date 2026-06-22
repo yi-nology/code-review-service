@@ -39,7 +39,9 @@ request.interceptors.response.use(
             return new Promise(() => {})
           }
         }
-        ElMessage.error(body.message || '请求失败')
+        if (body.code !== 404) {
+          ElMessage.error(body.message || '请求失败')
+        }
         return Promise.reject(new Error(body.message))
       }
       return body.data

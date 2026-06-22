@@ -99,7 +99,7 @@ func (s *Service) HandleWebhook(ctx context.Context, provider, installationID st
 	_ = json.Unmarshal(rawBody, &payload)
 
 	if IsBotSender(provider, payload, s.botUsername) {
-		_ = s.deliveryRepo.MarkProcessed(context.Background(), provider, installationID, deliveryID, "ignored", "bot sender")
+		_ = s.deliveryRepo.MarkProcessed(ctx, provider, installationID, deliveryID, "ignored", "bot sender")
 		return &HandleResult{Ignored: true}, nil
 	}
 
@@ -108,12 +108,12 @@ func (s *Service) HandleWebhook(ctx context.Context, provider, installationID st
 		return nil, fmt.Errorf("normalize: %w", err)
 	}
 	if event == nil {
-		_ = s.deliveryRepo.MarkProcessed(context.Background(), provider, installationID, deliveryID, "ignored", "")
+		_ = s.deliveryRepo.MarkProcessed(ctx, provider, installationID, deliveryID, "ignored", "")
 		return &HandleResult{Ignored: true}, nil
 	}
 
 	if IsDraftEvent(provider, payload) {
-		_ = s.deliveryRepo.MarkProcessed(context.Background(), provider, installationID, deliveryID, "ignored", "draft PR")
+		_ = s.deliveryRepo.MarkProcessed(ctx, provider, installationID, deliveryID, "ignored", "draft PR")
 		return &HandleResult{Ignored: true}, nil
 	}
 

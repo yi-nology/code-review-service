@@ -49,7 +49,7 @@ func runPreview(ctx context.Context, cfg OpenCodeReviewConfig, workspace review.
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	env := os.Environ()
-	env = appendLLMEnv(env, cfg)
+	env = AppendLLMEnv(env, cfg)
 	cmd.Env = env
 
 	var stdout bytes.Buffer
@@ -101,35 +101,4 @@ func runPreview(ctx context.Context, cfg OpenCodeReviewConfig, workspace review.
 	return &review.PreviewResult{Files: files}, nil
 }
 
-func appendLLMEnv(env []string, cfg OpenCodeReviewConfig) []string {
-	if cfg.URL != "" {
-		env = append(env, "OCR_LLM_URL="+cfg.URL)
-	}
-	if cfg.Model != "" {
-		env = append(env, "OCR_LLM_MODEL="+cfg.Model)
-	}
-	if cfg.AuthToken != "" {
-		env = append(env, "OCR_LLM_TOKEN="+cfg.AuthToken)
-	}
-	if cfg.AuthHeader != "" {
-		env = append(env, "OCR_LLM_AUTH_HEADER="+cfg.AuthHeader)
-	}
-	if cfg.UseAnthropic {
-		env = append(env, "OCR_USE_ANTHROPIC=true")
-	} else {
-		env = append(env, "OCR_USE_ANTHROPIC=false")
-	}
-	if cfg.Language != "" {
-		env = append(env, "OCR_LANGUAGE="+cfg.Language)
-	}
-	if cfg.ExtraBody != "" {
-		env = append(env, "OCR_LLM_EXTRA_BODY="+cfg.ExtraBody)
-	}
-	if cfg.TelemetryEnabled {
-		env = append(env, "OCR_ENABLE_TELEMETRY=true")
-	}
-	if cfg.TelemetryContentLogging {
-		env = append(env, "OCR_CONTENT_LOGGING=true")
-	}
-	return env
-}
+// appendLLMEnv 已迁移到 config.go 中的 AppendLLMEnv

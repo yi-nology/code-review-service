@@ -43,11 +43,16 @@ func NewGitProviderService(lc fx.Lifecycle, cfg *config.Config, repos *repositor
 			Platform: gitplatform.Platform(p.Provider),
 			BaseURL:  p.BaseURL,
 			Token:    p.Token,
+			SkipTLS:  p.SkipTLS,
+		}
+		// SkipTLS 通过 gitbackend InsecureSkipTLS per-request 传递，不再全局 os.Setenv。
+		if p.SkipTLS {
+			hlog.Infof("init: platform %s configured with SkipTLS (per-request InsecureSkipTLS)", p.Provider)
 		}
 	}
 
 	for name, pCfg := range providerConfigs {
-		existing, err := repos.GitPlatform.Get(ctx, name)
+		existing, err := repos.GitPlatform.Get(ctx, name, "default")
 		if err != nil {
 			hlog.Errorf("init: get git platform from DB %s: %v", name, err)
 			continue
@@ -68,6 +73,14 @@ func NewGitProviderService(lc fx.Lifecycle, cfg *config.Config, repos *repositor
 	if err != nil {
 		return nil, fmt.Errorf("init git providers: %w", err)
 	}
+
+	// 用 AddOrUpdateFromDB 重新注册所有 DB 平台（确保 SkipTLS 通过 InsecureSkipTLS 生效）
+	for _, p := range dbPlatforms {
+		if err := svc.AddOrUpdateFromDB(&p); err != nil {
+			hlog.Errorf("init: re-register platform %s failed: %v", p.Provider, err)
+		}
+	}
+
 	hlog.Infof("git providers initialized: %v", svc.GetSupportedPlatforms())
 	return svc, nil
 }
