@@ -169,3 +169,6 @@ func scoreGrade(value int) string {
 		return "高风险"
 	}
 }
+
+// ScoreGrade 是 scoreGrade 的 exported 版本，供 workflow 路径同步 FinalReport 评分时使用。
+func ScoreGrade(value int) string { return scoreGrade(value) }

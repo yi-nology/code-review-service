@@ -437,7 +437,8 @@ func convertReport(r review.Report) *modelReview.Report {
 		Ocr: convertOCRMetadata(r.OCR), Scope: convertScopeMetadata(r.Scope),
 		Score: &modelReview.Score{
 			Value: int64(r.Score.Value), Grade: r.Score.Grade, Version: r.Score.Version,
-			ChangedLines: ptrx.Of(int64(r.Score.ChangedLines)), FindingsDensity: ptrx.Of(r.Score.FindingsDensity),
+			Deductions:    convertDeductions(r.Score.Deductions),
+			ChangedLines:  ptrx.Of(int64(r.Score.ChangedLines)), FindingsDensity: ptrx.Of(r.Score.FindingsDensity),
 		},
 		Counts: &modelReview.SeverityCounts{
 			Critical: int64(r.Counts.Critical), Major: int64(r.Counts.Major),
@@ -455,6 +456,15 @@ func convertOCRMetadata(o review.OCRMetadata) *modelReview.OCRMetadata {
 		OutputTokens: ptrx.Of(o.OutputTokens), CacheReadTokens: ptrx.Of(o.CacheReadTokens),
 		CacheWriteTokens: ptrx.Of(o.CacheWriteTokens), Elapsed: common.StrPtr(o.Elapsed),
 	}
+}
+
+func convertDeductions(ds []review.ScoreDeduction) []*modelReview.ScoreDeduction {
+	if len(ds) == 0 {
+		return nil
+	}
+	return slicex.Map(ds, func(d review.ScoreDeduction) *modelReview.ScoreDeduction {
+		return &modelReview.ScoreDeduction{Reason: d.Reason, Points: int64(d.Points), Count: ptrx.Of(int64(d.Count))}
+	})
 }
 
 func convertScopeMetadata(s review.ScopeMetadata) *modelReview.ScopeMetadata {

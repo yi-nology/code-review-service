@@ -95,6 +95,8 @@ func (s *Service) updateWithRawOCR(ctx context.Context, id string, req review.Re
 	}
 
 	r.Status = response.Status
+	hlog.Infof("[report-debug] review=%s status=%s ocr.engine=%q ocr.status=%q complete=%v deductions=%d files=%d",
+		id, response.Status, response.Report.OCR.Engine, response.Report.OCR.Status, response.Report.Complete, len(response.Report.Score.Deductions), response.Report.OCR.FilesReviewed)
 	r.Response = review.MustMarshal(response)
 	if len(rawOCR) > 0 {
 		r.RawOCR = datatypes.JSON(rawOCR)
