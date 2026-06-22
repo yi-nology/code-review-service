@@ -15,6 +15,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/reviewmap"
+	"github.com/yi-nology/code-review-service/internal/service/runner"
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
 
 	"github.com/oekit/pkg/slicex"
@@ -95,7 +96,7 @@ func (s *Service) Execute(ctx context.Context, id string, req review.Request, pr
 
 	workspace, err := provider.Prepare(ctx, req)
 	if err != nil {
-		s.recordFailure(ctx, id, req, err)
+		s.recordFailure(ctx, id, req, "repository", err)
 		return review.Response{}, err
 	}
 	s.appendHistory(ctx, id, "repository", "completed", "repository and change scope prepared", map[string]any{
@@ -127,7 +128,7 @@ func (s *Service) Execute(ctx context.Context, id string, req review.Request, pr
 	if len(ignorePaths) > 0 {
 		workspace, err = applyProjectScope(ctx, workspace, ignorePaths)
 		if err != nil {
-			s.recordFailure(ctx, id, req, err)
+			s.recordFailure(ctx, id, req, "scope", err)
 			return review.Response{}, err
 		}
 		s.appendHistory(ctx, id, "scope", "completed", "project review policy applied", map[string]any{
@@ -193,7 +194,7 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 
 	result, err := s.workflow.RunReview(ctx, wfReq)
 	if err != nil {
-		s.recordFailure(ctx, id, req, err)
+		s.recordFailure(ctx, id, req, "workflow", err)
 		return review.Response{}, err
 	}
 
@@ -281,7 +282,7 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req review.R
 	s.appendHistory(ctx, id, "ocr", "running", "code review model invoked", nil)
 	result, err := s.runner.Run(ctx, workspace)
 	if err != nil {
-		s.recordFailure(ctx, id, req, err)
+		s.recordFailure(ctx, id, req, "ocr", err)
 		return review.Response{}, err
 	}
 	s.appendHistory(ctx, id, "ocr", "completed", "code review model analysis completed", map[string]any{
@@ -337,7 +338,19 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req review.R
 	return resp, nil
 }
 
-func (s *Service) recordFailure(ctx context.Context, id string, req review.Request, runErr error) {
+// recordFailure 记录评审失败：先追加一条 stage 级别的 failed history（带原始错误），
+// 再持久化最终 failed 状态。stage 标识失败发生在哪个环节（repository/scope/ocr/workflow），
+// 便于前端 timeline 与排障直接定位根因，而非只看到扁平的 "review execution failed"。
+func (s *Service) recordFailure(ctx context.Context, id string, req review.Request, stage string, runErr error) {
+	details := map[string]any{
+		"error": runErr.Error(),
+		"stage": stage,
+	}
+	if et := classifyReviewErrorType(runErr); et != "" {
+		details["error_type"] = et
+	}
+	s.appendHistory(ctx, id, stage, "failed", runErr.Error(), details)
+
 	response := review.Response{
 		ReviewID: id,
 		Status:   "failed",
@@ -348,6 +361,22 @@ func (s *Service) recordFailure(ctx context.Context, id string, req review.Reque
 	if err := s.updateWithRawOCR(ctx, id, req, response, nil); err != nil {
 		hlog.Error("failed to persist review failure", "review_id", id, "error", err)
 	}
+}
+
+// classifyReviewErrorType 把 runner 的结构化错误归类为运维可读标签，写入 history details，
+// 让前端/排障能一眼区分是「二进制缺失 / 超时 / 子进程退出（LLM/DNS/解析）」。
+// 非 runner 路径的错误（repository/scope/workflow stage）返回空。
+func classifyReviewErrorType(err error) string {
+	if runner.IsBinaryMissing(err) {
+		return "binary_missing"
+	}
+	if runner.IsTimeout(err) {
+		return "timeout"
+	}
+	if runner.IsExit(err) {
+		return "exit"
+	}
+	return ""
 }
 
 func (s *Service) generateAndSaveReviewMap(ctx context.Context, id string, req review.Request, workspace review.Workspace, result review.Result) {
