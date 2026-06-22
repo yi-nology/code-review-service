@@ -293,6 +293,11 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 		return review.Response{}, err
 	}
 
+	// workflow 路径也生成代码审查地图（原仅 executeWithRunner 生成，多 agent 评审地图为空）
+	if s.reviewMapRepo != nil && workspace.Diff != "" {
+		s.generateAndSaveReviewMap(ctx, id, req, workspace, dummyResult)
+	}
+
 	return resp, nil
 }
 
