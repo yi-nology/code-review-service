@@ -146,15 +146,35 @@
                 <p>按严重、高风险和问题总量排序</p>
               </div>
             </div>
-            <el-table :data="files" size="small" empty-text="暂无文件风险数据">
-              <el-table-column label="文件" min-width="220">
+            <el-table :data="files" size="small" empty-text="暂无文件风险数据" :default-sort="{ prop: 'count', order: 'descending' }">
+              <el-table-column label="文件" min-width="280" prop="path" sortable>
                 <template #default="{ row }">
-                  <span class="file-path">{{ row.path }}</span>
+                  <div class="file-risk-row">
+                    <span class="file-path">{{ row.path }}</span>
+                    <div class="file-severity-bar" v-if="row.count > 0">
+                      <span class="bar-critical" v-if="row.critical_count > 0" :style="{ flex: row.critical_count }" :title="`严重 ${row.critical_count}`" />
+                      <span class="bar-major" v-if="row.major_count > 0" :style="{ flex: row.major_count }" :title="`高风险 ${row.major_count}`" />
+                    </div>
+                  </div>
                 </template>
               </el-table-column>
-              <el-table-column label="问题" width="70" align="center" prop="count" />
-              <el-table-column label="C" width="58" align="center" prop="critical_count" />
-              <el-table-column label="M" width="58" align="center" prop="major_count" />
+              <el-table-column label="问题" width="70" align="center" prop="count" sortable>
+                <template #default="{ row }">
+                  <strong>{{ row.count }}</strong>
+                </template>
+              </el-table-column>
+              <el-table-column label="严重" width="70" align="center" prop="critical_count" sortable>
+                <template #default="{ row }">
+                  <span v-if="row.critical_count > 0" class="severity-badge critical">{{ row.critical_count }}</span>
+                  <span v-else class="muted">0</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="高风险" width="80" align="center" prop="major_count" sortable>
+                <template #default="{ row }">
+                  <span v-if="row.major_count > 0" class="severity-badge major">{{ row.major_count }}</span>
+                  <span v-else class="muted">0</span>
+                </template>
+              </el-table-column>
             </el-table>
           </section>
 
@@ -652,6 +672,56 @@ onMounted(() => {
 .file-path {
   color: #394150;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.file-risk-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.file-severity-bar {
+  display: flex;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  max-width: 200px;
+}
+
+.file-severity-bar .bar-critical {
+  background: #d84b5b;
+}
+
+.file-severity-bar .bar-major {
+  background: #d98616;
+}
+
+.severity-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.severity-badge.critical {
+  color: #d84b5b;
+  background: #fff0f2;
+}
+
+.severity-badge.major {
+  color: #d98616;
+  background: #fff6e8;
+}
+
+.muted {
+  color: #c0c4cc;
   font-size: 12px;
 }
 
