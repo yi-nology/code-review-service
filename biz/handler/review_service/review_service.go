@@ -49,26 +49,7 @@ func CreateReview(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	svcReq := review.Request{
-		Provider:        req.Provider,
-		Repo:            req.Repo,
-		ProjectID:       ptrx.Deref(req.ProjectID, ""),
-		PullRequestID:   ptrx.Deref(req.PullRequestID, ""),
-		MergeRequestIID: ptrx.Deref(req.MergeRequestIid, ""),
-		BaseSHA:         ptrx.Deref(req.BaseSha, ""),
-		HeadSHA:         ptrx.Deref(req.HeadSha, ""),
-		CallbackMode:    ptrx.Deref(req.CallbackMode, ""),
-		Wait:            ptrx.Deref(req.Wait, false),
-		Requirements:    req.Requirements,
-	}
-	// 映射临时 reviewer：API 输入 → review.EphemeralReviewer（阶段 5）
-	if len(req.EphemeralReviewers) > 0 {
-		svcReq.EphemeralReviewers = make([]review.EphemeralReviewer, len(req.EphemeralReviewers))
-		for i, e := range req.EphemeralReviewers {
-			svcReq.EphemeralReviewers[i] = review.EphemeralReviewer{Name: e.Name, Background: e.Background}
-		}
-	}
-
+	svcReq := toServiceRequest(req)
 	fillAuthorInfo(ctx, &svcReq)
 
 	idempotencyKey := string(c.GetHeader("Idempotency-Key"))
@@ -174,9 +155,9 @@ func PreviewReview(ctx context.Context, c *app.RequestContext) {
 	}
 
 	svcReq := review.Request{
-		Provider:        req.Provider,
-		Repo:            req.Repo,
-		ProjectID:       ptrx.Deref(req.ProjectID, ""),
+		Provider:  req.Provider,
+		Repo:      req.Repo,
+		ProjectID: ptrx.Deref(req.ProjectID, ""),
 		PullRequestID:   ptrx.Deref(req.PullRequestID, ""),
 		MergeRequestIID: ptrx.Deref(req.MergeRequestIid, ""),
 		BaseSHA:         ptrx.Deref(req.BaseSha, ""),
@@ -189,7 +170,7 @@ func PreviewReview(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	common.Success(c, map[string]any{"files": files})
+	common.Success(c, &modelReview.PreviewResp{Files: files})
 }
 
 func RerunReview(ctx context.Context, c *app.RequestContext) {
@@ -401,6 +382,28 @@ func fillAuthorInfo(ctx context.Context, req *review.Request) {
 	req.AuthorAvatar = cr.Author.AvatarURL
 }
 
+func toServiceRequest(req *modelReview.CreateReviewReq) review.Request {
+	svcReq := review.Request{
+		Provider:        req.Provider,
+		Repo:            req.Repo,
+		ProjectID:       ptrx.Deref(req.ProjectID, ""),
+		PullRequestID:   ptrx.Deref(req.PullRequestID, ""),
+		MergeRequestIID: ptrx.Deref(req.MergeRequestIid, ""),
+		BaseSHA:         ptrx.Deref(req.BaseSha, ""),
+		HeadSHA:         ptrx.Deref(req.HeadSha, ""),
+		CallbackMode:    ptrx.Deref(req.CallbackMode, ""),
+		Wait:            ptrx.Deref(req.Wait, false),
+		Requirements:    req.Requirements,
+	}
+	if len(req.EphemeralReviewers) > 0 {
+		svcReq.EphemeralReviewers = make([]review.EphemeralReviewer, len(req.EphemeralReviewers))
+		for i, e := range req.EphemeralReviewers {
+			svcReq.EphemeralReviewers[i] = review.EphemeralReviewer{Name: e.Name, Background: e.Background}
+		}
+	}
+	return svcReq
+}
+
 func convertGate(g review.Gate) *modelReview.Gate {
 	return &modelReview.Gate{Status: g.Status, Passed: g.Passed, Reason: common.StrPtr(g.Reason)}
 }
@@ -437,7 +440,8 @@ func convertReport(r review.Report) *modelReview.Report {
 		Ocr: convertOCRMetadata(r.OCR), Scope: convertScopeMetadata(r.Scope),
 		Score: &modelReview.Score{
 			Value: int64(r.Score.Value), Grade: r.Score.Grade, Version: r.Score.Version,
-			ChangedLines: ptrx.Of(int64(r.Score.ChangedLines)), FindingsDensity: ptrx.Of(r.Score.FindingsDensity),
+			Deductions:    convertDeductions(r.Score.Deductions),
+			ChangedLines:  ptrx.Of(int64(r.Score.ChangedLines)), FindingsDensity: ptrx.Of(r.Score.FindingsDensity),
 		},
 		Counts: &modelReview.SeverityCounts{
 			Critical: int64(r.Counts.Critical), Major: int64(r.Counts.Major),
@@ -455,6 +459,15 @@ func convertOCRMetadata(o review.OCRMetadata) *modelReview.OCRMetadata {
 		OutputTokens: ptrx.Of(o.OutputTokens), CacheReadTokens: ptrx.Of(o.CacheReadTokens),
 		CacheWriteTokens: ptrx.Of(o.CacheWriteTokens), Elapsed: common.StrPtr(o.Elapsed),
 	}
+}
+
+func convertDeductions(ds []review.ScoreDeduction) []*modelReview.ScoreDeduction {
+	if len(ds) == 0 {
+		return nil
+	}
+	return slicex.Map(ds, func(d review.ScoreDeduction) *modelReview.ScoreDeduction {
+		return &modelReview.ScoreDeduction{Reason: d.Reason, Points: int64(d.Points), Count: ptrx.Of(int64(d.Count))}
+	})
 }
 
 func convertScopeMetadata(s review.ScopeMetadata) *modelReview.ScopeMetadata {

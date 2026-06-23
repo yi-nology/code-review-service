@@ -50,7 +50,7 @@ func HandleProgressWS(ctx context.Context, c *app.RequestContext) {
 
 	tracker := handlerInst.progressManager.GetTracker(req.ID)
 	if tracker == nil {
-		_ = conn.WriteJSON(map[string]interface{}{
+		_ = conn.WriteJSON(map[string]string{
 			"type":    "error",
 			"error":   "no active review found",
 			"message": "No active review found for this ID",

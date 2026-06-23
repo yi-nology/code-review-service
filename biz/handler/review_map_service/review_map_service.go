@@ -135,25 +135,7 @@ func GetMap(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	var sections []interface{}
-	var dependencies []interface{}
-	_ = json.Unmarshal(m.Sections, &sections)
-	_ = json.Unmarshal(m.Dependencies, &dependencies)
-
-	common.Success(c, map[string]interface{}{
-		"id":            m.MapID,
-		"review_id":     m.ReviewID,
-		"session_id":    m.SessionID,
-		"title":         m.Title,
-		"description":   m.Description,
-		"sections":      sections,
-		"dependencies":  dependencies,
-		"summary":       m.Summary,
-		"file_count":    m.FileCount,
-		"section_count": m.SectionCount,
-		"mermaid":       m.MermaidDiagram,
-		"created_at":    m.CreatedAt,
-	})
+	common.Success(c, dbMapToGetMapResp(m))
 }
 
 func GetSessionMap(ctx context.Context, c *app.RequestContext) {
@@ -173,25 +155,41 @@ func GetSessionMap(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	var sections []interface{}
-	var dependencies []interface{}
-	_ = json.Unmarshal(m.Sections, &sections)
-	_ = json.Unmarshal(m.Dependencies, &dependencies)
+	common.Success(c, dbMapToGetSessionMapResp(m))
+}
 
-	common.Success(c, map[string]interface{}{
-		"id":            m.MapID,
-		"review_id":     m.ReviewID,
-		"session_id":    m.SessionID,
-		"title":         m.Title,
-		"description":   m.Description,
-		"sections":      sections,
-		"dependencies":  dependencies,
-		"summary":       m.Summary,
-		"file_count":    m.FileCount,
-		"section_count": m.SectionCount,
-		"mermaid":       m.MermaidDiagram,
-		"created_at":    m.CreatedAt,
-	})
+func dbMapToGetMapResp(m *models.ReviewMap) *modelReviewMap.GetMapResp {
+	return &modelReviewMap.GetMapResp{
+		ID:           m.MapID,
+		ReviewID:     m.ReviewID,
+		SessionID:    m.SessionID,
+		Title:        m.Title,
+		Description:  m.Description,
+		Sections:     string(m.Sections),
+		Dependencies: string(m.Dependencies),
+		Summary:      m.Summary,
+		FileCount:    int64(m.FileCount),
+		SectionCount: int64(m.SectionCount),
+		Mermaid:      m.MermaidDiagram,
+		CreatedAt:    common.FormatTime(m.CreatedAt),
+	}
+}
+
+func dbMapToGetSessionMapResp(m *models.ReviewMap) *modelReviewMap.GetSessionMapResp {
+	return &modelReviewMap.GetSessionMapResp{
+		ID:           m.MapID,
+		ReviewID:     m.ReviewID,
+		SessionID:    m.SessionID,
+		Title:        m.Title,
+		Description:  m.Description,
+		Sections:     string(m.Sections),
+		Dependencies: string(m.Dependencies),
+		Summary:      m.Summary,
+		FileCount:    int64(m.FileCount),
+		SectionCount: int64(m.SectionCount),
+		Mermaid:      m.MermaidDiagram,
+		CreatedAt:    common.FormatTime(m.CreatedAt),
+	}
 }
 
 func PreviewMap(ctx context.Context, c *app.RequestContext) {

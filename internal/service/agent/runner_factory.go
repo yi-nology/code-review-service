@@ -79,7 +79,8 @@ func (a *ocrRunnerAdapter) Run(ctx context.Context, workspace reviewWorkspace) (
 	}
 
 	return reviewResult{
-		Summary:  result.Summary,
-		Findings: findings,
+		Summary:     result.Summary,
+		Findings:    findings,
+		TotalTokens: result.OCR.TotalTokens,
 	}, nil
 }

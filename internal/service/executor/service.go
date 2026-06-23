@@ -254,6 +254,13 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 		},
 	}
 	report := review.BuildReport(&dummyResult)
+	// workflow 路径：评分/完成状态/门禁直接采用 workflow FinalReport，与「最终报告」同步。
+	// 原实现用 BuildReport 基于 findings 重算，导致与 workflow 实际评分/结论不一致（用户反馈不同步）。
+	report.Score.Value = result.FinalReport.Score
+	report.Score.Grade = review.ScoreGrade(result.FinalReport.Score)
+	report.Complete = true
+	report.Generated = true
+
 	analysis := review.Analysis{
 		Overview: result.FinalReport.Summary,
 	}
@@ -266,11 +273,9 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 		analysis.Recommendations = result.TechLeadAnalysis.Recommendations
 	}
 
-	gateEngine := s.policy
-	if projectPolicy.FailOn != "" {
-		gateEngine = policy.NewEngine(policy.Config{FailOn: projectPolicy.FailOn})
-	}
-	gate := gateEngine.Evaluate(toPolicyFindings(findings))
+	// workflow FinalReport 已含门禁结论（GatePassed/GateReason，对应 Verdict 如 REQUEST_CHANGES），
+	// 直接采用以与最终报告同步；不再用 review-service policy 重算（会和 workflow 结论冲突）。
+	gate := review.CompletedGate(result.FinalReport.GatePassed, result.FinalReport.GateReason)
 
 	resp := review.Response{
 		ReviewID: id,
@@ -279,11 +284,16 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 		Report:   report,
 		Analysis: analysis,
 		Findings: findings,
-		Gate:     review.CompletedGate(gate.Passed, gate.Reason),
+		Gate:     gate,
 	}
 
 	if err := s.updateWithRawOCR(ctx, id, req, resp, nil); err != nil {
 		return review.Response{}, err
+	}
+
+	// workflow 路径也生成代码审查地图（原仅 executeWithRunner 生成，多 agent 评审地图为空）
+	if s.reviewMapRepo != nil && workspace.Diff != "" {
+		s.generateAndSaveReviewMap(ctx, id, req, workspace, dummyResult)
 	}
 
 	return resp, nil

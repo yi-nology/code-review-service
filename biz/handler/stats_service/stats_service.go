@@ -2,7 +2,6 @@ package stats_service
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelStats "github.com/yi-nology/code-review-service/biz/model/stats"
@@ -31,25 +30,6 @@ type StatsService interface {
 
 type StatsHandler struct {
 	statsSvc StatsService
-}
-
-type listProjectsReq struct {
-	Provider string `query:"provider"`
-	Repo     string `query:"repo"`
-	From     string `query:"from"`
-	To       string `query:"to"`
-	Sort     string `query:"sort"`
-	Order    string `query:"order"`
-	Page     string `query:"page"`
-	PageSize string `query:"page_size"`
-}
-
-type projectReq struct {
-	Provider string `query:"provider"`
-	Repo     string `query:"repo"`
-	From     string `query:"from"`
-	To       string `query:"to"`
-	Limit    string `query:"limit"`
 }
 
 func InitHandler(statsSvc StatsService) {
@@ -157,20 +137,23 @@ func GetContributorCategories(ctx context.Context, c *hertzApp.RequestContext) {
 }
 
 func ListProjects(ctx context.Context, c *hertzApp.RequestContext) {
-	req, ok := common.Bind[listProjectsReq](c)
+	req, ok := common.Bind[modelStats.ListProjectsReq](c)
 	if !ok {
 		return
 	}
 
-	page, pageSize := common.PageParams(req.Page, req.PageSize)
+	page, pageSize := common.PageParams(
+		convert.Int64ToStr(ptrx.Deref(req.Page, 0)),
+		convert.Int64ToStr(ptrx.Deref(req.PageSize, 0)),
+	)
 	result, err := handlerInst.statsSvc.ListProjects(
 		ctx,
-		req.Provider,
-		req.Repo,
-		req.From,
-		req.To,
-		req.Sort,
-		req.Order,
+		ptrx.Deref(req.Provider, ""),
+		ptrx.Deref(req.Repo, ""),
+		ptrx.Deref(req.From, ""),
+		ptrx.Deref(req.To, ""),
+		ptrx.Deref(req.Sort, ""),
+		ptrx.Deref(req.Order, ""),
 		page,
 		pageSize,
 	)
@@ -183,16 +166,12 @@ func ListProjects(ctx context.Context, c *hertzApp.RequestContext) {
 }
 
 func GetProject(ctx context.Context, c *hertzApp.RequestContext) {
-	req, ok := common.Bind[projectReq](c)
+	req, ok := common.Bind[modelStats.GetProjectReq](c)
 	if !ok {
 		return
 	}
-	if req.Provider == "" || req.Repo == "" {
-		common.Fail(c, common.BadRequest("provider and repo are required"))
-		return
-	}
 
-	detail, err := handlerInst.statsSvc.GetProject(ctx, req.Provider, req.Repo, req.From, req.To)
+	detail, err := handlerInst.statsSvc.GetProject(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -206,16 +185,12 @@ func GetProject(ctx context.Context, c *hertzApp.RequestContext) {
 }
 
 func GetProjectTrend(ctx context.Context, c *hertzApp.RequestContext) {
-	req, ok := common.Bind[projectReq](c)
+	req, ok := common.Bind[modelStats.GetProjectReq](c)
 	if !ok {
 		return
 	}
-	if req.Provider == "" || req.Repo == "" {
-		common.Fail(c, common.BadRequest("provider and repo are required"))
-		return
-	}
 
-	trend, err := handlerInst.statsSvc.GetProjectTrend(ctx, req.Provider, req.Repo, req.From, req.To)
+	trend, err := handlerInst.statsSvc.GetProjectTrend(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -225,16 +200,12 @@ func GetProjectTrend(ctx context.Context, c *hertzApp.RequestContext) {
 }
 
 func GetProjectCategories(ctx context.Context, c *hertzApp.RequestContext) {
-	req, ok := common.Bind[projectReq](c)
+	req, ok := common.Bind[modelStats.GetProjectReq](c)
 	if !ok {
 		return
 	}
-	if req.Provider == "" || req.Repo == "" {
-		common.Fail(c, common.BadRequest("provider and repo are required"))
-		return
-	}
 
-	categories, err := handlerInst.statsSvc.GetProjectCategories(ctx, req.Provider, req.Repo, req.From, req.To)
+	categories, err := handlerInst.statsSvc.GetProjectCategories(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -244,16 +215,12 @@ func GetProjectCategories(ctx context.Context, c *hertzApp.RequestContext) {
 }
 
 func GetProjectFiles(ctx context.Context, c *hertzApp.RequestContext) {
-	req, ok := common.Bind[projectReq](c)
+	req, ok := common.Bind[modelStats.GetProjectReq](c)
 	if !ok {
 		return
 	}
-	if req.Provider == "" || req.Repo == "" {
-		common.Fail(c, common.BadRequest("provider and repo are required"))
-		return
-	}
 
-	files, err := handlerInst.statsSvc.GetProjectFiles(ctx, req.Provider, req.Repo, req.From, req.To)
+	files, err := handlerInst.statsSvc.GetProjectFiles(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -263,20 +230,16 @@ func GetProjectFiles(ctx context.Context, c *hertzApp.RequestContext) {
 }
 
 func GetProjectContributors(ctx context.Context, c *hertzApp.RequestContext) {
-	req, ok := common.Bind[projectReq](c)
+	req, ok := common.Bind[modelStats.GetProjectContributorsReq](c)
 	if !ok {
 		return
 	}
-	if req.Provider == "" || req.Repo == "" {
-		common.Fail(c, common.BadRequest("provider and repo are required"))
-		return
-	}
 
-	limit, err := strconv.Atoi(req.Limit)
-	if err != nil || limit <= 0 {
+	limit := int(ptrx.Deref(req.Limit, 10))
+	if limit <= 0 {
 		limit = 10
 	}
-	contributors, err := handlerInst.statsSvc.GetProjectContributors(ctx, req.Provider, req.Repo, req.From, req.To, limit)
+	contributors, err := handlerInst.statsSvc.GetProjectContributors(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""), limit)
 	if err != nil {
 		common.Fail(c, err)
 		return

@@ -59,3 +59,10 @@ struct DeleteProjectAgentReq {
 struct DeleteProjectAgentResp {
     1: string message (api.body="message")
 }
+
+service projectAgentService {
+    GetProjectAgentsResp GetProjectAgents(1: GetProjectAgentsReq req) (api.get="/api/v1/settings/project-agents")
+    UpdateProjectAgentResp UpdateProjectAgent(1: UpdateProjectAgentReq req) (api.put="/api/v1/settings/project-agents")
+    BatchUpdateProjectAgentsResp BatchUpdateProjectAgents(1: BatchUpdateProjectAgentsReq req) (api.post="/api/v1/settings/project-agents/batch")
+    DeleteProjectAgentResp DeleteProjectAgent(1: DeleteProjectAgentReq req) (api.delete="/api/v1/settings/project-agents")
+}

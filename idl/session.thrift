@@ -141,3 +141,19 @@ struct ListSessionsResp {
     4: i64 page_size (api.body="page_size")
     5: i64 total_pages (api.body="total_pages")
 }
+
+service sessionService {
+    ListSessionsResp ListSessions(1: ListSessionsReq req) (api.get="/api/v1/sessions")
+    GetSessionsResp GetSessions(1: GetSessionsReq req) (api.get="/api/v1/reviews/:id/sessions")
+    CreateSessionResp CreateSession(1: CreateSessionReq req) (api.post="/api/v1/reviews/:id/sessions")
+    GetActiveSessionResp GetActiveSession(1: GetActiveSessionReq req) (api.get="/api/v1/reviews/:id/sessions/active")
+    GetSessionResp GetSession(1: GetSessionReq req) (api.get="/api/v1/reviews/:id/sessions/:sessionId")
+    UpdateSessionPhaseResp UpdateSessionPhase(1: UpdateSessionPhaseReq req) (api.put="/api/v1/reviews/:id/sessions/:sessionId/phase")
+    UpdateSessionStatusResp UpdateSessionStatus(1: UpdateSessionStatusReq req) (api.put="/api/v1/reviews/:id/sessions/:sessionId/status")
+    UpdateSessionAgentResultsResp UpdateSessionAgentResults(1: UpdateSessionAgentResultsReq req) (api.put="/api/v1/reviews/:id/sessions/:sessionId/agent-results")
+    UpdateSessionDiscussionResp UpdateSessionDiscussion(1: UpdateSessionDiscussionReq req) (api.put="/api/v1/reviews/:id/sessions/:sessionId/discussion")
+    UpdateSessionFinalReportResp UpdateSessionFinalReport(1: UpdateSessionFinalReportReq req) (api.put="/api/v1/reviews/:id/sessions/:sessionId/final-report")
+    CompleteSessionResp CompleteSession(1: CompleteSessionReq req) (api.post="/api/v1/reviews/:id/sessions/:sessionId/complete")
+    FailSessionResp FailSession(1: FailSessionReq req) (api.post="/api/v1/reviews/:id/sessions/:sessionId/fail")
+    CancelSessionResp CancelSession(1: CancelSessionReq req) (api.post="/api/v1/reviews/:id/sessions/:sessionId/cancel")
+}

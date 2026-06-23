@@ -314,3 +314,34 @@ struct DeleteReviewerAgentReq {
 }
 
 struct DeleteReviewerAgentResp {}
+
+service settingsService {
+    GetOCRSettingsResp GetOCRSettings() (api.get="/api/v1/settings/ocr")
+    UpdateOCRSettingsResp UpdateOCRSettings(1: UpdateOCRSettingsReq req) (api.put="/api/v1/settings/ocr")
+    TestLLMResp TestLLM() (api.post="/api/v1/settings/ocr/test-llm")
+    ListLLMProvidersResp ListLLMProviders() (api.get="/api/v1/settings/ocr/providers")
+    ListCustomProvidersResp ListCustomProviders() (api.get="/api/v1/settings/ocr/custom-providers")
+    CreateCustomProviderResp CreateCustomProvider(1: CreateCustomProviderReq req) (api.post="/api/v1/settings/ocr/custom-providers")
+    UpdateCustomProviderResp UpdateCustomProvider(1: UpdateCustomProviderReq req) (api.put="/api/v1/settings/ocr/custom-providers/:id")
+    DeleteCustomProviderResp DeleteCustomProvider(1: DeleteCustomProviderReq req) (api.delete="/api/v1/settings/ocr/custom-providers/:id")
+    RulesCheckResp RulesCheck(1: RulesCheckReq req) (api.post="/api/v1/settings/ocr/rules-check")
+    OCRVersionResp OCRVersion() (api.get="/api/v1/settings/ocr/version")
+    ViewerStatusResp ViewerStatus() (api.get="/api/v1/settings/ocr/viewer")
+    StartViewerResp StartViewer(1: StartViewerReq req) (api.post="/api/v1/settings/ocr/viewer/start")
+    ViewerStatusResp StopViewer() (api.post="/api/v1/settings/ocr/viewer/stop")
+
+    ListProjectPoliciesResp ListProjectPolicies() (api.get="/api/v1/settings/projects")
+    PutProjectPolicyResp PutProjectPolicy(1: PutProjectPolicyReq req) (api.put="/api/v1/settings/projects")
+    DeleteProjectPolicyResp DeleteProjectPolicy(1: DeleteProjectPolicyReq req) (api.delete="/api/v1/settings/projects")
+    ListPlatformsResp ListPlatforms() (api.get="/api/v1/settings/platforms")
+    PutPlatformResp PutPlatform(1: PutPlatformReq req) (api.put="/api/v1/settings/platforms")
+    DeletePlatformResp DeletePlatform(1: DeletePlatformReq req) (api.delete="/api/v1/settings/platforms")
+    TestPlatformResp TestPlatform(1: TestPlatformReq req) (api.post="/api/v1/settings/platforms/test")
+    GetGlobalRulesResp GetGlobalRules() (api.get="/api/v1/settings/rules/global")
+    UpdateGlobalRulesResp UpdateGlobalRules(1: UpdateGlobalRulesReq req) (api.put="/api/v1/settings/rules/global")
+
+    ListReviewerAgentsResp ListReviewerAgents() (api.get="/api/v1/settings/agents")
+    CreateReviewerAgentResp CreateReviewerAgent(1: CreateReviewerAgentReq req) (api.post="/api/v1/settings/agents")
+    UpdateReviewerAgentResp UpdateReviewerAgent(1: UpdateReviewerAgentReq req) (api.put="/api/v1/settings/agents/:id")
+    DeleteReviewerAgentResp DeleteReviewerAgent(1: DeleteReviewerAgentReq req) (api.delete="/api/v1/settings/agents/:id")
+}

@@ -23,8 +23,9 @@ type reviewWorkspace struct {
 
 // reviewResult represents a review result
 type reviewResult struct {
-	Summary  string
-	Findings []reviewFinding
+	Summary     string
+	Findings    []reviewFinding
+	TotalTokens int64
 }
 
 // reviewFinding represents a review finding
@@ -122,12 +123,13 @@ func (a *ocrAgent) Review(ctx context.Context, workspace Workspace) (AgentResult
 	}
 
 	return AgentResult{
-		AgentName:  a.config.Name,
-		Persona:    a.Persona(),
-		Findings:   findings,
-		Summary:    result.Summary,
-		Confidence: 0.8,
-		Duration:   duration,
+		AgentName:   a.config.Name,
+		Persona:     a.Persona(),
+		Findings:    findings,
+		Summary:     result.Summary,
+		Confidence:  0.8,
+		Duration:    duration,
+		TokensUsed:  result.TotalTokens,
 	}, nil
 }
 
