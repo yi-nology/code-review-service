@@ -260,8 +260,6 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 	report.Score.Grade = review.ScoreGrade(result.FinalReport.Score)
 	report.Complete = true
 	report.Generated = true
-	hlog.Infof("[wf-debug] review=%s 同步 FinalReport: score=%d grade=%s gatePassed=%v verdict=%q",
-		id, result.FinalReport.Score, report.Score.Grade, result.FinalReport.GatePassed, result.FinalReport.Verdict)
 
 	analysis := review.Analysis{
 		Overview: result.FinalReport.Summary,

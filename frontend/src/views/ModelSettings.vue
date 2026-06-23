@@ -434,11 +434,11 @@ function getPresetName(provider: string) {
 
 // 选择预设
 function selectPreset(preset: ProviderPreset) {
-  selectedPreset.value = preset
-  isCustomMode.value = false
-  editForm.url = preset.base_url
-  editForm.model = preset.default_model
-  editForm.use_anthropic = preset.protocol === 'anthropic'
+	selectedPreset.value = preset
+	isCustomMode.value = false
+	editForm.url = preset.base_url
+	editForm.model = preset.default_model
+	editForm.use_anthropic = preset.protocol === 'anthropic'
 }
 
 // 选择自定义
@@ -472,10 +472,13 @@ function openConfigDialog() {
 
 // 保存配置
 async function handleSaveConfig() {
-  if (!editForm.url || !editForm.model) {
-    ElMessage.warning('请填写接口地址和模型')
-    return
-  }
+	// 兜底：editForm 未预填时从当前配置（form）补，解决 openConfigDialog 未生效导致 editForm 空的问题
+	if (!editForm.url && form.url) editForm.url = form.url
+	if (!editForm.model && form.model) editForm.model = form.model
+	if (!editForm.url || !editForm.model) {
+		ElMessage.warning('请填写接口地址和模型')
+		return
+	}
 
   saving.value = true
   try {
