@@ -137,6 +137,18 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/ListProviderPullsRespBody'
+    /api/v1/progress/active:
+        get:
+            tags:
+                - progressService
+            operationId: progressService_GetActiveReviews
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetActiveReviewsRespBody'
     /api/v1/reviews:
         get:
             tags:
@@ -241,6 +253,175 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/CreateReviewRespBody'
+    /api/v1/reviews/{id}/maps:
+        get:
+            tags:
+                - reviewMapService
+            operationId: reviewMapService_GetMaps
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetMapsRespBody'
+        post:
+            tags:
+                - reviewMapService
+            operationId: reviewMapService_GenerateMap
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/GenerateMapReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GenerateMapRespBody'
+    /api/v1/reviews/{id}/maps/preview:
+        post:
+            tags:
+                - reviewMapService
+            operationId: reviewMapService_PreviewMap
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/PreviewMapReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PreviewMapRespBody'
+    /api/v1/reviews/{id}/maps/{mapId}:
+        get:
+            tags:
+                - reviewMapService
+            operationId: reviewMapService_GetMap
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: mapId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetMapRespBody'
+    /api/v1/reviews/{id}/preview:
+        get:
+            tags:
+                - publisherService
+            operationId: publisherService_PreviewComment
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PreviewCommentRespBody'
+    /api/v1/reviews/{id}/progress:
+        get:
+            tags:
+                - progressService
+            operationId: progressService_HandleProgressWS
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses: {}
+    /api/v1/reviews/{id}/progress/status:
+        get:
+            tags:
+                - progressService
+            operationId: progressService_GetProgress
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetProgressRespBody'
+    /api/v1/reviews/{id}/publish:
+        put:
+            tags:
+                - publisherService
+            operationId: publisherService_UpdatePublishedComment
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdatePublishedCommentRespBody'
+        post:
+            tags:
+                - publisherService
+            operationId: publisherService_PublishReview
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PublishReviewRespBody'
     /api/v1/reviews/{id}/rerun:
         post:
             tags:
@@ -259,6 +440,1131 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/CreateReviewRespBody'
+    /api/v1/reviews/{id}/sessions:
+        get:
+            tags:
+                - sessionService
+            operationId: sessionService_GetSessions
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetSessionsRespBody'
+        post:
+            tags:
+                - sessionService
+            operationId: sessionService_CreateSession
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CreateSessionRespBody'
+    /api/v1/reviews/{id}/sessions/active:
+        get:
+            tags:
+                - sessionService
+            operationId: sessionService_GetActiveSession
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetActiveSessionRespBody'
+    /api/v1/reviews/{id}/sessions/{sessionId}:
+        get:
+            tags:
+                - sessionService
+            operationId: sessionService_GetSession
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: sessionId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetSessionRespBody'
+    /api/v1/reviews/{id}/sessions/{sessionId}/agent-results:
+        put:
+            tags:
+                - sessionService
+            operationId: sessionService_UpdateSessionAgentResults
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: sessionId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateSessionAgentResultsReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdateSessionAgentResultsRespBody'
+    /api/v1/reviews/{id}/sessions/{sessionId}/cancel:
+        post:
+            tags:
+                - sessionService
+            operationId: sessionService_CancelSession
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: sessionId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CancelSessionRespBody'
+    /api/v1/reviews/{id}/sessions/{sessionId}/complete:
+        post:
+            tags:
+                - sessionService
+            operationId: sessionService_CompleteSession
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: sessionId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CompleteSessionReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CompleteSessionRespBody'
+    /api/v1/reviews/{id}/sessions/{sessionId}/discussion:
+        put:
+            tags:
+                - sessionService
+            operationId: sessionService_UpdateSessionDiscussion
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: sessionId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateSessionDiscussionReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdateSessionDiscussionRespBody'
+    /api/v1/reviews/{id}/sessions/{sessionId}/fail:
+        post:
+            tags:
+                - sessionService
+            operationId: sessionService_FailSession
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: sessionId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/FailSessionReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/FailSessionRespBody'
+    /api/v1/reviews/{id}/sessions/{sessionId}/final-report:
+        put:
+            tags:
+                - sessionService
+            operationId: sessionService_UpdateSessionFinalReport
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: sessionId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateSessionFinalReportReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdateSessionFinalReportRespBody'
+    /api/v1/reviews/{id}/sessions/{sessionId}/map:
+        get:
+            tags:
+                - reviewMapService
+            operationId: reviewMapService_GetSessionMap
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: sessionId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetSessionMapRespBody'
+    /api/v1/reviews/{id}/sessions/{sessionId}/phase:
+        put:
+            tags:
+                - sessionService
+            operationId: sessionService_UpdateSessionPhase
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: sessionId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateSessionPhaseReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdateSessionPhaseRespBody'
+    /api/v1/reviews/{id}/sessions/{sessionId}/status:
+        put:
+            tags:
+                - sessionService
+            operationId: sessionService_UpdateSessionStatus
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: sessionId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateSessionStatusReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdateSessionStatusRespBody'
+    /api/v1/sessions:
+        get:
+            tags:
+                - sessionService
+            operationId: sessionService_ListSessions
+            parameters:
+                - name: page
+                  in: query
+                  schema:
+                    type: integer
+                    format: int64
+                - name: page_size
+                  in: query
+                  schema:
+                    type: integer
+                    format: int64
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListSessionsRespBody'
+    /api/v1/settings/agents:
+        get:
+            tags:
+                - settingsService
+            operationId: settingsService_ListReviewerAgents
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListReviewerAgentsRespBody'
+        post:
+            tags:
+                - settingsService
+            operationId: settingsService_CreateReviewerAgent
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateReviewerAgentReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CreateReviewerAgentRespBody'
+    /api/v1/settings/agents/{id}:
+        put:
+            tags:
+                - settingsService
+            operationId: settingsService_UpdateReviewerAgent
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateReviewerAgentReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdateReviewerAgentRespBody'
+        delete:
+            tags:
+                - settingsService
+            operationId: settingsService_DeleteReviewerAgent
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses: {}
+    /api/v1/settings/ocr:
+        get:
+            tags:
+                - settingsService
+            operationId: settingsService_GetOCRSettings
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetOCRSettingsRespBody'
+        put:
+            tags:
+                - settingsService
+            operationId: settingsService_UpdateOCRSettings
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateOCRSettingsReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdateOCRSettingsRespBody'
+    /api/v1/settings/ocr/custom-providers:
+        get:
+            tags:
+                - settingsService
+            operationId: settingsService_ListCustomProviders
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListCustomProvidersRespBody'
+        post:
+            tags:
+                - settingsService
+            operationId: settingsService_CreateCustomProvider
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateCustomProviderReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CreateCustomProviderRespBody'
+    /api/v1/settings/ocr/custom-providers/{id}:
+        put:
+            tags:
+                - settingsService
+            operationId: settingsService_UpdateCustomProvider
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: int64
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateCustomProviderReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdateCustomProviderRespBody'
+        delete:
+            tags:
+                - settingsService
+            operationId: settingsService_DeleteCustomProvider
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: int64
+            responses: {}
+    /api/v1/settings/ocr/providers:
+        get:
+            tags:
+                - settingsService
+            operationId: settingsService_ListLLMProviders
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListLLMProvidersRespBody'
+    /api/v1/settings/ocr/rules-check:
+        post:
+            tags:
+                - settingsService
+            operationId: settingsService_RulesCheck
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/RulesCheckReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/RulesCheckRespBody'
+    /api/v1/settings/ocr/test-llm:
+        post:
+            tags:
+                - settingsService
+            operationId: settingsService_TestLLM
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TestLLMRespBody'
+    /api/v1/settings/ocr/version:
+        get:
+            tags:
+                - settingsService
+            operationId: settingsService_OCRVersion
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/OCRVersionRespBody'
+    /api/v1/settings/ocr/viewer:
+        get:
+            tags:
+                - settingsService
+            operationId: settingsService_ViewerStatus
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ViewerStatusRespBody'
+    /api/v1/settings/ocr/viewer/start:
+        post:
+            tags:
+                - settingsService
+            operationId: settingsService_StartViewer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/StartViewerReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/StartViewerRespBody'
+    /api/v1/settings/ocr/viewer/stop:
+        post:
+            tags:
+                - settingsService
+            operationId: settingsService_StopViewer
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ViewerStatusRespBody'
+    /api/v1/settings/platforms:
+        get:
+            tags:
+                - settingsService
+            operationId: settingsService_ListPlatforms
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListPlatformsRespBody'
+        put:
+            tags:
+                - settingsService
+            operationId: settingsService_PutPlatform
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/PutPlatformReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PutPlatformRespBody'
+        delete:
+            tags:
+                - settingsService
+            operationId: settingsService_DeletePlatform
+            parameters:
+                - name: provider
+                  in: query
+                  schema:
+                    type: string
+            responses: {}
+    /api/v1/settings/platforms/test:
+        post:
+            tags:
+                - settingsService
+            operationId: settingsService_TestPlatform
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/TestPlatformReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TestPlatformRespBody'
+    /api/v1/settings/project-agents:
+        get:
+            tags:
+                - projectAgentService
+            operationId: projectAgentService_GetProjectAgents
+            parameters:
+                - name: provider
+                  in: query
+                  schema:
+                    type: string
+                - name: repo
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetProjectAgentsRespBody'
+        put:
+            tags:
+                - projectAgentService
+            operationId: projectAgentService_UpdateProjectAgent
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateProjectAgentReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdateProjectAgentRespBody'
+        delete:
+            tags:
+                - projectAgentService
+            operationId: projectAgentService_DeleteProjectAgent
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/DeleteProjectAgentRespBody'
+    /api/v1/settings/project-agents/batch:
+        post:
+            tags:
+                - projectAgentService
+            operationId: projectAgentService_BatchUpdateProjectAgents
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/BatchUpdateProjectAgentsReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/BatchUpdateProjectAgentsRespBody'
+    /api/v1/settings/projects:
+        get:
+            tags:
+                - settingsService
+            operationId: settingsService_ListProjectPolicies
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListProjectPoliciesRespBody'
+        put:
+            tags:
+                - settingsService
+            operationId: settingsService_PutProjectPolicy
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/PutProjectPolicyReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PutProjectPolicyRespBody'
+        delete:
+            tags:
+                - settingsService
+            operationId: settingsService_DeleteProjectPolicy
+            parameters:
+                - name: provider
+                  in: query
+                  schema:
+                    type: string
+                - name: repo
+                  in: query
+                  schema:
+                    type: string
+            responses: {}
+    /api/v1/settings/rules/global:
+        get:
+            tags:
+                - settingsService
+            operationId: settingsService_GetGlobalRules
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetGlobalRulesRespBody'
+        put:
+            tags:
+                - settingsService
+            operationId: settingsService_UpdateGlobalRules
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateGlobalRulesReqBody'
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdateGlobalRulesRespBody'
+    /api/v1/stats/contributors:
+        get:
+            tags:
+                - statsService
+            operationId: statsService_ListContributors
+            parameters:
+                - name: provider
+                  in: query
+                  schema:
+                    type: string
+                - name: repo
+                  in: query
+                  schema:
+                    type: string
+                - name: from
+                  in: query
+                  schema:
+                    type: string
+                - name: to
+                  in: query
+                  schema:
+                    type: string
+                - name: sort
+                  in: query
+                  schema:
+                    type: string
+                - name: order
+                  in: query
+                  schema:
+                    type: string
+                - name: page
+                  in: query
+                  schema:
+                    type: integer
+                    format: int64
+                - name: page_size
+                  in: query
+                  schema:
+                    type: integer
+                    format: int64
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListContributorsRespBody'
+    /api/v1/stats/contributors/{author}:
+        get:
+            tags:
+                - statsService
+            operationId: statsService_GetContributor
+            parameters:
+                - name: author
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: provider
+                  in: query
+                  schema:
+                    type: string
+                - name: repo
+                  in: query
+                  schema:
+                    type: string
+                - name: from
+                  in: query
+                  schema:
+                    type: string
+                - name: to
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetContributorRespBody'
+    /api/v1/stats/contributors/{author}/categories:
+        get:
+            tags:
+                - statsService
+            operationId: statsService_GetContributorCategories
+            parameters:
+                - name: author
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: provider
+                  in: query
+                  schema:
+                    type: string
+                - name: repo
+                  in: query
+                  schema:
+                    type: string
+                - name: from
+                  in: query
+                  schema:
+                    type: string
+                - name: to
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetContributorCategoriesRespBody'
+    /api/v1/stats/contributors/{author}/trend:
+        get:
+            tags:
+                - statsService
+            operationId: statsService_GetContributorTrend
+            parameters:
+                - name: author
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: provider
+                  in: query
+                  schema:
+                    type: string
+                - name: repo
+                  in: query
+                  schema:
+                    type: string
+                - name: from
+                  in: query
+                  schema:
+                    type: string
+                - name: to
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetContributorTrendRespBody'
+    /api/v1/stats/projects:
+        get:
+            tags:
+                - statsService
+            operationId: statsService_ListProjects
+            parameters:
+                - name: provider
+                  in: query
+                  schema:
+                    type: string
+                - name: repo
+                  in: query
+                  schema:
+                    type: string
+                - name: from
+                  in: query
+                  schema:
+                    type: string
+                - name: to
+                  in: query
+                  schema:
+                    type: string
+                - name: sort
+                  in: query
+                  schema:
+                    type: string
+                - name: order
+                  in: query
+                  schema:
+                    type: string
+                - name: page
+                  in: query
+                  schema:
+                    type: integer
+                    format: int64
+                - name: page_size
+                  in: query
+                  schema:
+                    type: integer
+                    format: int64
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListProjectsRespBody'
+    /api/v1/stats/projects/categories:
+        get:
+            tags:
+                - statsService
+            operationId: statsService_GetProjectCategories
+            parameters:
+                - name: provider
+                  in: query
+                  schema:
+                    type: string
+                - name: repo
+                  in: query
+                  schema:
+                    type: string
+                - name: from
+                  in: query
+                  schema:
+                    type: string
+                - name: to
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetProjectCategoriesRespBody'
+    /api/v1/stats/projects/contributors:
+        get:
+            tags:
+                - statsService
+            operationId: statsService_GetProjectContributors
+            parameters:
+                - name: provider
+                  in: query
+                  schema:
+                    type: string
+                - name: repo
+                  in: query
+                  schema:
+                    type: string
+                - name: from
+                  in: query
+                  schema:
+                    type: string
+                - name: to
+                  in: query
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  schema:
+                    type: integer
+                    format: int64
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetProjectContributorsRespBody'
+    /api/v1/stats/projects/detail:
+        get:
+            tags:
+                - statsService
+            operationId: statsService_GetProject
+            parameters:
+                - name: provider
+                  in: query
+                  schema:
+                    type: string
+                - name: repo
+                  in: query
+                  schema:
+                    type: string
+                - name: from
+                  in: query
+                  schema:
+                    type: string
+                - name: to
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetProjectRespBody'
+    /api/v1/stats/projects/files:
+        get:
+            tags:
+                - statsService
+            operationId: statsService_GetProjectFiles
+            parameters:
+                - name: provider
+                  in: query
+                  schema:
+                    type: string
+                - name: repo
+                  in: query
+                  schema:
+                    type: string
+                - name: from
+                  in: query
+                  schema:
+                    type: string
+                - name: to
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetProjectFilesRespBody'
+    /api/v1/stats/projects/trend:
+        get:
+            tags:
+                - statsService
+            operationId: statsService_GetProjectTrend
+            parameters:
+                - name: provider
+                  in: query
+                  schema:
+                    type: string
+                - name: repo
+                  in: query
+                  schema:
+                    type: string
+                - name: from
+                  in: query
+                  schema:
+                    type: string
+                - name: to
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetProjectTrendRespBody'
     /api/v1/webhooks/{provider}/{installation}:
         post:
             tags:
@@ -289,6 +1595,44 @@ paths:
                                 $ref: '#/components/schemas/HandleWebhookRespBody'
 components:
     schemas:
+        ActiveReviewItem:
+            type: object
+            properties:
+                review_id:
+                    type: string
+                session_id:
+                    type: string
+                round:
+                    type: integer
+                    format: int64
+                phase:
+                    type: string
+                status:
+                    type: string
+                progress:
+                    type: number
+                    format: double
+                start_time:
+                    type: string
+                updated_at:
+                    type: string
+        AgentStatus:
+            type: object
+            properties:
+                name:
+                    type: string
+                status:
+                    type: string
+                progress:
+                    type: number
+                    format: double
+                message:
+                    type: string
+                duration_ms:
+                    type: integer
+                    format: int64
+                error:
+                    type: string
         Analysis:
             type: object
             properties:
@@ -306,11 +1650,168 @@ components:
                     type: array
                     items:
                         type: string
+        BatchUpdateProjectAgentsReqBody:
+            type: object
+            properties:
+                provider:
+                    type: string
+                repo:
+                    type: string
+                agents:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ProjectAgentItem'
+        BatchUpdateProjectAgentsRespBody:
+            type: object
+            properties:
+                message:
+                    type: string
+                count:
+                    type: integer
+                    format: int64
         BranchItem:
             type: object
             properties:
                 name:
                     type: string
+        CancelSessionRespBody:
+            type: object
+            properties:
+                message:
+                    type: string
+        CategoryStat:
+            type: object
+            properties:
+                category:
+                    type: string
+                count:
+                    type: integer
+                    format: int64
+        CompleteSessionReqBody:
+            type: object
+            properties:
+                final_report:
+                    type: string
+        CompleteSessionRespBody:
+            type: object
+            properties:
+                message:
+                    type: string
+        ContributorAuthor:
+            type: object
+            properties:
+                username:
+                    type: string
+                name:
+                    type: string
+                avatar_url:
+                    type: string
+        ContributorDetail:
+            type: object
+            properties:
+                author:
+                    $ref: '#/components/schemas/ContributorAuthor'
+                stats:
+                    $ref: '#/components/schemas/ContributorStats'
+                trend:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ContributorTrendPoint'
+        ContributorItem:
+            type: object
+            properties:
+                author:
+                    $ref: '#/components/schemas/ContributorAuthor'
+                stats:
+                    $ref: '#/components/schemas/ContributorStats'
+                trend:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ContributorTrendPoint'
+        ContributorStats:
+            type: object
+            properties:
+                total_reviews:
+                    type: integer
+                    format: int64
+                total_findings:
+                    type: integer
+                    format: int64
+                avg_score:
+                    type: number
+                    format: double
+                last_review_at:
+                    type: string
+        ContributorSummary:
+            type: object
+            properties:
+                author:
+                    type: string
+                author_name:
+                    type: string
+                author_avatar:
+                    type: string
+                review_count:
+                    type: integer
+                    format: int64
+                avg_score:
+                    type: number
+                    format: double
+                pass_rate:
+                    type: number
+                    format: double
+                total_findings:
+                    type: integer
+                    format: int64
+                critical_count:
+                    type: integer
+                    format: int64
+                major_count:
+                    type: integer
+                    format: int64
+                minor_count:
+                    type: integer
+                    format: int64
+                info_count:
+                    type: integer
+                    format: int64
+                last_review_at:
+                    type: string
+        ContributorTrendPoint:
+            type: object
+            properties:
+                date:
+                    type: string
+                reviews:
+                    type: integer
+                    format: int64
+                findings:
+                    type: integer
+                    format: int64
+        CreateCustomProviderReqBody:
+            type: object
+            properties:
+                name:
+                    type: string
+                protocol:
+                    type: string
+                url:
+                    type: string
+                api_key:
+                    type: string
+                model:
+                    type: string
+                auth_header:
+                    type: string
+                extra_body:
+                    type: string
+                enabled:
+                    type: boolean
+        CreateCustomProviderRespBody:
+            type: object
+            properties:
+                provider:
+                    $ref: '#/components/schemas/CustomProvider'
         CreateReviewReqBody:
             type: object
             properties:
@@ -337,6 +1838,63 @@ components:
             properties:
                 review:
                     $ref: '#/components/schemas/ReviewResponse'
+        CreateReviewerAgentReqBody:
+            type: object
+            properties:
+                name:
+                    type: string
+                display_name:
+                    type: string
+                description:
+                    type: string
+                background:
+                    type: string
+                enabled:
+                    type: boolean
+                priority:
+                    type: integer
+                    format: int64
+                tags:
+                    type: array
+                    items:
+                        type: string
+        CreateReviewerAgentRespBody:
+            type: object
+            properties:
+                agent:
+                    $ref: '#/components/schemas/ReviewerAgentInfo'
+        CreateSessionRespBody:
+            type: object
+            properties:
+                session:
+                    $ref: '#/components/schemas/ReviewSession'
+        CustomProvider:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: int64
+                name:
+                    type: string
+                protocol:
+                    type: string
+                url:
+                    type: string
+                api_key:
+                    type: string
+                model:
+                    type: string
+                auth_header:
+                    type: string
+                extra_body:
+                    type: string
+                enabled:
+                    type: boolean
+        DeleteProjectAgentRespBody:
+            type: object
+            properties:
+                message:
+                    type: string
         Event:
             type: object
             properties:
@@ -352,6 +1910,30 @@ components:
                         type: string
                 created_at:
                     type: string
+        FailSessionReqBody:
+            type: object
+            properties:
+                reason:
+                    type: string
+        FailSessionRespBody:
+            type: object
+            properties:
+                message:
+                    type: string
+        FileRiskStat:
+            type: object
+            properties:
+                path:
+                    type: string
+                count:
+                    type: integer
+                    format: int64
+                critical_count:
+                    type: integer
+                    format: int64
+                major_count:
+                    type: integer
+                    format: int64
         Finding:
             type: object
             properties:
@@ -387,16 +1969,236 @@ components:
                     type: boolean
                 reason:
                     type: string
+        GenerateMapReqBody:
+            type: object
+            properties:
+                session_id:
+                    type: string
+                diff:
+                    type: string
+                review_id:
+                    type: string
+        GenerateMapRespBody:
+            type: object
+            properties:
+                map_data:
+                    type: string
+        GetActiveReviewsRespBody:
+            type: object
+            properties:
+                reviews:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ActiveReviewItem'
+                total:
+                    type: integer
+                    format: int64
+        GetActiveSessionRespBody:
+            type: object
+            properties:
+                session:
+                    $ref: '#/components/schemas/ReviewSession'
         GetBranchSHARespBody:
             type: object
             properties:
                 sha:
                     type: string
+        GetContributorCategoriesRespBody:
+            type: object
+            properties:
+                categories:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/CategoryStat'
+        GetContributorRespBody:
+            type: object
+            properties:
+                detail:
+                    $ref: '#/components/schemas/ContributorDetail'
+        GetContributorTrendRespBody:
+            type: object
+            properties:
+                trend:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ContributorTrendPoint'
+        GetGlobalRulesRespBody:
+            type: object
+            properties:
+                rules:
+                    $ref: '#/components/schemas/GlobalRules'
+        GetMapRespBody:
+            type: object
+            properties:
+                id:
+                    type: string
+                review_id:
+                    type: string
+                session_id:
+                    type: string
+                title:
+                    type: string
+                description:
+                    type: string
+                sections:
+                    type: string
+                dependencies:
+                    type: string
+                summary:
+                    type: string
+                file_count:
+                    type: integer
+                    format: int64
+                section_count:
+                    type: integer
+                    format: int64
+                mermaid:
+                    type: string
+                created_at:
+                    type: string
+        GetMapsRespBody:
+            type: object
+            properties:
+                maps:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ReviewMapSummary'
+                total:
+                    type: integer
+                    format: int64
+        GetOCRSettingsRespBody:
+            type: object
+            properties:
+                settings:
+                    $ref: '#/components/schemas/OCRSettings'
+        GetProgressRespBody:
+            type: object
+            properties:
+                progress:
+                    $ref: '#/components/schemas/ReviewProgress'
+        GetProjectAgentsRespBody:
+            type: object
+            properties:
+                provider:
+                    type: string
+                repo:
+                    type: string
+                agents:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ProjectAgentConfig'
+        GetProjectCategoriesRespBody:
+            type: object
+            properties:
+                categories:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/CategoryStat'
+        GetProjectContributorsRespBody:
+            type: object
+            properties:
+                contributors:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ContributorSummary'
+        GetProjectFilesRespBody:
+            type: object
+            properties:
+                files:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FileRiskStat'
+        GetProjectRespBody:
+            type: object
+            properties:
+                detail:
+                    $ref: '#/components/schemas/ProjectDetail'
+        GetProjectTrendRespBody:
+            type: object
+            properties:
+                trend:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ProjectTrendPoint'
         GetReviewRespBody:
             type: object
             properties:
                 review:
                     $ref: '#/components/schemas/ReviewDetail'
+        GetSessionMapRespBody:
+            type: object
+            properties:
+                id:
+                    type: string
+                review_id:
+                    type: string
+                session_id:
+                    type: string
+                title:
+                    type: string
+                description:
+                    type: string
+                sections:
+                    type: string
+                dependencies:
+                    type: string
+                summary:
+                    type: string
+                file_count:
+                    type: integer
+                    format: int64
+                section_count:
+                    type: integer
+                    format: int64
+                mermaid:
+                    type: string
+                created_at:
+                    type: string
+        GetSessionRespBody:
+            type: object
+            properties:
+                session:
+                    $ref: '#/components/schemas/ReviewSession'
+        GetSessionsRespBody:
+            type: object
+            properties:
+                sessions:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ReviewSession'
+        GitPlatformInfo:
+            type: object
+            properties:
+                provider:
+                    type: string
+                base_url:
+                    type: string
+                token:
+                    type: string
+                enabled:
+                    type: boolean
+                webhook_secret:
+                    type: string
+                installation_id:
+                    type: string
+        GitTestResult:
+            type: object
+            properties:
+                connected:
+                    type: boolean
+                platform:
+                    type: string
+                user_name:
+                    type: string
+                message:
+                    type: string
+        GlobalRules:
+            type: object
+            properties:
+                rules:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ReviewRule'
         HandleWebhookReqRawBody:
             type: object
             properties:
@@ -410,6 +2212,45 @@ components:
                     type: string
                 review_id:
                     type: string
+        LLMProvider:
+            type: object
+            properties:
+                name:
+                    type: string
+                protocol:
+                    type: string
+                base_url:
+                    type: string
+                default_model:
+                    type: array
+                    items:
+                        type: string
+        ListContributorsRespBody:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ContributorItem'
+                total:
+                    type: integer
+                    format: int64
+                page:
+                    type: integer
+                    format: int64
+                page_size:
+                    type: integer
+                    format: int64
+                total_pages:
+                    type: integer
+                    format: int64
+        ListCustomProvidersRespBody:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/CustomProvider'
         ListItem:
             type: object
             properties:
@@ -445,6 +2286,43 @@ components:
                     type: string
                 author_avatar:
                     type: string
+        ListLLMProvidersRespBody:
+            type: object
+            properties:
+                built_in:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/LLMProvider'
+        ListPlatformsRespBody:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GitPlatformInfo'
+        ListProjectPoliciesRespBody:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ProjectPolicy'
+        ListProjectsRespBody:
+            type: object
+            properties:
+                projects:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ProjectSummary'
+                total:
+                    type: integer
+                    format: int64
+                page:
+                    type: integer
+                    format: int64
+                page_size:
+                    type: integer
+                    format: int64
         ListProviderBranchesRespBody:
             type: object
             properties:
@@ -466,6 +2344,13 @@ components:
                     type: array
                     items:
                         $ref: '#/components/schemas/RepoItem'
+        ListReviewerAgentsRespBody:
+            type: object
+            properties:
+                agents:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ReviewerAgentInfo'
         ListReviewsRespBody:
             type: object
             properties:
@@ -487,6 +2372,25 @@ components:
                     format: int64
                 stats:
                     $ref: '#/components/schemas/ListStats'
+        ListSessionsRespBody:
+            type: object
+            properties:
+                sessions:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ReviewSession'
+                total:
+                    type: integer
+                    format: int64
+                page:
+                    type: integer
+                    format: int64
+                page_size:
+                    type: integer
+                    format: int64
+                total_pages:
+                    type: integer
+                    format: int64
         ListStats:
             type: object
             properties:
@@ -500,6 +2404,9 @@ components:
                     type: integer
                     format: int64
                 findings:
+                    type: integer
+                    format: int64
+                total_tokens:
                     type: integer
                     format: int64
         OCRMetadata:
@@ -532,6 +2439,79 @@ components:
                     format: int64
                 elapsed:
                     type: string
+        OCRSettings:
+            type: object
+            properties:
+                enabled:
+                    type: boolean
+                provider:
+                    type: string
+                url:
+                    type: string
+                auth_token:
+                    type: string
+                auth_header:
+                    type: string
+                model:
+                    type: string
+                use_anthropic:
+                    type: boolean
+                extra_body:
+                    type: string
+                language:
+                    type: string
+                concurrency:
+                    type: integer
+                    format: int64
+                max_git_procs:
+                    type: integer
+                    format: int64
+                timeout_minutes:
+                    type: integer
+                    format: int64
+                max_tools:
+                    type: integer
+                    format: int64
+                background:
+                    type: string
+                binary:
+                    type: string
+                audience:
+                    type: string
+                default_severity:
+                    type: string
+                tools_path:
+                    type: string
+                telemetry_enabled:
+                    type: boolean
+                telemetry_exporter:
+                    type: string
+                telemetry_otlp_endpoint:
+                    type: string
+                telemetry_content_logging:
+                    type: boolean
+                reasoning_mode:
+                    type: string
+                reasoning_budget:
+                    type: integer
+                    format: int64
+                context_window:
+                    type: integer
+                    format: int64
+                max_output_tokens:
+                    type: integer
+                    format: int64
+        OCRVersionRespBody:
+            type: object
+            properties:
+                version:
+                    type: string
+                commit:
+                    type: string
+                platform:
+                    type: string
+                build_time:
+                    type: string
         OCRWarning:
             type: object
             properties:
@@ -549,6 +2529,49 @@ components:
                 name:
                     type: string
                 avatar_url:
+                    type: string
+        PhaseInfo:
+            type: object
+            properties:
+                name:
+                    type: string
+                title:
+                    type: string
+                description:
+                    type: string
+                status:
+                    type: string
+                progress:
+                    type: number
+                    format: double
+                start_time:
+                    type: string
+                end_time:
+                    type: string
+                duration_ms:
+                    type: integer
+                    format: int64
+        PreviewCommentRespBody:
+            type: object
+            properties:
+                review_id:
+                    type: string
+                summary:
+                    type: string
+                findings:
+                    type: string
+                total:
+                    type: integer
+                    format: int64
+        PreviewMapReqBody:
+            type: object
+            properties:
+                diff:
+                    type: string
+        PreviewMapRespBody:
+            type: object
+            properties:
+                map_data:
                     type: string
         PreviewReqBody:
             type: object
@@ -574,6 +2597,205 @@ components:
                     type: array
                     items:
                         type: string
+        ProjectAgentConfig:
+            type: object
+            properties:
+                agent_id:
+                    type: integer
+                    format: int64
+                name:
+                    type: string
+                display_name:
+                    type: string
+                description:
+                    type: string
+                background:
+                    type: string
+                enabled:
+                    type: boolean
+                priority:
+                    type: integer
+                    format: int64
+                project_enabled:
+                    type: boolean
+                project_priority:
+                    type: integer
+                    format: int64
+        ProjectAgentItem:
+            type: object
+            properties:
+                agent_id:
+                    type: integer
+                    format: int64
+                enabled:
+                    type: boolean
+                priority:
+                    type: integer
+                    format: int64
+        ProjectDetail:
+            type: object
+            properties:
+                provider:
+                    type: string
+                repo:
+                    type: string
+                review_count:
+                    type: integer
+                    format: int64
+                avg_score:
+                    type: number
+                    format: double
+                pass_rate:
+                    type: number
+                    format: double
+                total_findings:
+                    type: integer
+                    format: int64
+                critical_count:
+                    type: integer
+                    format: int64
+                major_count:
+                    type: integer
+                    format: int64
+                minor_count:
+                    type: integer
+                    format: int64
+                info_count:
+                    type: integer
+                    format: int64
+                last_review_at:
+                    type: string
+                median_score:
+                    type: number
+                    format: double
+                max_score:
+                    type: integer
+                    format: int64
+                min_score:
+                    type: integer
+                    format: int64
+                grade_distribution:
+                    type: object
+                    additionalProperties:
+                        type: integer
+                        format: int64
+                avg_findings:
+                    type: number
+                    format: double
+                avg_changed_lines:
+                    type: number
+                    format: double
+        ProjectPolicy:
+            type: object
+            properties:
+                provider:
+                    type: string
+                repo:
+                    type: string
+                fail_on:
+                    type: string
+                ignore_paths:
+                    type: string
+                rules:
+                    type: string
+                ocr_enabled:
+                    type: boolean
+                ocr_concurrency:
+                    type: integer
+                    format: int64
+                ocr_timeout_minutes:
+                    type: integer
+                    format: int64
+                ocr_max_tools:
+                    type: integer
+                    format: int64
+                ocr_default_severity:
+                    type: string
+                ocr_background:
+                    type: string
+                ocr_audience:
+                    type: string
+                ocr_provider:
+                    type: string
+                ocr_url:
+                    type: string
+                ocr_model:
+                    type: string
+                ocr_max_git_procs:
+                    type: integer
+                    format: int64
+                ocr_use_anthropic:
+                    type: boolean
+                ocr_extra_body:
+                    type: string
+                ocr_language:
+                    type: string
+                ocr_binary:
+                    type: string
+                ocr_tools_path:
+                    type: string
+                ocr_telemetry_enabled:
+                    type: boolean
+                ocr_telemetry_exporter:
+                    type: string
+                ocr_telemetry_otlp_endpoint:
+                    type: string
+                ocr_telemetry_content_logging:
+                    type: boolean
+        ProjectSummary:
+            type: object
+            properties:
+                provider:
+                    type: string
+                repo:
+                    type: string
+                review_count:
+                    type: integer
+                    format: int64
+                avg_score:
+                    type: number
+                    format: double
+                pass_rate:
+                    type: number
+                    format: double
+                total_findings:
+                    type: integer
+                    format: int64
+                critical_count:
+                    type: integer
+                    format: int64
+                major_count:
+                    type: integer
+                    format: int64
+                minor_count:
+                    type: integer
+                    format: int64
+                info_count:
+                    type: integer
+                    format: int64
+                last_review_at:
+                    type: string
+        ProjectTrendPoint:
+            type: object
+            properties:
+                period:
+                    type: string
+                avg_score:
+                    type: number
+                    format: double
+                review_count:
+                    type: integer
+                    format: int64
+                total_findings:
+                    type: integer
+                    format: int64
+        PublishReviewRespBody:
+            type: object
+            properties:
+                message:
+                    type: string
+                review_id:
+                    type: string
         PullItem:
             type: object
             properties:
@@ -600,6 +2822,36 @@ components:
                     type: string
                 author:
                     $ref: '#/components/schemas/PRAuthor'
+        PutPlatformReqBody:
+            type: object
+            properties:
+                provider:
+                    type: string
+                base_url:
+                    type: string
+                token:
+                    type: string
+                enabled:
+                    type: boolean
+                webhook_secret:
+                    type: string
+                installation_id:
+                    type: string
+        PutPlatformRespBody:
+            type: object
+            properties:
+                platform:
+                    $ref: '#/components/schemas/GitPlatformInfo'
+        PutProjectPolicyReqBody:
+            type: object
+            properties:
+                policy:
+                    $ref: '#/components/schemas/ProjectPolicy'
+        PutProjectPolicyRespBody:
+            type: object
+            properties:
+                policy:
+                    $ref: '#/components/schemas/ProjectPolicy'
         RepoItem:
             type: object
             properties:
@@ -689,6 +2941,60 @@ components:
                     type: string
                 author_avatar:
                     type: string
+        ReviewMapSummary:
+            type: object
+            properties:
+                id:
+                    type: string
+                review_id:
+                    type: string
+                session_id:
+                    type: string
+                title:
+                    type: string
+                description:
+                    type: string
+                summary:
+                    type: string
+                file_count:
+                    type: integer
+                    format: int64
+                section_count:
+                    type: integer
+                    format: int64
+                created_at:
+                    type: string
+        ReviewProgress:
+            type: object
+            properties:
+                review_id:
+                    type: string
+                session_id:
+                    type: string
+                round:
+                    type: integer
+                    format: int64
+                phase:
+                    type: string
+                status:
+                    type: string
+                progress:
+                    type: number
+                    format: double
+                phases:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/PhaseInfo'
+                agent_status:
+                    type: object
+                    additionalProperties:
+                        $ref: '#/components/schemas/AgentStatus'
+                start_time:
+                    type: string
+                updated_at:
+                    type: string
+                error:
+                    type: string
         ReviewResponse:
             type: object
             properties:
@@ -713,6 +3019,89 @@ components:
                     items:
                         $ref: '#/components/schemas/Finding'
                 error:
+                    type: string
+        ReviewRule:
+            type: object
+            properties:
+                path:
+                    type: string
+                rule:
+                    type: string
+        ReviewSession:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: int64
+                session_id:
+                    type: string
+                review_id:
+                    type: string
+                round:
+                    type: integer
+                    format: int64
+                phase:
+                    type: string
+                status:
+                    type: string
+                progress:
+                    type: number
+                    format: double
+                agent_results:
+                    type: string
+                discussion:
+                    type: string
+                final_report:
+                    type: string
+                requirements:
+                    type: string
+                metadata:
+                    type: string
+                completed_at:
+                    type: string
+                created_at:
+                    type: string
+                updated_at:
+                    type: string
+        ReviewerAgentInfo:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: int64
+                name:
+                    type: string
+                display_name:
+                    type: string
+                description:
+                    type: string
+                background:
+                    type: string
+                enabled:
+                    type: boolean
+                priority:
+                    type: integer
+                    format: int64
+                tags:
+                    type: string
+        RulesCheckReqBody:
+            type: object
+            properties:
+                path:
+                    type: string
+        RulesCheckRespBody:
+            type: object
+            properties:
+                result:
+                    $ref: '#/components/schemas/RulesCheckResult'
+        RulesCheckResult:
+            type: object
+            properties:
+                applicable:
+                    type: boolean
+                rule:
+                    type: string
+                message:
                     type: string
         ScopeMetadata:
             type: object
@@ -776,5 +3165,208 @@ components:
                 info:
                     type: integer
                     format: int64
+        StartViewerReqBody:
+            type: object
+            properties:
+                addr:
+                    type: string
+        StartViewerRespBody:
+            type: object
+            properties:
+                running:
+                    type: boolean
+                addr:
+                    type: string
+                message:
+                    type: string
+        TestLLMRespBody:
+            type: object
+            properties:
+                result:
+                    $ref: '#/components/schemas/TestLLMResult'
+        TestLLMResult:
+            type: object
+            properties:
+                success:
+                    type: boolean
+                message:
+                    type: string
+        TestPlatformReqBody:
+            type: object
+            properties:
+                provider:
+                    type: string
+                base_url:
+                    type: string
+                token:
+                    type: string
+        TestPlatformRespBody:
+            type: object
+            properties:
+                result:
+                    $ref: '#/components/schemas/GitTestResult'
+        UpdateCustomProviderReqBody:
+            type: object
+            properties:
+                name:
+                    type: string
+                protocol:
+                    type: string
+                url:
+                    type: string
+                api_key:
+                    type: string
+                model:
+                    type: string
+                auth_header:
+                    type: string
+                extra_body:
+                    type: string
+                enabled:
+                    type: boolean
+        UpdateCustomProviderRespBody:
+            type: object
+            properties:
+                provider:
+                    $ref: '#/components/schemas/CustomProvider'
+        UpdateGlobalRulesReqBody:
+            type: object
+            properties:
+                rules:
+                    $ref: '#/components/schemas/GlobalRules'
+        UpdateGlobalRulesRespBody:
+            type: object
+            properties:
+                rules:
+                    $ref: '#/components/schemas/GlobalRules'
+        UpdateOCRSettingsReqBody:
+            type: object
+            properties:
+                settings:
+                    $ref: '#/components/schemas/OCRSettings'
+        UpdateOCRSettingsRespBody:
+            type: object
+            properties:
+                settings:
+                    $ref: '#/components/schemas/OCRSettings'
+        UpdateProjectAgentReqBody:
+            type: object
+            properties:
+                provider:
+                    type: string
+                repo:
+                    type: string
+                agent_id:
+                    type: integer
+                    format: int64
+                enabled:
+                    type: boolean
+                priority:
+                    type: integer
+                    format: int64
+        UpdateProjectAgentRespBody:
+            type: object
+            properties:
+                message:
+                    type: string
+        UpdatePublishedCommentRespBody:
+            type: object
+            properties:
+                message:
+                    type: string
+                review_id:
+                    type: string
+        UpdateReviewerAgentReqBody:
+            type: object
+            properties:
+                display_name:
+                    type: string
+                description:
+                    type: string
+                background:
+                    type: string
+                enabled:
+                    type: boolean
+                priority:
+                    type: integer
+                    format: int64
+                tags:
+                    type: array
+                    items:
+                        type: string
+        UpdateReviewerAgentRespBody:
+            type: object
+            properties:
+                agent:
+                    $ref: '#/components/schemas/ReviewerAgentInfo'
+        UpdateSessionAgentResultsReqBody:
+            type: object
+            properties:
+                agent_results:
+                    type: string
+        UpdateSessionAgentResultsRespBody:
+            type: object
+            properties:
+                message:
+                    type: string
+        UpdateSessionDiscussionReqBody:
+            type: object
+            properties:
+                discussion:
+                    type: string
+        UpdateSessionDiscussionRespBody:
+            type: object
+            properties:
+                message:
+                    type: string
+        UpdateSessionFinalReportReqBody:
+            type: object
+            properties:
+                final_report:
+                    type: string
+        UpdateSessionFinalReportRespBody:
+            type: object
+            properties:
+                message:
+                    type: string
+        UpdateSessionPhaseReqBody:
+            type: object
+            properties:
+                phase:
+                    type: string
+                progress:
+                    type: number
+                    format: double
+        UpdateSessionPhaseRespBody:
+            type: object
+            properties:
+                message:
+                    type: string
+        UpdateSessionStatusReqBody:
+            type: object
+            properties:
+                status:
+                    type: string
+        UpdateSessionStatusRespBody:
+            type: object
+            properties:
+                message:
+                    type: string
+        ViewerStatusRespBody:
+            type: object
+            properties:
+                running:
+                    type: boolean
+                addr:
+                    type: string
+                message:
+                    type: string
 tags:
+    - name: progressService
+    - name: projectAgentService
+    - name: publisherService
+    - name: reviewMapService
     - name: reviewService
+    - name: sessionService
+    - name: settingsService
+    - name: statsService
