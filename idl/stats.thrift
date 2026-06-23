@@ -204,3 +204,16 @@ struct ContributorSummary {
 struct GetProjectContributorsResp {
     1: list<ContributorSummary> contributors (api.body="contributors")
 }
+
+service statsService {
+    ListContributorsResp ListContributors(1: ListContributorsReq req) (api.get="/api/v1/stats/contributors")
+    GetContributorResp GetContributor(1: GetContributorReq req) (api.get="/api/v1/stats/contributors/:author")
+    GetContributorTrendResp GetContributorTrend(1: GetContributorTrendReq req) (api.get="/api/v1/stats/contributors/:author/trend")
+    GetContributorCategoriesResp GetContributorCategories(1: GetContributorCategoriesReq req) (api.get="/api/v1/stats/contributors/:author/categories")
+    ListProjectsResp ListProjects(1: ListProjectsReq req) (api.get="/api/v1/stats/projects")
+    GetProjectResp GetProject(1: GetProjectReq req) (api.get="/api/v1/stats/projects/detail")
+    GetProjectTrendResp GetProjectTrend(1: GetProjectReq req) (api.get="/api/v1/stats/projects/trend")
+    GetProjectCategoriesResp GetProjectCategories(1: GetProjectReq req) (api.get="/api/v1/stats/projects/categories")
+    GetProjectFilesResp GetProjectFiles(1: GetProjectReq req) (api.get="/api/v1/stats/projects/files")
+    GetProjectContributorsResp GetProjectContributors(1: GetProjectContributorsReq req) (api.get="/api/v1/stats/projects/contributors")
+}

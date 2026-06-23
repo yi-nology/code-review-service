@@ -49,26 +49,7 @@ func CreateReview(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	svcReq := review.Request{
-		Provider:        req.Provider,
-		Repo:            req.Repo,
-		ProjectID:       ptrx.Deref(req.ProjectID, ""),
-		PullRequestID:   ptrx.Deref(req.PullRequestID, ""),
-		MergeRequestIID: ptrx.Deref(req.MergeRequestIid, ""),
-		BaseSHA:         ptrx.Deref(req.BaseSha, ""),
-		HeadSHA:         ptrx.Deref(req.HeadSha, ""),
-		CallbackMode:    ptrx.Deref(req.CallbackMode, ""),
-		Wait:            ptrx.Deref(req.Wait, false),
-		Requirements:    req.Requirements,
-	}
-	// 映射临时 reviewer：API 输入 → review.EphemeralReviewer（阶段 5）
-	if len(req.EphemeralReviewers) > 0 {
-		svcReq.EphemeralReviewers = make([]review.EphemeralReviewer, len(req.EphemeralReviewers))
-		for i, e := range req.EphemeralReviewers {
-			svcReq.EphemeralReviewers[i] = review.EphemeralReviewer{Name: e.Name, Background: e.Background}
-		}
-	}
-
+	svcReq := toServiceRequest(req)
 	fillAuthorInfo(ctx, &svcReq)
 
 	idempotencyKey := string(c.GetHeader("Idempotency-Key"))
@@ -174,9 +155,9 @@ func PreviewReview(ctx context.Context, c *app.RequestContext) {
 	}
 
 	svcReq := review.Request{
-		Provider:        req.Provider,
-		Repo:            req.Repo,
-		ProjectID:       ptrx.Deref(req.ProjectID, ""),
+		Provider:  req.Provider,
+		Repo:      req.Repo,
+		ProjectID: ptrx.Deref(req.ProjectID, ""),
 		PullRequestID:   ptrx.Deref(req.PullRequestID, ""),
 		MergeRequestIID: ptrx.Deref(req.MergeRequestIid, ""),
 		BaseSHA:         ptrx.Deref(req.BaseSha, ""),
@@ -189,7 +170,7 @@ func PreviewReview(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	common.Success(c, map[string]any{"files": files})
+	common.Success(c, &modelReview.PreviewResp{Files: files})
 }
 
 func RerunReview(ctx context.Context, c *app.RequestContext) {
@@ -399,6 +380,28 @@ func fillAuthorInfo(ctx context.Context, req *review.Request) {
 	req.Author = cr.Author.Username
 	req.AuthorName = stringx.TakeOne(cr.Author.Name, cr.Author.Username)
 	req.AuthorAvatar = cr.Author.AvatarURL
+}
+
+func toServiceRequest(req *modelReview.CreateReviewReq) review.Request {
+	svcReq := review.Request{
+		Provider:        req.Provider,
+		Repo:            req.Repo,
+		ProjectID:       ptrx.Deref(req.ProjectID, ""),
+		PullRequestID:   ptrx.Deref(req.PullRequestID, ""),
+		MergeRequestIID: ptrx.Deref(req.MergeRequestIid, ""),
+		BaseSHA:         ptrx.Deref(req.BaseSha, ""),
+		HeadSHA:         ptrx.Deref(req.HeadSha, ""),
+		CallbackMode:    ptrx.Deref(req.CallbackMode, ""),
+		Wait:            ptrx.Deref(req.Wait, false),
+		Requirements:    req.Requirements,
+	}
+	if len(req.EphemeralReviewers) > 0 {
+		svcReq.EphemeralReviewers = make([]review.EphemeralReviewer, len(req.EphemeralReviewers))
+		for i, e := range req.EphemeralReviewers {
+			svcReq.EphemeralReviewers[i] = review.EphemeralReviewer{Name: e.Name, Background: e.Background}
+		}
+	}
+	return svcReq
 }
 
 func convertGate(g review.Gate) *modelReview.Gate {

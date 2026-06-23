@@ -51,7 +51,18 @@ struct GetMapReq {
 }
 
 struct GetMapResp {
-    1: ReviewMapDetail map_data (api.body="map_data")
+    1: string id (api.body="id")
+    2: string review_id (api.body="review_id")
+    3: string session_id (api.body="session_id")
+    4: string title (api.body="title")
+    5: string description (api.body="description")
+    6: string sections (api.body="sections")
+    7: string dependencies (api.body="dependencies")
+    8: string summary (api.body="summary")
+    9: i64 file_count (api.body="file_count")
+    10: i64 section_count (api.body="section_count")
+    11: string mermaid (api.body="mermaid")
+    12: string created_at (api.body="created_at")
 }
 
 struct PreviewMapReq {
@@ -69,5 +80,24 @@ struct GetSessionMapReq {
 }
 
 struct GetSessionMapResp {
-    1: ReviewMapDetail map_data (api.body="map_data")
+    1: string id (api.body="id")
+    2: string review_id (api.body="review_id")
+    3: string session_id (api.body="session_id")
+    4: string title (api.body="title")
+    5: string description (api.body="description")
+    6: string sections (api.body="sections")
+    7: string dependencies (api.body="dependencies")
+    8: string summary (api.body="summary")
+    9: i64 file_count (api.body="file_count")
+    10: i64 section_count (api.body="section_count")
+    11: string mermaid (api.body="mermaid")
+    12: string created_at (api.body="created_at")
+}
+
+service reviewMapService {
+    GenerateMapResp GenerateMap(1: GenerateMapReq req) (api.post="/api/v1/reviews/:id/maps")
+    GetMapsResp GetMaps(1: GetMapsReq req) (api.get="/api/v1/reviews/:id/maps")
+    GetMapResp GetMap(1: GetMapReq req) (api.get="/api/v1/reviews/:id/maps/:mapId")
+    PreviewMapResp PreviewMap(1: PreviewMapReq req) (api.post="/api/v1/reviews/:id/maps/preview")
+    GetSessionMapResp GetSessionMap(1: GetSessionMapReq req) (api.get="/api/v1/reviews/:id/sessions/:sessionId/map")
 }

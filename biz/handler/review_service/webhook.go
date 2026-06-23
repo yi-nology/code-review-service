@@ -74,9 +74,10 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 		return
 	}
 
-	eventType := normalizer.EventType(string(c.GetHeader(normalizerEventTypeHeader(req.Provider))))
-	deliveryID := normalizer.DeliveryID(string(c.GetHeader(normalizerDeliveryIDHeader(req.Provider))))
-	signature := string(c.GetHeader(normalizerSignatureHeader(req.Provider)))
+	providerHdrs := getProviderHeaders(req.Provider)
+	eventType := normalizer.EventType(string(c.GetHeader(providerHdrs.EventType)))
+	deliveryID := normalizer.DeliveryID(string(c.GetHeader(providerHdrs.DeliveryID)))
+	signature := string(c.GetHeader(providerHdrs.Signature))
 
 	result, err := h.webhookSvc.HandleWebhook(ctx, req.Provider, req.Installation, rawBody, eventType, deliveryID, signature, platform.WebhookSecret)
 	if err != nil {
@@ -140,38 +141,23 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 	})
 }
 
-func normalizerEventTypeHeader(provider string) string {
-	switch strings.ToLower(provider) {
-	case "github":
-		return "X-GitHub-Event"
-	case "gitlab", "gitcode", "tencent_code":
-		return "X-GitLab-Event"
-	case "gitea":
-		return "X-Gitea-Event"
-	}
-	return "X-Event-Type"
+type webhookHeaders struct {
+	EventType  string
+	DeliveryID string
+	Signature  string
 }
 
-func normalizerDeliveryIDHeader(provider string) string {
-	switch strings.ToLower(provider) {
-	case "github":
-		return "X-GitHub-Delivery"
-	case "gitlab", "gitcode", "tencent_code":
-		return "X-Gitlab-Event-UUID"
-	case "gitea":
-		return "X-Gitea-Delivery"
-	}
-	return "X-Delivery-ID"
+var providerHeaders = map[string]webhookHeaders{
+	"github":       {EventType: "X-GitHub-Event", DeliveryID: "X-GitHub-Delivery", Signature: "X-Hub-Signature-256"},
+	"gitlab":       {EventType: "X-GitLab-Event", DeliveryID: "X-Gitlab-Event-UUID", Signature: "X-Gitlab-Token"},
+	"gitcode":      {EventType: "X-GitLab-Event", DeliveryID: "X-Gitlab-Event-UUID", Signature: "X-Gitlab-Token"},
+	"tencent_code": {EventType: "X-GitLab-Event", DeliveryID: "X-Gitlab-Event-UUID", Signature: "X-Gitlab-Token"},
+	"gitea":        {EventType: "X-Gitea-Event", DeliveryID: "X-Gitea-Delivery", Signature: "X-Gitea-Signature"},
 }
 
-func normalizerSignatureHeader(provider string) string {
-	switch strings.ToLower(provider) {
-	case "github":
-		return "X-Hub-Signature-256"
-	case "gitlab", "gitcode", "tencent_code":
-		return "X-Gitlab-Token"
-	case "gitea":
-		return "X-Gitea-Signature"
+func getProviderHeaders(provider string) webhookHeaders {
+	if h, ok := providerHeaders[strings.ToLower(provider)]; ok {
+		return h
 	}
-	return "X-Signature"
+	return webhookHeaders{EventType: "X-Event-Type", DeliveryID: "X-Delivery-ID", Signature: "X-Signature"}
 }
