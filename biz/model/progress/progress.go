@@ -8,14 +8,14 @@ import (
 )
 
 type PhaseInfo struct {
-	Name        string  `thrift:"name,1" json:"name"`
-	Title       string  `thrift:"title,2" json:"title"`
-	Description string  `thrift:"description,3" json:"description"`
-	Status      string  `thrift:"status,4" json:"status"`
-	Progress    float64 `thrift:"progress,5" json:"progress"`
-	StartTime   *string `thrift:"start_time,6,optional" json:"start_time,omitempty"`
-	EndTime     *string `thrift:"end_time,7,optional" json:"end_time,omitempty"`
-	DurationMs  *int64  `thrift:"duration_ms,8,optional" json:"duration_ms,omitempty"`
+	Name        string  `thrift:"name,1" form:"name" json:"name"`
+	Title       string  `thrift:"title,2" form:"title" json:"title"`
+	Description string  `thrift:"description,3" form:"description" json:"description"`
+	Status      string  `thrift:"status,4" form:"status" json:"status"`
+	Progress    float64 `thrift:"progress,5" form:"progress" json:"progress"`
+	StartTime   *string `thrift:"start_time,6,optional" form:"start_time" json:"start_time,omitempty"`
+	EndTime     *string `thrift:"end_time,7,optional" form:"end_time" json:"end_time,omitempty"`
+	DurationMs  *int64  `thrift:"duration_ms,8,optional" form:"duration_ms" json:"duration_ms,omitempty"`
 }
 
 func NewPhaseInfo() *PhaseInfo {
@@ -503,12 +503,12 @@ func (p *PhaseInfo) String() string {
 }
 
 type AgentStatus struct {
-	Name       string  `thrift:"name,1" json:"name"`
-	Status     string  `thrift:"status,2" json:"status"`
-	Progress   float64 `thrift:"progress,3" json:"progress"`
-	Message    string  `thrift:"message,4" json:"message"`
-	DurationMs *int64  `thrift:"duration_ms,5,optional" json:"duration_ms,omitempty"`
-	Error      *string `thrift:"error,6,optional" json:"error,omitempty"`
+	Name       string  `thrift:"name,1" form:"name" json:"name"`
+	Status     string  `thrift:"status,2" form:"status" json:"status"`
+	Progress   float64 `thrift:"progress,3" form:"progress" json:"progress"`
+	Message    string  `thrift:"message,4" form:"message" json:"message"`
+	DurationMs *int64  `thrift:"duration_ms,5,optional" form:"duration_ms" json:"duration_ms,omitempty"`
+	Error      *string `thrift:"error,6,optional" form:"error" json:"error,omitempty"`
 }
 
 func NewAgentStatus() *AgentStatus {
@@ -895,17 +895,17 @@ func (p *AgentStatus) String() string {
 }
 
 type ReviewProgress struct {
-	ReviewID    string                  `thrift:"review_id,1" json:"review_id"`
-	SessionID   string                  `thrift:"session_id,2" json:"session_id"`
-	Round       int64                   `thrift:"round,3" json:"round"`
-	Phase       string                  `thrift:"phase,4" json:"phase"`
-	Status      string                  `thrift:"status,5" json:"status"`
-	Progress    float64                 `thrift:"progress,6" json:"progress"`
-	Phases      []*PhaseInfo            `thrift:"phases,7,default,list<PhaseInfo>" json:"phases"`
-	AgentStatus map[string]*AgentStatus `thrift:"agent_status,8,optional" json:"agent_status,omitempty"`
-	StartTime   string                  `thrift:"start_time,9" json:"start_time"`
-	UpdatedAt   string                  `thrift:"updated_at,10" json:"updated_at"`
-	Error       *string                 `thrift:"error,11,optional" json:"error,omitempty"`
+	ReviewID    string                  `thrift:"review_id,1" form:"review_id" json:"review_id"`
+	SessionID   string                  `thrift:"session_id,2" form:"session_id" json:"session_id"`
+	Round       int64                   `thrift:"round,3" form:"round" json:"round"`
+	Phase       string                  `thrift:"phase,4" form:"phase" json:"phase"`
+	Status      string                  `thrift:"status,5" form:"status" json:"status"`
+	Progress    float64                 `thrift:"progress,6" form:"progress" json:"progress"`
+	Phases      []*PhaseInfo            `thrift:"phases,7,default,list<PhaseInfo>" form:"phases" json:"phases"`
+	AgentStatus map[string]*AgentStatus `thrift:"agent_status,8,optional" form:"agent_status" json:"agent_status,omitempty"`
+	StartTime   string                  `thrift:"start_time,9" form:"start_time" json:"start_time"`
+	UpdatedAt   string                  `thrift:"updated_at,10" form:"updated_at" json:"updated_at"`
+	Error       *string                 `thrift:"error,11,optional" form:"error" json:"error,omitempty"`
 }
 
 func NewReviewProgress() *ReviewProgress {
@@ -1566,14 +1566,14 @@ func (p *ReviewProgress) String() string {
 }
 
 type ActiveReviewItem struct {
-	ReviewID  string  `thrift:"review_id,1" json:"review_id"`
-	SessionID string  `thrift:"session_id,2" json:"session_id"`
-	Round     int64   `thrift:"round,3" json:"round"`
-	Phase     string  `thrift:"phase,4" json:"phase"`
-	Status    string  `thrift:"status,5" json:"status"`
-	Progress  float64 `thrift:"progress,6" json:"progress"`
-	StartTime string  `thrift:"start_time,7" json:"start_time"`
-	UpdatedAt string  `thrift:"updated_at,8" json:"updated_at"`
+	ReviewID  string  `thrift:"review_id,1" form:"review_id" json:"review_id"`
+	SessionID string  `thrift:"session_id,2" form:"session_id" json:"session_id"`
+	Round     int64   `thrift:"round,3" form:"round" json:"round"`
+	Phase     string  `thrift:"phase,4" form:"phase" json:"phase"`
+	Status    string  `thrift:"status,5" form:"status" json:"status"`
+	Progress  float64 `thrift:"progress,6" form:"progress" json:"progress"`
+	StartTime string  `thrift:"start_time,7" form:"start_time" json:"start_time"`
+	UpdatedAt string  `thrift:"updated_at,8" form:"updated_at" json:"updated_at"`
 }
 
 func NewActiveReviewItem() *ActiveReviewItem {
@@ -2028,7 +2028,7 @@ func (p *ActiveReviewItem) String() string {
 }
 
 type HandleProgressWSReq struct {
-	ID string `thrift:"id,1" json:"id"`
+	ID string `thrift:"id,1" json:"id" path:"id"`
 }
 
 func NewHandleProgressWSReq() *HandleProgressWSReq {
@@ -2251,7 +2251,7 @@ func (p *HandleProgressWSResp) String() string {
 }
 
 type GetProgressReq struct {
-	ID string `thrift:"id,1" json:"id"`
+	ID string `thrift:"id,1" json:"id" path:"id"`
 }
 
 func NewGetProgressReq() *GetProgressReq {
@@ -2391,7 +2391,7 @@ func (p *GetProgressReq) String() string {
 }
 
 type GetProgressResp struct {
-	Progress *ReviewProgress `thrift:"progress,1" json:"progress"`
+	Progress *ReviewProgress `thrift:"progress,1" form:"progress" json:"progress"`
 }
 
 func NewGetProgressResp() *GetProgressResp {
@@ -2620,8 +2620,8 @@ func (p *GetActiveReviewsReq) String() string {
 }
 
 type GetActiveReviewsResp struct {
-	Reviews []*ActiveReviewItem `thrift:"reviews,1,default,list<ActiveReviewItem>" json:"reviews"`
-	Total   int64               `thrift:"total,2" json:"total"`
+	Reviews []*ActiveReviewItem `thrift:"reviews,1,default,list<ActiveReviewItem>" form:"reviews" json:"reviews"`
+	Total   int64               `thrift:"total,2" form:"total" json:"total"`
 }
 
 func NewGetActiveReviewsResp() *GetActiveReviewsResp {

@@ -8,9 +8,9 @@ import (
 )
 
 type HandleWebhookReq struct {
-	Provider     string `thrift:"provider,1" json:"provider"`
-	Installation string `thrift:"installation,2" json:"installation"`
-	Body         []byte `thrift:"body,3" json:"body"`
+	Provider     string `thrift:"provider,1" json:"provider" path:"provider"`
+	Installation string `thrift:"installation,2" json:"installation" path:"installation"`
+	Body         []byte `thrift:"body,3" json:"body" raw_body:"body"`
 }
 
 func NewHandleWebhookReq() *HandleWebhookReq {
@@ -240,8 +240,8 @@ func (p *HandleWebhookReq) String() string {
 }
 
 type HandleWebhookResp struct {
-	Status   string  `thrift:"status,1" json:"status"`
-	ReviewID *string `thrift:"review_id,2,optional" json:"review_id,omitempty"`
+	Status   string  `thrift:"status,1" form:"status" json:"status"`
+	ReviewID *string `thrift:"review_id,2,optional" form:"review_id" json:"review_id,omitempty"`
 }
 
 func NewHandleWebhookResp() *HandleWebhookResp {

@@ -8,8 +8,8 @@ import (
 )
 
 type PublishReviewReq struct {
-	ID   string  `thrift:"id,1" json:"id"`
-	Mode *string `thrift:"mode,2,optional" json:"mode,omitempty"`
+	ID   string  `thrift:"id,1" json:"id" path:"id"`
+	Mode *string `thrift:"mode,2,optional" form:"mode" json:"mode,omitempty"`
 }
 
 func NewPublishReviewReq() *PublishReviewReq {
@@ -205,8 +205,8 @@ func (p *PublishReviewReq) String() string {
 }
 
 type PublishReviewResp struct {
-	Message  string `thrift:"message,1" json:"message"`
-	ReviewID string `thrift:"review_id,2" json:"review_id"`
+	Message  string `thrift:"message,1" form:"message" json:"message"`
+	ReviewID string `thrift:"review_id,2" form:"review_id" json:"review_id"`
 }
 
 func NewPublishReviewResp() *PublishReviewResp {
@@ -391,8 +391,8 @@ func (p *PublishReviewResp) String() string {
 }
 
 type PreviewCommentReq struct {
-	ID   string  `thrift:"id,1" json:"id"`
-	Mode *string `thrift:"mode,2,optional" json:"mode,omitempty"`
+	ID   string  `thrift:"id,1" json:"id" path:"id"`
+	Mode *string `thrift:"mode,2,optional" form:"mode" json:"mode,omitempty"`
 }
 
 func NewPreviewCommentReq() *PreviewCommentReq {
@@ -588,10 +588,10 @@ func (p *PreviewCommentReq) String() string {
 }
 
 type PreviewCommentResp struct {
-	ReviewID string `thrift:"review_id,1" json:"review_id"`
-	Summary  string `thrift:"summary,2" json:"summary"`
-	Findings string `thrift:"findings,3" json:"findings"`
-	Total    int64  `thrift:"total,4" json:"total"`
+	ReviewID string `thrift:"review_id,1" form:"review_id" json:"review_id"`
+	Summary  string `thrift:"summary,2" form:"summary" json:"summary"`
+	Findings string `thrift:"findings,3" form:"findings" json:"findings"`
+	Total    int64  `thrift:"total,4" form:"total" json:"total"`
 }
 
 func NewPreviewCommentResp() *PreviewCommentResp {
@@ -866,7 +866,7 @@ func (p *PreviewCommentResp) String() string {
 }
 
 type UpdatePublishedCommentReq struct {
-	ID string `thrift:"id,1" json:"id"`
+	ID string `thrift:"id,1" json:"id" path:"id"`
 }
 
 func NewUpdatePublishedCommentReq() *UpdatePublishedCommentReq {
@@ -1006,8 +1006,8 @@ func (p *UpdatePublishedCommentReq) String() string {
 }
 
 type UpdatePublishedCommentResp struct {
-	Message  string `thrift:"message,1" json:"message"`
-	ReviewID string `thrift:"review_id,2" json:"review_id"`
+	Message  string `thrift:"message,1" form:"message" json:"message"`
+	ReviewID string `thrift:"review_id,2" form:"review_id" json:"review_id"`
 }
 
 func NewUpdatePublishedCommentResp() *UpdatePublishedCommentResp {

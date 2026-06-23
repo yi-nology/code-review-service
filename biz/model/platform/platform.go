@@ -8,9 +8,9 @@ import (
 )
 
 type ListProviderReposReq struct {
-	Provider string `thrift:"provider,1" json:"provider"`
-	Page     *int64 `thrift:"page,2,optional" json:"page,omitempty"`
-	PerPage  *int64 `thrift:"per_page,3,optional" json:"per_page,omitempty"`
+	Provider string `thrift:"provider,1" json:"provider" path:"provider"`
+	Page     *int64 `thrift:"page,2,optional" json:"page,omitempty" query:"page"`
+	PerPage  *int64 `thrift:"per_page,3,optional" json:"per_page,omitempty" query:"per_page"`
 }
 
 func NewListProviderReposReq() *ListProviderReposReq {
@@ -262,13 +262,13 @@ func (p *ListProviderReposReq) String() string {
 }
 
 type RepoItem struct {
-	ID            string  `thrift:"id,1" json:"id"`
-	FullName      string  `thrift:"full_name,2" json:"full_name"`
-	Name          string  `thrift:"name,3" json:"name"`
-	Owner         string  `thrift:"owner,4" json:"owner"`
-	Description   *string `thrift:"description,5,optional" json:"description,omitempty"`
-	DefaultBranch *string `thrift:"default_branch,6,optional" json:"default_branch,omitempty"`
-	Private       bool    `thrift:"private,7" json:"private"`
+	ID            string  `thrift:"id,1" form:"id" json:"id"`
+	FullName      string  `thrift:"full_name,2" form:"full_name" json:"full_name"`
+	Name          string  `thrift:"name,3" form:"name" json:"name"`
+	Owner         string  `thrift:"owner,4" form:"owner" json:"owner"`
+	Description   *string `thrift:"description,5,optional" form:"description" json:"description,omitempty"`
+	DefaultBranch *string `thrift:"default_branch,6,optional" form:"default_branch" json:"default_branch,omitempty"`
+	Private       bool    `thrift:"private,7" form:"private" json:"private"`
 }
 
 func NewRepoItem() *RepoItem {
@@ -700,7 +700,7 @@ func (p *RepoItem) String() string {
 }
 
 type ListProviderReposResp struct {
-	Items []*RepoItem `thrift:"items,1,default,list<RepoItem>" json:"items"`
+	Items []*RepoItem `thrift:"items,1,default,list<RepoItem>" form:"items" json:"items"`
 }
 
 func NewListProviderReposResp() *ListProviderReposResp {
@@ -860,9 +860,9 @@ func (p *ListProviderReposResp) String() string {
 }
 
 type ListProviderBranchesReq struct {
-	Provider string `thrift:"provider,1" json:"provider"`
-	Owner    string `thrift:"owner,2" json:"owner"`
-	Repo     string `thrift:"repo,3" json:"repo"`
+	Provider string `thrift:"provider,1" json:"provider" path:"provider"`
+	Owner    string `thrift:"owner,2" json:"owner" path:"owner"`
+	Repo     string `thrift:"repo,3" json:"repo" path:"repo"`
 }
 
 func NewListProviderBranchesReq() *ListProviderBranchesReq {
@@ -1092,7 +1092,7 @@ func (p *ListProviderBranchesReq) String() string {
 }
 
 type BranchItem struct {
-	Name string `thrift:"name,1" json:"name"`
+	Name string `thrift:"name,1" form:"name" json:"name"`
 }
 
 func NewBranchItem() *BranchItem {
@@ -1232,7 +1232,7 @@ func (p *BranchItem) String() string {
 }
 
 type ListProviderBranchesResp struct {
-	Items []*BranchItem `thrift:"items,1,default,list<BranchItem>" json:"items"`
+	Items []*BranchItem `thrift:"items,1,default,list<BranchItem>" form:"items" json:"items"`
 }
 
 func NewListProviderBranchesResp() *ListProviderBranchesResp {
@@ -1392,10 +1392,10 @@ func (p *ListProviderBranchesResp) String() string {
 }
 
 type GetBranchSHAReq struct {
-	Provider string `thrift:"provider,1" json:"provider"`
-	Owner    string `thrift:"owner,2" json:"owner"`
-	Repo     string `thrift:"repo,3" json:"repo"`
-	Branch   string `thrift:"branch,4" json:"branch"`
+	Provider string `thrift:"provider,1" json:"provider" path:"provider"`
+	Owner    string `thrift:"owner,2" json:"owner" path:"owner"`
+	Repo     string `thrift:"repo,3" json:"repo" path:"repo"`
+	Branch   string `thrift:"branch,4" json:"branch" query:"branch"`
 }
 
 func NewGetBranchSHAReq() *GetBranchSHAReq {
@@ -1670,7 +1670,7 @@ func (p *GetBranchSHAReq) String() string {
 }
 
 type GetBranchSHAResp struct {
-	Sha string `thrift:"sha,1" json:"sha"`
+	Sha string `thrift:"sha,1" form:"sha" json:"sha"`
 }
 
 func NewGetBranchSHAResp() *GetBranchSHAResp {
@@ -1810,12 +1810,12 @@ func (p *GetBranchSHAResp) String() string {
 }
 
 type ListProviderPullsReq struct {
-	Provider string  `thrift:"provider,1" json:"provider"`
-	Owner    string  `thrift:"owner,2" json:"owner"`
-	Repo     string  `thrift:"repo,3" json:"repo"`
-	State    *string `thrift:"state,4,optional" json:"state,omitempty"`
-	Page     *int64  `thrift:"page,5,optional" json:"page,omitempty"`
-	PerPage  *int64  `thrift:"per_page,6,optional" json:"per_page,omitempty"`
+	Provider string  `thrift:"provider,1" json:"provider" path:"provider"`
+	Owner    string  `thrift:"owner,2" json:"owner" path:"owner"`
+	Repo     string  `thrift:"repo,3" json:"repo" path:"repo"`
+	State    *string `thrift:"state,4,optional" json:"state,omitempty" query:"state"`
+	Page     *int64  `thrift:"page,5,optional" json:"page,omitempty" query:"page"`
+	PerPage  *int64  `thrift:"per_page,6,optional" json:"per_page,omitempty" query:"per_page"`
 }
 
 func NewListProviderPullsReq() *ListProviderPullsReq {
@@ -2213,9 +2213,9 @@ func (p *ListProviderPullsReq) String() string {
 }
 
 type PRAuthor struct {
-	Username  string  `thrift:"username,1" json:"username"`
-	Name      *string `thrift:"name,2,optional" json:"name,omitempty"`
-	AvatarURL *string `thrift:"avatar_url,3,optional" json:"avatar_url,omitempty"`
+	Username  string  `thrift:"username,1" form:"username" json:"username"`
+	Name      *string `thrift:"name,2,optional" form:"name" json:"name,omitempty"`
+	AvatarURL *string `thrift:"avatar_url,3,optional" form:"avatar_url" json:"avatar_url,omitempty"`
 }
 
 func NewPRAuthor() *PRAuthor {
@@ -2467,17 +2467,17 @@ func (p *PRAuthor) String() string {
 }
 
 type PullItem struct {
-	Number       int64     `thrift:"number,1" json:"number"`
-	Title        string    `thrift:"title,2" json:"title"`
-	State        string    `thrift:"state,3" json:"state"`
-	SourceBranch string    `thrift:"source_branch,4" json:"source_branch"`
-	TargetBranch string    `thrift:"target_branch,5" json:"target_branch"`
-	HeadSha      *string   `thrift:"head_sha,6,optional" json:"head_sha,omitempty"`
-	BaseSha      *string   `thrift:"base_sha,7,optional" json:"base_sha,omitempty"`
-	WebURL       *string   `thrift:"web_url,8,optional" json:"web_url,omitempty"`
-	CreatedAt    *string   `thrift:"created_at,9,optional" json:"created_at,omitempty"`
-	UpdatedAt    *string   `thrift:"updated_at,10,optional" json:"updated_at,omitempty"`
-	Author       *PRAuthor `thrift:"author,11,optional" json:"author,omitempty"`
+	Number       int64     `thrift:"number,1" form:"number" json:"number"`
+	Title        string    `thrift:"title,2" form:"title" json:"title"`
+	State        string    `thrift:"state,3" form:"state" json:"state"`
+	SourceBranch string    `thrift:"source_branch,4" form:"source_branch" json:"source_branch"`
+	TargetBranch string    `thrift:"target_branch,5" form:"target_branch" json:"target_branch"`
+	HeadSha      *string   `thrift:"head_sha,6,optional" form:"head_sha" json:"head_sha,omitempty"`
+	BaseSha      *string   `thrift:"base_sha,7,optional" form:"base_sha" json:"base_sha,omitempty"`
+	WebURL       *string   `thrift:"web_url,8,optional" form:"web_url" json:"web_url,omitempty"`
+	CreatedAt    *string   `thrift:"created_at,9,optional" form:"created_at" json:"created_at,omitempty"`
+	UpdatedAt    *string   `thrift:"updated_at,10,optional" form:"updated_at" json:"updated_at,omitempty"`
+	Author       *PRAuthor `thrift:"author,11,optional" form:"author" json:"author,omitempty"`
 }
 
 func NewPullItem() *PullItem {
@@ -3130,7 +3130,7 @@ func (p *PullItem) String() string {
 }
 
 type ListProviderPullsResp struct {
-	Items []*PullItem `thrift:"items,1,default,list<PullItem>" json:"items"`
+	Items []*PullItem `thrift:"items,1,default,list<PullItem>" form:"items" json:"items"`
 }
 
 func NewListProviderPullsResp() *ListProviderPullsResp {

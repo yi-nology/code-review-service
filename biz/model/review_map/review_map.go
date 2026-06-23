@@ -8,15 +8,15 @@ import (
 )
 
 type ReviewMapSummary struct {
-	ID           string `thrift:"id,1" json:"id"`
-	ReviewID     string `thrift:"review_id,2" json:"review_id"`
-	SessionID    string `thrift:"session_id,3" json:"session_id"`
-	Title        string `thrift:"title,4" json:"title"`
-	Description  string `thrift:"description,5" json:"description"`
-	Summary      string `thrift:"summary,6" json:"summary"`
-	FileCount    int64  `thrift:"file_count,7" json:"file_count"`
-	SectionCount int64  `thrift:"section_count,8" json:"section_count"`
-	CreatedAt    string `thrift:"created_at,9" json:"created_at"`
+	ID           string `thrift:"id,1" form:"id" json:"id"`
+	ReviewID     string `thrift:"review_id,2" form:"review_id" json:"review_id"`
+	SessionID    string `thrift:"session_id,3" form:"session_id" json:"session_id"`
+	Title        string `thrift:"title,4" form:"title" json:"title"`
+	Description  string `thrift:"description,5" form:"description" json:"description"`
+	Summary      string `thrift:"summary,6" form:"summary" json:"summary"`
+	FileCount    int64  `thrift:"file_count,7" form:"file_count" json:"file_count"`
+	SectionCount int64  `thrift:"section_count,8" form:"section_count" json:"section_count"`
+	CreatedAt    string `thrift:"created_at,9" form:"created_at" json:"created_at"`
 }
 
 func NewReviewMapSummary() *ReviewMapSummary {
@@ -516,18 +516,18 @@ func (p *ReviewMapSummary) String() string {
 }
 
 type ReviewMapDetail struct {
-	ID           string `thrift:"id,1" json:"id"`
-	ReviewID     string `thrift:"review_id,2" json:"review_id"`
-	SessionID    string `thrift:"session_id,3" json:"session_id"`
-	Title        string `thrift:"title,4" json:"title"`
-	Description  string `thrift:"description,5" json:"description"`
-	Sections     string `thrift:"sections,6" json:"sections"`
-	Dependencies string `thrift:"dependencies,7" json:"dependencies"`
-	Summary      string `thrift:"summary,8" json:"summary"`
-	FileCount    int64  `thrift:"file_count,9" json:"file_count"`
-	SectionCount int64  `thrift:"section_count,10" json:"section_count"`
-	Mermaid      string `thrift:"mermaid,11" json:"mermaid"`
-	CreatedAt    string `thrift:"created_at,12" json:"created_at"`
+	ID           string `thrift:"id,1" form:"id" json:"id"`
+	ReviewID     string `thrift:"review_id,2" form:"review_id" json:"review_id"`
+	SessionID    string `thrift:"session_id,3" form:"session_id" json:"session_id"`
+	Title        string `thrift:"title,4" form:"title" json:"title"`
+	Description  string `thrift:"description,5" form:"description" json:"description"`
+	Sections     string `thrift:"sections,6" form:"sections" json:"sections"`
+	Dependencies string `thrift:"dependencies,7" form:"dependencies" json:"dependencies"`
+	Summary      string `thrift:"summary,8" form:"summary" json:"summary"`
+	FileCount    int64  `thrift:"file_count,9" form:"file_count" json:"file_count"`
+	SectionCount int64  `thrift:"section_count,10" form:"section_count" json:"section_count"`
+	Mermaid      string `thrift:"mermaid,11" form:"mermaid" json:"mermaid"`
+	CreatedAt    string `thrift:"created_at,12" form:"created_at" json:"created_at"`
 }
 
 func NewReviewMapDetail() *ReviewMapDetail {
@@ -1162,10 +1162,10 @@ func (p *ReviewMapDetail) String() string {
 }
 
 type GenerateMapReq struct {
-	ID        string  `thrift:"id,1" json:"id"`
-	SessionID string  `thrift:"session_id,2" json:"session_id"`
-	Diff      string  `thrift:"diff,3" json:"diff"`
-	ReviewID  *string `thrift:"review_id,4,optional" json:"review_id,omitempty"`
+	ID        string  `thrift:"id,1" json:"id" path:"id"`
+	SessionID string  `thrift:"session_id,2" form:"session_id" json:"session_id"`
+	Diff      string  `thrift:"diff,3" form:"diff" json:"diff"`
+	ReviewID  *string `thrift:"review_id,4,optional" form:"review_id" json:"review_id,omitempty"`
 }
 
 func NewGenerateMapReq() *GenerateMapReq {
@@ -1451,7 +1451,7 @@ func (p *GenerateMapReq) String() string {
 }
 
 type GenerateMapResp struct {
-	MapData string `thrift:"map_data,1" json:"map_data"`
+	MapData string `thrift:"map_data,1" form:"map_data" json:"map_data"`
 }
 
 func NewGenerateMapResp() *GenerateMapResp {
@@ -1591,7 +1591,7 @@ func (p *GenerateMapResp) String() string {
 }
 
 type GetMapsReq struct {
-	ID string `thrift:"id,1" json:"id"`
+	ID string `thrift:"id,1" json:"id" path:"id"`
 }
 
 func NewGetMapsReq() *GetMapsReq {
@@ -1731,8 +1731,8 @@ func (p *GetMapsReq) String() string {
 }
 
 type GetMapsResp struct {
-	Maps  []*ReviewMapSummary `thrift:"maps,1,default,list<ReviewMapSummary>" json:"maps"`
-	Total int64               `thrift:"total,2" json:"total"`
+	Maps  []*ReviewMapSummary `thrift:"maps,1,default,list<ReviewMapSummary>" form:"maps" json:"maps"`
+	Total int64               `thrift:"total,2" form:"total" json:"total"`
 }
 
 func NewGetMapsResp() *GetMapsResp {
@@ -1937,8 +1937,8 @@ func (p *GetMapsResp) String() string {
 }
 
 type GetMapReq struct {
-	ID    string `thrift:"id,1" json:"id"`
-	MapID string `thrift:"map_id,2" json:"map_id"`
+	ID    string `thrift:"id,1" json:"id" path:"id"`
+	MapID string `thrift:"map_id,2" json:"map_id" path:"mapId"`
 }
 
 func NewGetMapReq() *GetMapReq {
@@ -2123,18 +2123,18 @@ func (p *GetMapReq) String() string {
 }
 
 type GetMapResp struct {
-	ID           string `thrift:"id,1" json:"id"`
-	ReviewID     string `thrift:"review_id,2" json:"review_id"`
-	SessionID    string `thrift:"session_id,3" json:"session_id"`
-	Title        string `thrift:"title,4" json:"title"`
-	Description  string `thrift:"description,5" json:"description"`
-	Sections     string `thrift:"sections,6" json:"sections"`
-	Dependencies string `thrift:"dependencies,7" json:"dependencies"`
-	Summary      string `thrift:"summary,8" json:"summary"`
-	FileCount    int64  `thrift:"file_count,9" json:"file_count"`
-	SectionCount int64  `thrift:"section_count,10" json:"section_count"`
-	Mermaid      string `thrift:"mermaid,11" json:"mermaid"`
-	CreatedAt    string `thrift:"created_at,12" json:"created_at"`
+	ID           string `thrift:"id,1" form:"id" json:"id"`
+	ReviewID     string `thrift:"review_id,2" form:"review_id" json:"review_id"`
+	SessionID    string `thrift:"session_id,3" form:"session_id" json:"session_id"`
+	Title        string `thrift:"title,4" form:"title" json:"title"`
+	Description  string `thrift:"description,5" form:"description" json:"description"`
+	Sections     string `thrift:"sections,6" form:"sections" json:"sections"`
+	Dependencies string `thrift:"dependencies,7" form:"dependencies" json:"dependencies"`
+	Summary      string `thrift:"summary,8" form:"summary" json:"summary"`
+	FileCount    int64  `thrift:"file_count,9" form:"file_count" json:"file_count"`
+	SectionCount int64  `thrift:"section_count,10" form:"section_count" json:"section_count"`
+	Mermaid      string `thrift:"mermaid,11" form:"mermaid" json:"mermaid"`
+	CreatedAt    string `thrift:"created_at,12" form:"created_at" json:"created_at"`
 }
 
 func NewGetMapResp() *GetMapResp {
@@ -2769,8 +2769,8 @@ func (p *GetMapResp) String() string {
 }
 
 type PreviewMapReq struct {
-	ID   string `thrift:"id,1" json:"id"`
-	Diff string `thrift:"diff,2" json:"diff"`
+	ID   string `thrift:"id,1" json:"id" path:"id"`
+	Diff string `thrift:"diff,2" form:"diff" json:"diff"`
 }
 
 func NewPreviewMapReq() *PreviewMapReq {
@@ -2955,7 +2955,7 @@ func (p *PreviewMapReq) String() string {
 }
 
 type PreviewMapResp struct {
-	MapData string `thrift:"map_data,1" json:"map_data"`
+	MapData string `thrift:"map_data,1" form:"map_data" json:"map_data"`
 }
 
 func NewPreviewMapResp() *PreviewMapResp {
@@ -3095,8 +3095,8 @@ func (p *PreviewMapResp) String() string {
 }
 
 type GetSessionMapReq struct {
-	ID        string `thrift:"id,1" json:"id"`
-	SessionID string `thrift:"session_id,2" json:"session_id"`
+	ID        string `thrift:"id,1" json:"id" path:"id"`
+	SessionID string `thrift:"session_id,2" json:"session_id" path:"sessionId"`
 }
 
 func NewGetSessionMapReq() *GetSessionMapReq {
@@ -3281,18 +3281,18 @@ func (p *GetSessionMapReq) String() string {
 }
 
 type GetSessionMapResp struct {
-	ID           string `thrift:"id,1" json:"id"`
-	ReviewID     string `thrift:"review_id,2" json:"review_id"`
-	SessionID    string `thrift:"session_id,3" json:"session_id"`
-	Title        string `thrift:"title,4" json:"title"`
-	Description  string `thrift:"description,5" json:"description"`
-	Sections     string `thrift:"sections,6" json:"sections"`
-	Dependencies string `thrift:"dependencies,7" json:"dependencies"`
-	Summary      string `thrift:"summary,8" json:"summary"`
-	FileCount    int64  `thrift:"file_count,9" json:"file_count"`
-	SectionCount int64  `thrift:"section_count,10" json:"section_count"`
-	Mermaid      string `thrift:"mermaid,11" json:"mermaid"`
-	CreatedAt    string `thrift:"created_at,12" json:"created_at"`
+	ID           string `thrift:"id,1" form:"id" json:"id"`
+	ReviewID     string `thrift:"review_id,2" form:"review_id" json:"review_id"`
+	SessionID    string `thrift:"session_id,3" form:"session_id" json:"session_id"`
+	Title        string `thrift:"title,4" form:"title" json:"title"`
+	Description  string `thrift:"description,5" form:"description" json:"description"`
+	Sections     string `thrift:"sections,6" form:"sections" json:"sections"`
+	Dependencies string `thrift:"dependencies,7" form:"dependencies" json:"dependencies"`
+	Summary      string `thrift:"summary,8" form:"summary" json:"summary"`
+	FileCount    int64  `thrift:"file_count,9" form:"file_count" json:"file_count"`
+	SectionCount int64  `thrift:"section_count,10" form:"section_count" json:"section_count"`
+	Mermaid      string `thrift:"mermaid,11" form:"mermaid" json:"mermaid"`
+	CreatedAt    string `thrift:"created_at,12" form:"created_at" json:"created_at"`
 }
 
 func NewGetSessionMapResp() *GetSessionMapResp {

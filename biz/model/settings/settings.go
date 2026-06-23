@@ -8,8 +8,8 @@ import (
 )
 
 type ReviewRule struct {
-	Path string `thrift:"path,1" json:"path"`
-	Rule string `thrift:"rule,2" json:"rule"`
+	Path string `thrift:"path,1" form:"path" json:"path"`
+	Rule string `thrift:"rule,2" form:"rule" json:"rule"`
 }
 
 func NewReviewRule() *ReviewRule {
@@ -194,7 +194,7 @@ func (p *ReviewRule) String() string {
 }
 
 type GlobalRules struct {
-	Rules []*ReviewRule `thrift:"rules,1,optional,list<ReviewRule>" json:"rules,omitempty"`
+	Rules []*ReviewRule `thrift:"rules,1,optional,list<ReviewRule>" form:"rules" json:"rules,omitempty"`
 }
 
 func NewGlobalRules() *GlobalRules {
@@ -365,7 +365,7 @@ func (p *GlobalRules) String() string {
 }
 
 type GetGlobalRulesResp struct {
-	Rules *GlobalRules `thrift:"rules,1" json:"rules"`
+	Rules *GlobalRules `thrift:"rules,1" form:"rules" json:"rules"`
 }
 
 func NewGetGlobalRulesResp() *GetGlobalRulesResp {
@@ -511,7 +511,7 @@ func (p *GetGlobalRulesResp) String() string {
 }
 
 type UpdateGlobalRulesReq struct {
-	Rules *GlobalRules `thrift:"rules,1" json:"rules"`
+	Rules *GlobalRules `thrift:"rules,1" form:"rules" json:"rules"`
 }
 
 func NewUpdateGlobalRulesReq() *UpdateGlobalRulesReq {
@@ -657,7 +657,7 @@ func (p *UpdateGlobalRulesReq) String() string {
 }
 
 type UpdateGlobalRulesResp struct {
-	Rules *GlobalRules `thrift:"rules,1" json:"rules"`
+	Rules *GlobalRules `thrift:"rules,1" form:"rules" json:"rules"`
 }
 
 func NewUpdateGlobalRulesResp() *UpdateGlobalRulesResp {
@@ -803,7 +803,7 @@ func (p *UpdateGlobalRulesResp) String() string {
 }
 
 type TestLLMResp struct {
-	Result *TestLLMResult `thrift:"result,1" json:"result"`
+	Result *TestLLMResult `thrift:"result,1" form:"result" json:"result"`
 }
 
 func NewTestLLMResp() *TestLLMResp {
@@ -949,8 +949,8 @@ func (p *TestLLMResp) String() string {
 }
 
 type TestLLMResult struct {
-	Success bool    `thrift:"success,1" json:"success"`
-	Message *string `thrift:"message,2,optional" json:"message,omitempty"`
+	Success bool    `thrift:"success,1" form:"success" json:"success"`
+	Message *string `thrift:"message,2,optional" form:"message" json:"message,omitempty"`
 }
 
 func NewTestLLMResult() *TestLLMResult {
@@ -1146,32 +1146,32 @@ func (p *TestLLMResult) String() string {
 }
 
 type OCRSettings struct {
-	Enabled                 bool    `thrift:"enabled,1" json:"enabled"`
-	Provider                *string `thrift:"provider,2,optional" json:"provider,omitempty"`
-	URL                     *string `thrift:"url,3,optional" json:"url,omitempty"`
-	AuthToken               *string `thrift:"auth_token,4,optional" json:"auth_token,omitempty"`
-	AuthHeader              *string `thrift:"auth_header,5,optional" json:"auth_header,omitempty"`
-	Model                   *string `thrift:"model,6,optional" json:"model,omitempty"`
-	UseAnthropic            *bool   `thrift:"use_anthropic,7,optional" json:"use_anthropic,omitempty"`
-	ExtraBody               *string `thrift:"extra_body,8,optional" json:"extra_body,omitempty"`
-	Language                *string `thrift:"language,9,optional" json:"language,omitempty"`
-	Concurrency             *int64  `thrift:"concurrency,10,optional" json:"concurrency,omitempty"`
-	MaxGitProcs             *int64  `thrift:"max_git_procs,11,optional" json:"max_git_procs,omitempty"`
-	TimeoutMinutes          *int64  `thrift:"timeout_minutes,12,optional" json:"timeout_minutes,omitempty"`
-	MaxTools                *int64  `thrift:"max_tools,13,optional" json:"max_tools,omitempty"`
-	Background              *string `thrift:"background,14,optional" json:"background,omitempty"`
-	Binary                  *string `thrift:"binary,15,optional" json:"binary,omitempty"`
-	Audience                *string `thrift:"audience,16,optional" json:"audience,omitempty"`
-	DefaultSeverity         *string `thrift:"default_severity,17,optional" json:"default_severity,omitempty"`
-	ToolsPath               *string `thrift:"tools_path,18,optional" json:"tools_path,omitempty"`
-	TelemetryEnabled        *bool   `thrift:"telemetry_enabled,19,optional" json:"telemetry_enabled,omitempty"`
-	TelemetryExporter       *string `thrift:"telemetry_exporter,20,optional" json:"telemetry_exporter,omitempty"`
-	TelemetryOtlpEndpoint   *string `thrift:"telemetry_otlp_endpoint,21,optional" json:"telemetry_otlp_endpoint,omitempty"`
-	TelemetryContentLogging *bool   `thrift:"telemetry_content_logging,22,optional" json:"telemetry_content_logging,omitempty"`
-	ReasoningMode           *string `thrift:"reasoning_mode,23,optional" json:"reasoning_mode,omitempty"`
-	ReasoningBudget         *int64  `thrift:"reasoning_budget,24,optional" json:"reasoning_budget,omitempty"`
-	ContextWindow           *int64  `thrift:"context_window,25,optional" json:"context_window,omitempty"`
-	MaxOutputTokens         *int64  `thrift:"max_output_tokens,26,optional" json:"max_output_tokens,omitempty"`
+	Enabled                 bool    `thrift:"enabled,1" form:"enabled" json:"enabled"`
+	Provider                *string `thrift:"provider,2,optional" form:"provider" json:"provider,omitempty"`
+	URL                     *string `thrift:"url,3,optional" form:"url" json:"url,omitempty"`
+	AuthToken               *string `thrift:"auth_token,4,optional" form:"auth_token" json:"auth_token,omitempty"`
+	AuthHeader              *string `thrift:"auth_header,5,optional" form:"auth_header" json:"auth_header,omitempty"`
+	Model                   *string `thrift:"model,6,optional" form:"model" json:"model,omitempty"`
+	UseAnthropic            *bool   `thrift:"use_anthropic,7,optional" form:"use_anthropic" json:"use_anthropic,omitempty"`
+	ExtraBody               *string `thrift:"extra_body,8,optional" form:"extra_body" json:"extra_body,omitempty"`
+	Language                *string `thrift:"language,9,optional" form:"language" json:"language,omitempty"`
+	Concurrency             *int64  `thrift:"concurrency,10,optional" form:"concurrency" json:"concurrency,omitempty"`
+	MaxGitProcs             *int64  `thrift:"max_git_procs,11,optional" form:"max_git_procs" json:"max_git_procs,omitempty"`
+	TimeoutMinutes          *int64  `thrift:"timeout_minutes,12,optional" form:"timeout_minutes" json:"timeout_minutes,omitempty"`
+	MaxTools                *int64  `thrift:"max_tools,13,optional" form:"max_tools" json:"max_tools,omitempty"`
+	Background              *string `thrift:"background,14,optional" form:"background" json:"background,omitempty"`
+	Binary                  *string `thrift:"binary,15,optional" form:"binary" json:"binary,omitempty"`
+	Audience                *string `thrift:"audience,16,optional" form:"audience" json:"audience,omitempty"`
+	DefaultSeverity         *string `thrift:"default_severity,17,optional" form:"default_severity" json:"default_severity,omitempty"`
+	ToolsPath               *string `thrift:"tools_path,18,optional" form:"tools_path" json:"tools_path,omitempty"`
+	TelemetryEnabled        *bool   `thrift:"telemetry_enabled,19,optional" form:"telemetry_enabled" json:"telemetry_enabled,omitempty"`
+	TelemetryExporter       *string `thrift:"telemetry_exporter,20,optional" form:"telemetry_exporter" json:"telemetry_exporter,omitempty"`
+	TelemetryOtlpEndpoint   *string `thrift:"telemetry_otlp_endpoint,21,optional" form:"telemetry_otlp_endpoint" json:"telemetry_otlp_endpoint,omitempty"`
+	TelemetryContentLogging *bool   `thrift:"telemetry_content_logging,22,optional" form:"telemetry_content_logging" json:"telemetry_content_logging,omitempty"`
+	ReasoningMode           *string `thrift:"reasoning_mode,23,optional" form:"reasoning_mode" json:"reasoning_mode,omitempty"`
+	ReasoningBudget         *int64  `thrift:"reasoning_budget,24,optional" form:"reasoning_budget" json:"reasoning_budget,omitempty"`
+	ContextWindow           *int64  `thrift:"context_window,25,optional" form:"context_window" json:"context_window,omitempty"`
+	MaxOutputTokens         *int64  `thrift:"max_output_tokens,26,optional" form:"max_output_tokens" json:"max_output_tokens,omitempty"`
 }
 
 func NewOCRSettings() *OCRSettings {
@@ -2711,7 +2711,7 @@ func (p *OCRSettings) String() string {
 }
 
 type GetOCRSettingsResp struct {
-	Settings *OCRSettings `thrift:"settings,1" json:"settings"`
+	Settings *OCRSettings `thrift:"settings,1" form:"settings" json:"settings"`
 }
 
 func NewGetOCRSettingsResp() *GetOCRSettingsResp {
@@ -2857,7 +2857,7 @@ func (p *GetOCRSettingsResp) String() string {
 }
 
 type UpdateOCRSettingsReq struct {
-	Settings *OCRSettings `thrift:"settings,1" json:"settings"`
+	Settings *OCRSettings `thrift:"settings,1" form:"settings" json:"settings"`
 }
 
 func NewUpdateOCRSettingsReq() *UpdateOCRSettingsReq {
@@ -3003,7 +3003,7 @@ func (p *UpdateOCRSettingsReq) String() string {
 }
 
 type UpdateOCRSettingsResp struct {
-	Settings *OCRSettings `thrift:"settings,1" json:"settings"`
+	Settings *OCRSettings `thrift:"settings,1" form:"settings" json:"settings"`
 }
 
 func NewUpdateOCRSettingsResp() *UpdateOCRSettingsResp {
@@ -3149,10 +3149,10 @@ func (p *UpdateOCRSettingsResp) String() string {
 }
 
 type LLMProvider struct {
-	Name         string   `thrift:"name,1" json:"name"`
-	Protocol     string   `thrift:"protocol,2" json:"protocol"`
-	BaseURL      *string  `thrift:"base_url,3,optional" json:"base_url,omitempty"`
-	DefaultModel []string `thrift:"default_model,4,optional,list<string>" json:"default_model,omitempty"`
+	Name         string   `thrift:"name,1" form:"name" json:"name"`
+	Protocol     string   `thrift:"protocol,2" form:"protocol" json:"protocol"`
+	BaseURL      *string  `thrift:"base_url,3,optional" form:"base_url" json:"base_url,omitempty"`
+	DefaultModel []string `thrift:"default_model,4,optional,list<string>" form:"default_model" json:"default_model,omitempty"`
 }
 
 func NewLLMProvider() *LLMProvider {
@@ -3469,7 +3469,7 @@ func (p *LLMProvider) String() string {
 }
 
 type ListLLMProvidersResp struct {
-	BuiltIn []*LLMProvider `thrift:"built_in,1,default,list<LLMProvider>" json:"built_in"`
+	BuiltIn []*LLMProvider `thrift:"built_in,1,default,list<LLMProvider>" form:"built_in" json:"built_in"`
 }
 
 func NewListLLMProvidersResp() *ListLLMProvidersResp {
@@ -3629,15 +3629,15 @@ func (p *ListLLMProvidersResp) String() string {
 }
 
 type CustomProvider struct {
-	ID         int64   `thrift:"id,1" json:"id"`
-	Name       string  `thrift:"name,2" json:"name"`
-	Protocol   string  `thrift:"protocol,3" json:"protocol"`
-	URL        *string `thrift:"url,4,optional" json:"url,omitempty"`
-	APIKey     *string `thrift:"api_key,5,optional" json:"api_key,omitempty"`
-	Model      *string `thrift:"model,6,optional" json:"model,omitempty"`
-	AuthHeader *string `thrift:"auth_header,7,optional" json:"auth_header,omitempty"`
-	ExtraBody  *string `thrift:"extra_body,8,optional" json:"extra_body,omitempty"`
-	Enabled    bool    `thrift:"enabled,9" json:"enabled"`
+	ID         int64   `thrift:"id,1" form:"id" json:"id"`
+	Name       string  `thrift:"name,2" form:"name" json:"name"`
+	Protocol   string  `thrift:"protocol,3" form:"protocol" json:"protocol"`
+	URL        *string `thrift:"url,4,optional" form:"url" json:"url,omitempty"`
+	APIKey     *string `thrift:"api_key,5,optional" form:"api_key" json:"api_key,omitempty"`
+	Model      *string `thrift:"model,6,optional" form:"model" json:"model,omitempty"`
+	AuthHeader *string `thrift:"auth_header,7,optional" form:"auth_header" json:"auth_header,omitempty"`
+	ExtraBody  *string `thrift:"extra_body,8,optional" form:"extra_body" json:"extra_body,omitempty"`
+	Enabled    bool    `thrift:"enabled,9" form:"enabled" json:"enabled"`
 }
 
 func NewCustomProvider() *CustomProvider {
@@ -4192,7 +4192,7 @@ func (p *CustomProvider) String() string {
 }
 
 type ListCustomProvidersResp struct {
-	Items []*CustomProvider `thrift:"items,1,default,list<CustomProvider>" json:"items"`
+	Items []*CustomProvider `thrift:"items,1,default,list<CustomProvider>" form:"items" json:"items"`
 }
 
 func NewListCustomProvidersResp() *ListCustomProvidersResp {
@@ -4352,14 +4352,14 @@ func (p *ListCustomProvidersResp) String() string {
 }
 
 type CreateCustomProviderReq struct {
-	Name       string  `thrift:"name,1" json:"name"`
-	Protocol   string  `thrift:"protocol,2" json:"protocol"`
-	URL        *string `thrift:"url,3,optional" json:"url,omitempty"`
-	APIKey     *string `thrift:"api_key,4,optional" json:"api_key,omitempty"`
-	Model      *string `thrift:"model,5,optional" json:"model,omitempty"`
-	AuthHeader *string `thrift:"auth_header,6,optional" json:"auth_header,omitempty"`
-	ExtraBody  *string `thrift:"extra_body,7,optional" json:"extra_body,omitempty"`
-	Enabled    *bool   `thrift:"enabled,8,optional" json:"enabled,omitempty"`
+	Name       string  `thrift:"name,1" form:"name" json:"name"`
+	Protocol   string  `thrift:"protocol,2" form:"protocol" json:"protocol"`
+	URL        *string `thrift:"url,3,optional" form:"url" json:"url,omitempty"`
+	APIKey     *string `thrift:"api_key,4,optional" form:"api_key" json:"api_key,omitempty"`
+	Model      *string `thrift:"model,5,optional" form:"model" json:"model,omitempty"`
+	AuthHeader *string `thrift:"auth_header,6,optional" form:"auth_header" json:"auth_header,omitempty"`
+	ExtraBody  *string `thrift:"extra_body,7,optional" form:"extra_body" json:"extra_body,omitempty"`
+	Enabled    *bool   `thrift:"enabled,8,optional" form:"enabled" json:"enabled,omitempty"`
 }
 
 func NewCreateCustomProviderReq() *CreateCustomProviderReq {
@@ -4880,7 +4880,7 @@ func (p *CreateCustomProviderReq) String() string {
 }
 
 type CreateCustomProviderResp struct {
-	Provider *CustomProvider `thrift:"provider,1" json:"provider"`
+	Provider *CustomProvider `thrift:"provider,1" form:"provider" json:"provider"`
 }
 
 func NewCreateCustomProviderResp() *CreateCustomProviderResp {
@@ -5026,15 +5026,15 @@ func (p *CreateCustomProviderResp) String() string {
 }
 
 type UpdateCustomProviderReq struct {
-	ID         int64   `thrift:"id,1" json:"id"`
-	Name       *string `thrift:"name,2,optional" json:"name,omitempty"`
-	Protocol   *string `thrift:"protocol,3,optional" json:"protocol,omitempty"`
-	URL        *string `thrift:"url,4,optional" json:"url,omitempty"`
-	APIKey     *string `thrift:"api_key,5,optional" json:"api_key,omitempty"`
-	Model      *string `thrift:"model,6,optional" json:"model,omitempty"`
-	AuthHeader *string `thrift:"auth_header,7,optional" json:"auth_header,omitempty"`
-	ExtraBody  *string `thrift:"extra_body,8,optional" json:"extra_body,omitempty"`
-	Enabled    *bool   `thrift:"enabled,9,optional" json:"enabled,omitempty"`
+	ID         int64   `thrift:"id,1" json:"id" path:"id"`
+	Name       *string `thrift:"name,2,optional" form:"name" json:"name,omitempty"`
+	Protocol   *string `thrift:"protocol,3,optional" form:"protocol" json:"protocol,omitempty"`
+	URL        *string `thrift:"url,4,optional" form:"url" json:"url,omitempty"`
+	APIKey     *string `thrift:"api_key,5,optional" form:"api_key" json:"api_key,omitempty"`
+	Model      *string `thrift:"model,6,optional" form:"model" json:"model,omitempty"`
+	AuthHeader *string `thrift:"auth_header,7,optional" form:"auth_header" json:"auth_header,omitempty"`
+	ExtraBody  *string `thrift:"extra_body,8,optional" form:"extra_body" json:"extra_body,omitempty"`
+	Enabled    *bool   `thrift:"enabled,9,optional" form:"enabled" json:"enabled,omitempty"`
 }
 
 func NewUpdateCustomProviderReq() *UpdateCustomProviderReq {
@@ -5622,7 +5622,7 @@ func (p *UpdateCustomProviderReq) String() string {
 }
 
 type UpdateCustomProviderResp struct {
-	Provider *CustomProvider `thrift:"provider,1" json:"provider"`
+	Provider *CustomProvider `thrift:"provider,1" form:"provider" json:"provider"`
 }
 
 func NewUpdateCustomProviderResp() *UpdateCustomProviderResp {
@@ -5768,7 +5768,7 @@ func (p *UpdateCustomProviderResp) String() string {
 }
 
 type DeleteCustomProviderReq struct {
-	ID int64 `thrift:"id,1" json:"id"`
+	ID int64 `thrift:"id,1" json:"id" path:"id"`
 }
 
 func NewDeleteCustomProviderReq() *DeleteCustomProviderReq {
@@ -5991,7 +5991,7 @@ func (p *DeleteCustomProviderResp) String() string {
 }
 
 type RulesCheckReq struct {
-	Path string `thrift:"path,1" json:"path"`
+	Path string `thrift:"path,1" form:"path" json:"path"`
 }
 
 func NewRulesCheckReq() *RulesCheckReq {
@@ -6131,9 +6131,9 @@ func (p *RulesCheckReq) String() string {
 }
 
 type RulesCheckResult struct {
-	Applicable bool    `thrift:"applicable,1" json:"applicable"`
-	Rule       *string `thrift:"rule,2,optional" json:"rule,omitempty"`
-	Message    *string `thrift:"message,3,optional" json:"message,omitempty"`
+	Applicable bool    `thrift:"applicable,1" form:"applicable" json:"applicable"`
+	Rule       *string `thrift:"rule,2,optional" form:"rule" json:"rule,omitempty"`
+	Message    *string `thrift:"message,3,optional" form:"message" json:"message,omitempty"`
 }
 
 func NewRulesCheckResult() *RulesCheckResult {
@@ -6385,7 +6385,7 @@ func (p *RulesCheckResult) String() string {
 }
 
 type RulesCheckResp struct {
-	Result *RulesCheckResult `thrift:"result,1" json:"result"`
+	Result *RulesCheckResult `thrift:"result,1" form:"result" json:"result"`
 }
 
 func NewRulesCheckResp() *RulesCheckResp {
@@ -6531,10 +6531,10 @@ func (p *RulesCheckResp) String() string {
 }
 
 type OCRVersionResp struct {
-	Version   string  `thrift:"version,1" json:"version"`
-	Commit    *string `thrift:"commit,2,optional" json:"commit,omitempty"`
-	Platform  *string `thrift:"platform,3,optional" json:"platform,omitempty"`
-	BuildTime *string `thrift:"build_time,4,optional" json:"build_time,omitempty"`
+	Version   string  `thrift:"version,1" form:"version" json:"version"`
+	Commit    *string `thrift:"commit,2,optional" form:"commit" json:"commit,omitempty"`
+	Platform  *string `thrift:"platform,3,optional" form:"platform" json:"platform,omitempty"`
+	BuildTime *string `thrift:"build_time,4,optional" form:"build_time" json:"build_time,omitempty"`
 }
 
 func NewOCRVersionResp() *OCRVersionResp {
@@ -6842,9 +6842,9 @@ func (p *OCRVersionResp) String() string {
 }
 
 type ViewerStatusResp struct {
-	Running bool    `thrift:"running,1" json:"running"`
-	Addr    *string `thrift:"addr,2,optional" json:"addr,omitempty"`
-	Message *string `thrift:"message,3,optional" json:"message,omitempty"`
+	Running bool    `thrift:"running,1" form:"running" json:"running"`
+	Addr    *string `thrift:"addr,2,optional" form:"addr" json:"addr,omitempty"`
+	Message *string `thrift:"message,3,optional" form:"message" json:"message,omitempty"`
 }
 
 func NewViewerStatusResp() *ViewerStatusResp {
@@ -7096,7 +7096,7 @@ func (p *ViewerStatusResp) String() string {
 }
 
 type StartViewerReq struct {
-	Addr *string `thrift:"addr,1,optional" json:"addr,omitempty"`
+	Addr *string `thrift:"addr,1,optional" form:"addr" json:"addr,omitempty"`
 }
 
 func NewStartViewerReq() *StartViewerReq {
@@ -7247,9 +7247,9 @@ func (p *StartViewerReq) String() string {
 }
 
 type StartViewerResp struct {
-	Running bool    `thrift:"running,1" json:"running"`
-	Addr    *string `thrift:"addr,2,optional" json:"addr,omitempty"`
-	Message *string `thrift:"message,3,optional" json:"message,omitempty"`
+	Running bool    `thrift:"running,1" form:"running" json:"running"`
+	Addr    *string `thrift:"addr,2,optional" form:"addr" json:"addr,omitempty"`
+	Message *string `thrift:"message,3,optional" form:"message" json:"message,omitempty"`
 }
 
 func NewStartViewerResp() *StartViewerResp {
@@ -7501,31 +7501,31 @@ func (p *StartViewerResp) String() string {
 }
 
 type ProjectPolicy struct {
-	Provider                   string  `thrift:"provider,1" json:"provider"`
-	Repo                       string  `thrift:"repo,2" json:"repo"`
-	FailOn                     string  `thrift:"fail_on,3" json:"fail_on"`
-	IgnorePaths                *string `thrift:"ignore_paths,4,optional" json:"ignore_paths,omitempty"`
-	Rules                      *string `thrift:"rules,5,optional" json:"rules,omitempty"`
-	OcrEnabled                 *bool   `thrift:"ocr_enabled,6,optional" json:"ocr_enabled,omitempty"`
-	OcrConcurrency             *int64  `thrift:"ocr_concurrency,7,optional" json:"ocr_concurrency,omitempty"`
-	OcrTimeoutMinutes          *int64  `thrift:"ocr_timeout_minutes,8,optional" json:"ocr_timeout_minutes,omitempty"`
-	OcrMaxTools                *int64  `thrift:"ocr_max_tools,9,optional" json:"ocr_max_tools,omitempty"`
-	OcrDefaultSeverity         *string `thrift:"ocr_default_severity,10,optional" json:"ocr_default_severity,omitempty"`
-	OcrBackground              *string `thrift:"ocr_background,11,optional" json:"ocr_background,omitempty"`
-	OcrAudience                *string `thrift:"ocr_audience,12,optional" json:"ocr_audience,omitempty"`
-	OcrProvider                *string `thrift:"ocr_provider,13,optional" json:"ocr_provider,omitempty"`
-	OcrURL                     *string `thrift:"ocr_url,14,optional" json:"ocr_url,omitempty"`
-	OcrModel                   *string `thrift:"ocr_model,15,optional" json:"ocr_model,omitempty"`
-	OcrMaxGitProcs             *int64  `thrift:"ocr_max_git_procs,16,optional" json:"ocr_max_git_procs,omitempty"`
-	OcrUseAnthropic            *bool   `thrift:"ocr_use_anthropic,17,optional" json:"ocr_use_anthropic,omitempty"`
-	OcrExtraBody               *string `thrift:"ocr_extra_body,18,optional" json:"ocr_extra_body,omitempty"`
-	OcrLanguage                *string `thrift:"ocr_language,19,optional" json:"ocr_language,omitempty"`
-	OcrBinary                  *string `thrift:"ocr_binary,20,optional" json:"ocr_binary,omitempty"`
-	OcrToolsPath               *string `thrift:"ocr_tools_path,21,optional" json:"ocr_tools_path,omitempty"`
-	OcrTelemetryEnabled        *bool   `thrift:"ocr_telemetry_enabled,22,optional" json:"ocr_telemetry_enabled,omitempty"`
-	OcrTelemetryExporter       *string `thrift:"ocr_telemetry_exporter,23,optional" json:"ocr_telemetry_exporter,omitempty"`
-	OcrTelemetryOtlpEndpoint   *string `thrift:"ocr_telemetry_otlp_endpoint,24,optional" json:"ocr_telemetry_otlp_endpoint,omitempty"`
-	OcrTelemetryContentLogging *bool   `thrift:"ocr_telemetry_content_logging,25,optional" json:"ocr_telemetry_content_logging,omitempty"`
+	Provider                   string  `thrift:"provider,1" form:"provider" json:"provider"`
+	Repo                       string  `thrift:"repo,2" form:"repo" json:"repo"`
+	FailOn                     string  `thrift:"fail_on,3" form:"fail_on" json:"fail_on"`
+	IgnorePaths                *string `thrift:"ignore_paths,4,optional" form:"ignore_paths" json:"ignore_paths,omitempty"`
+	Rules                      *string `thrift:"rules,5,optional" form:"rules" json:"rules,omitempty"`
+	OcrEnabled                 *bool   `thrift:"ocr_enabled,6,optional" form:"ocr_enabled" json:"ocr_enabled,omitempty"`
+	OcrConcurrency             *int64  `thrift:"ocr_concurrency,7,optional" form:"ocr_concurrency" json:"ocr_concurrency,omitempty"`
+	OcrTimeoutMinutes          *int64  `thrift:"ocr_timeout_minutes,8,optional" form:"ocr_timeout_minutes" json:"ocr_timeout_minutes,omitempty"`
+	OcrMaxTools                *int64  `thrift:"ocr_max_tools,9,optional" form:"ocr_max_tools" json:"ocr_max_tools,omitempty"`
+	OcrDefaultSeverity         *string `thrift:"ocr_default_severity,10,optional" form:"ocr_default_severity" json:"ocr_default_severity,omitempty"`
+	OcrBackground              *string `thrift:"ocr_background,11,optional" form:"ocr_background" json:"ocr_background,omitempty"`
+	OcrAudience                *string `thrift:"ocr_audience,12,optional" form:"ocr_audience" json:"ocr_audience,omitempty"`
+	OcrProvider                *string `thrift:"ocr_provider,13,optional" form:"ocr_provider" json:"ocr_provider,omitempty"`
+	OcrURL                     *string `thrift:"ocr_url,14,optional" form:"ocr_url" json:"ocr_url,omitempty"`
+	OcrModel                   *string `thrift:"ocr_model,15,optional" form:"ocr_model" json:"ocr_model,omitempty"`
+	OcrMaxGitProcs             *int64  `thrift:"ocr_max_git_procs,16,optional" form:"ocr_max_git_procs" json:"ocr_max_git_procs,omitempty"`
+	OcrUseAnthropic            *bool   `thrift:"ocr_use_anthropic,17,optional" form:"ocr_use_anthropic" json:"ocr_use_anthropic,omitempty"`
+	OcrExtraBody               *string `thrift:"ocr_extra_body,18,optional" form:"ocr_extra_body" json:"ocr_extra_body,omitempty"`
+	OcrLanguage                *string `thrift:"ocr_language,19,optional" form:"ocr_language" json:"ocr_language,omitempty"`
+	OcrBinary                  *string `thrift:"ocr_binary,20,optional" form:"ocr_binary" json:"ocr_binary,omitempty"`
+	OcrToolsPath               *string `thrift:"ocr_tools_path,21,optional" form:"ocr_tools_path" json:"ocr_tools_path,omitempty"`
+	OcrTelemetryEnabled        *bool   `thrift:"ocr_telemetry_enabled,22,optional" form:"ocr_telemetry_enabled" json:"ocr_telemetry_enabled,omitempty"`
+	OcrTelemetryExporter       *string `thrift:"ocr_telemetry_exporter,23,optional" form:"ocr_telemetry_exporter" json:"ocr_telemetry_exporter,omitempty"`
+	OcrTelemetryOtlpEndpoint   *string `thrift:"ocr_telemetry_otlp_endpoint,24,optional" form:"ocr_telemetry_otlp_endpoint" json:"ocr_telemetry_otlp_endpoint,omitempty"`
+	OcrTelemetryContentLogging *bool   `thrift:"ocr_telemetry_content_logging,25,optional" form:"ocr_telemetry_content_logging" json:"ocr_telemetry_content_logging,omitempty"`
 }
 
 func NewProjectPolicy() *ProjectPolicy {
@@ -8987,7 +8987,7 @@ func (p *ProjectPolicy) String() string {
 }
 
 type ListProjectPoliciesResp struct {
-	Items []*ProjectPolicy `thrift:"items,1,default,list<ProjectPolicy>" json:"items"`
+	Items []*ProjectPolicy `thrift:"items,1,default,list<ProjectPolicy>" form:"items" json:"items"`
 }
 
 func NewListProjectPoliciesResp() *ListProjectPoliciesResp {
@@ -9147,7 +9147,7 @@ func (p *ListProjectPoliciesResp) String() string {
 }
 
 type PutProjectPolicyReq struct {
-	Policy *ProjectPolicy `thrift:"policy,1" json:"policy"`
+	Policy *ProjectPolicy `thrift:"policy,1" form:"policy" json:"policy"`
 }
 
 func NewPutProjectPolicyReq() *PutProjectPolicyReq {
@@ -9293,7 +9293,7 @@ func (p *PutProjectPolicyReq) String() string {
 }
 
 type PutProjectPolicyResp struct {
-	Policy *ProjectPolicy `thrift:"policy,1" json:"policy"`
+	Policy *ProjectPolicy `thrift:"policy,1" form:"policy" json:"policy"`
 }
 
 func NewPutProjectPolicyResp() *PutProjectPolicyResp {
@@ -9439,8 +9439,8 @@ func (p *PutProjectPolicyResp) String() string {
 }
 
 type DeleteProjectPolicyReq struct {
-	Provider string `thrift:"provider,1" json:"provider"`
-	Repo     string `thrift:"repo,2" json:"repo"`
+	Provider string `thrift:"provider,1" json:"provider" query:"provider"`
+	Repo     string `thrift:"repo,2" json:"repo" query:"repo"`
 }
 
 func NewDeleteProjectPolicyReq() *DeleteProjectPolicyReq {
@@ -9708,12 +9708,12 @@ func (p *DeleteProjectPolicyResp) String() string {
 }
 
 type GitPlatformInfo struct {
-	Provider       string  `thrift:"provider,1" json:"provider"`
-	BaseURL        string  `thrift:"base_url,2" json:"base_url"`
-	Token          string  `thrift:"token,3" json:"token"`
-	Enabled        bool    `thrift:"enabled,4" json:"enabled"`
-	WebhookSecret  *string `thrift:"webhook_secret,5,optional" json:"webhook_secret,omitempty"`
-	InstallationID *string `thrift:"installation_id,6,optional" json:"installation_id,omitempty"`
+	Provider       string  `thrift:"provider,1" form:"provider" json:"provider"`
+	BaseURL        string  `thrift:"base_url,2" form:"base_url" json:"base_url"`
+	Token          string  `thrift:"token,3" form:"token" json:"token"`
+	Enabled        bool    `thrift:"enabled,4" form:"enabled" json:"enabled"`
+	WebhookSecret  *string `thrift:"webhook_secret,5,optional" form:"webhook_secret" json:"webhook_secret,omitempty"`
+	InstallationID *string `thrift:"installation_id,6,optional" form:"installation_id" json:"installation_id,omitempty"`
 }
 
 func NewGitPlatformInfo() *GitPlatformInfo {
@@ -10100,7 +10100,7 @@ func (p *GitPlatformInfo) String() string {
 }
 
 type ListPlatformsResp struct {
-	Items []*GitPlatformInfo `thrift:"items,1,default,list<GitPlatformInfo>" json:"items"`
+	Items []*GitPlatformInfo `thrift:"items,1,default,list<GitPlatformInfo>" form:"items" json:"items"`
 }
 
 func NewListPlatformsResp() *ListPlatformsResp {
@@ -10260,13 +10260,13 @@ func (p *ListPlatformsResp) String() string {
 }
 
 type PutPlatformReq struct {
-	Provider       string  `thrift:"provider,1" json:"provider"`
-	BaseURL        *string `thrift:"base_url,2,optional" json:"base_url,omitempty"`
-	Token          *string `thrift:"token,3,optional" json:"token,omitempty"`
-	Enabled        *bool   `thrift:"enabled,4,optional" json:"enabled,omitempty"`
-	WebhookSecret  *string `thrift:"webhook_secret,5,optional" json:"webhook_secret,omitempty"`
-	InstallationID *string `thrift:"installation_id,6,optional" json:"installation_id,omitempty"`
-	SkipTLS        *bool   `thrift:"skip_tls,7,optional" json:"skip_tls,omitempty"`
+	Provider       string  `thrift:"provider,1" form:"provider" json:"provider"`
+	BaseURL        *string `thrift:"base_url,2,optional" form:"base_url" json:"base_url,omitempty"`
+	Token          *string `thrift:"token,3,optional" form:"token" json:"token,omitempty"`
+	Enabled        *bool   `thrift:"enabled,4,optional" form:"enabled" json:"enabled,omitempty"`
+	WebhookSecret  *string `thrift:"webhook_secret,5,optional" form:"webhook_secret" json:"webhook_secret,omitempty"`
+	InstallationID *string `thrift:"installation_id,6,optional" form:"installation_id" json:"installation_id,omitempty"`
+	SkipTLS        *bool   `thrift:"skip_tls,7,optional" form:"skip_tls" json:"skip_tls,omitempty"`
 }
 
 func NewPutPlatformReq() *PutPlatformReq {
@@ -10742,7 +10742,7 @@ func (p *PutPlatformReq) String() string {
 }
 
 type PutPlatformResp struct {
-	Platform *GitPlatformInfo `thrift:"platform,1" json:"platform"`
+	Platform *GitPlatformInfo `thrift:"platform,1" form:"platform" json:"platform"`
 }
 
 func NewPutPlatformResp() *PutPlatformResp {
@@ -10888,7 +10888,7 @@ func (p *PutPlatformResp) String() string {
 }
 
 type DeletePlatformReq struct {
-	Provider string `thrift:"provider,1" json:"provider"`
+	Provider string `thrift:"provider,1" json:"provider" query:"provider"`
 }
 
 func NewDeletePlatformReq() *DeletePlatformReq {
@@ -11111,10 +11111,10 @@ func (p *DeletePlatformResp) String() string {
 }
 
 type TestPlatformReq struct {
-	Provider string  `thrift:"provider,1" json:"provider"`
-	BaseURL  *string `thrift:"base_url,2,optional" json:"base_url,omitempty"`
-	Token    string  `thrift:"token,3" json:"token"`
-	SkipTLS  *bool   `thrift:"skip_tls,4,optional" json:"skip_tls,omitempty"`
+	Provider string  `thrift:"provider,1" form:"provider" json:"provider"`
+	BaseURL  *string `thrift:"base_url,2,optional" form:"base_url" json:"base_url,omitempty"`
+	Token    string  `thrift:"token,3" form:"token" json:"token"`
+	SkipTLS  *bool   `thrift:"skip_tls,4,optional" form:"skip_tls" json:"skip_tls,omitempty"`
 }
 
 func NewTestPlatformReq() *TestPlatformReq {
@@ -11411,10 +11411,10 @@ func (p *TestPlatformReq) String() string {
 }
 
 type GitTestResult struct {
-	Connected bool    `thrift:"connected,1" json:"connected"`
-	Platform  string  `thrift:"platform,2" json:"platform"`
-	UserName  *string `thrift:"user_name,3,optional" json:"user_name,omitempty"`
-	Message   *string `thrift:"message,4,optional" json:"message,omitempty"`
+	Connected bool    `thrift:"connected,1" form:"connected" json:"connected"`
+	Platform  string  `thrift:"platform,2" form:"platform" json:"platform"`
+	UserName  *string `thrift:"user_name,3,optional" form:"user_name" json:"user_name,omitempty"`
+	Message   *string `thrift:"message,4,optional" form:"message" json:"message,omitempty"`
 }
 
 func NewGitTestResult() *GitTestResult {
@@ -11711,7 +11711,7 @@ func (p *GitTestResult) String() string {
 }
 
 type TestPlatformResp struct {
-	Result *GitTestResult `thrift:"result,1" json:"result"`
+	Result *GitTestResult `thrift:"result,1" form:"result" json:"result"`
 }
 
 func NewTestPlatformResp() *TestPlatformResp {
@@ -11857,16 +11857,16 @@ func (p *TestPlatformResp) String() string {
 }
 
 type ReviewerAgentInfo struct {
-	ID          int64   `thrift:"id,1" json:"id"`
-	Name        string  `thrift:"name,2" json:"name"`
-	DisplayName string  `thrift:"display_name,3" json:"display_name"`
-	Description *string `thrift:"description,4,optional" json:"description,omitempty"`
-	Background  *string `thrift:"background,5,optional" json:"background,omitempty"`
-	Enabled     bool    `thrift:"enabled,6" json:"enabled"`
-	Priority    int64   `thrift:"priority,7" json:"priority"`
-	Tags        *string `thrift:"tags,8,optional" json:"tags,omitempty"`
-	RuleFile    *string `thrift:"rule_file,9,optional" json:"rule_file,omitempty"`
-	Redundancy  int64   `thrift:"redundancy,10" json:"redundancy"`
+	ID          int64   `thrift:"id,1" form:"id" json:"id"`
+	Name        string  `thrift:"name,2" form:"name" json:"name"`
+	DisplayName string  `thrift:"display_name,3" form:"display_name" json:"display_name"`
+	Description *string `thrift:"description,4,optional" form:"description" json:"description,omitempty"`
+	Background  *string `thrift:"background,5,optional" form:"background" json:"background,omitempty"`
+	Enabled     bool    `thrift:"enabled,6" form:"enabled" json:"enabled"`
+	Priority    int64   `thrift:"priority,7" form:"priority" json:"priority"`
+	Tags        *string `thrift:"tags,8,optional" form:"tags" json:"tags,omitempty"`
+	RuleFile    *string `thrift:"rule_file,9,optional" form:"rule_file" json:"rule_file,omitempty"`
+	Redundancy  int64   `thrift:"redundancy,10" form:"redundancy" json:"redundancy"`
 }
 
 func NewReviewerAgentInfo() *ReviewerAgentInfo {
@@ -12455,7 +12455,7 @@ func (p *ReviewerAgentInfo) String() string {
 }
 
 type ListReviewerAgentsResp struct {
-	Agents []*ReviewerAgentInfo `thrift:"agents,1,default,list<ReviewerAgentInfo>" json:"agents"`
+	Agents []*ReviewerAgentInfo `thrift:"agents,1,default,list<ReviewerAgentInfo>" form:"agents" json:"agents"`
 }
 
 func NewListReviewerAgentsResp() *ListReviewerAgentsResp {
@@ -12615,15 +12615,15 @@ func (p *ListReviewerAgentsResp) String() string {
 }
 
 type CreateReviewerAgentReq struct {
-	Name        string   `thrift:"name,1" json:"name"`
-	DisplayName string   `thrift:"display_name,2" json:"display_name"`
-	Description *string  `thrift:"description,3,optional" json:"description,omitempty"`
-	Background  string   `thrift:"background,4" json:"background"`
-	Enabled     *bool    `thrift:"enabled,5,optional" json:"enabled,omitempty"`
-	Priority    *int64   `thrift:"priority,6,optional" json:"priority,omitempty"`
-	Tags        []string `thrift:"tags,7,optional,list<string>" json:"tags,omitempty"`
-	RuleFile    *string  `thrift:"rule_file,8,optional" json:"rule_file,omitempty"`
-	Redundancy  *int64   `thrift:"redundancy,9,optional" json:"redundancy,omitempty"`
+	Name        string   `thrift:"name,1" form:"name" json:"name"`
+	DisplayName string   `thrift:"display_name,2" form:"display_name" json:"display_name"`
+	Description *string  `thrift:"description,3,optional" form:"description" json:"description,omitempty"`
+	Background  string   `thrift:"background,4" form:"background" json:"background"`
+	Enabled     *bool    `thrift:"enabled,5,optional" form:"enabled" json:"enabled,omitempty"`
+	Priority    *int64   `thrift:"priority,6,optional" form:"priority" json:"priority,omitempty"`
+	Tags        []string `thrift:"tags,7,optional,list<string>" form:"tags" json:"tags,omitempty"`
+	RuleFile    *string  `thrift:"rule_file,8,optional" form:"rule_file" json:"rule_file,omitempty"`
+	Redundancy  *int64   `thrift:"redundancy,9,optional" form:"redundancy" json:"redundancy,omitempty"`
 }
 
 func NewCreateReviewerAgentReq() *CreateReviewerAgentReq {
@@ -13209,7 +13209,7 @@ func (p *CreateReviewerAgentReq) String() string {
 }
 
 type CreateReviewerAgentResp struct {
-	Agent *ReviewerAgentInfo `thrift:"agent,1" json:"agent"`
+	Agent *ReviewerAgentInfo `thrift:"agent,1" form:"agent" json:"agent"`
 }
 
 func NewCreateReviewerAgentResp() *CreateReviewerAgentResp {
@@ -13355,15 +13355,15 @@ func (p *CreateReviewerAgentResp) String() string {
 }
 
 type UpdateReviewerAgentReq struct {
-	ID          string   `thrift:"id,1" json:"id"`
-	DisplayName *string  `thrift:"display_name,2,optional" json:"display_name,omitempty"`
-	Description *string  `thrift:"description,3,optional" json:"description,omitempty"`
-	Background  *string  `thrift:"background,4,optional" json:"background,omitempty"`
-	Enabled     *bool    `thrift:"enabled,5,optional" json:"enabled,omitempty"`
-	Priority    *int64   `thrift:"priority,6,optional" json:"priority,omitempty"`
-	Tags        []string `thrift:"tags,7,optional,list<string>" json:"tags,omitempty"`
-	RuleFile    *string  `thrift:"rule_file,8,optional" json:"rule_file,omitempty"`
-	Redundancy  *int64   `thrift:"redundancy,9,optional" json:"redundancy,omitempty"`
+	ID          string   `thrift:"id,1" json:"id" path:"id"`
+	DisplayName *string  `thrift:"display_name,2,optional" form:"display_name" json:"display_name,omitempty"`
+	Description *string  `thrift:"description,3,optional" form:"description" json:"description,omitempty"`
+	Background  *string  `thrift:"background,4,optional" form:"background" json:"background,omitempty"`
+	Enabled     *bool    `thrift:"enabled,5,optional" form:"enabled" json:"enabled,omitempty"`
+	Priority    *int64   `thrift:"priority,6,optional" form:"priority" json:"priority,omitempty"`
+	Tags        []string `thrift:"tags,7,optional,list<string>" form:"tags" json:"tags,omitempty"`
+	RuleFile    *string  `thrift:"rule_file,8,optional" form:"rule_file" json:"rule_file,omitempty"`
+	Redundancy  *int64   `thrift:"redundancy,9,optional" form:"redundancy" json:"redundancy,omitempty"`
 }
 
 func NewUpdateReviewerAgentReq() *UpdateReviewerAgentReq {
@@ -13971,7 +13971,7 @@ func (p *UpdateReviewerAgentReq) String() string {
 }
 
 type UpdateReviewerAgentResp struct {
-	Agent *ReviewerAgentInfo `thrift:"agent,1" json:"agent"`
+	Agent *ReviewerAgentInfo `thrift:"agent,1" form:"agent" json:"agent"`
 }
 
 func NewUpdateReviewerAgentResp() *UpdateReviewerAgentResp {
@@ -14117,7 +14117,7 @@ func (p *UpdateReviewerAgentResp) String() string {
 }
 
 type DeleteReviewerAgentReq struct {
-	ID string `thrift:"id,1" json:"id"`
+	ID string `thrift:"id,1" json:"id" path:"id"`
 }
 
 func NewDeleteReviewerAgentReq() *DeleteReviewerAgentReq {
