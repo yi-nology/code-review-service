@@ -143,7 +143,7 @@ func ListReviews(ctx context.Context, c *app.RequestContext) {
 			Running:     int64(result.Stats.Running),
 			GateFailed:  int64(result.Stats.GateFailed),
 			Findings:    int64(result.Stats.Findings),
-			TotalTokens: result.Stats.TotalTokens,
+			TotalTokens: ptrx.Of(result.Stats.TotalTokens),
 		},
 	})
 }
@@ -398,7 +398,7 @@ func toServiceRequest(req *modelReview.CreateReviewReq) review.Request {
 	if len(req.EphemeralReviewers) > 0 {
 		svcReq.EphemeralReviewers = make([]review.EphemeralReviewer, len(req.EphemeralReviewers))
 		for i, e := range req.EphemeralReviewers {
-			svcReq.EphemeralReviewers[i] = review.EphemeralReviewer{Name: e.Name, Background: e.Background}
+			svcReq.EphemeralReviewers[i] = review.EphemeralReviewer{Name: ptrx.Deref(e.Name, ""), Background: e.Background}
 		}
 	}
 	return svcReq

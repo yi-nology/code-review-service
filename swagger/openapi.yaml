@@ -415,6 +415,11 @@ paths:
                   required: true
                   schema:
                     type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/PublishReviewReqBody'
             responses:
                 "200":
                     description: Successful response
@@ -1833,6 +1838,14 @@ components:
                     type: string
                 wait:
                     type: boolean
+                requirements:
+                    type: array
+                    items:
+                        type: string
+                ephemeral_reviewers:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/EphemeralReviewerInput'
         CreateReviewRespBody:
             type: object
             properties:
@@ -1858,6 +1871,11 @@ components:
                     type: array
                     items:
                         type: string
+                rule_file:
+                    type: string
+                redundancy:
+                    type: integer
+                    format: int64
         CreateReviewerAgentRespBody:
             type: object
             properties:
@@ -1894,6 +1912,13 @@ components:
             type: object
             properties:
                 message:
+                    type: string
+        EphemeralReviewerInput:
+            type: object
+            properties:
+                name:
+                    type: string
+                background:
                     type: string
         Event:
             type: object
@@ -2789,6 +2814,11 @@ components:
                 total_findings:
                     type: integer
                     format: int64
+        PublishReviewReqBody:
+            type: object
+            properties:
+                mode:
+                    type: string
         PublishReviewRespBody:
             type: object
             properties:
@@ -2837,6 +2867,8 @@ components:
                     type: string
                 installation_id:
                     type: string
+                skip_tls:
+                    type: boolean
         PutPlatformRespBody:
             type: object
             properties:
@@ -3084,6 +3116,11 @@ components:
                     format: int64
                 tags:
                     type: string
+                rule_file:
+                    type: string
+                redundancy:
+                    type: integer
+                    format: int64
         RulesCheckReqBody:
             type: object
             properties:
@@ -3200,6 +3237,8 @@ components:
                     type: string
                 token:
                     type: string
+                skip_tls:
+                    type: boolean
         TestPlatformRespBody:
             type: object
             properties:
@@ -3294,6 +3333,11 @@ components:
                     type: array
                     items:
                         type: string
+                rule_file:
+                    type: string
+                redundancy:
+                    type: integer
+                    format: int64
         UpdateReviewerAgentRespBody:
             type: object
             properties:

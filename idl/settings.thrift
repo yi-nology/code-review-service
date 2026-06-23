@@ -237,6 +237,7 @@ struct PutPlatformReq {
     4: optional bool enabled (api.body="enabled")
     5: optional string webhook_secret (api.body="webhook_secret")
     6: optional string installation_id (api.body="installation_id")
+    7: optional bool skip_tls (api.body="skip_tls")
 }
 
 struct PutPlatformResp {
@@ -253,6 +254,7 @@ struct TestPlatformReq {
     1: string provider (api.body="provider")
     2: optional string base_url (api.body="base_url")
     3: string token (api.body="token")
+    4: optional bool skip_tls (api.body="skip_tls")
 }
 
 struct GitTestResult {
@@ -275,6 +277,8 @@ struct ReviewerAgentInfo {
     6: bool enabled (api.body="enabled")
     7: i64 priority (api.body="priority")
     8: optional string tags (api.body="tags")
+    9: optional string rule_file (api.body="rule_file")
+    10: i64 redundancy (api.body="redundancy")
 }
 
 struct ListReviewerAgentsResp {
@@ -289,6 +293,8 @@ struct CreateReviewerAgentReq {
     5: optional bool enabled (api.body="enabled")
     6: optional i64 priority (api.body="priority")
     7: optional list<string> tags (api.body="tags")
+    8: optional string rule_file (api.body="rule_file")
+    9: optional i64 redundancy (api.body="redundancy")
 }
 
 struct CreateReviewerAgentResp {
@@ -303,6 +309,8 @@ struct UpdateReviewerAgentReq {
     5: optional bool enabled (api.body="enabled")
     6: optional i64 priority (api.body="priority")
     7: optional list<string> tags (api.body="tags")
+    8: optional string rule_file (api.body="rule_file")
+    9: optional i64 redundancy (api.body="redundancy")
 }
 
 struct UpdateReviewerAgentResp {

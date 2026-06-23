@@ -8,9 +8,9 @@ import (
 )
 
 type ProjectAgentItem struct {
-	AgentID  int64 `thrift:"agent_id,1" form:"agent_id" json:"agent_id"`
-	Enabled  bool  `thrift:"enabled,2" form:"enabled" json:"enabled"`
-	Priority int64 `thrift:"priority,3" form:"priority" json:"priority"`
+	AgentID  int64 `thrift:"agent_id,1" json:"agent_id"`
+	Enabled  bool  `thrift:"enabled,2" json:"enabled"`
+	Priority int64 `thrift:"priority,3" json:"priority"`
 }
 
 func NewProjectAgentItem() *ProjectAgentItem {
@@ -240,15 +240,15 @@ func (p *ProjectAgentItem) String() string {
 }
 
 type ProjectAgentConfig struct {
-	AgentID         int64  `thrift:"agent_id,1" form:"agent_id" json:"agent_id"`
-	Name            string `thrift:"name,2" form:"name" json:"name"`
-	DisplayName     string `thrift:"display_name,3" form:"display_name" json:"display_name"`
-	Description     string `thrift:"description,4" form:"description" json:"description"`
-	Background      string `thrift:"background,5" form:"background" json:"background"`
-	Enabled         bool   `thrift:"enabled,6" form:"enabled" json:"enabled"`
-	Priority        int64  `thrift:"priority,7" form:"priority" json:"priority"`
-	ProjectEnabled  bool   `thrift:"project_enabled,8" form:"project_enabled" json:"project_enabled"`
-	ProjectPriority int64  `thrift:"project_priority,9" form:"project_priority" json:"project_priority"`
+	AgentID         int64  `thrift:"agent_id,1" json:"agent_id"`
+	Name            string `thrift:"name,2" json:"name"`
+	DisplayName     string `thrift:"display_name,3" json:"display_name"`
+	Description     string `thrift:"description,4" json:"description"`
+	Background      string `thrift:"background,5" json:"background"`
+	Enabled         bool   `thrift:"enabled,6" json:"enabled"`
+	Priority        int64  `thrift:"priority,7" json:"priority"`
+	ProjectEnabled  bool   `thrift:"project_enabled,8" json:"project_enabled"`
+	ProjectPriority int64  `thrift:"project_priority,9" json:"project_priority"`
 }
 
 func NewProjectAgentConfig() *ProjectAgentConfig {
@@ -748,8 +748,8 @@ func (p *ProjectAgentConfig) String() string {
 }
 
 type GetProjectAgentsReq struct {
-	Provider string `thrift:"provider,1" json:"provider" query:"provider"`
-	Repo     string `thrift:"repo,2" json:"repo" query:"repo"`
+	Provider string `thrift:"provider,1" json:"provider"`
+	Repo     string `thrift:"repo,2" json:"repo"`
 }
 
 func NewGetProjectAgentsReq() *GetProjectAgentsReq {
@@ -934,9 +934,9 @@ func (p *GetProjectAgentsReq) String() string {
 }
 
 type GetProjectAgentsResp struct {
-	Provider string                `thrift:"provider,1" form:"provider" json:"provider"`
-	Repo     string                `thrift:"repo,2" form:"repo" json:"repo"`
-	Agents   []*ProjectAgentConfig `thrift:"agents,3,default,list<ProjectAgentConfig>" form:"agents" json:"agents"`
+	Provider string                `thrift:"provider,1" json:"provider"`
+	Repo     string                `thrift:"repo,2" json:"repo"`
+	Agents   []*ProjectAgentConfig `thrift:"agents,3,default,list<ProjectAgentConfig>" json:"agents"`
 }
 
 func NewGetProjectAgentsResp() *GetProjectAgentsResp {
@@ -1186,11 +1186,11 @@ func (p *GetProjectAgentsResp) String() string {
 }
 
 type UpdateProjectAgentReq struct {
-	Provider string `thrift:"provider,1" form:"provider" json:"provider"`
-	Repo     string `thrift:"repo,2" form:"repo" json:"repo"`
-	AgentID  int64  `thrift:"agent_id,3" form:"agent_id" json:"agent_id"`
-	Enabled  bool   `thrift:"enabled,4" form:"enabled" json:"enabled"`
-	Priority int64  `thrift:"priority,5" form:"priority" json:"priority"`
+	Provider string `thrift:"provider,1" json:"provider"`
+	Repo     string `thrift:"repo,2" json:"repo"`
+	AgentID  int64  `thrift:"agent_id,3" json:"agent_id"`
+	Enabled  bool   `thrift:"enabled,4" json:"enabled"`
+	Priority int64  `thrift:"priority,5" json:"priority"`
 }
 
 func NewUpdateProjectAgentReq() *UpdateProjectAgentReq {
@@ -1510,7 +1510,7 @@ func (p *UpdateProjectAgentReq) String() string {
 }
 
 type UpdateProjectAgentResp struct {
-	Message string `thrift:"message,1" form:"message" json:"message"`
+	Message string `thrift:"message,1" json:"message"`
 }
 
 func NewUpdateProjectAgentResp() *UpdateProjectAgentResp {
@@ -1650,9 +1650,9 @@ func (p *UpdateProjectAgentResp) String() string {
 }
 
 type BatchUpdateProjectAgentsReq struct {
-	Provider string              `thrift:"provider,1" form:"provider" json:"provider"`
-	Repo     string              `thrift:"repo,2" form:"repo" json:"repo"`
-	Agents   []*ProjectAgentItem `thrift:"agents,3,default,list<ProjectAgentItem>" form:"agents" json:"agents"`
+	Provider string              `thrift:"provider,1" json:"provider"`
+	Repo     string              `thrift:"repo,2" json:"repo"`
+	Agents   []*ProjectAgentItem `thrift:"agents,3,default,list<ProjectAgentItem>" json:"agents"`
 }
 
 func NewBatchUpdateProjectAgentsReq() *BatchUpdateProjectAgentsReq {
@@ -1902,8 +1902,8 @@ func (p *BatchUpdateProjectAgentsReq) String() string {
 }
 
 type BatchUpdateProjectAgentsResp struct {
-	Message string `thrift:"message,1" form:"message" json:"message"`
-	Count   int64  `thrift:"count,2" form:"count" json:"count"`
+	Message string `thrift:"message,1" json:"message"`
+	Count   int64  `thrift:"count,2" json:"count"`
 }
 
 func NewBatchUpdateProjectAgentsResp() *BatchUpdateProjectAgentsResp {
@@ -2088,9 +2088,9 @@ func (p *BatchUpdateProjectAgentsResp) String() string {
 }
 
 type DeleteProjectAgentReq struct {
-	Provider string `thrift:"provider,1" form:"provider" json:"provider"`
-	Repo     string `thrift:"repo,2" form:"repo" json:"repo"`
-	AgentID  int64  `thrift:"agent_id,3" form:"agent_id" json:"agent_id"`
+	Provider string `thrift:"provider,1" json:"provider"`
+	Repo     string `thrift:"repo,2" json:"repo"`
+	AgentID  int64  `thrift:"agent_id,3" json:"agent_id"`
 }
 
 func NewDeleteProjectAgentReq() *DeleteProjectAgentReq {
@@ -2320,7 +2320,7 @@ func (p *DeleteProjectAgentReq) String() string {
 }
 
 type DeleteProjectAgentResp struct {
-	Message string `thrift:"message,1" form:"message" json:"message"`
+	Message string `thrift:"message,1" json:"message"`
 }
 
 func NewDeleteProjectAgentResp() *DeleteProjectAgentResp {

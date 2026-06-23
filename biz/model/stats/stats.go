@@ -8,14 +8,14 @@ import (
 )
 
 type ListContributorsReq struct {
-	Provider *string `thrift:"provider,1,optional" json:"provider,omitempty" query:"provider"`
-	Repo     *string `thrift:"repo,2,optional" json:"repo,omitempty" query:"repo"`
-	From     *string `thrift:"from,3,optional" json:"from,omitempty" query:"from"`
-	To       *string `thrift:"to,4,optional" json:"to,omitempty" query:"to"`
-	Sort     *string `thrift:"sort,5,optional" json:"sort,omitempty" query:"sort"`
-	Order    *string `thrift:"order,6,optional" json:"order,omitempty" query:"order"`
-	Page     *int64  `thrift:"page,7,optional" json:"page,omitempty" query:"page"`
-	PageSize *int64  `thrift:"page_size,8,optional" json:"page_size,omitempty" query:"page_size"`
+	Provider *string `thrift:"provider,1,optional" json:"provider,omitempty"`
+	Repo     *string `thrift:"repo,2,optional" json:"repo,omitempty"`
+	From     *string `thrift:"from,3,optional" json:"from,omitempty"`
+	To       *string `thrift:"to,4,optional" json:"to,omitempty"`
+	Sort     *string `thrift:"sort,5,optional" json:"sort,omitempty"`
+	Order    *string `thrift:"order,6,optional" json:"order,omitempty"`
+	Page     *int64  `thrift:"page,7,optional" json:"page,omitempty"`
+	PageSize *int64  `thrift:"page_size,8,optional" json:"page_size,omitempty"`
 }
 
 func NewListContributorsReq() *ListContributorsReq {
@@ -558,9 +558,9 @@ func (p *ListContributorsReq) String() string {
 }
 
 type ContributorAuthor struct {
-	Username  string  `thrift:"username,1" form:"username" json:"username"`
-	Name      *string `thrift:"name,2,optional" form:"name" json:"name,omitempty"`
-	AvatarURL *string `thrift:"avatar_url,3,optional" form:"avatar_url" json:"avatar_url,omitempty"`
+	Username  string  `thrift:"username,1" json:"username"`
+	Name      *string `thrift:"name,2,optional" json:"name,omitempty"`
+	AvatarURL *string `thrift:"avatar_url,3,optional" json:"avatar_url,omitempty"`
 }
 
 func NewContributorAuthor() *ContributorAuthor {
@@ -812,10 +812,10 @@ func (p *ContributorAuthor) String() string {
 }
 
 type ContributorStats struct {
-	TotalReviews  int64   `thrift:"total_reviews,1" form:"total_reviews" json:"total_reviews"`
-	TotalFindings int64   `thrift:"total_findings,2" form:"total_findings" json:"total_findings"`
-	AvgScore      float64 `thrift:"avg_score,3" form:"avg_score" json:"avg_score"`
-	LastReviewAt  *string `thrift:"last_review_at,4,optional" form:"last_review_at" json:"last_review_at,omitempty"`
+	TotalReviews  int64   `thrift:"total_reviews,1" json:"total_reviews"`
+	TotalFindings int64   `thrift:"total_findings,2" json:"total_findings"`
+	AvgScore      float64 `thrift:"avg_score,3" json:"avg_score"`
+	LastReviewAt  *string `thrift:"last_review_at,4,optional" json:"last_review_at,omitempty"`
 }
 
 func NewContributorStats() *ContributorStats {
@@ -1101,9 +1101,9 @@ func (p *ContributorStats) String() string {
 }
 
 type ContributorTrendPoint struct {
-	Date     string `thrift:"date,1" form:"date" json:"date"`
-	Reviews  int64  `thrift:"reviews,2" form:"reviews" json:"reviews"`
-	Findings int64  `thrift:"findings,3" form:"findings" json:"findings"`
+	Date     string `thrift:"date,1" json:"date"`
+	Reviews  int64  `thrift:"reviews,2" json:"reviews"`
+	Findings int64  `thrift:"findings,3" json:"findings"`
 }
 
 func NewContributorTrendPoint() *ContributorTrendPoint {
@@ -1333,9 +1333,9 @@ func (p *ContributorTrendPoint) String() string {
 }
 
 type ContributorItem struct {
-	Author *ContributorAuthor       `thrift:"author,1" form:"author" json:"author"`
-	Stats  *ContributorStats        `thrift:"stats,2" form:"stats" json:"stats"`
-	Trend  []*ContributorTrendPoint `thrift:"trend,3,optional,list<ContributorTrendPoint>" form:"trend" json:"trend,omitempty"`
+	Author *ContributorAuthor       `thrift:"author,1" json:"author"`
+	Stats  *ContributorStats        `thrift:"stats,2" json:"stats"`
+	Trend  []*ContributorTrendPoint `thrift:"trend,3,optional,list<ContributorTrendPoint>" json:"trend,omitempty"`
 }
 
 func NewContributorItem() *ContributorItem {
@@ -1608,11 +1608,11 @@ func (p *ContributorItem) String() string {
 }
 
 type ListContributorsResp struct {
-	Items      []*ContributorItem `thrift:"items,1,default,list<ContributorItem>" form:"items" json:"items"`
-	Total      int64              `thrift:"total,2" form:"total" json:"total"`
-	Page       int64              `thrift:"page,3" form:"page" json:"page"`
-	PageSize   int64              `thrift:"page_size,4" form:"page_size" json:"page_size"`
-	TotalPages int64              `thrift:"total_pages,5" form:"total_pages" json:"total_pages"`
+	Items      []*ContributorItem `thrift:"items,1,default,list<ContributorItem>" json:"items"`
+	Total      int64              `thrift:"total,2" json:"total"`
+	Page       int64              `thrift:"page,3" json:"page"`
+	PageSize   int64              `thrift:"page_size,4" json:"page_size"`
+	TotalPages int64              `thrift:"total_pages,5" json:"total_pages"`
 }
 
 func NewListContributorsResp() *ListContributorsResp {
@@ -1952,11 +1952,11 @@ func (p *ListContributorsResp) String() string {
 }
 
 type GetContributorReq struct {
-	Author   string  `thrift:"author,1" json:"author" path:"author"`
-	Provider *string `thrift:"provider,2,optional" json:"provider,omitempty" query:"provider"`
-	Repo     *string `thrift:"repo,3,optional" json:"repo,omitempty" query:"repo"`
-	From     *string `thrift:"from,4,optional" json:"from,omitempty" query:"from"`
-	To       *string `thrift:"to,5,optional" json:"to,omitempty" query:"to"`
+	Author   string  `thrift:"author,1" json:"author"`
+	Provider *string `thrift:"provider,2,optional" json:"provider,omitempty"`
+	Repo     *string `thrift:"repo,3,optional" json:"repo,omitempty"`
+	From     *string `thrift:"from,4,optional" json:"from,omitempty"`
+	To       *string `thrift:"to,5,optional" json:"to,omitempty"`
 }
 
 func NewGetContributorReq() *GetContributorReq {
@@ -2320,9 +2320,9 @@ func (p *GetContributorReq) String() string {
 }
 
 type ContributorDetail struct {
-	Author *ContributorAuthor       `thrift:"author,1" form:"author" json:"author"`
-	Stats  *ContributorStats        `thrift:"stats,2" form:"stats" json:"stats"`
-	Trend  []*ContributorTrendPoint `thrift:"trend,3,optional,list<ContributorTrendPoint>" form:"trend" json:"trend,omitempty"`
+	Author *ContributorAuthor       `thrift:"author,1" json:"author"`
+	Stats  *ContributorStats        `thrift:"stats,2" json:"stats"`
+	Trend  []*ContributorTrendPoint `thrift:"trend,3,optional,list<ContributorTrendPoint>" json:"trend,omitempty"`
 }
 
 func NewContributorDetail() *ContributorDetail {
@@ -2595,7 +2595,7 @@ func (p *ContributorDetail) String() string {
 }
 
 type GetContributorResp struct {
-	Detail *ContributorDetail `thrift:"detail,1" form:"detail" json:"detail"`
+	Detail *ContributorDetail `thrift:"detail,1" json:"detail"`
 }
 
 func NewGetContributorResp() *GetContributorResp {
@@ -2741,11 +2741,11 @@ func (p *GetContributorResp) String() string {
 }
 
 type GetContributorTrendReq struct {
-	Author   string  `thrift:"author,1" json:"author" path:"author"`
-	Provider *string `thrift:"provider,2,optional" json:"provider,omitempty" query:"provider"`
-	Repo     *string `thrift:"repo,3,optional" json:"repo,omitempty" query:"repo"`
-	From     *string `thrift:"from,4,optional" json:"from,omitempty" query:"from"`
-	To       *string `thrift:"to,5,optional" json:"to,omitempty" query:"to"`
+	Author   string  `thrift:"author,1" json:"author"`
+	Provider *string `thrift:"provider,2,optional" json:"provider,omitempty"`
+	Repo     *string `thrift:"repo,3,optional" json:"repo,omitempty"`
+	From     *string `thrift:"from,4,optional" json:"from,omitempty"`
+	To       *string `thrift:"to,5,optional" json:"to,omitempty"`
 }
 
 func NewGetContributorTrendReq() *GetContributorTrendReq {
@@ -3109,7 +3109,7 @@ func (p *GetContributorTrendReq) String() string {
 }
 
 type GetContributorTrendResp struct {
-	Trend []*ContributorTrendPoint `thrift:"trend,1,default,list<ContributorTrendPoint>" form:"trend" json:"trend"`
+	Trend []*ContributorTrendPoint `thrift:"trend,1,default,list<ContributorTrendPoint>" json:"trend"`
 }
 
 func NewGetContributorTrendResp() *GetContributorTrendResp {
@@ -3269,8 +3269,8 @@ func (p *GetContributorTrendResp) String() string {
 }
 
 type CategoryStat struct {
-	Category string `thrift:"category,1" form:"category" json:"category"`
-	Count    int64  `thrift:"count,2" form:"count" json:"count"`
+	Category string `thrift:"category,1" json:"category"`
+	Count    int64  `thrift:"count,2" json:"count"`
 }
 
 func NewCategoryStat() *CategoryStat {
@@ -3455,11 +3455,11 @@ func (p *CategoryStat) String() string {
 }
 
 type GetContributorCategoriesReq struct {
-	Author   string  `thrift:"author,1" json:"author" path:"author"`
-	Provider *string `thrift:"provider,2,optional" json:"provider,omitempty" query:"provider"`
-	Repo     *string `thrift:"repo,3,optional" json:"repo,omitempty" query:"repo"`
-	From     *string `thrift:"from,4,optional" json:"from,omitempty" query:"from"`
-	To       *string `thrift:"to,5,optional" json:"to,omitempty" query:"to"`
+	Author   string  `thrift:"author,1" json:"author"`
+	Provider *string `thrift:"provider,2,optional" json:"provider,omitempty"`
+	Repo     *string `thrift:"repo,3,optional" json:"repo,omitempty"`
+	From     *string `thrift:"from,4,optional" json:"from,omitempty"`
+	To       *string `thrift:"to,5,optional" json:"to,omitempty"`
 }
 
 func NewGetContributorCategoriesReq() *GetContributorCategoriesReq {
@@ -3823,7 +3823,7 @@ func (p *GetContributorCategoriesReq) String() string {
 }
 
 type GetContributorCategoriesResp struct {
-	Categories []*CategoryStat `thrift:"categories,1,default,list<CategoryStat>" form:"categories" json:"categories"`
+	Categories []*CategoryStat `thrift:"categories,1,default,list<CategoryStat>" json:"categories"`
 }
 
 func NewGetContributorCategoriesResp() *GetContributorCategoriesResp {
@@ -3983,14 +3983,14 @@ func (p *GetContributorCategoriesResp) String() string {
 }
 
 type ListProjectsReq struct {
-	Provider *string `thrift:"provider,1,optional" json:"provider,omitempty" query:"provider"`
-	Repo     *string `thrift:"repo,2,optional" json:"repo,omitempty" query:"repo"`
-	From     *string `thrift:"from,3,optional" json:"from,omitempty" query:"from"`
-	To       *string `thrift:"to,4,optional" json:"to,omitempty" query:"to"`
-	Sort     *string `thrift:"sort,5,optional" json:"sort,omitempty" query:"sort"`
-	Order    *string `thrift:"order,6,optional" json:"order,omitempty" query:"order"`
-	Page     *int64  `thrift:"page,7,optional" json:"page,omitempty" query:"page"`
-	PageSize *int64  `thrift:"page_size,8,optional" json:"page_size,omitempty" query:"page_size"`
+	Provider *string `thrift:"provider,1,optional" json:"provider,omitempty"`
+	Repo     *string `thrift:"repo,2,optional" json:"repo,omitempty"`
+	From     *string `thrift:"from,3,optional" json:"from,omitempty"`
+	To       *string `thrift:"to,4,optional" json:"to,omitempty"`
+	Sort     *string `thrift:"sort,5,optional" json:"sort,omitempty"`
+	Order    *string `thrift:"order,6,optional" json:"order,omitempty"`
+	Page     *int64  `thrift:"page,7,optional" json:"page,omitempty"`
+	PageSize *int64  `thrift:"page_size,8,optional" json:"page_size,omitempty"`
 }
 
 func NewListProjectsReq() *ListProjectsReq {
@@ -4533,17 +4533,17 @@ func (p *ListProjectsReq) String() string {
 }
 
 type ProjectSummary struct {
-	Provider      string  `thrift:"provider,1" form:"provider" json:"provider"`
-	Repo          string  `thrift:"repo,2" form:"repo" json:"repo"`
-	ReviewCount   int64   `thrift:"review_count,3" form:"review_count" json:"review_count"`
-	AvgScore      float64 `thrift:"avg_score,4" form:"avg_score" json:"avg_score"`
-	PassRate      float64 `thrift:"pass_rate,5" form:"pass_rate" json:"pass_rate"`
-	TotalFindings int64   `thrift:"total_findings,6" form:"total_findings" json:"total_findings"`
-	CriticalCount int64   `thrift:"critical_count,7" form:"critical_count" json:"critical_count"`
-	MajorCount    int64   `thrift:"major_count,8" form:"major_count" json:"major_count"`
-	MinorCount    int64   `thrift:"minor_count,9" form:"minor_count" json:"minor_count"`
-	InfoCount     int64   `thrift:"info_count,10" form:"info_count" json:"info_count"`
-	LastReviewAt  string  `thrift:"last_review_at,11" form:"last_review_at" json:"last_review_at"`
+	Provider      string  `thrift:"provider,1" json:"provider"`
+	Repo          string  `thrift:"repo,2" json:"repo"`
+	ReviewCount   int64   `thrift:"review_count,3" json:"review_count"`
+	AvgScore      float64 `thrift:"avg_score,4" json:"avg_score"`
+	PassRate      float64 `thrift:"pass_rate,5" json:"pass_rate"`
+	TotalFindings int64   `thrift:"total_findings,6" json:"total_findings"`
+	CriticalCount int64   `thrift:"critical_count,7" json:"critical_count"`
+	MajorCount    int64   `thrift:"major_count,8" json:"major_count"`
+	MinorCount    int64   `thrift:"minor_count,9" json:"minor_count"`
+	InfoCount     int64   `thrift:"info_count,10" json:"info_count"`
+	LastReviewAt  string  `thrift:"last_review_at,11" json:"last_review_at"`
 }
 
 func NewProjectSummary() *ProjectSummary {
@@ -5133,23 +5133,23 @@ func (p *ProjectSummary) String() string {
 }
 
 type ProjectDetail struct {
-	Provider          string           `thrift:"provider,1" form:"provider" json:"provider"`
-	Repo              string           `thrift:"repo,2" form:"repo" json:"repo"`
-	ReviewCount       int64            `thrift:"review_count,3" form:"review_count" json:"review_count"`
-	AvgScore          float64          `thrift:"avg_score,4" form:"avg_score" json:"avg_score"`
-	PassRate          float64          `thrift:"pass_rate,5" form:"pass_rate" json:"pass_rate"`
-	TotalFindings     int64            `thrift:"total_findings,6" form:"total_findings" json:"total_findings"`
-	CriticalCount     int64            `thrift:"critical_count,7" form:"critical_count" json:"critical_count"`
-	MajorCount        int64            `thrift:"major_count,8" form:"major_count" json:"major_count"`
-	MinorCount        int64            `thrift:"minor_count,9" form:"minor_count" json:"minor_count"`
-	InfoCount         int64            `thrift:"info_count,10" form:"info_count" json:"info_count"`
-	LastReviewAt      string           `thrift:"last_review_at,11" form:"last_review_at" json:"last_review_at"`
-	MedianScore       float64          `thrift:"median_score,12" form:"median_score" json:"median_score"`
-	MaxScore          int64            `thrift:"max_score,13" form:"max_score" json:"max_score"`
-	MinScore          int64            `thrift:"min_score,14" form:"min_score" json:"min_score"`
-	GradeDistribution map[string]int64 `thrift:"grade_distribution,15" form:"grade_distribution" json:"grade_distribution"`
-	AvgFindings       float64          `thrift:"avg_findings,16" form:"avg_findings" json:"avg_findings"`
-	AvgChangedLines   float64          `thrift:"avg_changed_lines,17" form:"avg_changed_lines" json:"avg_changed_lines"`
+	Provider          string           `thrift:"provider,1" json:"provider"`
+	Repo              string           `thrift:"repo,2" json:"repo"`
+	ReviewCount       int64            `thrift:"review_count,3" json:"review_count"`
+	AvgScore          float64          `thrift:"avg_score,4" json:"avg_score"`
+	PassRate          float64          `thrift:"pass_rate,5" json:"pass_rate"`
+	TotalFindings     int64            `thrift:"total_findings,6" json:"total_findings"`
+	CriticalCount     int64            `thrift:"critical_count,7" json:"critical_count"`
+	MajorCount        int64            `thrift:"major_count,8" json:"major_count"`
+	MinorCount        int64            `thrift:"minor_count,9" json:"minor_count"`
+	InfoCount         int64            `thrift:"info_count,10" json:"info_count"`
+	LastReviewAt      string           `thrift:"last_review_at,11" json:"last_review_at"`
+	MedianScore       float64          `thrift:"median_score,12" json:"median_score"`
+	MaxScore          int64            `thrift:"max_score,13" json:"max_score"`
+	MinScore          int64            `thrift:"min_score,14" json:"min_score"`
+	GradeDistribution map[string]int64 `thrift:"grade_distribution,15" json:"grade_distribution"`
+	AvgFindings       float64          `thrift:"avg_findings,16" json:"avg_findings"`
+	AvgChangedLines   float64          `thrift:"avg_changed_lines,17" json:"avg_changed_lines"`
 }
 
 func NewProjectDetail() *ProjectDetail {
@@ -6038,10 +6038,10 @@ func (p *ProjectDetail) String() string {
 }
 
 type ProjectTrendPoint struct {
-	Period        string  `thrift:"period,1" form:"period" json:"period"`
-	AvgScore      float64 `thrift:"avg_score,2" form:"avg_score" json:"avg_score"`
-	ReviewCount   int64   `thrift:"review_count,3" form:"review_count" json:"review_count"`
-	TotalFindings int64   `thrift:"total_findings,4" form:"total_findings" json:"total_findings"`
+	Period        string  `thrift:"period,1" json:"period"`
+	AvgScore      float64 `thrift:"avg_score,2" json:"avg_score"`
+	ReviewCount   int64   `thrift:"review_count,3" json:"review_count"`
+	TotalFindings int64   `thrift:"total_findings,4" json:"total_findings"`
 }
 
 func NewProjectTrendPoint() *ProjectTrendPoint {
@@ -6316,10 +6316,10 @@ func (p *ProjectTrendPoint) String() string {
 }
 
 type FileRiskStat struct {
-	Path          string `thrift:"path,1" form:"path" json:"path"`
-	Count         int64  `thrift:"count,2" form:"count" json:"count"`
-	CriticalCount int64  `thrift:"critical_count,3" form:"critical_count" json:"critical_count"`
-	MajorCount    int64  `thrift:"major_count,4" form:"major_count" json:"major_count"`
+	Path          string `thrift:"path,1" json:"path"`
+	Count         int64  `thrift:"count,2" json:"count"`
+	CriticalCount int64  `thrift:"critical_count,3" json:"critical_count"`
+	MajorCount    int64  `thrift:"major_count,4" json:"major_count"`
 }
 
 func NewFileRiskStat() *FileRiskStat {
@@ -6594,10 +6594,10 @@ func (p *FileRiskStat) String() string {
 }
 
 type ListProjectsResp struct {
-	Projects []*ProjectSummary `thrift:"projects,1,default,list<ProjectSummary>" form:"projects" json:"projects"`
-	Total    int64             `thrift:"total,2" form:"total" json:"total"`
-	Page     int64             `thrift:"page,3" form:"page" json:"page"`
-	PageSize int64             `thrift:"page_size,4" form:"page_size" json:"page_size"`
+	Projects []*ProjectSummary `thrift:"projects,1,default,list<ProjectSummary>" json:"projects"`
+	Total    int64             `thrift:"total,2" json:"total"`
+	Page     int64             `thrift:"page,3" json:"page"`
+	PageSize int64             `thrift:"page_size,4" json:"page_size"`
 }
 
 func NewListProjectsResp() *ListProjectsResp {
@@ -6892,10 +6892,10 @@ func (p *ListProjectsResp) String() string {
 }
 
 type GetProjectReq struct {
-	Provider string  `thrift:"provider,1" json:"provider" query:"provider"`
-	Repo     string  `thrift:"repo,2" json:"repo" query:"repo"`
-	From     *string `thrift:"from,3,optional" json:"from,omitempty" query:"from"`
-	To       *string `thrift:"to,4,optional" json:"to,omitempty" query:"to"`
+	Provider string  `thrift:"provider,1" json:"provider"`
+	Repo     string  `thrift:"repo,2" json:"repo"`
+	From     *string `thrift:"from,3,optional" json:"from,omitempty"`
+	To       *string `thrift:"to,4,optional" json:"to,omitempty"`
 }
 
 func NewGetProjectReq() *GetProjectReq {
@@ -7192,7 +7192,7 @@ func (p *GetProjectReq) String() string {
 }
 
 type GetProjectResp struct {
-	Detail *ProjectDetail `thrift:"detail,1" form:"detail" json:"detail"`
+	Detail *ProjectDetail `thrift:"detail,1" json:"detail"`
 }
 
 func NewGetProjectResp() *GetProjectResp {
@@ -7338,7 +7338,7 @@ func (p *GetProjectResp) String() string {
 }
 
 type GetProjectTrendResp struct {
-	Trend []*ProjectTrendPoint `thrift:"trend,1,default,list<ProjectTrendPoint>" form:"trend" json:"trend"`
+	Trend []*ProjectTrendPoint `thrift:"trend,1,default,list<ProjectTrendPoint>" json:"trend"`
 }
 
 func NewGetProjectTrendResp() *GetProjectTrendResp {
@@ -7498,7 +7498,7 @@ func (p *GetProjectTrendResp) String() string {
 }
 
 type GetProjectCategoriesResp struct {
-	Categories []*CategoryStat `thrift:"categories,1,default,list<CategoryStat>" form:"categories" json:"categories"`
+	Categories []*CategoryStat `thrift:"categories,1,default,list<CategoryStat>" json:"categories"`
 }
 
 func NewGetProjectCategoriesResp() *GetProjectCategoriesResp {
@@ -7658,7 +7658,7 @@ func (p *GetProjectCategoriesResp) String() string {
 }
 
 type GetProjectFilesResp struct {
-	Files []*FileRiskStat `thrift:"files,1,default,list<FileRiskStat>" form:"files" json:"files"`
+	Files []*FileRiskStat `thrift:"files,1,default,list<FileRiskStat>" json:"files"`
 }
 
 func NewGetProjectFilesResp() *GetProjectFilesResp {
@@ -7818,11 +7818,11 @@ func (p *GetProjectFilesResp) String() string {
 }
 
 type GetProjectContributorsReq struct {
-	Provider string  `thrift:"provider,1" json:"provider" query:"provider"`
-	Repo     string  `thrift:"repo,2" json:"repo" query:"repo"`
-	From     *string `thrift:"from,3,optional" json:"from,omitempty" query:"from"`
-	To       *string `thrift:"to,4,optional" json:"to,omitempty" query:"to"`
-	Limit    *int64  `thrift:"limit,5,optional" json:"limit,omitempty" query:"limit"`
+	Provider string  `thrift:"provider,1" json:"provider"`
+	Repo     string  `thrift:"repo,2" json:"repo"`
+	From     *string `thrift:"from,3,optional" json:"from,omitempty"`
+	To       *string `thrift:"to,4,optional" json:"to,omitempty"`
+	Limit    *int64  `thrift:"limit,5,optional" json:"limit,omitempty"`
 }
 
 func NewGetProjectContributorsReq() *GetProjectContributorsReq {
@@ -8175,18 +8175,18 @@ func (p *GetProjectContributorsReq) String() string {
 }
 
 type ContributorSummary struct {
-	Author        string  `thrift:"author,1" form:"author" json:"author"`
-	AuthorName    string  `thrift:"author_name,2" form:"author_name" json:"author_name"`
-	AuthorAvatar  string  `thrift:"author_avatar,3" form:"author_avatar" json:"author_avatar"`
-	ReviewCount   int64   `thrift:"review_count,4" form:"review_count" json:"review_count"`
-	AvgScore      float64 `thrift:"avg_score,5" form:"avg_score" json:"avg_score"`
-	PassRate      float64 `thrift:"pass_rate,6" form:"pass_rate" json:"pass_rate"`
-	TotalFindings int64   `thrift:"total_findings,7" form:"total_findings" json:"total_findings"`
-	CriticalCount int64   `thrift:"critical_count,8" form:"critical_count" json:"critical_count"`
-	MajorCount    int64   `thrift:"major_count,9" form:"major_count" json:"major_count"`
-	MinorCount    int64   `thrift:"minor_count,10" form:"minor_count" json:"minor_count"`
-	InfoCount     int64   `thrift:"info_count,11" form:"info_count" json:"info_count"`
-	LastReviewAt  string  `thrift:"last_review_at,12" form:"last_review_at" json:"last_review_at"`
+	Author        string  `thrift:"author,1" json:"author"`
+	AuthorName    string  `thrift:"author_name,2" json:"author_name"`
+	AuthorAvatar  string  `thrift:"author_avatar,3" json:"author_avatar"`
+	ReviewCount   int64   `thrift:"review_count,4" json:"review_count"`
+	AvgScore      float64 `thrift:"avg_score,5" json:"avg_score"`
+	PassRate      float64 `thrift:"pass_rate,6" json:"pass_rate"`
+	TotalFindings int64   `thrift:"total_findings,7" json:"total_findings"`
+	CriticalCount int64   `thrift:"critical_count,8" json:"critical_count"`
+	MajorCount    int64   `thrift:"major_count,9" json:"major_count"`
+	MinorCount    int64   `thrift:"minor_count,10" json:"minor_count"`
+	InfoCount     int64   `thrift:"info_count,11" json:"info_count"`
+	LastReviewAt  string  `thrift:"last_review_at,12" json:"last_review_at"`
 }
 
 func NewContributorSummary() *ContributorSummary {
@@ -8821,7 +8821,7 @@ func (p *ContributorSummary) String() string {
 }
 
 type GetProjectContributorsResp struct {
-	Contributors []*ContributorSummary `thrift:"contributors,1,default,list<ContributorSummary>" form:"contributors" json:"contributors"`
+	Contributors []*ContributorSummary `thrift:"contributors,1,default,list<ContributorSummary>" json:"contributors"`
 }
 
 func NewGetProjectContributorsResp() *GetProjectContributorsResp {

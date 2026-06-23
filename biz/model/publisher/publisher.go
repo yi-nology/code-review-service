@@ -8,8 +8,8 @@ import (
 )
 
 type PublishReviewReq struct {
-	ID   string `thrift:"id,1" json:"id" path:"id"`
-	Mode string `thrift:"mode,2,optional" form:"mode" json:"mode,omitempty"` // team | human
+	ID   string  `thrift:"id,1" json:"id"`
+	Mode *string `thrift:"mode,2,optional" json:"mode,omitempty"`
 }
 
 func NewPublishReviewReq() *PublishReviewReq {
@@ -23,8 +23,22 @@ func (p *PublishReviewReq) GetID() (v string) {
 	return p.ID
 }
 
+var PublishReviewReq_Mode_DEFAULT string
+
+func (p *PublishReviewReq) GetMode() (v string) {
+	if !p.IsSetMode() {
+		return PublishReviewReq_Mode_DEFAULT
+	}
+	return *p.Mode
+}
+
 var fieldIDToName_PublishReviewReq = map[int16]string{
 	1: "id",
+	2: "mode",
+}
+
+func (p *PublishReviewReq) IsSetMode() bool {
+	return p.Mode != nil
 }
 
 func (p *PublishReviewReq) Read(iprot thrift.TProtocol) (err error) {
@@ -49,6 +63,14 @@ func (p *PublishReviewReq) Read(iprot thrift.TProtocol) (err error) {
 		case 1:
 			if fieldTypeId == thrift.STRING {
 				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField2(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -94,6 +116,17 @@ func (p *PublishReviewReq) ReadField1(iprot thrift.TProtocol) error {
 	p.ID = _field
 	return nil
 }
+func (p *PublishReviewReq) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.Mode = _field
+	return nil
+}
 
 func (p *PublishReviewReq) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -103,6 +136,10 @@ func (p *PublishReviewReq) Write(oprot thrift.TProtocol) (err error) {
 	if p != nil {
 		if err = p.writeField1(oprot); err != nil {
 			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
 			goto WriteFieldError
 		}
 	}
@@ -140,6 +177,25 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
 }
 
+func (p *PublishReviewReq) writeField2(oprot thrift.TProtocol) (err error) {
+	if p.IsSetMode() {
+		if err = oprot.WriteFieldBegin("mode", thrift.STRING, 2); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.Mode); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
 func (p *PublishReviewReq) String() string {
 	if p == nil {
 		return "<nil>"
@@ -149,8 +205,8 @@ func (p *PublishReviewReq) String() string {
 }
 
 type PublishReviewResp struct {
-	Message  string `thrift:"message,1" form:"message" json:"message"`
-	ReviewID string `thrift:"review_id,2" form:"review_id" json:"review_id"`
+	Message  string `thrift:"message,1" json:"message"`
+	ReviewID string `thrift:"review_id,2" json:"review_id"`
 }
 
 func NewPublishReviewResp() *PublishReviewResp {
@@ -335,8 +391,8 @@ func (p *PublishReviewResp) String() string {
 }
 
 type PreviewCommentReq struct {
-	ID   string `thrift:"id,1" json:"id" path:"id"`
-	Mode string `thrift:"mode,2,optional" form:"mode" json:"mode,omitempty"` // team | human
+	ID   string  `thrift:"id,1" json:"id"`
+	Mode *string `thrift:"mode,2,optional" json:"mode,omitempty"`
 }
 
 func NewPreviewCommentReq() *PreviewCommentReq {
@@ -350,8 +406,22 @@ func (p *PreviewCommentReq) GetID() (v string) {
 	return p.ID
 }
 
+var PreviewCommentReq_Mode_DEFAULT string
+
+func (p *PreviewCommentReq) GetMode() (v string) {
+	if !p.IsSetMode() {
+		return PreviewCommentReq_Mode_DEFAULT
+	}
+	return *p.Mode
+}
+
 var fieldIDToName_PreviewCommentReq = map[int16]string{
 	1: "id",
+	2: "mode",
+}
+
+func (p *PreviewCommentReq) IsSetMode() bool {
+	return p.Mode != nil
 }
 
 func (p *PreviewCommentReq) Read(iprot thrift.TProtocol) (err error) {
@@ -376,6 +446,14 @@ func (p *PreviewCommentReq) Read(iprot thrift.TProtocol) (err error) {
 		case 1:
 			if fieldTypeId == thrift.STRING {
 				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField2(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -421,6 +499,17 @@ func (p *PreviewCommentReq) ReadField1(iprot thrift.TProtocol) error {
 	p.ID = _field
 	return nil
 }
+func (p *PreviewCommentReq) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.Mode = _field
+	return nil
+}
 
 func (p *PreviewCommentReq) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -430,6 +519,10 @@ func (p *PreviewCommentReq) Write(oprot thrift.TProtocol) (err error) {
 	if p != nil {
 		if err = p.writeField1(oprot); err != nil {
 			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
 			goto WriteFieldError
 		}
 	}
@@ -467,6 +560,25 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
 }
 
+func (p *PreviewCommentReq) writeField2(oprot thrift.TProtocol) (err error) {
+	if p.IsSetMode() {
+		if err = oprot.WriteFieldBegin("mode", thrift.STRING, 2); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.Mode); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
 func (p *PreviewCommentReq) String() string {
 	if p == nil {
 		return "<nil>"
@@ -476,10 +588,10 @@ func (p *PreviewCommentReq) String() string {
 }
 
 type PreviewCommentResp struct {
-	ReviewID string `thrift:"review_id,1" form:"review_id" json:"review_id"`
-	Summary  string `thrift:"summary,2" form:"summary" json:"summary"`
-	Findings string `thrift:"findings,3" form:"findings" json:"findings"`
-	Total    int64  `thrift:"total,4" form:"total" json:"total"`
+	ReviewID string `thrift:"review_id,1" json:"review_id"`
+	Summary  string `thrift:"summary,2" json:"summary"`
+	Findings string `thrift:"findings,3" json:"findings"`
+	Total    int64  `thrift:"total,4" json:"total"`
 }
 
 func NewPreviewCommentResp() *PreviewCommentResp {
@@ -754,7 +866,7 @@ func (p *PreviewCommentResp) String() string {
 }
 
 type UpdatePublishedCommentReq struct {
-	ID string `thrift:"id,1" json:"id" path:"id"`
+	ID string `thrift:"id,1" json:"id"`
 }
 
 func NewUpdatePublishedCommentReq() *UpdatePublishedCommentReq {
@@ -894,8 +1006,8 @@ func (p *UpdatePublishedCommentReq) String() string {
 }
 
 type UpdatePublishedCommentResp struct {
-	Message  string `thrift:"message,1" form:"message" json:"message"`
-	ReviewID string `thrift:"review_id,2" form:"review_id" json:"review_id"`
+	Message  string `thrift:"message,1" json:"message"`
+	ReviewID string `thrift:"review_id,2" json:"review_id"`
 }
 
 func NewUpdatePublishedCommentResp() *UpdatePublishedCommentResp {

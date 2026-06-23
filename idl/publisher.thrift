@@ -1,5 +1,6 @@
 struct PublishReviewReq {
     1: string id (api.path="id")
+    2: optional string mode (api.body="mode")
 }
 
 struct PublishReviewResp {
@@ -9,6 +10,7 @@ struct PublishReviewResp {
 
 struct PreviewCommentReq {
     1: string id (api.path="id")
+    2: optional string mode (api.body="mode")
 }
 
 struct PreviewCommentResp {

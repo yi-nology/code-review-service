@@ -8,6 +8,13 @@ struct CreateReviewReq {
     7: optional string head_sha (api.body="head_sha")
     8: optional string callback_mode (api.body="callback_mode")
     9: optional bool wait (api.body="wait")
+    10: optional list<string> requirements (api.body="requirements")
+    11: optional list<EphemeralReviewerInput> ephemeral_reviewers (api.body="ephemeral_reviewers")
+}
+
+struct EphemeralReviewerInput {
+    1: optional string name (api.body="name")
+    2: string background (api.body="background")
 }
 
 struct Gate {

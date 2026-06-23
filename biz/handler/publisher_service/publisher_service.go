@@ -9,6 +9,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
 
+	"github.com/oekit/pkg/ptrx"
+
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
@@ -54,7 +56,7 @@ func PublishReview(ctx context.Context, c *app.RequestContext) {
 	}
 
 	// human 模式：用 LLM 把多 agent findings 改写为第一人称自然语言
-	if strings.EqualFold(req.Mode, "human") && handlerInst.translator != nil {
+	if strings.EqualFold(ptrx.Deref(req.Mode, ""), "human") && handlerInst.translator != nil {
 		translated, terr := handlerInst.translator.TranslateToHumanVoice(ctx, findings, record.Response.Summary)
 		if terr != nil {
 			hlog.Warnf("human translation failed, falling back to team mode: %v", terr)
@@ -91,7 +93,7 @@ func PreviewComment(ctx context.Context, c *app.RequestContext) {
 	summary := record.Response.Summary
 
 	// human 模式：预览拟人化改写结果（LLM 不可用时自动降级为模板格式）
-	if strings.EqualFold(req.Mode, "human") && handlerInst.translator != nil {
+	if strings.EqualFold(ptrx.Deref(req.Mode, ""), "human") && handlerInst.translator != nil {
 		translated, _ := handlerInst.translator.TranslateToHumanVoice(ctx, findings, summary)
 		if translated.Markdown != "" {
 			summary = translated.Markdown

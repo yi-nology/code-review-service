@@ -8,21 +8,21 @@ import (
 )
 
 type ReviewSession struct {
-	ID           int64   `thrift:"id,1" form:"id" json:"id"`
-	SessionID    string  `thrift:"session_id,2" form:"session_id" json:"session_id"`
-	ReviewID     string  `thrift:"review_id,3" form:"review_id" json:"review_id"`
-	Round        int64   `thrift:"round,4" form:"round" json:"round"`
-	Phase        string  `thrift:"phase,5" form:"phase" json:"phase"`
-	Status       string  `thrift:"status,6" form:"status" json:"status"`
-	Progress     float64 `thrift:"progress,7" form:"progress" json:"progress"`
-	AgentResults *string `thrift:"agent_results,8,optional" form:"agent_results" json:"agent_results,omitempty"`
-	Discussion   *string `thrift:"discussion,9,optional" form:"discussion" json:"discussion,omitempty"`
-	FinalReport  *string `thrift:"final_report,10,optional" form:"final_report" json:"final_report,omitempty"`
-	Requirements *string `thrift:"requirements,11,optional" form:"requirements" json:"requirements,omitempty"`
-	Metadata     *string `thrift:"metadata,12,optional" form:"metadata" json:"metadata,omitempty"`
-	CompletedAt  *string `thrift:"completed_at,13,optional" form:"completed_at" json:"completed_at,omitempty"`
-	CreatedAt    string  `thrift:"created_at,14" form:"created_at" json:"created_at"`
-	UpdatedAt    string  `thrift:"updated_at,15" form:"updated_at" json:"updated_at"`
+	ID           int64   `thrift:"id,1" json:"id"`
+	SessionID    string  `thrift:"session_id,2" json:"session_id"`
+	ReviewID     string  `thrift:"review_id,3" json:"review_id"`
+	Round        int64   `thrift:"round,4" json:"round"`
+	Phase        string  `thrift:"phase,5" json:"phase"`
+	Status       string  `thrift:"status,6" json:"status"`
+	Progress     float64 `thrift:"progress,7" json:"progress"`
+	AgentResults *string `thrift:"agent_results,8,optional" json:"agent_results,omitempty"`
+	Discussion   *string `thrift:"discussion,9,optional" json:"discussion,omitempty"`
+	FinalReport  *string `thrift:"final_report,10,optional" json:"final_report,omitempty"`
+	Requirements *string `thrift:"requirements,11,optional" json:"requirements,omitempty"`
+	Metadata     *string `thrift:"metadata,12,optional" json:"metadata,omitempty"`
+	CompletedAt  *string `thrift:"completed_at,13,optional" json:"completed_at,omitempty"`
+	CreatedAt    string  `thrift:"created_at,14" json:"created_at"`
+	UpdatedAt    string  `thrift:"updated_at,15" json:"updated_at"`
 }
 
 func NewReviewSession() *ReviewSession {
@@ -858,7 +858,7 @@ func (p *ReviewSession) String() string {
 }
 
 type GetSessionsReq struct {
-	ID string `thrift:"id,1" json:"id" path:"id"`
+	ID string `thrift:"id,1" json:"id"`
 }
 
 func NewGetSessionsReq() *GetSessionsReq {
@@ -998,7 +998,7 @@ func (p *GetSessionsReq) String() string {
 }
 
 type GetSessionsResp struct {
-	Sessions []*ReviewSession `thrift:"sessions,1,default,list<ReviewSession>" form:"sessions" json:"sessions"`
+	Sessions []*ReviewSession `thrift:"sessions,1,default,list<ReviewSession>" json:"sessions"`
 }
 
 func NewGetSessionsResp() *GetSessionsResp {
@@ -1158,7 +1158,7 @@ func (p *GetSessionsResp) String() string {
 }
 
 type CreateSessionReq struct {
-	ID string `thrift:"id,1" json:"id" path:"id"`
+	ID string `thrift:"id,1" json:"id"`
 }
 
 func NewCreateSessionReq() *CreateSessionReq {
@@ -1298,7 +1298,7 @@ func (p *CreateSessionReq) String() string {
 }
 
 type CreateSessionResp struct {
-	Session *ReviewSession `thrift:"session,1" form:"session" json:"session"`
+	Session *ReviewSession `thrift:"session,1" json:"session"`
 }
 
 func NewCreateSessionResp() *CreateSessionResp {
@@ -1444,7 +1444,7 @@ func (p *CreateSessionResp) String() string {
 }
 
 type GetActiveSessionReq struct {
-	ID string `thrift:"id,1" json:"id" path:"id"`
+	ID string `thrift:"id,1" json:"id"`
 }
 
 func NewGetActiveSessionReq() *GetActiveSessionReq {
@@ -1584,7 +1584,7 @@ func (p *GetActiveSessionReq) String() string {
 }
 
 type GetActiveSessionResp struct {
-	Session *ReviewSession `thrift:"session,1" form:"session" json:"session"`
+	Session *ReviewSession `thrift:"session,1" json:"session"`
 }
 
 func NewGetActiveSessionResp() *GetActiveSessionResp {
@@ -1730,8 +1730,8 @@ func (p *GetActiveSessionResp) String() string {
 }
 
 type GetSessionReq struct {
-	ID        string `thrift:"id,1" json:"id" path:"id"`
-	SessionID string `thrift:"session_id,2" json:"session_id" path:"sessionId"`
+	ID        string `thrift:"id,1" json:"id"`
+	SessionID string `thrift:"session_id,2" json:"session_id"`
 }
 
 func NewGetSessionReq() *GetSessionReq {
@@ -1916,7 +1916,7 @@ func (p *GetSessionReq) String() string {
 }
 
 type GetSessionResp struct {
-	Session *ReviewSession `thrift:"session,1" form:"session" json:"session"`
+	Session *ReviewSession `thrift:"session,1" json:"session"`
 }
 
 func NewGetSessionResp() *GetSessionResp {
@@ -2062,10 +2062,10 @@ func (p *GetSessionResp) String() string {
 }
 
 type UpdateSessionPhaseReq struct {
-	ID        string   `thrift:"id,1" json:"id" path:"id"`
-	SessionID string   `thrift:"session_id,2" json:"session_id" path:"sessionId"`
-	Phase     string   `thrift:"phase,3" form:"phase" json:"phase"`
-	Progress  *float64 `thrift:"progress,4,optional" form:"progress" json:"progress,omitempty"`
+	ID        string   `thrift:"id,1" json:"id"`
+	SessionID string   `thrift:"session_id,2" json:"session_id"`
+	Phase     string   `thrift:"phase,3" json:"phase"`
+	Progress  *float64 `thrift:"progress,4,optional" json:"progress,omitempty"`
 }
 
 func NewUpdateSessionPhaseReq() *UpdateSessionPhaseReq {
@@ -2351,7 +2351,7 @@ func (p *UpdateSessionPhaseReq) String() string {
 }
 
 type UpdateSessionPhaseResp struct {
-	Message string `thrift:"message,1" form:"message" json:"message"`
+	Message string `thrift:"message,1" json:"message"`
 }
 
 func NewUpdateSessionPhaseResp() *UpdateSessionPhaseResp {
@@ -2491,9 +2491,9 @@ func (p *UpdateSessionPhaseResp) String() string {
 }
 
 type UpdateSessionStatusReq struct {
-	ID        string `thrift:"id,1" json:"id" path:"id"`
-	SessionID string `thrift:"session_id,2" json:"session_id" path:"sessionId"`
-	Status    string `thrift:"status,3" form:"status" json:"status"`
+	ID        string `thrift:"id,1" json:"id"`
+	SessionID string `thrift:"session_id,2" json:"session_id"`
+	Status    string `thrift:"status,3" json:"status"`
 }
 
 func NewUpdateSessionStatusReq() *UpdateSessionStatusReq {
@@ -2723,7 +2723,7 @@ func (p *UpdateSessionStatusReq) String() string {
 }
 
 type UpdateSessionStatusResp struct {
-	Message string `thrift:"message,1" form:"message" json:"message"`
+	Message string `thrift:"message,1" json:"message"`
 }
 
 func NewUpdateSessionStatusResp() *UpdateSessionStatusResp {
@@ -2863,9 +2863,9 @@ func (p *UpdateSessionStatusResp) String() string {
 }
 
 type UpdateSessionAgentResultsReq struct {
-	ID           string `thrift:"id,1" json:"id" path:"id"`
-	SessionID    string `thrift:"session_id,2" json:"session_id" path:"sessionId"`
-	AgentResults string `thrift:"agent_results,3" form:"agent_results" json:"agent_results"`
+	ID           string `thrift:"id,1" json:"id"`
+	SessionID    string `thrift:"session_id,2" json:"session_id"`
+	AgentResults string `thrift:"agent_results,3" json:"agent_results"`
 }
 
 func NewUpdateSessionAgentResultsReq() *UpdateSessionAgentResultsReq {
@@ -3095,7 +3095,7 @@ func (p *UpdateSessionAgentResultsReq) String() string {
 }
 
 type UpdateSessionAgentResultsResp struct {
-	Message string `thrift:"message,1" form:"message" json:"message"`
+	Message string `thrift:"message,1" json:"message"`
 }
 
 func NewUpdateSessionAgentResultsResp() *UpdateSessionAgentResultsResp {
@@ -3235,9 +3235,9 @@ func (p *UpdateSessionAgentResultsResp) String() string {
 }
 
 type UpdateSessionDiscussionReq struct {
-	ID         string `thrift:"id,1" json:"id" path:"id"`
-	SessionID  string `thrift:"session_id,2" json:"session_id" path:"sessionId"`
-	Discussion string `thrift:"discussion,3" form:"discussion" json:"discussion"`
+	ID         string `thrift:"id,1" json:"id"`
+	SessionID  string `thrift:"session_id,2" json:"session_id"`
+	Discussion string `thrift:"discussion,3" json:"discussion"`
 }
 
 func NewUpdateSessionDiscussionReq() *UpdateSessionDiscussionReq {
@@ -3467,7 +3467,7 @@ func (p *UpdateSessionDiscussionReq) String() string {
 }
 
 type UpdateSessionDiscussionResp struct {
-	Message string `thrift:"message,1" form:"message" json:"message"`
+	Message string `thrift:"message,1" json:"message"`
 }
 
 func NewUpdateSessionDiscussionResp() *UpdateSessionDiscussionResp {
@@ -3607,9 +3607,9 @@ func (p *UpdateSessionDiscussionResp) String() string {
 }
 
 type UpdateSessionFinalReportReq struct {
-	ID          string `thrift:"id,1" json:"id" path:"id"`
-	SessionID   string `thrift:"session_id,2" json:"session_id" path:"sessionId"`
-	FinalReport string `thrift:"final_report,3" form:"final_report" json:"final_report"`
+	ID          string `thrift:"id,1" json:"id"`
+	SessionID   string `thrift:"session_id,2" json:"session_id"`
+	FinalReport string `thrift:"final_report,3" json:"final_report"`
 }
 
 func NewUpdateSessionFinalReportReq() *UpdateSessionFinalReportReq {
@@ -3839,7 +3839,7 @@ func (p *UpdateSessionFinalReportReq) String() string {
 }
 
 type UpdateSessionFinalReportResp struct {
-	Message string `thrift:"message,1" form:"message" json:"message"`
+	Message string `thrift:"message,1" json:"message"`
 }
 
 func NewUpdateSessionFinalReportResp() *UpdateSessionFinalReportResp {
@@ -3979,9 +3979,9 @@ func (p *UpdateSessionFinalReportResp) String() string {
 }
 
 type CompleteSessionReq struct {
-	ID          string `thrift:"id,1" json:"id" path:"id"`
-	SessionID   string `thrift:"session_id,2" json:"session_id" path:"sessionId"`
-	FinalReport string `thrift:"final_report,3" form:"final_report" json:"final_report"`
+	ID          string `thrift:"id,1" json:"id"`
+	SessionID   string `thrift:"session_id,2" json:"session_id"`
+	FinalReport string `thrift:"final_report,3" json:"final_report"`
 }
 
 func NewCompleteSessionReq() *CompleteSessionReq {
@@ -4211,7 +4211,7 @@ func (p *CompleteSessionReq) String() string {
 }
 
 type CompleteSessionResp struct {
-	Message string `thrift:"message,1" form:"message" json:"message"`
+	Message string `thrift:"message,1" json:"message"`
 }
 
 func NewCompleteSessionResp() *CompleteSessionResp {
@@ -4351,9 +4351,9 @@ func (p *CompleteSessionResp) String() string {
 }
 
 type FailSessionReq struct {
-	ID        string `thrift:"id,1" json:"id" path:"id"`
-	SessionID string `thrift:"session_id,2" json:"session_id" path:"sessionId"`
-	Reason    string `thrift:"reason,3" form:"reason" json:"reason"`
+	ID        string `thrift:"id,1" json:"id"`
+	SessionID string `thrift:"session_id,2" json:"session_id"`
+	Reason    string `thrift:"reason,3" json:"reason"`
 }
 
 func NewFailSessionReq() *FailSessionReq {
@@ -4583,7 +4583,7 @@ func (p *FailSessionReq) String() string {
 }
 
 type FailSessionResp struct {
-	Message string `thrift:"message,1" form:"message" json:"message"`
+	Message string `thrift:"message,1" json:"message"`
 }
 
 func NewFailSessionResp() *FailSessionResp {
@@ -4723,8 +4723,8 @@ func (p *FailSessionResp) String() string {
 }
 
 type CancelSessionReq struct {
-	ID        string `thrift:"id,1" json:"id" path:"id"`
-	SessionID string `thrift:"session_id,2" json:"session_id" path:"sessionId"`
+	ID        string `thrift:"id,1" json:"id"`
+	SessionID string `thrift:"session_id,2" json:"session_id"`
 }
 
 func NewCancelSessionReq() *CancelSessionReq {
@@ -4909,7 +4909,7 @@ func (p *CancelSessionReq) String() string {
 }
 
 type CancelSessionResp struct {
-	Message string `thrift:"message,1" form:"message" json:"message"`
+	Message string `thrift:"message,1" json:"message"`
 }
 
 func NewCancelSessionResp() *CancelSessionResp {
@@ -5049,8 +5049,8 @@ func (p *CancelSessionResp) String() string {
 }
 
 type ListSessionsReq struct {
-	Page     *int64 `thrift:"page,1,optional" json:"page,omitempty" query:"page"`
-	PageSize *int64 `thrift:"page_size,2,optional" json:"page_size,omitempty" query:"page_size"`
+	Page     *int64 `thrift:"page,1,optional" json:"page,omitempty"`
+	PageSize *int64 `thrift:"page_size,2,optional" json:"page_size,omitempty"`
 }
 
 func NewListSessionsReq() *ListSessionsReq {
@@ -5257,11 +5257,11 @@ func (p *ListSessionsReq) String() string {
 }
 
 type ListSessionsResp struct {
-	Sessions   []*ReviewSession `thrift:"sessions,1,default,list<ReviewSession>" form:"sessions" json:"sessions"`
-	Total      int64            `thrift:"total,2" form:"total" json:"total"`
-	Page       int64            `thrift:"page,3" form:"page" json:"page"`
-	PageSize   int64            `thrift:"page_size,4" form:"page_size" json:"page_size"`
-	TotalPages int64            `thrift:"total_pages,5" form:"total_pages" json:"total_pages"`
+	Sessions   []*ReviewSession `thrift:"sessions,1,default,list<ReviewSession>" json:"sessions"`
+	Total      int64            `thrift:"total,2" json:"total"`
+	Page       int64            `thrift:"page,3" json:"page"`
+	PageSize   int64            `thrift:"page_size,4" json:"page_size"`
+	TotalPages int64            `thrift:"total_pages,5" json:"total_pages"`
 }
 
 func NewListSessionsResp() *ListSessionsResp {
