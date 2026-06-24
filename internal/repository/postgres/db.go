@@ -14,17 +14,17 @@ import (
 )
 
 func InitDB(cfg *config.DatabaseConfig) (*gormDB.DB, error) {
-	db, err := gormx.OpenWithPoolConfig(
+	db, err := gormx.OpenWithPool(
 		gormLib.Open(cfg.DSN),
-		gormx.PoolConfig{
-			MaxIdleConns:    cfg.MaxIdleConns,
-			MaxOpenConns:    cfg.MaxOpenConns,
-			ConnMaxLifetime: 30 * time.Minute,
-			ConnMaxIdleTime: 5 * time.Minute, // 空闲连接 5 分钟后回收，防止 DB 端 wait_timeout 静默关闭后取到失效连接
-		},
+		cfg.MaxIdleConns,
+		cfg.MaxOpenConns,
+		30*time.Minute,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("init database: %w", err)
+	}
+	if sqlDB, err := db.DB(); err == nil {
+		sqlDB.SetConnMaxIdleTime(5 * time.Minute) // 空闲连接 5 分钟后回收，防止 DB 端 wait_timeout 静默关闭后取到失效连接
 	}
 
 	if cfg.AutoMigrate == nil || *cfg.AutoMigrate {

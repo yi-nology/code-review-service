@@ -164,6 +164,10 @@ func (a *MockAgent) Priority() int {
 	return a.priority
 }
 
+func (a *MockAgent) IsDefault() bool {
+	return false
+}
+
 func (a *MockAgent) Review(ctx context.Context, workspace agent.Workspace) (agent.AgentResult, error) {
 	return agent.AgentResult{
 		AgentName: a.name,

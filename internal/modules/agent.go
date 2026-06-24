@@ -22,6 +22,31 @@ func NewAgentManager() *agent.AgentManager {
 	return agent.NewAgentManager(agent.DefaultManagerConfig(), agent.NewDefaultAggregator(agent.DefaultAggregatorConfig()))
 }
 
+// projectAgentResolverAdapter 把 ProjectAgentRepository 适配成 agent.ProjectAgentResolver。
+// 返回 persona(name) → 项目优先级映射；空 map 表示该项目未配置任何 project_agents。
+type projectAgentResolverAdapter struct {
+	repo repository.ProjectAgentRepository
+}
+
+func (a *projectAgentResolverAdapter) ResolveProjectAgents(ctx context.Context, provider, repo string) (map[string]int, error) {
+	projectAgents, err := a.repo.GetEnabledByProject(ctx, provider, repo)
+	if err != nil {
+		return nil, err
+	}
+	if len(projectAgents) == 0 {
+		return nil, nil
+	}
+	m := make(map[string]int, len(projectAgents))
+	for _, pa := range projectAgents {
+		// AgentName 来自 GetEnabledByProject 的 join；缺失则跳过
+		if pa.AgentName == "" {
+			continue
+		}
+		m[pa.AgentName] = pa.Priority
+	}
+	return m, nil
+}
+
 func InitAgentManager(lc fx.Lifecycle, cfg *config.Config, repos *repository.RepoContainer, agentMgr *agent.AgentManager) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -51,6 +76,8 @@ func InitAgentManager(lc fx.Lifecycle, cfg *config.Config, repos *repository.Rep
 				ExtraBody:       reasoningExtraBody,
 			})
 			agentMgr.SetFactory(runnerFactory) // 阶段 5：使 manager 具备构造 ephemeral agent 的能力
+			// 注入项目级 agent 解析器：使审查按项目裁剪（per-project 白名单覆盖 / 缺省自动推断）
+			agentMgr.SetProjectResolver(&projectAgentResolverAdapter{repo: repos.ProjectAgent})
 			// 同步 agent 框架超时 = OCR 超时 + buffer（agent 超时必须大于 OCR 单次超时）
 			agentMgr.UpdateTimeouts(time.Duration(ocrTimeoutMinutes) * time.Minute)
 			logx.Infof("agent manager 超时已同步: OCR=%dm, agent=%dm, total=%dm", ocrTimeoutMinutes, ocrTimeoutMinutes+5, ocrTimeoutMinutes+10)

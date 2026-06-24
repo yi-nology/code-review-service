@@ -196,8 +196,8 @@ func (s *parallelReviewsStep) Run(ctx context.Context, req workflow.Request, ses
 
 	rs.Workspace = workspace
 
-	// 运行 agents（含 ephemeral，阶段 5）
-	aggregatedResult, err := s.agentManager.RunAgentsWithEphemeral(ctx, workspace, rs.Request.EphemeralReviewers, func(status agent.AgentStatus) {
+	// 运行 agents（含 ephemeral，阶段 5）；按项目裁剪（per-project 白名单 / 技术栈自动推断）
+	aggregatedResult, err := s.agentManager.RunAgentsForProject(ctx, workspace, rs.Request.Provider, rs.Request.Repo, rs.Request.EphemeralReviewers, func(status agent.AgentStatus) {
 		rs.Tracker.UpdateAgentStatus(status.Name, status.Status, status.Progress, status.Message)
 	})
 

@@ -17,7 +17,10 @@ type ReviewerAgent struct {
 	Redundancy int            `gorm:"not null;default:1" json:"redundancy"`
 	Enabled    bool           `gorm:"not null;default:true" json:"enabled"`
 	Priority   int            `gorm:"not null;default:0" json:"priority"`
-	Tags       datatypes.JSON `gorm:"type:jsonb" json:"tags,omitempty"`
+	// IsDefault 标记该审查员属于「缺省集」：项目未配置 project_agents 且技术栈推断无匹配时，
+	// 兜底运行 is_default=true 的审查员（避免空跑）。
+	IsDefault bool           `gorm:"not null;default:false" json:"is_default"`
+	Tags      datatypes.JSON `gorm:"type:jsonb" json:"tags,omitempty"`
 }
 
 func (ReviewerAgent) TableName() string {

@@ -47,6 +47,9 @@ func CreateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	if req.Redundancy != nil && *req.Redundancy >= 1 {
 		agent.Redundancy = int(*req.Redundancy)
 	}
+	if req.IsDefault != nil {
+		agent.IsDefault = *req.IsDefault
+	}
 	if len(req.Tags) > 0 {
 		agent.Tags = datatypes.JSON(mustMarshalJSON(req.Tags))
 	}
@@ -93,6 +96,9 @@ func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	if req.Redundancy != nil && *req.Redundancy >= 1 {
 		existing.Redundancy = int(*req.Redundancy)
 	}
+	if req.IsDefault != nil {
+		existing.IsDefault = *req.IsDefault
+	}
 	if req.Tags != nil {
 		existing.Tags = datatypes.JSON(mustMarshalJSON(req.Tags))
 	}
@@ -133,5 +139,6 @@ func dbReviewerAgentToAPI(a *models.ReviewerAgent) *modelSettings.ReviewerAgentI
 		Description: common.StrPtr(a.Description), Background: common.StrPtr(a.Background),
 		Enabled: a.Enabled, Priority: int64(a.Priority), Tags: common.StrPtr(tags),
 		RuleFile: common.StrPtr(a.RuleFile), Redundancy: int64(a.Redundancy),
+		IsDefault: a.IsDefault,
 	}
 }

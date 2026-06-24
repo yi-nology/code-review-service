@@ -66,6 +66,7 @@ func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
 			Priority:        int64(a.Priority),
 			ProjectEnabled:  false,
 			ProjectPriority: int64(a.Priority),
+			IsDefault:       a.IsDefault,
 		}
 		if pa, ok := enabledMap[a.ID]; ok {
 			agent.ProjectEnabled = pa.Enabled

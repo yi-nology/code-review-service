@@ -11,6 +11,12 @@
     </div>
 
     <div v-else>
+      <div class="hint-bar">
+        <el-text type="info" size="small">
+          配置后仅运行此处启用的审查员（完全覆盖默认规则）。未配置时，系统将按仓库技术栈自动推断。
+        </el-text>
+      </div>
+
       <div class="agent-list">
         <div
           v-for="agent in agents"
@@ -93,6 +99,7 @@ interface Agent {
   priority: number
   project_enabled: boolean
   project_priority: number
+  is_default: boolean
 }
 
 const props = defineProps<{

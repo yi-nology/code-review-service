@@ -14,6 +14,7 @@ struct ProjectAgentConfig {
     7: i64 priority (api.body="priority")
     8: bool project_enabled (api.body="project_enabled")
     9: i64 project_priority (api.body="project_priority")
+    10: bool is_default (api.body="is_default")
 }
 
 struct GetProjectAgentsReq {

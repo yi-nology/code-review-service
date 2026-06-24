@@ -63,15 +63,16 @@
             <div v-else v-loading="loading" class="agent-list">
               <button
                 v-for="agent in filteredAgents"
-                :key="agent.ID"
+                :key="agent.id"
                 class="agent-item"
-                :class="{ active: selectedAgent?.ID === agent.ID, disabled: !agent.enabled }"
+                :class="{ active: selectedAgent?.id === agent.id, disabled: !agent.enabled }"
                 type="button"
                 @click="editAgent(agent)"
               >
                 <span class="agent-title">
                   <strong>{{ agent.display_name }}</strong>
                   <span class="priority-badge">P{{ agent.priority ?? 0 }}</span>
+                  <span v-if="agent.is_default" class="default-badge">DEFAULT</span>
                 </span>
                 <span class="agent-meta">
                   {{ agent.name }} / {{ agent.enabled ? '启用' : '禁用' }}
@@ -97,6 +98,12 @@
                   inline-prompt
                   active-text="启用"
                   inactive-text="禁用"
+                />
+                <el-switch
+                  v-model="form.is_default"
+                  inline-prompt
+                  active-text="默认"
+                  inactive-text="非默认"
                 />
               </div>
             </template>
@@ -218,8 +225,10 @@
               </div>
             </template>
             <div class="help-content">
-              <p>没有项目团队配置时，系统会使用所有全局启用的审查员。</p>
-              <p>项目策略配置审查员后，只运行项目中启用的审查员。</p>
+              <p>项目未配置审查员时，系统按仓库技术栈（Go/Java/Node 等）自动推断匹配的审查员。</p>
+              <p>技术栈推断无匹配时，运行标记为「默认」的审查员；仍无则运行全部启用的审查员。</p>
+              <p>项目策略配置审查员后，完全覆盖上述逻辑，只运行项目中启用的审查员。</p>
+              <p>标签含 <code>always</code> 的审查员在任何项目中都会被自动选中。</p>
               <p>优先级数字越小越靠前；项目优先级会覆盖这里的全局优先级。</p>
             </div>
           </el-card>
@@ -268,7 +277,7 @@ const presets: AgentPreset[] = [
 - 输入验证、输出编码与数据净化
 - 密码、Token、密钥等敏感数据处理
 - 越权访问和不安全默认配置`,
-    tags: ['security', 'auth', 'risk'],
+    tags: ['always', 'security', 'auth', 'risk'],
     priority: 10,
   },
   {
@@ -281,7 +290,7 @@ const presets: AgentPreset[] = [
 - 事务边界、并发安全和资源释放
 - 日志、监控和可观测性
 - 边界条件与失败路径处理`,
-    tags: ['backend', 'api', 'database'],
+    tags: ['stack:go', 'stack:python', 'stack:java', 'backend', 'api', 'database'],
     priority: 20,
   },
   {
@@ -294,7 +303,7 @@ const presets: AgentPreset[] = [
 - 响应式布局、可访问性和用户体验
 - 状态管理、接口调用和缓存策略
 - 前端性能和代码分割`,
-    tags: ['frontend', 'ux', 'vue'],
+    tags: ['stack:node', 'stack:frontend', 'frontend', 'ux', 'vue'],
     priority: 30,
   },
   {
@@ -307,7 +316,7 @@ const presets: AgentPreset[] = [
 - 缓存策略、批处理和异步执行
 - 数据库索引与慢查询风险
 - 高并发场景下的扩展性`,
-    tags: ['performance', 'scalability'],
+    tags: ['always', 'performance', 'scalability'],
     priority: 40,
   },
 ]
@@ -328,6 +337,7 @@ const form = reactive({
   description: '',
   background: '',
   enabled: true,
+  is_default: false,
   priority: 20,
   tags: [] as string[],
 })
@@ -338,7 +348,7 @@ const dirty = computed(() => JSON.stringify(payload.value) !== originalJson.valu
 
 const filteredAgents = computed(() => {
   const value = keyword.value.trim().toLowerCase()
-  const sorted = [...agents.value].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0) || a.ID - b.ID)
+  const sorted = [...agents.value].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0) || a.id - b.id)
   if (!value) return sorted
   return sorted.filter((agent) => {
     return [
@@ -356,6 +366,7 @@ const payload = computed(() => ({
   description: form.description.trim(),
   background: form.background.trim(),
   enabled: form.enabled,
+  is_default: form.is_default,
   priority: form.priority,
   tags: form.tags.map((tag) => tag.trim()).filter(Boolean),
 }))
@@ -370,7 +381,7 @@ const validationIssues = computed(() => {
   if (!payload.value.background) issues.push('请输入审查侧重点')
   if (payload.value.background.length > 2000) issues.push('审查侧重点过长，请控制在 2000 字以内')
   const duplicatedName = agents.value.some((agent) => {
-    return agent.name === payload.value.name && agent.ID !== selectedAgent.value?.ID
+    return agent.name === payload.value.name && agent.id !== selectedAgent.value?.id
   })
   if (duplicatedName) issues.push('标识名已存在')
   return issues
@@ -381,7 +392,7 @@ async function fetchAgents() {
   try {
     agents.value = await listReviewerAgents()
     if (selectedAgent.value) {
-      const latest = agents.value.find((agent) => agent.ID === selectedAgent.value?.ID)
+      const latest = agents.value.find((agent) => agent.id === selectedAgent.value?.id)
       if (latest) editAgent(latest)
     } else if (agents.value.length > 0) {
       editAgent(filteredAgents.value[0])
@@ -402,6 +413,7 @@ function editAgent(agent: ReviewerAgent) {
   form.description = agent.description || ''
   form.background = agent.background || ''
   form.enabled = agent.enabled
+  form.is_default = agent.is_default ?? false
   form.priority = agent.priority ?? 20
   form.tags = agent.tags ? [...agent.tags] : []
   syncOriginal()
@@ -414,6 +426,7 @@ function startCreate() {
   form.description = ''
   form.background = ''
   form.enabled = true
+  form.is_default = false
   form.priority = 20
   form.tags = []
   syncOriginal()
@@ -426,6 +439,7 @@ function applyPreset(preset: AgentPreset) {
   form.description = preset.description
   form.background = preset.background
   form.enabled = true
+  form.is_default = false
   form.priority = preset.priority
   form.tags = [...preset.tags]
   syncOriginal()
@@ -440,11 +454,12 @@ async function handleSave() {
   try {
     let saved: ReviewerAgent
     if (selectedAgent.value) {
-      saved = await updateReviewerAgent(selectedAgent.value.ID, {
+      saved = await updateReviewerAgent(selectedAgent.value.id, {
         display_name: payload.value.display_name,
         description: payload.value.description,
         background: payload.value.background,
         enabled: payload.value.enabled,
+        is_default: payload.value.is_default,
         priority: payload.value.priority,
         tags: payload.value.tags,
       })
@@ -454,7 +469,7 @@ async function handleSave() {
       ElMessage.success('审查员已创建')
     }
     await fetchAgents()
-    const latest = agents.value.find((agent) => agent.ID === saved.ID || agent.name === saved.name)
+    const latest = agents.value.find((agent) => agent.id === saved.id || agent.name === saved.name)
     if (latest) editAgent(latest)
   } catch (e: any) {
     ElMessage.error(e?.message || '保存失败')
@@ -467,7 +482,7 @@ async function handleDeleteSelected() {
   if (!selectedAgent.value) return
   try {
     await ElMessageBox.confirm(`确定删除 ${selectedAgent.value.display_name}？`, '确认删除')
-    await deleteReviewerAgent(selectedAgent.value.ID)
+    await deleteReviewerAgent(selectedAgent.value.id)
     ElMessage.success('审查员已删除')
     selectedAgent.value = null
     await fetchAgents()
@@ -667,6 +682,18 @@ onMounted(fetchAgents)
   background: #f0f1ff;
   font-size: 11px;
   font-weight: 800;
+}
+
+.default-badge {
+  display: inline-flex;
+  min-height: 18px;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 6px;
+  color: #0f7b6c;
+  background: #e6faf5;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .agent-meta {

@@ -280,6 +280,7 @@ struct ReviewerAgentInfo {
     8: optional string tags (api.body="tags")
     9: optional string rule_file (api.body="rule_file")
     10: i64 redundancy (api.body="redundancy")
+    11: bool is_default (api.body="is_default")
 }
 
 struct ListReviewerAgentsResp {
@@ -296,6 +297,7 @@ struct CreateReviewerAgentReq {
     7: optional list<string> tags (api.body="tags")
     8: optional string rule_file (api.body="rule_file")
     9: optional i64 redundancy (api.body="redundancy")
+    10: optional bool is_default (api.body="is_default")
 }
 
 struct CreateReviewerAgentResp {
@@ -312,6 +314,7 @@ struct UpdateReviewerAgentReq {
     7: optional list<string> tags (api.body="tags")
     8: optional string rule_file (api.body="rule_file")
     9: optional i64 redundancy (api.body="redundancy")
+    10: optional bool is_default (api.body="is_default")
 }
 
 struct UpdateReviewerAgentResp {

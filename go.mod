@@ -3,7 +3,7 @@ module github.com/yi-nology/code-review-service
 go 1.26
 
 require (
-	github.com/yi-nology/ekit v0.8.0
+	github.com/yi-nology/ekit v0.9.0
 	github.com/apache/thrift v0.23.0
 	github.com/cloudwego/hertz v0.10.4
 	github.com/hertz-contrib/swagger v0.1.1
@@ -65,6 +65,7 @@ require (
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
+	github.com/felixge/fgprof v0.9.3 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-fed/httpsig v1.1.0 // indirect
@@ -97,12 +98,23 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-github/v69 v69.2.0 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
+	github.com/google/pprof v0.0.0-20230901174712-0191c66da455 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/gorilla/context v1.1.1 // indirect
+	github.com/gorilla/securecookie v1.1.1 // indirect
+	github.com/gorilla/sessions v1.2.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.1 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/hashicorp/go-version v1.9.0 // indirect
+	github.com/hertz-contrib/cors v0.1.0 // indirect
+	github.com/hertz-contrib/csrf v0.1.1 // indirect
+	github.com/hertz-contrib/etag v0.1.0 // indirect
+	github.com/hertz-contrib/gzip v0.0.4 // indirect
 	github.com/hertz-contrib/obs-opentelemetry/provider v0.3.0 // indirect
+	github.com/hertz-contrib/pprof v0.1.2 // indirect
+	github.com/hertz-contrib/requestid v1.1.0 // indirect
+	github.com/hertz-contrib/sessions v1.0.1 // indirect
 	github.com/icholy/digest v1.1.0 // indirect
 	github.com/imroc/req/v3 v3.57.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

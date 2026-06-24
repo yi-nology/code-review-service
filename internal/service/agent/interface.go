@@ -14,6 +14,7 @@ type reviewAgent interface {
 	Focus() []string
 	Review(ctx context.Context, workspace Workspace) (AgentResult, error)
 	Priority() int
+	IsDefault() bool
 }
 
 // Workspace contains the review context
