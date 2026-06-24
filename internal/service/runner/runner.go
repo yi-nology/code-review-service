@@ -16,7 +16,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/pkg/convert"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 type OpenCodeReviewRunner struct {
@@ -61,7 +61,7 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 		}
 
 		if attempt > 1 {
-			hlog.CtxWarnf(ctx, "ocr run failed, retrying attempt %d/%d: %v", attempt-1, maxRetries, lastErr)
+			logx.CtxWarnf(ctx, "ocr run failed, retrying attempt %d/%d: %v", attempt-1, maxRetries, lastErr)
 			if reporter != nil {
 				reporter.ReportAgentStatus("ocr", "retrying", fmt.Sprintf("重试第 %d 次", attempt-1))
 			}
@@ -159,7 +159,7 @@ func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Wor
 			}
 		}
 		if err := scanner.Err(); err != nil {
-			hlog.Warnf("ocr stderr scanner error: %v", err)
+			logx.Warnf("ocr stderr scanner error: %v", err)
 		}
 	})
 

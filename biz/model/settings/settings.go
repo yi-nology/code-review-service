@@ -1170,6 +1170,8 @@ type OCRSettings struct {
 	TelemetryContentLogging *bool   `thrift:"telemetry_content_logging,22,optional" form:"telemetry_content_logging" json:"telemetry_content_logging,omitempty"`
 	ReasoningMode           *string `thrift:"reasoning_mode,23,optional" form:"reasoning_mode" json:"reasoning_mode,omitempty"`
 	ReasoningBudget         *int64  `thrift:"reasoning_budget,24,optional" form:"reasoning_budget" json:"reasoning_budget,omitempty"`
+	ContextWindow           *int64  `thrift:"context_window,25,optional" form:"context_window" json:"context_window,omitempty"`
+	MaxOutputTokens         *int64  `thrift:"max_output_tokens,26,optional" form:"max_output_tokens" json:"max_output_tokens,omitempty"`
 }
 
 func NewOCRSettings() *OCRSettings {
@@ -1372,6 +1374,42 @@ func (p *OCRSettings) GetTelemetryContentLogging() (v bool) {
 	return *p.TelemetryContentLogging
 }
 
+var OCRSettings_ReasoningMode_DEFAULT string
+
+func (p *OCRSettings) GetReasoningMode() (v string) {
+	if !p.IsSetReasoningMode() {
+		return OCRSettings_ReasoningMode_DEFAULT
+	}
+	return *p.ReasoningMode
+}
+
+var OCRSettings_ReasoningBudget_DEFAULT int64
+
+func (p *OCRSettings) GetReasoningBudget() (v int64) {
+	if !p.IsSetReasoningBudget() {
+		return OCRSettings_ReasoningBudget_DEFAULT
+	}
+	return *p.ReasoningBudget
+}
+
+var OCRSettings_ContextWindow_DEFAULT int64
+
+func (p *OCRSettings) GetContextWindow() (v int64) {
+	if !p.IsSetContextWindow() {
+		return OCRSettings_ContextWindow_DEFAULT
+	}
+	return *p.ContextWindow
+}
+
+var OCRSettings_MaxOutputTokens_DEFAULT int64
+
+func (p *OCRSettings) GetMaxOutputTokens() (v int64) {
+	if !p.IsSetMaxOutputTokens() {
+		return OCRSettings_MaxOutputTokens_DEFAULT
+	}
+	return *p.MaxOutputTokens
+}
+
 var fieldIDToName_OCRSettings = map[int16]string{
 	1:  "enabled",
 	2:  "provider",
@@ -1395,6 +1433,10 @@ var fieldIDToName_OCRSettings = map[int16]string{
 	20: "telemetry_exporter",
 	21: "telemetry_otlp_endpoint",
 	22: "telemetry_content_logging",
+	23: "reasoning_mode",
+	24: "reasoning_budget",
+	25: "context_window",
+	26: "max_output_tokens",
 }
 
 func (p *OCRSettings) IsSetProvider() bool {
@@ -1479,6 +1521,22 @@ func (p *OCRSettings) IsSetTelemetryOtlpEndpoint() bool {
 
 func (p *OCRSettings) IsSetTelemetryContentLogging() bool {
 	return p.TelemetryContentLogging != nil
+}
+
+func (p *OCRSettings) IsSetReasoningMode() bool {
+	return p.ReasoningMode != nil
+}
+
+func (p *OCRSettings) IsSetReasoningBudget() bool {
+	return p.ReasoningBudget != nil
+}
+
+func (p *OCRSettings) IsSetContextWindow() bool {
+	return p.ContextWindow != nil
+}
+
+func (p *OCRSettings) IsSetMaxOutputTokens() bool {
+	return p.MaxOutputTokens != nil
 }
 
 func (p *OCRSettings) Read(iprot thrift.TProtocol) (err error) {
@@ -1671,6 +1729,38 @@ func (p *OCRSettings) Read(iprot thrift.TProtocol) (err error) {
 		case 22:
 			if fieldTypeId == thrift.BOOL {
 				if err = p.ReadField22(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 23:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField23(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 24:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField24(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 25:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField25(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 26:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField26(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -1947,6 +2037,50 @@ func (p *OCRSettings) ReadField22(iprot thrift.TProtocol) error {
 	p.TelemetryContentLogging = _field
 	return nil
 }
+func (p *OCRSettings) ReadField23(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.ReasoningMode = _field
+	return nil
+}
+func (p *OCRSettings) ReadField24(iprot thrift.TProtocol) error {
+
+	var _field *int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.ReasoningBudget = _field
+	return nil
+}
+func (p *OCRSettings) ReadField25(iprot thrift.TProtocol) error {
+
+	var _field *int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.ContextWindow = _field
+	return nil
+}
+func (p *OCRSettings) ReadField26(iprot thrift.TProtocol) error {
+
+	var _field *int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.MaxOutputTokens = _field
+	return nil
+}
 
 func (p *OCRSettings) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -2040,6 +2174,22 @@ func (p *OCRSettings) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField22(oprot); err != nil {
 			fieldId = 22
+			goto WriteFieldError
+		}
+		if err = p.writeField23(oprot); err != nil {
+			fieldId = 23
+			goto WriteFieldError
+		}
+		if err = p.writeField24(oprot); err != nil {
+			fieldId = 24
+			goto WriteFieldError
+		}
+		if err = p.writeField25(oprot); err != nil {
+			fieldId = 25
+			goto WriteFieldError
+		}
+		if err = p.writeField26(oprot); err != nil {
+			fieldId = 26
 			goto WriteFieldError
 		}
 	}
@@ -2474,6 +2624,82 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 22 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 22 end error: ", p), err)
+}
+
+func (p *OCRSettings) writeField23(oprot thrift.TProtocol) (err error) {
+	if p.IsSetReasoningMode() {
+		if err = oprot.WriteFieldBegin("reasoning_mode", thrift.STRING, 23); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.ReasoningMode); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 23 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 23 end error: ", p), err)
+}
+
+func (p *OCRSettings) writeField24(oprot thrift.TProtocol) (err error) {
+	if p.IsSetReasoningBudget() {
+		if err = oprot.WriteFieldBegin("reasoning_budget", thrift.I64, 24); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteI64(*p.ReasoningBudget); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 24 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 24 end error: ", p), err)
+}
+
+func (p *OCRSettings) writeField25(oprot thrift.TProtocol) (err error) {
+	if p.IsSetContextWindow() {
+		if err = oprot.WriteFieldBegin("context_window", thrift.I64, 25); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteI64(*p.ContextWindow); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 25 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 25 end error: ", p), err)
+}
+
+func (p *OCRSettings) writeField26(oprot thrift.TProtocol) (err error) {
+	if p.IsSetMaxOutputTokens() {
+		if err = oprot.WriteFieldBegin("max_output_tokens", thrift.I64, 26); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteI64(*p.MaxOutputTokens); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 26 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 26 end error: ", p), err)
 }
 
 func (p *OCRSettings) String() string {
@@ -9488,6 +9714,7 @@ type GitPlatformInfo struct {
 	Enabled        bool    `thrift:"enabled,4" form:"enabled" json:"enabled"`
 	WebhookSecret  *string `thrift:"webhook_secret,5,optional" form:"webhook_secret" json:"webhook_secret,omitempty"`
 	InstallationID *string `thrift:"installation_id,6,optional" form:"installation_id" json:"installation_id,omitempty"`
+	SkipTLS        *bool   `thrift:"skip_tls,7,optional" form:"skip_tls" json:"skip_tls,omitempty"`
 }
 
 func NewGitPlatformInfo() *GitPlatformInfo {
@@ -9531,6 +9758,15 @@ func (p *GitPlatformInfo) GetInstallationID() (v string) {
 	return *p.InstallationID
 }
 
+var GitPlatformInfo_SkipTLS_DEFAULT bool
+
+func (p *GitPlatformInfo) GetSkipTLS() (v bool) {
+	if !p.IsSetSkipTLS() {
+		return GitPlatformInfo_SkipTLS_DEFAULT
+	}
+	return *p.SkipTLS
+}
+
 var fieldIDToName_GitPlatformInfo = map[int16]string{
 	1: "provider",
 	2: "base_url",
@@ -9538,6 +9774,7 @@ var fieldIDToName_GitPlatformInfo = map[int16]string{
 	4: "enabled",
 	5: "webhook_secret",
 	6: "installation_id",
+	7: "skip_tls",
 }
 
 func (p *GitPlatformInfo) IsSetWebhookSecret() bool {
@@ -9546,6 +9783,10 @@ func (p *GitPlatformInfo) IsSetWebhookSecret() bool {
 
 func (p *GitPlatformInfo) IsSetInstallationID() bool {
 	return p.InstallationID != nil
+}
+
+func (p *GitPlatformInfo) IsSetSkipTLS() bool {
+	return p.SkipTLS != nil
 }
 
 func (p *GitPlatformInfo) Read(iprot thrift.TProtocol) (err error) {
@@ -9610,6 +9851,14 @@ func (p *GitPlatformInfo) Read(iprot thrift.TProtocol) (err error) {
 		case 6:
 			if fieldTypeId == thrift.STRING {
 				if err = p.ReadField6(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 7:
+			if fieldTypeId == thrift.BOOL {
+				if err = p.ReadField7(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -9710,6 +9959,17 @@ func (p *GitPlatformInfo) ReadField6(iprot thrift.TProtocol) error {
 	p.InstallationID = _field
 	return nil
 }
+func (p *GitPlatformInfo) ReadField7(iprot thrift.TProtocol) error {
+
+	var _field *bool
+	if v, err := iprot.ReadBool(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.SkipTLS = _field
+	return nil
+}
 
 func (p *GitPlatformInfo) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -9739,6 +9999,10 @@ func (p *GitPlatformInfo) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField6(oprot); err != nil {
 			fieldId = 6
+			goto WriteFieldError
+		}
+		if err = p.writeField7(oprot); err != nil {
+			fieldId = 7
 			goto WriteFieldError
 		}
 	}
@@ -9863,6 +10127,25 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 6 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 6 end error: ", p), err)
+}
+
+func (p *GitPlatformInfo) writeField7(oprot thrift.TProtocol) (err error) {
+	if p.IsSetSkipTLS() {
+		if err = oprot.WriteFieldBegin("skip_tls", thrift.BOOL, 7); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteBool(*p.SkipTLS); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 7 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 7 end error: ", p), err)
 }
 
 func (p *GitPlatformInfo) String() string {
@@ -10099,6 +10382,15 @@ func (p *PutPlatformReq) GetInstallationID() (v string) {
 	return *p.InstallationID
 }
 
+var PutPlatformReq_SkipTLS_DEFAULT bool
+
+func (p *PutPlatformReq) GetSkipTLS() (v bool) {
+	if !p.IsSetSkipTLS() {
+		return PutPlatformReq_SkipTLS_DEFAULT
+	}
+	return *p.SkipTLS
+}
+
 var fieldIDToName_PutPlatformReq = map[int16]string{
 	1: "provider",
 	2: "base_url",
@@ -10106,6 +10398,7 @@ var fieldIDToName_PutPlatformReq = map[int16]string{
 	4: "enabled",
 	5: "webhook_secret",
 	6: "installation_id",
+	7: "skip_tls",
 }
 
 func (p *PutPlatformReq) IsSetBaseURL() bool {
@@ -10126,6 +10419,10 @@ func (p *PutPlatformReq) IsSetWebhookSecret() bool {
 
 func (p *PutPlatformReq) IsSetInstallationID() bool {
 	return p.InstallationID != nil
+}
+
+func (p *PutPlatformReq) IsSetSkipTLS() bool {
+	return p.SkipTLS != nil
 }
 
 func (p *PutPlatformReq) Read(iprot thrift.TProtocol) (err error) {
@@ -10190,6 +10487,14 @@ func (p *PutPlatformReq) Read(iprot thrift.TProtocol) (err error) {
 		case 6:
 			if fieldTypeId == thrift.STRING {
 				if err = p.ReadField6(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 7:
+			if fieldTypeId == thrift.BOOL {
+				if err = p.ReadField7(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -10290,6 +10595,17 @@ func (p *PutPlatformReq) ReadField6(iprot thrift.TProtocol) error {
 	p.InstallationID = _field
 	return nil
 }
+func (p *PutPlatformReq) ReadField7(iprot thrift.TProtocol) error {
+
+	var _field *bool
+	if v, err := iprot.ReadBool(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.SkipTLS = _field
+	return nil
+}
 
 func (p *PutPlatformReq) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -10319,6 +10635,10 @@ func (p *PutPlatformReq) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField6(oprot); err != nil {
 			fieldId = 6
+			goto WriteFieldError
+		}
+		if err = p.writeField7(oprot); err != nil {
+			fieldId = 7
 			goto WriteFieldError
 		}
 	}
@@ -10449,6 +10769,25 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 6 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 6 end error: ", p), err)
+}
+
+func (p *PutPlatformReq) writeField7(oprot thrift.TProtocol) (err error) {
+	if p.IsSetSkipTLS() {
+		if err = oprot.WriteFieldBegin("skip_tls", thrift.BOOL, 7); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteBool(*p.SkipTLS); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 7 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 7 end error: ", p), err)
 }
 
 func (p *PutPlatformReq) String() string {
@@ -10859,14 +11198,28 @@ func (p *TestPlatformReq) GetToken() (v string) {
 	return p.Token
 }
 
+var TestPlatformReq_SkipTLS_DEFAULT bool
+
+func (p *TestPlatformReq) GetSkipTLS() (v bool) {
+	if !p.IsSetSkipTLS() {
+		return TestPlatformReq_SkipTLS_DEFAULT
+	}
+	return *p.SkipTLS
+}
+
 var fieldIDToName_TestPlatformReq = map[int16]string{
 	1: "provider",
 	2: "base_url",
 	3: "token",
+	4: "skip_tls",
 }
 
 func (p *TestPlatformReq) IsSetBaseURL() bool {
 	return p.BaseURL != nil
+}
+
+func (p *TestPlatformReq) IsSetSkipTLS() bool {
+	return p.SkipTLS != nil
 }
 
 func (p *TestPlatformReq) Read(iprot thrift.TProtocol) (err error) {
@@ -10907,6 +11260,14 @@ func (p *TestPlatformReq) Read(iprot thrift.TProtocol) (err error) {
 		case 3:
 			if fieldTypeId == thrift.STRING {
 				if err = p.ReadField3(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 4:
+			if fieldTypeId == thrift.BOOL {
+				if err = p.ReadField4(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -10974,6 +11335,17 @@ func (p *TestPlatformReq) ReadField3(iprot thrift.TProtocol) error {
 	p.Token = _field
 	return nil
 }
+func (p *TestPlatformReq) ReadField4(iprot thrift.TProtocol) error {
+
+	var _field *bool
+	if v, err := iprot.ReadBool(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.SkipTLS = _field
+	return nil
+}
 
 func (p *TestPlatformReq) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -10991,6 +11363,10 @@ func (p *TestPlatformReq) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField3(oprot); err != nil {
 			fieldId = 3
+			goto WriteFieldError
+		}
+		if err = p.writeField4(oprot); err != nil {
+			fieldId = 4
 			goto WriteFieldError
 		}
 	}
@@ -11062,6 +11438,25 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 3 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 3 end error: ", p), err)
+}
+
+func (p *TestPlatformReq) writeField4(oprot thrift.TProtocol) (err error) {
+	if p.IsSetSkipTLS() {
+		if err = oprot.WriteFieldBegin("skip_tls", thrift.BOOL, 4); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteBool(*p.SkipTLS); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 end error: ", p), err)
 }
 
 func (p *TestPlatformReq) String() string {
@@ -11585,15 +11980,30 @@ func (p *ReviewerAgentInfo) GetTags() (v string) {
 	return *p.Tags
 }
 
+var ReviewerAgentInfo_RuleFile_DEFAULT string
+
+func (p *ReviewerAgentInfo) GetRuleFile() (v string) {
+	if !p.IsSetRuleFile() {
+		return ReviewerAgentInfo_RuleFile_DEFAULT
+	}
+	return *p.RuleFile
+}
+
+func (p *ReviewerAgentInfo) GetRedundancy() (v int64) {
+	return p.Redundancy
+}
+
 var fieldIDToName_ReviewerAgentInfo = map[int16]string{
-	1: "id",
-	2: "name",
-	3: "display_name",
-	4: "description",
-	5: "background",
-	6: "enabled",
-	7: "priority",
-	8: "tags",
+	1:  "id",
+	2:  "name",
+	3:  "display_name",
+	4:  "description",
+	5:  "background",
+	6:  "enabled",
+	7:  "priority",
+	8:  "tags",
+	9:  "rule_file",
+	10: "redundancy",
 }
 
 func (p *ReviewerAgentInfo) IsSetDescription() bool {
@@ -11606,6 +12016,10 @@ func (p *ReviewerAgentInfo) IsSetBackground() bool {
 
 func (p *ReviewerAgentInfo) IsSetTags() bool {
 	return p.Tags != nil
+}
+
+func (p *ReviewerAgentInfo) IsSetRuleFile() bool {
+	return p.RuleFile != nil
 }
 
 func (p *ReviewerAgentInfo) Read(iprot thrift.TProtocol) (err error) {
@@ -11686,6 +12100,22 @@ func (p *ReviewerAgentInfo) Read(iprot thrift.TProtocol) (err error) {
 		case 8:
 			if fieldTypeId == thrift.STRING {
 				if err = p.ReadField8(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 9:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField9(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 10:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField10(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -11808,6 +12238,28 @@ func (p *ReviewerAgentInfo) ReadField8(iprot thrift.TProtocol) error {
 	p.Tags = _field
 	return nil
 }
+func (p *ReviewerAgentInfo) ReadField9(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.RuleFile = _field
+	return nil
+}
+func (p *ReviewerAgentInfo) ReadField10(iprot thrift.TProtocol) error {
+
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Redundancy = _field
+	return nil
+}
 
 func (p *ReviewerAgentInfo) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -11845,6 +12297,14 @@ func (p *ReviewerAgentInfo) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField8(oprot); err != nil {
 			fieldId = 8
+			goto WriteFieldError
+		}
+		if err = p.writeField9(oprot); err != nil {
+			fieldId = 9
+			goto WriteFieldError
+		}
+		if err = p.writeField10(oprot); err != nil {
+			fieldId = 10
 			goto WriteFieldError
 		}
 	}
@@ -12005,6 +12465,42 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 8 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 8 end error: ", p), err)
+}
+
+func (p *ReviewerAgentInfo) writeField9(oprot thrift.TProtocol) (err error) {
+	if p.IsSetRuleFile() {
+		if err = oprot.WriteFieldBegin("rule_file", thrift.STRING, 9); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.RuleFile); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 9 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 9 end error: ", p), err)
+}
+
+func (p *ReviewerAgentInfo) writeField10(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("redundancy", thrift.I64, 10); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI64(p.Redundancy); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 10 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 10 end error: ", p), err)
 }
 
 func (p *ReviewerAgentInfo) String() string {
@@ -12242,6 +12738,24 @@ func (p *CreateReviewerAgentReq) GetTags() (v []string) {
 	return p.Tags
 }
 
+var CreateReviewerAgentReq_RuleFile_DEFAULT string
+
+func (p *CreateReviewerAgentReq) GetRuleFile() (v string) {
+	if !p.IsSetRuleFile() {
+		return CreateReviewerAgentReq_RuleFile_DEFAULT
+	}
+	return *p.RuleFile
+}
+
+var CreateReviewerAgentReq_Redundancy_DEFAULT int64
+
+func (p *CreateReviewerAgentReq) GetRedundancy() (v int64) {
+	if !p.IsSetRedundancy() {
+		return CreateReviewerAgentReq_Redundancy_DEFAULT
+	}
+	return *p.Redundancy
+}
+
 var fieldIDToName_CreateReviewerAgentReq = map[int16]string{
 	1: "name",
 	2: "display_name",
@@ -12250,6 +12764,8 @@ var fieldIDToName_CreateReviewerAgentReq = map[int16]string{
 	5: "enabled",
 	6: "priority",
 	7: "tags",
+	8: "rule_file",
+	9: "redundancy",
 }
 
 func (p *CreateReviewerAgentReq) IsSetDescription() bool {
@@ -12266,6 +12782,14 @@ func (p *CreateReviewerAgentReq) IsSetPriority() bool {
 
 func (p *CreateReviewerAgentReq) IsSetTags() bool {
 	return p.Tags != nil
+}
+
+func (p *CreateReviewerAgentReq) IsSetRuleFile() bool {
+	return p.RuleFile != nil
+}
+
+func (p *CreateReviewerAgentReq) IsSetRedundancy() bool {
+	return p.Redundancy != nil
 }
 
 func (p *CreateReviewerAgentReq) Read(iprot thrift.TProtocol) (err error) {
@@ -12338,6 +12862,22 @@ func (p *CreateReviewerAgentReq) Read(iprot thrift.TProtocol) (err error) {
 		case 7:
 			if fieldTypeId == thrift.LIST {
 				if err = p.ReadField7(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 8:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField8(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 9:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField9(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -12461,6 +13001,28 @@ func (p *CreateReviewerAgentReq) ReadField7(iprot thrift.TProtocol) error {
 	p.Tags = _field
 	return nil
 }
+func (p *CreateReviewerAgentReq) ReadField8(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.RuleFile = _field
+	return nil
+}
+func (p *CreateReviewerAgentReq) ReadField9(iprot thrift.TProtocol) error {
+
+	var _field *int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.Redundancy = _field
+	return nil
+}
 
 func (p *CreateReviewerAgentReq) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -12494,6 +13056,14 @@ func (p *CreateReviewerAgentReq) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField7(oprot); err != nil {
 			fieldId = 7
+			goto WriteFieldError
+		}
+		if err = p.writeField8(oprot); err != nil {
+			fieldId = 8
+			goto WriteFieldError
+		}
+		if err = p.writeField9(oprot); err != nil {
+			fieldId = 9
 			goto WriteFieldError
 		}
 	}
@@ -12647,6 +13217,44 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 7 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 7 end error: ", p), err)
+}
+
+func (p *CreateReviewerAgentReq) writeField8(oprot thrift.TProtocol) (err error) {
+	if p.IsSetRuleFile() {
+		if err = oprot.WriteFieldBegin("rule_file", thrift.STRING, 8); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.RuleFile); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 8 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 8 end error: ", p), err)
+}
+
+func (p *CreateReviewerAgentReq) writeField9(oprot thrift.TProtocol) (err error) {
+	if p.IsSetRedundancy() {
+		if err = oprot.WriteFieldBegin("redundancy", thrift.I64, 9); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteI64(*p.Redundancy); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 9 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 9 end error: ", p), err)
 }
 
 func (p *CreateReviewerAgentReq) String() string {
@@ -12880,6 +13488,24 @@ func (p *UpdateReviewerAgentReq) GetTags() (v []string) {
 	return p.Tags
 }
 
+var UpdateReviewerAgentReq_RuleFile_DEFAULT string
+
+func (p *UpdateReviewerAgentReq) GetRuleFile() (v string) {
+	if !p.IsSetRuleFile() {
+		return UpdateReviewerAgentReq_RuleFile_DEFAULT
+	}
+	return *p.RuleFile
+}
+
+var UpdateReviewerAgentReq_Redundancy_DEFAULT int64
+
+func (p *UpdateReviewerAgentReq) GetRedundancy() (v int64) {
+	if !p.IsSetRedundancy() {
+		return UpdateReviewerAgentReq_Redundancy_DEFAULT
+	}
+	return *p.Redundancy
+}
+
 var fieldIDToName_UpdateReviewerAgentReq = map[int16]string{
 	1: "id",
 	2: "display_name",
@@ -12888,6 +13514,8 @@ var fieldIDToName_UpdateReviewerAgentReq = map[int16]string{
 	5: "enabled",
 	6: "priority",
 	7: "tags",
+	8: "rule_file",
+	9: "redundancy",
 }
 
 func (p *UpdateReviewerAgentReq) IsSetDisplayName() bool {
@@ -12912,6 +13540,14 @@ func (p *UpdateReviewerAgentReq) IsSetPriority() bool {
 
 func (p *UpdateReviewerAgentReq) IsSetTags() bool {
 	return p.Tags != nil
+}
+
+func (p *UpdateReviewerAgentReq) IsSetRuleFile() bool {
+	return p.RuleFile != nil
+}
+
+func (p *UpdateReviewerAgentReq) IsSetRedundancy() bool {
+	return p.Redundancy != nil
 }
 
 func (p *UpdateReviewerAgentReq) Read(iprot thrift.TProtocol) (err error) {
@@ -12984,6 +13620,22 @@ func (p *UpdateReviewerAgentReq) Read(iprot thrift.TProtocol) (err error) {
 		case 7:
 			if fieldTypeId == thrift.LIST {
 				if err = p.ReadField7(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 8:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField8(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 9:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField9(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -13107,6 +13759,28 @@ func (p *UpdateReviewerAgentReq) ReadField7(iprot thrift.TProtocol) error {
 	p.Tags = _field
 	return nil
 }
+func (p *UpdateReviewerAgentReq) ReadField8(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.RuleFile = _field
+	return nil
+}
+func (p *UpdateReviewerAgentReq) ReadField9(iprot thrift.TProtocol) error {
+
+	var _field *int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.Redundancy = _field
+	return nil
+}
 
 func (p *UpdateReviewerAgentReq) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -13140,6 +13814,14 @@ func (p *UpdateReviewerAgentReq) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField7(oprot); err != nil {
 			fieldId = 7
+			goto WriteFieldError
+		}
+		if err = p.writeField8(oprot); err != nil {
+			fieldId = 8
+			goto WriteFieldError
+		}
+		if err = p.writeField9(oprot); err != nil {
+			fieldId = 9
 			goto WriteFieldError
 		}
 	}
@@ -13297,6 +13979,44 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 7 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 7 end error: ", p), err)
+}
+
+func (p *UpdateReviewerAgentReq) writeField8(oprot thrift.TProtocol) (err error) {
+	if p.IsSetRuleFile() {
+		if err = oprot.WriteFieldBegin("rule_file", thrift.STRING, 8); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.RuleFile); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 8 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 8 end error: ", p), err)
+}
+
+func (p *UpdateReviewerAgentReq) writeField9(oprot thrift.TProtocol) (err error) {
+	if p.IsSetRedundancy() {
+		if err = oprot.WriteFieldBegin("redundancy", thrift.I64, 9); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteI64(*p.Redundancy); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 9 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 9 end error: ", p), err)
 }
 
 func (p *UpdateReviewerAgentReq) String() string {

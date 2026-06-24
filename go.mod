@@ -3,15 +3,14 @@ module github.com/yi-nology/code-review-service
 go 1.26
 
 require (
-	github.com/yi-nology/ekit v0.7.4
+	github.com/yi-nology/ekit v0.8.0
 	github.com/apache/thrift v0.23.0
 	github.com/cloudwego/hertz v0.10.4
-	github.com/google/uuid v1.6.0
 	github.com/hertz-contrib/swagger v0.1.1
 	github.com/hertz-contrib/websocket v0.2.0
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/swaggo/files v1.0.1
-	github.com/yi-nology/git-platform-sdk v0.17.0
+	github.com/yi-nology/git-platform-sdk v0.20.0
 	go.uber.org/fx v1.24.0
 	golang.org/x/time v0.14.0
 	gorm.io/datatypes v1.2.5
@@ -98,6 +97,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-github/v69 v69.2.0 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.1 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
@@ -186,3 +186,11 @@ require (
 )
 
 replace github.com/apache/thrift => github.com/apache/thrift v0.13.0
+
+// Local development replace directives.
+// Run `make setup-local-deps` to verify paths.
+// For production/Docker builds, these paths are resolved via Dockerfile sed or GOPROXY.
+
+replace github.com/yi-nology/ekit => ../ekit
+
+replace github.com/yi-nology/git-platform-sdk => /opt/project/wechat_project/git-platform-sdk

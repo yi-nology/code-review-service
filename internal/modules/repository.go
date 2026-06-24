@@ -15,6 +15,6 @@ var RepositoryModule = fx.Options(
 	fx.Provide(session.NewSessionService),
 )
 
-func NewSessionRepository(db *gorm.DB) postgres.SessionRepository {
+func NewSessionRepository(db *gorm.DB) repository.SessionRepository {
 	return postgres.NewPostgresSessionRepository(db)
 }

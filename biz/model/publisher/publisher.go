@@ -8,8 +8,9 @@ import (
 )
 
 type PublishReviewReq struct {
-	ID   string `thrift:"id,1" json:"id" path:"id"`
-	Mode string `thrift:"mode,2,optional" form:"mode" json:"mode,omitempty"` // team | human
+	ID         string  `thrift:"id,1" json:"id" path:"id"`
+	Mode       *string `thrift:"mode,2,optional" form:"mode" json:"mode,omitempty"`
+	SummaryOnly *bool  `thrift:"summary_only,3,optional" form:"summary_only" json:"summary_only,omitempty"`
 }
 
 func NewPublishReviewReq() *PublishReviewReq {
@@ -23,8 +24,35 @@ func (p *PublishReviewReq) GetID() (v string) {
 	return p.ID
 }
 
+var PublishReviewReq_Mode_DEFAULT string
+
+func (p *PublishReviewReq) GetMode() (v string) {
+	if !p.IsSetMode() {
+		return PublishReviewReq_Mode_DEFAULT
+	}
+	return *p.Mode
+}
+
+var PublishReviewReq_SummaryOnly_DEFAULT bool
+
+func (p *PublishReviewReq) GetSummaryOnly() (v bool) {
+	if !p.IsSetSummaryOnly() {
+		return PublishReviewReq_SummaryOnly_DEFAULT
+	}
+	return *p.SummaryOnly
+}
+
 var fieldIDToName_PublishReviewReq = map[int16]string{
 	1: "id",
+	2: "mode",
+}
+
+func (p *PublishReviewReq) IsSetMode() bool {
+	return p.Mode != nil
+}
+
+func (p *PublishReviewReq) IsSetSummaryOnly() bool {
+	return p.SummaryOnly != nil
 }
 
 func (p *PublishReviewReq) Read(iprot thrift.TProtocol) (err error) {
@@ -49,6 +77,14 @@ func (p *PublishReviewReq) Read(iprot thrift.TProtocol) (err error) {
 		case 1:
 			if fieldTypeId == thrift.STRING {
 				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField2(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -94,6 +130,17 @@ func (p *PublishReviewReq) ReadField1(iprot thrift.TProtocol) error {
 	p.ID = _field
 	return nil
 }
+func (p *PublishReviewReq) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.Mode = _field
+	return nil
+}
 
 func (p *PublishReviewReq) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -103,6 +150,10 @@ func (p *PublishReviewReq) Write(oprot thrift.TProtocol) (err error) {
 	if p != nil {
 		if err = p.writeField1(oprot); err != nil {
 			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
 			goto WriteFieldError
 		}
 	}
@@ -138,6 +189,25 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *PublishReviewReq) writeField2(oprot thrift.TProtocol) (err error) {
+	if p.IsSetMode() {
+		if err = oprot.WriteFieldBegin("mode", thrift.STRING, 2); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.Mode); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
 }
 
 func (p *PublishReviewReq) String() string {
@@ -335,8 +405,8 @@ func (p *PublishReviewResp) String() string {
 }
 
 type PreviewCommentReq struct {
-	ID   string `thrift:"id,1" json:"id" path:"id"`
-	Mode string `thrift:"mode,2,optional" form:"mode" json:"mode,omitempty"` // team | human
+	ID   string  `thrift:"id,1" json:"id" path:"id"`
+	Mode *string `thrift:"mode,2,optional" form:"mode" json:"mode,omitempty"`
 }
 
 func NewPreviewCommentReq() *PreviewCommentReq {
@@ -350,8 +420,22 @@ func (p *PreviewCommentReq) GetID() (v string) {
 	return p.ID
 }
 
+var PreviewCommentReq_Mode_DEFAULT string
+
+func (p *PreviewCommentReq) GetMode() (v string) {
+	if !p.IsSetMode() {
+		return PreviewCommentReq_Mode_DEFAULT
+	}
+	return *p.Mode
+}
+
 var fieldIDToName_PreviewCommentReq = map[int16]string{
 	1: "id",
+	2: "mode",
+}
+
+func (p *PreviewCommentReq) IsSetMode() bool {
+	return p.Mode != nil
 }
 
 func (p *PreviewCommentReq) Read(iprot thrift.TProtocol) (err error) {
@@ -376,6 +460,14 @@ func (p *PreviewCommentReq) Read(iprot thrift.TProtocol) (err error) {
 		case 1:
 			if fieldTypeId == thrift.STRING {
 				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField2(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -421,6 +513,17 @@ func (p *PreviewCommentReq) ReadField1(iprot thrift.TProtocol) error {
 	p.ID = _field
 	return nil
 }
+func (p *PreviewCommentReq) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.Mode = _field
+	return nil
+}
 
 func (p *PreviewCommentReq) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -430,6 +533,10 @@ func (p *PreviewCommentReq) Write(oprot thrift.TProtocol) (err error) {
 	if p != nil {
 		if err = p.writeField1(oprot); err != nil {
 			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
 			goto WriteFieldError
 		}
 	}
@@ -465,6 +572,25 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *PreviewCommentReq) writeField2(oprot thrift.TProtocol) (err error) {
+	if p.IsSetMode() {
+		if err = oprot.WriteFieldBegin("mode", thrift.STRING, 2); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.Mode); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
 }
 
 func (p *PreviewCommentReq) String() string {

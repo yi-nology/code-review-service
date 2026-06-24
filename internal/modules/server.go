@@ -19,7 +19,7 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	"go.uber.org/fx"
 	"gorm.io/gorm"
 )
@@ -44,18 +44,18 @@ func RegisterGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 	}
 
 	h.Use(middleware.RateLimitMiddleware(100, 200))
-	hlog.Infof("rate limiting middleware enabled (100 req/s, burst 200)")
+	logx.Infof("rate limiting middleware enabled (100 req/s, burst 200)")
 
 	if cfg.Auth.Token != "" {
 		h.Use(middleware.BearerTokenAuth(cfg.Auth.Token))
-		hlog.Infof("auth middleware enabled")
+		logx.Infof("auth middleware enabled")
 	}
 
 	h.Use(middleware.SecurityHeaders())
 }
 
 func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos *repository.RepoContainer, resolver *ocr.ConfigResolver) {
-	hlog.Infof("[routes] registering routes...")
+	logx.Infof("[routes] registering routes...")
 
 	healthOpts := []health.Option{}
 	if sqlDB, err := db.DB(); err == nil {

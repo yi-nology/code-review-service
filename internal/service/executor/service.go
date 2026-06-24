@@ -19,8 +19,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/runner"
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
 
+	"github.com/oekit/logx"
 	"github.com/oekit/pkg/slicex"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
 )
 
 type Service struct {
@@ -95,7 +95,7 @@ func (s *Service) Execute(ctx context.Context, id string, req review.Request, pr
 		StartedAt: time.Now().UTC(),
 	}
 	if err := s.updateWithOCRInput(ctx, id, initialInput); err != nil {
-		hlog.Warn("failed to save initial OCR input", "review_id", id, "error", err)
+		logx.Warn("failed to save initial OCR input", "review_id", id, "error", err)
 	}
 
 	workspace, err := provider.Prepare(ctx, req)
@@ -126,7 +126,7 @@ func (s *Service) Execute(ctx context.Context, id string, req review.Request, pr
 	var ignorePaths []string
 	if len(projectPolicy.IgnorePaths) > 0 {
 		if err := json.Unmarshal(projectPolicy.IgnorePaths, &ignorePaths); err != nil {
-			hlog.Warn("failed to decode ignore_paths", "error", err)
+			logx.Warn("failed to decode ignore_paths", "error", err)
 		}
 	}
 	if len(ignorePaths) > 0 {
@@ -145,7 +145,7 @@ func (s *Service) Execute(ctx context.Context, id string, req review.Request, pr
 	if s.globalRulesRepo != nil {
 		rulePath, cleanup, ruleErr := s.resolveRuleFile(ctx, projectPolicy)
 		if ruleErr != nil {
-			hlog.Warn("failed to resolve rule file", "error", ruleErr)
+			logx.Warn("failed to resolve rule file", "error", ruleErr)
 		} else if rulePath != "" {
 			workspace.RulePath = rulePath
 			if cleanup != nil {
@@ -157,14 +157,14 @@ func (s *Service) Execute(ctx context.Context, id string, req review.Request, pr
 	if workspace.Dir != "" {
 		defer func() {
 			if err := os.RemoveAll(workspace.Dir); err != nil {
-				hlog.Warn("failed to remove review workspace", "dir", workspace.Dir, "error", err)
+				logx.Warn("failed to remove review workspace", "dir", workspace.Dir, "error", err)
 			}
 		}()
 	}
 
 	ocrInput := buildOCRInput(workspace, req)
 	if err := s.updateWithOCRInput(ctx, id, ocrInput); err != nil {
-		hlog.Warn("failed to update OCR input", "review_id", id, "error", err)
+		logx.Warn("failed to update OCR input", "review_id", id, "error", err)
 	}
 
 	if s.shouldUseWorkflow() {
@@ -235,6 +235,12 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 
 	scope := workspace.Scope
 	scope.ChangedLines = review.CountDiffLines(workspace.Diff)
+	if scope.ChangedFiles == 0 {
+		scope.ChangedFiles = review.CountDiffFiles(workspace.Diff)
+	}
+	if scope.ReviewedFiles == 0 {
+		scope.ReviewedFiles = scope.ChangedFiles
+	}
 
 	// 汇总各 agent 的 token 使用（#21：原 workflow 路径 OCRMetadata 硬编码、token 全零，
 	// 导致多 agent 评审在 token 成本统计里完全缺失）。
@@ -250,7 +256,9 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 			Engine:        "workflow",
 			Status:        review.OCRStatusSuccess,
 			FilesReviewed: int64(scope.ChangedFiles),
+			Comments:      int64(len(findings)),
 			TotalTokens:   workflowTokens,
+			Elapsed:       result.Duration.Round(time.Millisecond).String(),
 		},
 	}
 	report := review.BuildReport(&dummyResult)
@@ -290,6 +298,8 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 	if err := s.updateWithRawOCR(ctx, id, req, resp, nil); err != nil {
 		return review.Response{}, err
 	}
+
+	s.publishWriteback(ctx, req, workspace, review.Result{Summary: resp.Summary, Findings: findings})
 
 	// workflow 路径也生成代码审查地图（原仅 executeWithRunner 生成，多 agent 评审地图为空）
 	if s.reviewMapRepo != nil && workspace.Diff != "" {
@@ -343,21 +353,7 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req review.R
 		Gate:     review.CompletedGate(gate.Passed, gate.Reason),
 	}
 
-	callbackMode := req.CallbackMode
-	hasPR := strings.TrimSpace(req.PullRequestID) != "" || strings.TrimSpace(req.MergeRequestIID) != ""
-	if !hasPR && (callbackMode == "" || callbackMode == "comment") {
-		callbackMode = "none"
-	}
-
-	if callbackMode != "none" && callbackMode != "summary" && s.writeback != nil {
-		writebackReq := req
-		if workspace.OriginalHeadSHA != "" {
-			writebackReq.HeadSHA = workspace.OriginalHeadSHA
-		}
-		if err := s.writeback.PublishWithDiff(ctx, writebackReq, result, workspace.Diff); err != nil {
-			hlog.Warn("writeback publish failed", "error", err)
-		}
-	}
+	s.publishWriteback(ctx, req, workspace, review.Result{Summary: result.Summary, Findings: result.Findings})
 
 	if err := s.updateWithRawOCR(ctx, id, req, resp, result.RawOCR); err != nil {
 		return review.Response{}, err
@@ -368,6 +364,31 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req review.R
 	}
 
 	return resp, nil
+}
+
+// publishWriteback 在审查完成后将结果回写到代码平台（runner 和 workflow 路径共用）。
+func (s *Service) publishWriteback(ctx context.Context, req review.Request, workspace review.Workspace, result review.Result) {
+	if s.writeback == nil {
+		return
+	}
+
+	callbackMode := req.CallbackMode
+	hasPR := strings.TrimSpace(req.PullRequestID) != "" || strings.TrimSpace(req.MergeRequestIID) != ""
+	if !hasPR && (callbackMode == "" || callbackMode == "comment") {
+		callbackMode = "none"
+	}
+
+	if callbackMode == "none" || callbackMode == "summary" {
+		return
+	}
+
+	writebackReq := req
+	if workspace.OriginalHeadSHA != "" {
+		writebackReq.HeadSHA = workspace.OriginalHeadSHA
+	}
+	if err := s.writeback.PublishWithDiff(ctx, writebackReq, result, workspace.Diff); err != nil {
+		logx.Warn("writeback publish failed", "error", err)
+	}
 }
 
 // recordFailure 记录评审失败：先追加一条 stage 级别的 failed history（带原始错误），
@@ -391,7 +412,7 @@ func (s *Service) recordFailure(ctx context.Context, id string, req review.Reque
 		Error:    runErr.Error(),
 	}
 	if err := s.updateWithRawOCR(ctx, id, req, response, nil); err != nil {
-		hlog.Error("failed to persist review failure", "review_id", id, "error", err)
+		logx.Error("failed to persist review failure", "review_id", id, "error", err)
 	}
 }
 
@@ -432,7 +453,7 @@ func (s *Service) generateAndSaveReviewMap(ctx context.Context, id string, req r
 	generator := reviewmap.NewGenerator()
 	reviewMap, err := generator.Generate(id, workspace.Diff, findings)
 	if err != nil {
-		hlog.Warn("failed to generate review map", "review_id", id, "error", err)
+		logx.Warn("failed to generate review map", "review_id", id, "error", err)
 		return
 	}
 
@@ -451,11 +472,11 @@ func (s *Service) generateAndSaveReviewMap(ctx context.Context, id string, req r
 	}
 
 	if err := s.reviewMapRepo.Create(ctx, dbMap); err != nil {
-		hlog.Warn("failed to save review map", "review_id", id, "error", err)
+		logx.Warn("failed to save review map", "review_id", id, "error", err)
 		return
 	}
 
-	hlog.Info("review map generated and saved", "review_id", id, "map_id", reviewMap.ID, "sections", reviewMap.SectionCount, "files", reviewMap.FileCount)
+	logx.Info("review map generated and saved", "review_id", id, "map_id", reviewMap.ID, "sections", reviewMap.SectionCount, "files", reviewMap.FileCount)
 }
 
 func toPolicyFindings(findings []review.Finding) []policy.Finding {

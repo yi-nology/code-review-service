@@ -8,7 +8,7 @@ import (
 
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/pkg/slicex"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 // AgentManager manages multiple review agents
@@ -72,7 +72,7 @@ func (m *AgentManager) RegisterAgent(agent reviewAgent) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.agents = append(m.agents, agent)
-	hlog.Infof("registered agent: %s (priority: %d)", agent.Name(), agent.Priority())
+	logx.Infof("registered agent: %s (priority: %d)", agent.Name(), agent.Priority())
 }
 
 // RegisterAgents registers multiple review agents
@@ -131,15 +131,15 @@ func (m *AgentManager) RunAgentsWithFilter(ctx context.Context, workspace Worksp
 	ctx, cancel := context.WithTimeout(ctx, m.config.TotalTimeout)
 	defer cancel()
 
-	hlog.Infof("starting review with %d agents", len(agents))
+	logx.Infof("starting review with %d agents", len(agents))
 	startTime := time.Now()
 
 	agentResults, agentErrors := m.runParallel(ctx, agents, workspace, nil)
 
 	if len(agentErrors) > 0 {
-		hlog.Warnf("%d agents failed:", len(agentErrors))
+		logx.Warnf("%d agents failed:", len(agentErrors))
 		for _, err := range agentErrors {
-			hlog.Warnf("  - %v", err)
+			logx.Warnf("  - %v", err)
 		}
 	}
 
@@ -150,7 +150,7 @@ func (m *AgentManager) RunAgentsWithFilter(ctx context.Context, workspace Worksp
 	aggregated := m.aggregator.Aggregate(agentResults)
 	aggregated.Duration = time.Since(startTime)
 
-	hlog.Infof("review completed in %v with %d findings (confidence: %.2f)",
+	logx.Infof("review completed in %v with %d findings (confidence: %.2f)",
 		aggregated.Duration, len(aggregated.Findings), aggregated.Confidence)
 
 	return aggregated, nil
@@ -205,7 +205,7 @@ func (m *AgentManager) RunAgentsWithEphemeral(ctx context.Context, workspace Wor
 		factory := m.factory
 		m.mu.RUnlock()
 		if factory == nil {
-			hlog.Warnf("ephemeral reviewers requested but no runner factory configured; skipping %d ephemeral", len(ephemeral))
+			logx.Warnf("ephemeral reviewers requested but no runner factory configured; skipping %d ephemeral", len(ephemeral))
 		} else {
 			for _, spec := range ephemeral {
 				name := spec.Name
@@ -226,15 +226,15 @@ func (m *AgentManager) RunAgentsWithEphemeral(ctx context.Context, workspace Wor
 	ctx, cancel := context.WithTimeout(ctx, m.config.TotalTimeout)
 	defer cancel()
 
-	hlog.Infof("starting review with %d agents (%d ephemeral)", len(agents), len(ephemeral))
+	logx.Infof("starting review with %d agents (%d ephemeral)", len(agents), len(ephemeral))
 	startTime := time.Now()
 
 	agentResults, agentErrors := m.runParallel(ctx, agents, workspace, callback)
 
 	if len(agentErrors) > 0 {
-		hlog.Warnf("%d agents failed:", len(agentErrors))
+		logx.Warnf("%d agents failed:", len(agentErrors))
 		for _, err := range agentErrors {
-			hlog.Warnf("  - %v", err)
+			logx.Warnf("  - %v", err)
 		}
 	}
 
@@ -245,7 +245,7 @@ func (m *AgentManager) RunAgentsWithEphemeral(ctx context.Context, workspace Wor
 	aggregated := m.aggregator.Aggregate(agentResults)
 	aggregated.Duration = time.Since(startTime)
 
-	hlog.Infof("review completed in %v with %d findings (confidence: %.2f)",
+	logx.Infof("review completed in %v with %d findings (confidence: %.2f)",
 		aggregated.Duration, len(aggregated.Findings), aggregated.Confidence)
 
 	return aggregated, nil
@@ -287,7 +287,7 @@ func (m *AgentManager) runParallel(ctx context.Context, agents []reviewAgent, wo
 
 			result, err := m.runSingleAgent(ctx, agent, workspace)
 			if err != nil {
-				hlog.Errorf("agent %s failed: %v", agent.Name(), err)
+				logx.Errorf("agent %s failed: %v", agent.Name(), err)
 				if callback != nil {
 					callback(AgentStatus{
 						Name:    agent.Name(),
@@ -331,7 +331,7 @@ func (m *AgentManager) runSingleAgent(ctx context.Context, agent reviewAgent, wo
 	agentCtx, agentCancel := context.WithTimeout(ctx, agentTimeout)
 	defer agentCancel()
 
-	hlog.Infof("starting agent: %s", agent.Name())
+	logx.Infof("starting agent: %s", agent.Name())
 	agentStart := time.Now()
 
 	result, err := agent.Review(agentCtx, workspace)
@@ -340,7 +340,7 @@ func (m *AgentManager) runSingleAgent(ctx context.Context, agent reviewAgent, wo
 	}
 
 	result.Duration = time.Since(agentStart)
-	hlog.Infof("agent %s completed in %v with %d findings", agent.Name(), result.Duration, len(result.Findings))
+	logx.Infof("agent %s completed in %v with %d findings", agent.Name(), result.Duration, len(result.Findings))
 
 	return result, nil
 }

@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/oekit/pkg/convert"
 	"github.com/oekit/pkg/mathx"
 	"github.com/oekit/pkg/ptrx"
 
 	mw "github.com/oekit/middleware"
 
+	"github.com/oekit/logx"
 	hertzApp "github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"gorm.io/gorm"
 )
 
@@ -40,11 +41,11 @@ func Fail(c *hertzApp.RequestContext, err error) {
 		mw.ErrorResp(c, bizErr.Code, bizErr.Message)
 		return
 	}
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repository.ErrNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
 		mw.ErrorResp(c, 404, "resource not found")
 		return
 	}
-	hlog.Errorf("internal error: %v", err)
+	logx.Errorf("internal error: %v", err)
 	mw.ErrorResp(c, 500, err.Error())
 }
 

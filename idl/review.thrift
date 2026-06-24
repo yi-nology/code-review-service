@@ -1,6 +1,3 @@
-include "webhook.thrift"
-include "platform.thrift"
-
 struct CreateReviewReq {
     1: string provider (api.body="provider")
     2: string repo (api.body="repo")
@@ -11,6 +8,13 @@ struct CreateReviewReq {
     7: optional string head_sha (api.body="head_sha")
     8: optional string callback_mode (api.body="callback_mode")
     9: optional bool wait (api.body="wait")
+    10: optional list<string> requirements (api.body="requirements")
+    11: optional list<EphemeralReviewerInput> ephemeral_reviewers (api.body="ephemeral_reviewers")
+}
+
+struct EphemeralReviewerInput {
+    1: optional string name (api.body="name")
+    2: string background (api.body="background")
 }
 
 struct Gate {
@@ -214,20 +218,4 @@ struct PreviewResp {
 
 struct ReviewActionReq {
     1: string id (api.path="id")
-}
-
-service reviewService {
-    CreateReviewResp CreateReview(1: CreateReviewReq req) (api.post="/api/v1/reviews")
-    GetReviewResp GetReview(1: GetReviewReq req) (api.get="/api/v1/reviews/:id")
-    ListReviewsResp ListReviews(1: ListReviewsReq req) (api.get="/api/v1/reviews")
-    PreviewResp PreviewReview(1: PreviewReq req) (api.post="/api/v1/reviews/preview")
-    CreateReviewResp RerunReview(1: ReviewActionReq req) (api.post="/api/v1/reviews/:id/rerun")
-    CreateReviewResp CancelReview(1: ReviewActionReq req) (api.post="/api/v1/reviews/:id/cancel")
-
-    webhook.HandleWebhookResp HandleWebhook(1: webhook.HandleWebhookReq req) (api.post="/api/v1/webhooks/:provider/:installation")
-
-    platform.ListProviderReposResp ListProviderRepos(1: platform.ListProviderReposReq req) (api.get="/api/v1/platforms/:provider/repos")
-    platform.ListProviderBranchesResp ListProviderBranches(1: platform.ListProviderBranchesReq req) (api.get="/api/v1/platforms/:provider/repos/:owner/:repo/branches")
-    platform.GetBranchSHAResp GetBranchSHA(1: platform.GetBranchSHAReq req) (api.get="/api/v1/platforms/:provider/repos/:owner/:repo/branch-sha")
-    platform.ListProviderPullsResp ListProviderPulls(1: platform.ListProviderPullsReq req) (api.get="/api/v1/platforms/:provider/repos/:owner/:repo/pulls")
 }

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 type mockReviewRepo struct {
@@ -69,7 +69,7 @@ func (m *mockReviewRepo) GetByReviewID(_ context.Context, reviewID string) (*mod
 			return r, nil
 		}
 	}
-	return nil, nil
+	return nil, repository.ErrNotFound
 }
 
 func (m *mockReviewRepo) GetByidempotencyKey(_ context.Context, key string) (*models.Review, error) {
@@ -80,7 +80,7 @@ func (m *mockReviewRepo) GetByidempotencyKey(_ context.Context, key string) (*mo
 			return r, nil
 		}
 	}
-	return nil, nil
+	return nil, repository.ErrNotFound
 }
 
 func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, provider, repo string) (*models.Review, error) {
@@ -91,7 +91,7 @@ func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, provider, re
 			return r, nil
 		}
 	}
-	return nil, nil
+	return nil, repository.ErrNotFound
 }
 
 func (m *mockReviewRepo) List(_ context.Context, opts models.ListOptions) (*ekitGorm.PageResponse[models.Review], error) {
@@ -124,7 +124,7 @@ func (m *mockReviewRepo) UpdateInTransaction(_ context.Context, reviewID string,
 			return fn(r)
 		}
 	}
-	return gorm.ErrRecordNotFound
+	return repository.ErrNotFound
 }
 
 func (m *mockReviewRepo) snapshot() []*models.Review {

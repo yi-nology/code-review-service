@@ -7,7 +7,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/types"
 
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 type ValidatedComment struct {
@@ -38,7 +38,7 @@ func ValidateFindings(findings []review.Finding, diffIndex *DiffIndex) []Validat
 			valid = diffIndex.Contains(path, comment.Range.Side, comment.Range.Start)
 		}
 
-		hlog.Info("validate finding",
+		logx.Info("validate finding",
 			"path", path,
 			"start", comment.Range.Start,
 			"end", comment.Range.End,

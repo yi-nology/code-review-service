@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 type ProgressReporter interface {
@@ -62,7 +62,7 @@ func (pm *ProgressManager) CreateTracker(reviewID, sessionID string, round int) 
 
 	tracker := newProgressTracker(pm.broadcaster, reviewID, sessionID, round)
 	pm.trackers[reviewID] = tracker
-	hlog.Infof("created progress tracker for review: %s", reviewID)
+	logx.Infof("created progress tracker for review: %s", reviewID)
 	return tracker
 }
 
@@ -73,7 +73,7 @@ func (pm *ProgressManager) RemoveTracker(reviewID string) {
 		if tracker.GetProgress().IsActive() {
 			tracker.Complete()
 		}
-		hlog.Infof("retired progress tracker for review: %s", reviewID)
+		logx.Infof("retired progress tracker for review: %s", reviewID)
 	}
 	pm.mu.Unlock()
 
@@ -86,7 +86,7 @@ func (pm *ProgressManager) RemoveTracker(reviewID string) {
 		defer pm.mu.Unlock()
 		if pm.trackers[reviewID] == tracker {
 			delete(pm.trackers, reviewID)
-			hlog.Infof("removed retained progress tracker for review: %s", reviewID)
+			logx.Infof("removed retained progress tracker for review: %s", reviewID)
 		}
 	})
 }

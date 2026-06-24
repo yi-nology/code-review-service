@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/pkg/sliceutil"
+	"github.com/oekit/pkg/slicex"
 )
 
 const (
@@ -43,6 +43,20 @@ type OpenCodeReviewConfig struct {
 	MaxOutputTokens         int // 最大输出 tokens，0=模型默认
 }
 
+// Validate 校验 OCR 配置的完整性。
+func (c OpenCodeReviewConfig) Validate() error {
+	if strings.TrimSpace(c.Binary) == "" {
+		return fmt.Errorf("binary path is required")
+	}
+	if c.TimeoutMinutes > 0 && c.TimeoutMinutes > 120 {
+		return fmt.Errorf("timeout_minutes exceeds maximum (120): %d", c.TimeoutMinutes)
+	}
+	if c.Concurrency > 0 && c.Concurrency > 32 {
+		return fmt.Errorf("concurrency exceeds maximum (32): %d", c.Concurrency)
+	}
+	return nil
+}
+
 func NewOpenCodeReviewRunner(config OpenCodeReviewConfig) *OpenCodeReviewRunner {
 	if strings.TrimSpace(config.Binary) == "" {
 		config.Binary = defaultBinary
@@ -65,10 +79,15 @@ func NewOpenCodeReviewRunner(config OpenCodeReviewConfig) *OpenCodeReviewRunner 
 	return &OpenCodeReviewRunner{config: config}
 }
 
-// 使用共享工具函数
-var firstNonBlank = sliceutil.FirstNonBlank
-var firstPositive = sliceutil.FirstPositive
-var firstPositiveOr = sliceutil.FirstPositiveOr
+// firstNonBlank 返回第一个非空白字符串。
+func firstNonBlank(values ...string) string {
+	return slicex.First(func(s string) bool { return strings.TrimSpace(s) != "" }, values...)
+}
+
+// firstPositive 返回第一个正数。
+func firstPositive(values ...int) int {
+	return slicex.First(func(v int) bool { return v > 0 }, values...)
+}
 
 // AppendLLMEnv 将 LLM 配置追加到环境变量列表
 // 这是统一的环境变量构建函数，所有 OCR 命令调用都应使用此函数

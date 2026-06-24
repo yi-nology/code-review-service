@@ -78,6 +78,7 @@ export interface GitPlatform {
   base_url: string
   token: string
   enabled: boolean
+  skip_tls?: boolean
 }
 
 export interface GitPlatformList {

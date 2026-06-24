@@ -8,7 +8,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	"github.com/hertz-contrib/websocket"
 )
 
@@ -43,7 +43,7 @@ func HandleProgressWS(ctx context.Context, c *app.RequestContext) {
 		conn = ws
 	})
 	if err != nil {
-		hlog.Errorf("failed to upgrade websocket connection: %v", err)
+		logx.Errorf("failed to upgrade websocket connection: %v", err)
 		return
 	}
 	defer func() { _ = conn.Close() }()
@@ -65,23 +65,23 @@ func HandleProgressWS(ctx context.Context, c *app.RequestContext) {
 
 	progress := tracker.GetProgress()
 	if err := conn.WriteJSON(progress); err != nil {
-		hlog.Errorf("failed to send initial progress: %v", err)
+		logx.Errorf("failed to send initial progress: %v", err)
 		return
 	}
 
-	hlog.Infof("websocket client connected for review: %s", req.ID)
+	logx.Infof("websocket client connected for review: %s", req.ID)
 
 	for {
 		_, _, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
-				hlog.Errorf("websocket error: %v", err)
+				logx.Errorf("websocket error: %v", err)
 			}
 			break
 		}
 	}
 
-	hlog.Infof("websocket client disconnected for review: %s", req.ID)
+	logx.Infof("websocket client disconnected for review: %s", req.ID)
 }
 
 func GetProgress(ctx context.Context, c *app.RequestContext) {

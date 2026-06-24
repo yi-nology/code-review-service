@@ -23,9 +23,8 @@ import (
 	mw "github.com/oekit/middleware"
 
 	"github.com/oekit/gormx"
+	"github.com/oekit/logx"
 	"github.com/oekit/pkg/ptrx"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
-	"gorm.io/gorm"
 )
 
 var gitObjectIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{7,64}$`)
@@ -33,8 +32,8 @@ var gitObjectIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{7,64}$`)
 var errIdempotencyKeyTooLong = mw.NewBadRequestError("idempotency key too long")
 
 var (
-	ErrNotFound     = errors.New("review not found")
-	ErrInvalidState = errors.New("invalid review state")
+	ErrNotFound     = repository.ErrNotFound
+	ErrInvalidState = repository.ErrInvalidState
 )
 
 const (
@@ -54,12 +53,17 @@ type Executor interface {
 	Execute(ctx context.Context, id string, req Request, provider Provider, progressReporter progress.ProgressReporter) (Response, error)
 }
 
+type SessionRepo interface {
+	repository.SessionCanceller
+}
+
 type ServiceConfig struct {
 	ReviewRepo      repository.ReviewRepository
 	OCRSettingsRepo repository.OCRSettingsRepository
 	ProjectRepo     repository.ProjectPolicyRepository
 	GlobalRulesRepo repository.GlobalRulesRepository
 	ReviewMapRepo   repository.ReviewMapRepository
+	SessionRepo     SessionRepo
 	Policy          *policy.Engine
 	Providers       Providers
 	GitProvider     GitProvider
@@ -75,6 +79,7 @@ type Service struct {
 	projectRepo     repository.ProjectPolicyRepository
 	globalRulesRepo repository.GlobalRulesRepository
 	reviewMapRepo   repository.ReviewMapRepository
+	sessionRepo     SessionRepo
 	policy          *policy.Engine
 	Providers       Providers
 	GitProvider     GitProvider
@@ -93,6 +98,7 @@ func NewService(cfg ServiceConfig) *Service {
 		projectRepo:     cfg.ProjectRepo,
 		globalRulesRepo: cfg.GlobalRulesRepo,
 		reviewMapRepo:   cfg.ReviewMapRepo,
+		sessionRepo:     cfg.SessionRepo,
 		policy:          cfg.Policy,
 		Providers:       cfg.Providers,
 		GitProvider:     cfg.GitProvider,
@@ -126,6 +132,7 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 
 	provider, ok := s.Providers.Get(req.Provider)
 	if !ok {
+		logx.Errorf("Create: provider not found: requested=%q", req.Provider)
 		return Response{}, fmt.Errorf("%w: %q", ErrUnsupportedProvider, req.Provider)
 	}
 
@@ -157,6 +164,11 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 		AuthorName:         req.AuthorName,
 		AuthorAvatar:       req.AuthorAvatar,
 		Sender:             req.Sender,
+		PullRequestID:      req.PullRequestID,
+		MergeRequestIID:    req.MergeRequestIID,
+		BaseSHA:            req.BaseSHA,
+		HeadSHA:            req.HeadSHA,
+		Summary:            queued.Summary,
 		Request:            mustMarshal(req),
 		Response:           mustMarshal(queued),
 	}
@@ -182,7 +194,7 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 		// 返回已存在的 active review 而非报错（#24 TOCTOU 修复）。
 		if gormx.IsUniqueViolation(err) {
 			if existing := s.findActiveReview(ctx, req); existing != nil {
-				hlog.CtxWarnf(ctx, "concurrent review create for same PR detected, returning existing active review: %s", existing.ReviewID)
+				logx.CtxWarnf(ctx, "concurrent review create for same PR detected, returning existing active review: %s", existing.ReviewID)
 				return *existing, nil
 			}
 		}
@@ -203,7 +215,10 @@ func (s *Service) findActiveReview(ctx context.Context, req Request) *Response {
 	}
 	existing, err := s.reviewRepo.GetActiveByProviderRepo(ctx, req.Provider, req.Repo)
 	if err != nil {
-		hlog.CtxErrorf(ctx, "failed to query active review by provider=%s repo=%s: %v", req.Provider, req.Repo, err)
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil
+		}
+		logx.CtxErrorf(ctx, "failed to query active review by provider=%s repo=%s: %v", req.Provider, req.Repo, err)
 		return nil
 	}
 	if existing == nil {
@@ -211,7 +226,7 @@ func (s *Service) findActiveReview(ctx context.Context, req Request) *Response {
 	}
 	var existingReq Request
 	if err := json.Unmarshal(existing.Request, &existingReq); err != nil {
-		hlog.CtxWarnf(ctx, "failed to decode active review request: %v", err)
+		logx.CtxWarnf(ctx, "failed to decode active review request: %v", err)
 		return nil
 	}
 	if existingReq.PullRequestID != req.PullRequestID || existingReq.MergeRequestIID != req.MergeRequestIID {
@@ -219,7 +234,7 @@ func (s *Service) findActiveReview(ctx context.Context, req Request) *Response {
 	}
 	var resp Response
 	if err := json.Unmarshal(existing.Response, &resp); err != nil {
-		hlog.CtxWarnf(ctx, "failed to decode active review response: %v", err)
+		logx.CtxWarnf(ctx, "failed to decode active review response: %v", err)
 		return nil
 	}
 	return &resp
@@ -251,6 +266,9 @@ func queuedMessage(isWebhook bool) string {
 func (s *Service) Get(ctx context.Context, reviewID string) (Record, bool, error) {
 	review, err := s.reviewRepo.GetByReviewID(ctx, reviewID)
 	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return Record{}, false, nil
+		}
 		return Record{}, false, err
 	}
 	if review == nil {
@@ -313,12 +331,12 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 	for _, review := range result.List {
 		var req Request
 		if err := json.Unmarshal(review.Request, &req); err != nil {
-			hlog.CtxWarnf(ctx, "failed to decode review request in list, review_id=%s: %v", review.ReviewID, err)
+			logx.CtxWarnf(ctx, "failed to decode review request in list, review_id=%s: %v", review.ReviewID, err)
 			continue
 		}
 		var resp Response
 		if err := json.Unmarshal(review.Response, &resp); err != nil {
-			hlog.CtxWarnf(ctx, "failed to decode review response in list, review_id=%s: %v", review.ReviewID, err)
+			logx.CtxWarnf(ctx, "failed to decode review response in list, review_id=%s: %v", review.ReviewID, err)
 			continue
 		}
 
@@ -347,7 +365,7 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 		Repo:     options.Repo,
 	})
 	if err != nil {
-		hlog.Warn("failed to compute aggregate stats", "error", err)
+		logx.Warn("failed to compute aggregate stats", "error", err)
 		agg = &models.AggregateStats{}
 	}
 
@@ -374,6 +392,7 @@ func (s *Service) Preview(ctx context.Context, req Request) ([]string, error) {
 
 	p, ok := s.Providers.Get(req.Provider)
 	if !ok {
+		logx.Errorf("Preview: provider not found: requested=%q", req.Provider)
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedProvider, req.Provider)
 	}
 
@@ -396,7 +415,7 @@ func (s *Service) Preview(ctx context.Context, req Request) ([]string, error) {
 	var ignorePaths []string
 	if len(projectPolicy.IgnorePaths) > 0 {
 		if err := json.Unmarshal(projectPolicy.IgnorePaths, &ignorePaths); err != nil {
-			hlog.Warn("failed to decode ignore_paths", "error", err)
+			logx.Warn("failed to decode ignore_paths", "error", err)
 		}
 	}
 	if len(ignorePaths) > 0 {
@@ -409,7 +428,7 @@ func (s *Service) Preview(ctx context.Context, req Request) ([]string, error) {
 	if s.globalRulesRepo != nil {
 		rulePath, cleanup, ruleErr := s.resolveRuleFile(ctx, projectPolicy)
 		if ruleErr != nil {
-			hlog.Warn("failed to resolve rule file", "error", ruleErr)
+			logx.Warn("failed to resolve rule file", "error", ruleErr)
 		} else if rulePath != "" {
 			workspace.RulePath = rulePath
 			if cleanup != nil {
@@ -429,6 +448,14 @@ func (s *Service) Preview(ctx context.Context, req Request) ([]string, error) {
 }
 
 func (s *Service) Requeue(ctx context.Context, reviewID string) (Response, error) {
+	// Cancel any orphaned active sessions before re-queuing to avoid
+	// "already has an active session" conflicts on the next execution.
+	if s.sessionRepo != nil {
+		if err := s.sessionRepo.CancelActiveByReviewID(ctx, reviewID); err != nil {
+			logx.Warnf("requeue: failed to cancel active sessions for %s: %v", reviewID, err)
+		}
+	}
+
 	var resultResp Response
 	err := s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *models.Review) error {
 		switch review.Status {
@@ -462,7 +489,7 @@ func (s *Service) Requeue(ctx context.Context, reviewID string) (Response, error
 		return nil
 	})
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, repository.ErrNotFound) {
 			return Response{}, fmt.Errorf("%w: %s", ErrNotFound, reviewID)
 		}
 		return Response{}, err
@@ -499,7 +526,7 @@ func (s *Service) Cancel(ctx context.Context, reviewID string) (Response, error)
 		return nil
 	})
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, repository.ErrNotFound) {
 			return Response{}, fmt.Errorf("%w: %s", ErrNotFound, reviewID)
 		}
 		return Response{}, err

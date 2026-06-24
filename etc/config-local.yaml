@@ -19,6 +19,10 @@ review:
   worker_poll_interval: "1s"
   worker_stale_after: "15m"
   max_diff_bytes: 5242880
+  workspace_cleanup:
+    enabled: true
+    max_age: "24h"
+    interval: "1h"
 
 # OCR 配置
 ocr:

@@ -10,7 +10,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/types"
 
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 type OrchestratorConfig struct {
@@ -70,13 +70,13 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 
 	var diffIndex *DiffIndex
 	if !o.summaryOnly && diff != "" {
-		hlog.Info("parsing diff for writeback validation", "diff_size", len(diff))
+		logx.Info("parsing diff for writeback validation", "diff_size", len(diff))
 		diffIndex, err = ParseUnifiedDiff(diff)
 		if err != nil {
-			hlog.Warn("failed to parse diff for writeback validation", "error", err)
+			logx.Warn("failed to parse diff for writeback validation", "error", err)
 		}
 	} else {
-		hlog.Info("skipping diff parsing", "summaryOnly", o.summaryOnly, "diff_empty", diff == "")
+		logx.Info("skipping diff parsing", "summaryOnly", o.summaryOnly, "diff_empty", diff == "")
 	}
 
 	var comments []Comment
@@ -133,7 +133,7 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 	}
 
 	if wbResult.ReviewID == "" && len(wbResult.Comments) == 0 {
-		hlog.Info("writeback skipped (stale or empty)")
+		logx.Info("writeback skipped (stale or empty)")
 		return nil
 	}
 
@@ -156,7 +156,7 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 		})
 	}
 
-	hlog.Info("writeback completed",
+	logx.Info("writeback completed",
 		"provider", req.Provider,
 		"repo", req.Repo,
 		"number", number,

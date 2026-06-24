@@ -64,9 +64,12 @@
                 <strong>{{ getProviderLabel(p.provider) }}</strong>
                 <small>{{ p.base_url || '未配置 API 地址' }}</small>
               </span>
-              <span class="platform-state" :class="{ enabled: p.enabled }">
-                {{ p.enabled ? '启用' : '禁用' }}
-              </span>
+              <div class="platform-states">
+                <span class="platform-state" :class="{ enabled: p.enabled }">
+                  {{ p.enabled ? '启用' : '禁用' }}
+                </span>
+                <span v-if="p.skip_tls" class="platform-state skip-tls" title="克隆时跳过 TLS 证书校验">跳过TLS</span>
+              </div>
             </button>
 
             <div v-if="!loading && platforms.length === 0" class="empty-state">
@@ -125,6 +128,13 @@
                 show-password
                 :placeholder="editing ? '留空则保留原 Token' : 'ghp_xxx 或 glpat-xxx'"
               />
+            </el-form-item>
+
+            <el-form-item label="跳过 TLS 校验">
+              <div class="switch-line">
+                <el-switch v-model="form.skip_tls" />
+                <span>{{ form.skip_tls ? '已开启：克隆时不校验证书（适用于自签名/不合规证书的自建平台）' : '关闭：校验 HTTPS 证书' }}</span>
+              </div>
             </el-form-item>
 
             <div v-if="editing && selectedPlatform" class="saved-credential">
@@ -217,6 +227,7 @@ const form = reactive<GitPlatform>({
   base_url: '',
   token: '',
   enabled: true,
+  skip_tls: false,
 })
 
 const enabledCount = computed(() => platforms.value.filter((p) => p.enabled).length)
@@ -282,6 +293,7 @@ async function handleTest() {
       provider: form.provider,
       base_url: form.base_url,
       token: form.token,
+      skip_tls: form.skip_tls,
     })
     testResult.value = result
     if (result.connected) {
@@ -300,6 +312,7 @@ function handleEdit(p: GitPlatform) {
   form.base_url = p.base_url
   form.token = ''
   form.enabled = p.enabled
+  form.skip_tls = p.skip_tls ?? false
   testResult.value = null
 }
 
@@ -309,6 +322,7 @@ function resetForm() {
   form.base_url = providerDefaults.github.baseUrl
   form.token = ''
   form.enabled = true
+  form.skip_tls = false
   testResult.value = null
 }
 
@@ -574,6 +588,18 @@ onMounted(() => {
 .platform-state.enabled {
   background: #e8f7ef;
   color: #138a4b;
+}
+
+.platform-states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.platform-state.skip-tls {
+  background: #fff4e5;
+  color: #b8730a;
 }
 
 .empty-state {

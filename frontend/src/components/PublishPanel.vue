@@ -38,6 +38,22 @@
       <span class="mode-hint">{{ mode === 'human' ? 'LLM 改写为第一人称自然语言' : '保持多 Agent 原始结构' }}</span>
     </div>
 
+    <div class="mode-row">
+      <span class="mode-label">评论范围</span>
+      <el-radio-group
+        v-model="commentScope"
+        size="small"
+      >
+        <el-radio-button value="inline">
+          行内评论 + 总结
+        </el-radio-button>
+        <el-radio-button value="summary">
+          仅总结
+        </el-radio-button>
+      </el-radio-group>
+      <span class="mode-hint">{{ commentScope === 'inline' ? '每条问题评论到代码对应行上（GitHub 风格）' : '只发布一条总结评论' }}</span>
+    </div>
+
     <div class="preview-area">
       <div class="preview-toolbar">
         <span class="preview-title">评论预览</span>
@@ -137,6 +153,7 @@ const emit = defineEmits<{
 }>()
 
 const mode = ref<'team' | 'human'>('team')
+const commentScope = ref<'inline' | 'summary'>('inline')
 const previewLoading = ref(false)
 const publishing = ref(false)
 const published = ref(props.published ?? false)
@@ -160,6 +177,9 @@ async function loadPreview() {
 watch(mode, () => {
   if (previewData.value) loadPreview()
 })
+watch(commentScope, () => {
+  if (previewData.value) loadPreview()
+})
 
 async function handlePublish() {
   try {
@@ -173,7 +193,7 @@ async function handlePublish() {
   }
   publishing.value = true
   try {
-    await publishReview(props.reviewId, mode.value)
+    await publishReview(props.reviewId, mode.value, commentScope.value === 'summary')
     published.value = true
     ElMessage.success('评论已发布到代码平台')
     emit('published')

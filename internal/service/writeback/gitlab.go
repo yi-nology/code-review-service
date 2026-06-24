@@ -6,7 +6,7 @@ import (
 
 	gitprovider "github.com/yi-nology/code-review-service/internal/service/provider"
 
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	sdk "github.com/yi-nology/git-platform-sdk/provider"
 )
 
@@ -40,9 +40,9 @@ func (a *GitLabAdapter) Publish(ctx context.Context, rev Review) (Result, error)
 
 	cr, err := p.GetCR(ctx, owner, repo, rev.ChangeRequest.Number)
 	if err != nil {
-		hlog.Warn("failed to get MR for stale check", "error", err)
+		logx.Warn("failed to get MR for stale check", "error", err)
 	} else if cr != nil && cr.HeadSHA != "" && cr.HeadSHA != rev.ChangeRequest.HeadSHA {
-		hlog.Warn("stale review, head SHA changed",
+		logx.Warn("stale review, head SHA changed",
 			"expected", rev.ChangeRequest.HeadSHA,
 			"actual", cr.HeadSHA,
 		)
@@ -52,14 +52,14 @@ func (a *GitLabAdapter) Publish(ctx context.Context, rev Review) (Result, error)
 	comments := make([]sdk.ReviewComment, 0, len(rev.Comments))
 	for _, c := range rev.Comments {
 		rc := sdk.ReviewComment{
-			Path: c.Path,
-			Body: c.Body,
+			Path:      c.Path,
+			Body:      c.Body,
+			Line:      c.Range.Start,
+			StartLine: c.Range.Start,
+			EndLine:   c.Range.End,
 		}
 		if c.Range.Side == SideOld {
 			rc.Side = "LEFT"
-			rc.Line = c.Range.Start
-		} else {
-			rc.Line = c.Range.Start
 		}
 		comments = append(comments, rc)
 	}
@@ -85,11 +85,24 @@ func (a *GitLabAdapter) Publish(ctx context.Context, rev Review) (Result, error)
 	}
 
 	for i, c := range rev.Comments {
-		result.Comments = append(result.Comments, CommentResult{
+		cr := CommentResult{
 			Key:    c.Key,
 			Inline: true,
-		})
-		_ = i
+		}
+		if i < len(reviewResult.Comments) {
+			rc := reviewResult.Comments[i]
+			cr.ExternalID = rc.ExternalID
+			if rc.Error != "" {
+				cr.Inline = false
+				cr.Error = rc.Error
+				logx.Warn("gitlab inline comment failed",
+					"path", c.Path,
+					"line", c.Range.Start,
+					"error", rc.Error,
+				)
+			}
+		}
+		result.Comments = append(result.Comments, cr)
 	}
 
 	return result, nil

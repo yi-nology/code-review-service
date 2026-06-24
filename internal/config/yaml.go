@@ -31,10 +31,17 @@ type DatabaseConfig struct {
 }
 
 type ReviewConfig struct {
-	WorkerConcurrency  int    `yaml:"worker_concurrency"`
-	WorkerPollInterval string `yaml:"worker_poll_interval"`
-	WorkerStaleAfter   string `yaml:"worker_stale_after"`
-	MaxDiffBytes       int    `yaml:"max_diff_bytes"`
+	WorkerConcurrency  int           `yaml:"worker_concurrency"`
+	WorkerPollInterval string        `yaml:"worker_poll_interval"`
+	WorkerStaleAfter   string        `yaml:"worker_stale_after"`
+	MaxDiffBytes       int           `yaml:"max_diff_bytes"`
+	WorkspaceCleanup   CleanupConfig `yaml:"workspace_cleanup"`
+}
+
+type CleanupConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	MaxAge   string `yaml:"max_age"`
+	Interval string `yaml:"interval"`
 }
 
 type OCRConfig struct {

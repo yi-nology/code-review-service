@@ -10,6 +10,7 @@ const browserGlobals = {
   document: 'readonly',
   EventSource: 'readonly',
   FileReader: 'readonly',
+  HTMLIFrameElement: 'readonly',
   localStorage: 'readonly',
   navigator: 'readonly',
   requestAnimationFrame: 'readonly',

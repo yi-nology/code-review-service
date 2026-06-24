@@ -63,9 +63,3 @@ struct GetActiveReviewsResp {
     1: list<ActiveReviewItem> reviews (api.body="reviews")
     2: i64 total (api.body="total")
 }
-
-service progressService {
-    HandleProgressWSResp HandleProgressWS(1: HandleProgressWSReq req) (api.get="/api/v1/reviews/:id/progress")
-    GetProgressResp GetProgress(1: GetProgressReq req) (api.get="/api/v1/reviews/:id/progress/status")
-    GetActiveReviewsResp GetActiveReviews(1: GetActiveReviewsReq req) (api.get="/api/v1/progress/active")
-}

@@ -1,8 +1,0 @@
-include "review.thrift"
-include "settings.thrift"
-include "stats.thrift"
-include "session.thrift"
-include "progress.thrift"
-include "review_map.thrift"
-include "publisher.thrift"
-include "project_agent.thrift"

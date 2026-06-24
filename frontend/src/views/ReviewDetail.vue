@@ -198,7 +198,15 @@
                   <!-- 扣分详情 -->
                   <div v-if="detail.report.score.deductions?.length" class="deductions">
                     <div v-for="(d, i) in detail.report.score.deductions" :key="i" class="deduction-item">
-                      <el-text type="danger" size="small">-{{ d.points }}分: {{ d.reason }}</el-text>
+                      <el-text :type="d.points < 0 ? 'success' : 'danger'" size="small">
+                        <template v-if="d.points < 0">+{{ Math.abs(d.points) }}分: {{ d.reason }}</template>
+                        <template v-else>-{{ d.points }}分: {{ d.reason }}</template>
+                      </el-text>
+                    </div>
+                    <div class="deduction-total">
+                      <el-text type="info" size="small">
+                        总扣分: {{ 100 - detail.report.score.value }}分
+                      </el-text>
                     </div>
                   </div>
                 </el-col>
@@ -909,6 +917,12 @@ code {
 
 .deduction-item {
   margin-bottom: 4px;
+}
+
+.deduction-total {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #ddd;
 }
 
 .warning-item {

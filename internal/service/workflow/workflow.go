@@ -10,7 +10,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/oekit/workflow"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 // ReviewWorkflow orchestrates the multi-agent review process
@@ -139,7 +139,7 @@ func (w *ReviewWorkflow) RunReview(ctx context.Context, request ReviewRequest) (
 		result.FinalReport = *rs.FinalReport
 	}
 
-	hlog.Infof("review completed in %v with %d findings", result.Duration, len(result.AgentResults))
+	logx.Infof("review completed in %v with %d findings", result.Duration, len(result.AgentResults))
 	return result, nil
 }
 
@@ -201,6 +201,6 @@ func (w *ReviewWorkflow) buildPipeline() *workflow.PipeFlow {
 // failSession marks a session as failed
 func (w *ReviewWorkflow) failSession(ctx context.Context, sessionID string, reason string) {
 	if err := w.sessionService.FailSession(ctx, sessionID, reason); err != nil {
-		hlog.Errorf("fail session failed: %v", err)
+		logx.Errorf("fail session failed: %v", err)
 	}
 }

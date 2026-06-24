@@ -7,7 +7,7 @@ import (
 
 	gitprovider "github.com/yi-nology/code-review-service/internal/service/provider"
 
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	sdk "github.com/yi-nology/git-platform-sdk/provider"
 )
 
@@ -41,9 +41,9 @@ func (a *GiteaAdapter) Publish(ctx context.Context, rev Review) (Result, error) 
 
 	cr, err := p.GetCR(ctx, owner, repo, rev.ChangeRequest.Number)
 	if err != nil {
-		hlog.Warn("failed to get PR for stale check", "error", err)
+		logx.Warn("failed to get PR for stale check", "error", err)
 	} else if cr != nil && cr.HeadSHA != "" && cr.HeadSHA != rev.ChangeRequest.HeadSHA {
-		hlog.Warn("stale review, head SHA changed",
+		logx.Warn("stale review, head SHA changed",
 			"expected", rev.ChangeRequest.HeadSHA,
 			"actual", cr.HeadSHA,
 		)
@@ -77,7 +77,7 @@ func (a *GiteaAdapter) Publish(ctx context.Context, rev Review) (Result, error) 
 		Comments: comments,
 	})
 	if err != nil {
-		hlog.Warn("create review failed, falling back to note", "error", err)
+		logx.Warn("create review failed, falling back to note", "error", err)
 		summaryID, noteErr := p.CreateNote(ctx, owner, repo, rev.ChangeRequest.Number, rev.Summary)
 		if noteErr != nil {
 			return Result{}, fmt.Errorf("create review and fallback note failed: %w", errors.Join(err, noteErr))

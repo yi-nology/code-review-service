@@ -24,6 +24,14 @@ export default defineConfig(({ mode }) => {
           target: apiProxyTarget,
           changeOrigin: true,
         },
+        '/swagger': {
+          target: apiProxyTarget,
+          changeOrigin: true,
+        },
+        '/openapi.yaml': {
+          target: apiProxyTarget,
+          changeOrigin: true,
+        },
       },
     },
     build: {

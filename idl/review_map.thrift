@@ -93,11 +93,3 @@ struct GetSessionMapResp {
     11: string mermaid (api.body="mermaid")
     12: string created_at (api.body="created_at")
 }
-
-service reviewMapService {
-    GenerateMapResp GenerateMap(1: GenerateMapReq req) (api.post="/api/v1/reviews/:id/maps")
-    GetMapsResp GetMaps(1: GetMapsReq req) (api.get="/api/v1/reviews/:id/maps")
-    GetMapResp GetMap(1: GetMapReq req) (api.get="/api/v1/reviews/:id/maps/:mapId")
-    PreviewMapResp PreviewMap(1: PreviewMapReq req) (api.post="/api/v1/reviews/:id/maps/preview")
-    GetSessionMapResp GetSessionMap(1: GetSessionMapReq req) (api.get="/api/v1/reviews/:id/sessions/:sessionId/map")
-}

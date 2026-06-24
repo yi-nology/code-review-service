@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/oekit/logx"
 
 	"github.com/yi-nology/git-platform-sdk/provider"
 )
@@ -70,7 +71,14 @@ func (s *GitProviderService) GetProvider(platform string) (provider.Provider, er
 	p, ok := s.providers[platform]
 	s.mu.RUnlock()
 	if !ok {
-		return nil, fmt.Errorf("unsupported provider: %s", platform)
+		s.mu.RLock()
+		available := make([]string, 0, len(s.providers))
+		for k := range s.providers {
+			available = append(available, k)
+		}
+		s.mu.RUnlock()
+		logx.Errorf("GetProvider failed: platform=%q available=%v", platform, available)
+		return nil, fmt.Errorf("unsupported provider: %s (available: %v)", platform, available)
 	}
 	return p, nil
 }

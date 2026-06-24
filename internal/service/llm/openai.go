@@ -92,7 +92,7 @@ func (p *DynamicProvider) completeOpenAI(ctx context.Context, s *models.OCRSetti
 		return CompleteResponse{}, fmt.Errorf("marshal openai request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, s.URL, bytes.NewReader(payload))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, ensureChatCompletionsPath(s.URL), bytes.NewReader(payload))
 	if err != nil {
 		return CompleteResponse{}, fmt.Errorf("build openai request: %w", err)
 	}
@@ -141,7 +141,7 @@ func (p *DynamicProvider) completeAnthropic(ctx context.Context, s *models.OCRSe
 		return CompleteResponse{}, fmt.Errorf("marshal anthropic request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, s.URL, bytes.NewReader(payload))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, ensureAnthropicMessagesPath(s.URL), bytes.NewReader(payload))
 	if err != nil {
 		return CompleteResponse{}, fmt.Errorf("build anthropic request: %w", err)
 	}
@@ -188,6 +188,27 @@ func (p *DynamicProvider) doHTTP(httpReq *http.Request, parse func([]byte) (Comp
 		return CompleteResponse{}, fmt.Errorf("llm http %d: %s", resp.StatusCode, snippet)
 	}
 	return parse(raw)
+}
+
+// ensureChatCompletionsPath 兼容两种配置约定：用户可填 base URL（如 .../compatible-mode/v1）
+// 也可填完整端点（.../v1/chat/completions）。OCR 二进制使用 base 约定并自行拼接路径，
+// 此 Go 客户端需显式补齐 /chat/completions，否则打到 base 路径会收到 "url error" 400。
+// 已含该后缀则原样返回（幂等）。
+func ensureChatCompletionsPath(raw string) string {
+	u := strings.TrimSpace(raw)
+	if u == "" || strings.HasSuffix(u, "/chat/completions") {
+		return u
+	}
+	return strings.TrimRight(u, "/") + "/chat/completions"
+}
+
+// ensureAnthropicMessagesPath 同理，为 Anthropic messages 协议补齐 /messages。
+func ensureAnthropicMessagesPath(raw string) string {
+	u := strings.TrimSpace(raw)
+	if u == "" || strings.HasSuffix(u, "/messages") {
+		return u
+	}
+	return strings.TrimRight(u, "/") + "/messages"
 }
 
 type openAIResponse struct {

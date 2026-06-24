@@ -6,7 +6,7 @@ import (
 
 	gitprovider "github.com/yi-nology/code-review-service/internal/service/provider"
 
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	sdk "github.com/yi-nology/git-platform-sdk/provider"
 )
 
@@ -40,9 +40,9 @@ func (a *GitHubAdapter) Publish(ctx context.Context, rev Review) (Result, error)
 
 	cr, err := p.GetCR(ctx, owner, repo, rev.ChangeRequest.Number)
 	if err != nil {
-		hlog.Warn("failed to get PR for stale check", "error", err)
+		logx.Warn("failed to get PR for stale check", "error", err)
 	} else if cr != nil && cr.HeadSHA != "" && cr.HeadSHA != rev.ChangeRequest.HeadSHA {
-		hlog.Warn("stale review, head SHA changed",
+		logx.Warn("stale review, head SHA changed",
 			"expected", rev.ChangeRequest.HeadSHA,
 			"actual", cr.HeadSHA,
 		)

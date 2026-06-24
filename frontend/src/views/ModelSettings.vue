@@ -16,7 +16,7 @@
       </header>
 
       <!-- 当前配置状态卡片 -->
-      <div class="status-card" v-if="form.provider">
+      <div class="status-card" v-if="form.provider && !showWizard">
         <div class="status-icon" :class="form.provider">
           {{ form.provider.charAt(0).toUpperCase() }}
         </div>
@@ -36,7 +36,7 @@
           </div>
         </div>
         <div class="status-actions">
-          <el-button type="primary" @click="openConfigDialog">
+          <el-button type="primary" @click="openWizard">
             <el-icon><Edit /></el-icon>
             修改配置
           </el-button>
@@ -48,197 +48,75 @@
       </div>
 
       <!-- 未配置提示 -->
-      <div class="empty-state" v-else>
+      <div class="empty-state" v-if="!form.provider && !showWizard">
         <div class="empty-icon">🤖</div>
         <h3>尚未配置模型</h3>
         <p>选择一个服务商开始配置</p>
-        <el-button type="primary" @click="openConfigDialog">
+        <el-button type="primary" @click="openWizard">
           <el-icon><Plus /></el-icon>
           立即配置
         </el-button>
       </div>
 
-      <!-- 配置对话框 -->
-      <el-dialog
-        v-model="showConfigDialog"
-        title="模型配置"
-        width="900px"
-        :close-on-click-modal="false"
-        destroy-on-close
-      >
-        <div class="config-dialog-content">
-          <!-- 左侧：预设选择 -->
-          <div class="preset-panel">
-            <div class="panel-header">
-              <strong>选择服务商</strong>
-              <el-input
-                v-model="searchKeyword"
-                placeholder="搜索..."
-                size="small"
-                clearable
-                prefix-icon="Search"
-              />
-            </div>
-            <div class="preset-list">
-              <div
-                v-for="preset in filteredPresets"
-                :key="preset.id"
-                class="preset-item"
-                :class="{ active: selectedPreset?.id === preset.id }"
-                @click="selectPreset(preset)"
-              >
-                <div class="preset-icon" :class="preset.icon">
-                  {{ preset.icon.charAt(0).toUpperCase() }}
-                </div>
-                <div class="preset-info">
-                  <strong>{{ preset.display_name }}</strong>
-                  <span class="preset-meta">
-                    {{ preset.models.length }} 模型
-                    <span v-if="preset.supports_thinking" class="thinking-badge">Plan</span>
-                  </span>
-                </div>
-              </div>
+      <!-- 配置向导 -->
+      <ModelSetupWizard
+        v-if="showWizard"
+        ref="wizardRef"
+        :presets="allPresets"
+        :saving="saving"
+        :testing-llm="testingLLM"
+        :initial-config="form"
+        @save="handleSaveConfig"
+        @test="handleTestLLM"
+      />
 
-              <!-- 自定义配置 -->
-              <div
-                class="preset-item custom"
-                :class="{ active: isCustomMode }"
-                @click="selectCustom"
-              >
-                <div class="preset-icon custom">+</div>
-                <div class="preset-info">
-                  <strong>自定义配置</strong>
-                  <span class="preset-meta">手动输入</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 右侧：配置表单 -->
-          <div class="config-panel">
-            <template v-if="selectedPreset || isCustomMode">
-              <el-form :model="editForm" label-width="100px" label-position="top">
-                <!-- 基础配置 -->
-                <div class="config-section">
-                  <h4>基础配置</h4>
-
-                  <el-form-item label="接口地址" required>
-                    <el-input v-model="editForm.url" placeholder="https://api.example.com/v1" />
-                  </el-form-item>
-
-                  <el-form-item label="模型" required>
-                    <el-select v-model="editForm.model" filterable allow-create style="width: 100%">
-                      <el-option
-                        v-for="m in currentModels"
-                        :key="m.id"
-                        :label="m.display_name"
-                        :value="m.id"
-                      />
-                    </el-select>
-                  </el-form-item>
-
-                  <el-form-item label="API Key" required>
-                    <el-input
-                      v-model="editForm.auth_token"
-                      type="password"
-                      placeholder="输入 API Key"
-                      show-password
-                    />
-                  </el-form-item>
-
-                  <el-form-item label="请求协议">
-                    <el-radio-group v-model="editForm.use_anthropic">
-                      <el-radio :value="false">OpenAI 兼容</el-radio>
-                      <el-radio :value="true">Anthropic</el-radio>
-                    </el-radio-group>
-                  </el-form-item>
-                </div>
-
-                <!-- 高级配置 -->
-                <div class="config-section">
-                  <h4>高级配置</h4>
-
-                  <el-form-item label="推理模式">
-                    <el-select v-model="editForm.reasoning_mode" style="width: 100%">
-                      <el-option label="禁用" value="disabled" />
-                      <el-option label="轻量 (2K tokens)" value="light" />
-                      <el-option label="中等 (8K tokens)" value="medium" />
-                      <el-option label="充分 (32K tokens)" value="full" />
-                      <el-option label="自定义" value="custom" />
-                    </el-select>
-                  </el-form-item>
-
-                  <el-form-item v-if="editForm.reasoning_mode === 'custom'" label="推理预算">
-                    <el-input-number
-                      v-model="editForm.reasoning_budget"
-                      :min="1000"
-                      :max="100000"
-                      :step="1000"
-                      style="width: 100%"
-                    />
-                  </el-form-item>
-
-                  <el-form-item label="输出语言">
-                    <el-select v-model="editForm.language" style="width: 100%">
-                      <el-option label="中文" value="Chinese" />
-                      <el-option label="English" value="English" />
-                    </el-select>
-                  </el-form-item>
-                </div>
-              </el-form>
-            </template>
-
-            <template v-else>
-              <div class="empty-config">
-                <div class="empty-icon">👈</div>
-                <p>请从左侧选择一个服务商</p>
-              </div>
-            </template>
-          </div>
+      <!-- 快速配置入口（仅在显示状态卡片时） -->
+      <div v-if="form.provider && !showWizard" class="quick-config-section">
+        <div class="section-header">
+          <h3>快速配置</h3>
+          <el-button text type="primary" @click="showAdvanced = !showAdvanced">
+            {{ showAdvanced ? '收起' : '展开' }}
+            <el-icon><ArrowDown v-if="!showAdvanced" /><ArrowUp v-else /></el-icon>
+          </el-button>
         </div>
-
-        <template #footer>
-          <div class="dialog-footer">
-            <el-button @click="showConfigDialog = false">取消</el-button>
-            <el-button @click="handleTestLLM" :loading="testingLLM">
-              <el-icon><Connection /></el-icon>
-              测试连接
-            </el-button>
-            <el-button type="primary" @click="handleSaveConfig" :loading="saving">
-              <el-icon><Check /></el-icon>
-              保存配置
-            </el-button>
+        <el-collapse-transition>
+          <div v-show="showAdvanced" class="advanced-config">
+            <el-card class="config-card">
+              <el-tabs v-model="activeTab">
+                <el-tab-pane label="执行参数" name="execution">
+                  <ExecutionParamsTab />
+                </el-tab-pane>
+                <el-tab-pane label="审查侧重点" name="review">
+                  <ReviewFocusTab />
+                </el-tab-pane>
+              </el-tabs>
+            </el-card>
           </div>
-        </template>
-      </el-dialog>
-
-      <!-- 其他配置 Tab -->
-      <el-card class="other-config-card">
-        <el-tabs v-model="activeTab">
-          <el-tab-pane label="执行参数" name="execution">
-            <ExecutionParamsTab />
-          </el-tab-pane>
-          <el-tab-pane label="审查侧重点" name="review">
-            <ReviewFocusTab />
-          </el-tab-pane>
-        </el-tabs>
-      </el-card>
+        </el-collapse-transition>
+      </div>
     </div>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, provide, onMounted, computed } from 'vue'
+import { ref, reactive, provide, onMounted } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
-import { Refresh, Edit, Connection, Plus, Check, Search } from '@element-plus/icons-vue'
+import { Refresh, Edit, Connection, Plus, ArrowDown, ArrowUp } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ExecutionParamsTab from '@/components/model-settings/ExecutionParamsTab.vue'
 import ReviewFocusTab from '@/components/model-settings/ReviewFocusTab.vue'
+import ModelSetupWizard from '@/components/model-settings/ModelSetupWizard.vue'
 import { modelSettingsKey, type ModelSettingsContext } from '@/components/model-settings/context'
-import { getOCRSettings, updateOCRSettings, testLLM, listLLMProviders } from '@/api/config'
-import type { OCRSettings, LLMProvider } from '@/types/config'
+import { getOCRSettings, updateOCRSettings, testLLM } from '@/api/config'
+import type { OCRSettings } from '@/types/config'
 
-// 预设类型定义
+interface ModelOption {
+  id: string
+  display_name: string
+  max_tokens: number
+  supports_thinking: boolean
+}
+
 interface ProviderPreset {
   id: string
   display_name: string
@@ -254,20 +132,19 @@ interface ProviderPreset {
   requires_key: boolean
 }
 
-interface ModelOption {
-  id: string
-  display_name: string
-  max_tokens: number
-  supports_thinking: boolean
-}
-
-// 硬编码预设列表
 const allPresets: ProviderPreset[] = [
-  // Coding Plan
   {
-    id: 'zhipu-coding-plan', display_name: '智谱 AI (Coding Plan)', category: 'coding_plan',
-    type: 'openai_compatible', base_url: 'https://open.bigmodel.cn/api/paas/v4', protocol: 'openai',
-    supports_thinking: true, icon: 'zhipu', region: 'cn', requires_key: true, default_model: 'glm-5.1',
+    id: 'zhipu-coding-plan',
+    display_name: '智谱 AI (Coding Plan)',
+    category: 'coding_plan',
+    type: 'openai_compatible',
+    base_url: 'https://open.bigmodel.cn/api/paas/v4',
+    protocol: 'openai',
+    supports_thinking: true,
+    icon: 'zhipu',
+    region: 'cn',
+    requires_key: true,
+    default_model: 'glm-5.1',
     models: [
       { id: 'glm-5.1', display_name: 'GLM-5.1', max_tokens: 4096, supports_thinking: true },
       { id: 'glm-5.2', display_name: 'GLM-5.2', max_tokens: 4096, supports_thinking: true },
@@ -275,9 +152,17 @@ const allPresets: ProviderPreset[] = [
     ],
   },
   {
-    id: 'volcengine-coding-plan', display_name: '火山引擎 (Coding Plan)', category: 'coding_plan',
-    type: 'openai_compatible', base_url: 'https://ark.cn-beijing.volces.com/api/v3', protocol: 'openai',
-    supports_thinking: true, icon: 'volcengine', region: 'cn', requires_key: true, default_model: 'doubao-seed-2-0-pro',
+    id: 'volcengine-coding-plan',
+    display_name: '火山引擎 (Coding Plan)',
+    category: 'coding_plan',
+    type: 'openai_compatible',
+    base_url: 'https://ark.cn-beijing.volces.com/api/v3',
+    protocol: 'openai',
+    supports_thinking: true,
+    icon: 'volcengine',
+    region: 'cn',
+    requires_key: true,
+    default_model: 'doubao-seed-2-0-pro',
     models: [
       { id: 'doubao-seed-2-0-pro', display_name: '豆包 Seed 2.0 Pro', max_tokens: 4096, supports_thinking: true },
       { id: 'doubao-seed-2-0-lite', display_name: '豆包 Seed 2.0 Lite', max_tokens: 4096, supports_thinking: false },
@@ -285,9 +170,17 @@ const allPresets: ProviderPreset[] = [
     ],
   },
   {
-    id: 'mimo-coding-plan', display_name: '小米 MiMo (Coding Plan)', category: 'coding_plan',
-    type: 'openai_compatible', base_url: 'https://token-plan-cn.xiaomimimo.com/v1', protocol: 'openai',
-    supports_thinking: true, icon: 'mimo', region: 'cn', requires_key: true, default_model: 'mimo-v2.5-pro',
+    id: 'mimo-coding-plan',
+    display_name: '小米 MiMo (Coding Plan)',
+    category: 'coding_plan',
+    type: 'openai_compatible',
+    base_url: 'https://token-plan-cn.xiaomimimo.com/v1',
+    protocol: 'openai',
+    supports_thinking: true,
+    icon: 'mimo',
+    region: 'cn',
+    requires_key: true,
+    default_model: 'mimo-v2.5-pro',
     models: [
       { id: 'mimo-v2.5', display_name: 'MiMo V2.5', max_tokens: 4096, supports_thinking: true },
       { id: 'mimo-v2.5-pro', display_name: 'MiMo V2.5 Pro', max_tokens: 4096, supports_thinking: true },
@@ -295,29 +188,52 @@ const allPresets: ProviderPreset[] = [
     ],
   },
   {
-    id: 'minimax-coding-plan', display_name: 'MiniMax (Coding Plan)', category: 'coding_plan',
-    type: 'openai_compatible', base_url: 'https://api.minimax.chat/v1', protocol: 'openai',
-    supports_thinking: false, icon: 'minimax', region: 'cn', requires_key: true, default_model: 'MiniMax-M2.5',
+    id: 'minimax-coding-plan',
+    display_name: 'MiniMax (Coding Plan)',
+    category: 'coding_plan',
+    type: 'openai_compatible',
+    base_url: 'https://api.minimax.chat/v1',
+    protocol: 'openai',
+    supports_thinking: false,
+    icon: 'minimax',
+    region: 'cn',
+    requires_key: true,
+    default_model: 'MiniMax-M2.5',
     models: [
       { id: 'MiniMax-M2.5', display_name: 'MiniMax M2.5', max_tokens: 4096, supports_thinking: false },
       { id: 'MiniMax-M2.7-highspeed', display_name: 'MiniMax M2.7 Highspeed', max_tokens: 4096, supports_thinking: false },
     ],
   },
   {
-    id: 'kimi-coding-plan', display_name: 'Kimi (Coding Plan)', category: 'coding_plan',
-    type: 'openai_compatible', base_url: 'https://api.moonshot.cn/v1', protocol: 'openai',
-    supports_thinking: false, icon: 'kimi', region: 'cn', requires_key: true, default_model: 'moonshot-v1-32k',
+    id: 'kimi-coding-plan',
+    display_name: 'Kimi (Coding Plan)',
+    category: 'coding_plan',
+    type: 'openai_compatible',
+    base_url: 'https://api.moonshot.cn/v1',
+    protocol: 'openai',
+    supports_thinking: false,
+    icon: 'kimi',
+    region: 'cn',
+    requires_key: true,
+    default_model: 'moonshot-v1-32k',
     models: [
       { id: 'moonshot-v1-8k', display_name: 'Moonshot V1 8K', max_tokens: 4096, supports_thinking: false },
       { id: 'moonshot-v1-32k', display_name: 'Moonshot V1 32K', max_tokens: 4096, supports_thinking: false },
       { id: 'moonshot-v1-128k', display_name: 'Moonshot V1 128K', max_tokens: 4096, supports_thinking: false },
     ],
   },
-  // Direct API
   {
-    id: 'openai', display_name: 'OpenAI', category: 'direct',
-    type: 'openai_compatible', base_url: 'https://api.openai.com/v1', protocol: 'openai',
-    supports_thinking: true, icon: 'openai', region: 'global', requires_key: true, default_model: 'gpt-5.2',
+    id: 'openai',
+    display_name: 'OpenAI',
+    category: 'direct',
+    type: 'openai_compatible',
+    base_url: 'https://api.openai.com/v1',
+    protocol: 'openai',
+    supports_thinking: true,
+    icon: 'openai',
+    region: 'global',
+    requires_key: true,
+    default_model: 'gpt-5.2',
     models: [
       { id: 'gpt-5.2', display_name: 'GPT-5.2', max_tokens: 4096, supports_thinking: true },
       { id: 'gpt-4o', display_name: 'GPT-4o', max_tokens: 4096, supports_thinking: false },
@@ -326,9 +242,17 @@ const allPresets: ProviderPreset[] = [
     ],
   },
   {
-    id: 'anthropic', display_name: 'Anthropic', category: 'direct',
-    type: 'anthropic', base_url: 'https://api.anthropic.com', protocol: 'anthropic',
-    supports_thinking: true, icon: 'anthropic', region: 'global', requires_key: true, default_model: 'claude-sonnet-4-5-20250929',
+    id: 'anthropic',
+    display_name: 'Anthropic',
+    category: 'direct',
+    type: 'anthropic',
+    base_url: 'https://api.anthropic.com',
+    protocol: 'anthropic',
+    supports_thinking: true,
+    icon: 'anthropic',
+    region: 'global',
+    requires_key: true,
+    default_model: 'claude-sonnet-4-5-20250929',
     models: [
       { id: 'claude-sonnet-4-5-20250929', display_name: 'Claude Sonnet 4.5', max_tokens: 4096, supports_thinking: true },
       { id: 'claude-opus-4-5-20250929', display_name: 'Claude Opus 4.5', max_tokens: 4096, supports_thinking: true },
@@ -336,9 +260,17 @@ const allPresets: ProviderPreset[] = [
     ],
   },
   {
-    id: 'deepseek', display_name: 'DeepSeek', category: 'direct',
-    type: 'openai_compatible', base_url: 'https://api.deepseek.com', protocol: 'openai',
-    supports_thinking: true, icon: 'deepseek', region: 'cn', requires_key: true, default_model: 'deepseek-v4-pro',
+    id: 'deepseek',
+    display_name: 'DeepSeek',
+    category: 'direct',
+    type: 'openai_compatible',
+    base_url: 'https://api.deepseek.com',
+    protocol: 'openai',
+    supports_thinking: true,
+    icon: 'deepseek',
+    region: 'cn',
+    requires_key: true,
+    default_model: 'deepseek-v4-pro',
     models: [
       { id: 'deepseek-v4-pro', display_name: 'DeepSeek V4 Pro', max_tokens: 4096, supports_thinking: true },
       { id: 'deepseek-v4-flash', display_name: 'DeepSeek V4 Flash', max_tokens: 4096, supports_thinking: false },
@@ -346,29 +278,38 @@ const allPresets: ProviderPreset[] = [
     ],
   },
   {
-    id: 'dashscope', display_name: '阿里百炼', category: 'direct',
-    type: 'openai_compatible', base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', protocol: 'openai',
-    supports_thinking: true, icon: 'dashscope', region: 'cn', requires_key: true, default_model: 'qwen-plus',
+    id: 'dashscope',
+    display_name: '阿里百炼 (Token Plan)',
+    category: 'coding_plan',
+    type: 'openai_compatible',
+    base_url: 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
+    protocol: 'openai',
+    supports_thinking: true,
+    icon: 'dashscope',
+    region: 'cn',
+    requires_key: true,
+    default_model: 'qwen3.7-plus',
     models: [
-      { id: 'qwen-max', display_name: 'Qwen Max', max_tokens: 4096, supports_thinking: true },
-      { id: 'qwen-plus', display_name: 'Qwen Plus', max_tokens: 4096, supports_thinking: true },
-      { id: 'qwen-turbo', display_name: 'Qwen Turbo', max_tokens: 4096, supports_thinking: false },
-      { id: 'qwen-coder-plus', display_name: 'Qwen Coder Plus', max_tokens: 4096, supports_thinking: true },
+      { id: 'qwen3.7-max', display_name: 'Qwen3.7 Max', max_tokens: 8192, supports_thinking: true },
+      { id: 'qwen3.7-plus', display_name: 'Qwen3.7 Plus', max_tokens: 8192, supports_thinking: true },
+      { id: 'qwen3.6-flash', display_name: 'Qwen3.6 Flash', max_tokens: 8192, supports_thinking: true },
+      { id: 'qwen-max', display_name: 'Qwen Max', max_tokens: 8192, supports_thinking: true },
+      { id: 'qwen-plus', display_name: 'Qwen Plus', max_tokens: 8192, supports_thinking: true },
+      { id: 'qwen-turbo', display_name: 'Qwen Turbo', max_tokens: 8192, supports_thinking: false },
+      { id: 'qwen-coder-plus', display_name: 'Qwen Coder Plus', max_tokens: 8192, supports_thinking: true },
+      { id: 'qwen-long', display_name: 'Qwen Long', max_tokens: 8192, supports_thinking: false },
     ],
   },
 ]
 
-// 状态
 const loading = ref(false)
 const saving = ref(false)
 const testingLLM = ref(false)
+const showWizard = ref(false)
+const showAdvanced = ref(false)
 const activeTab = ref('execution')
-const showConfigDialog = ref(false)
-const searchKeyword = ref('')
-const selectedPreset = ref<ProviderPreset | null>(null)
-const isCustomMode = ref(false)
+const wizardRef = ref<InstanceType<typeof ModelSetupWizard> | null>(null)
 
-// 表单数据
 const form = reactive<OCRSettings>({
   enabled: false,
   binary: 'ocr',
@@ -397,95 +338,31 @@ const form = reactive<OCRSettings>({
   max_output_tokens: 0,
 })
 
-// 编辑表单
-const editForm = reactive({
-  url: '',
-  model: '',
-  auth_token: '',
-  use_anthropic: false,
-  reasoning_mode: 'light' as 'disabled' | 'light' | 'medium' | 'full' | 'custom',
-  reasoning_budget: 0,
-  language: 'Chinese',
-})
-
-// 过滤后的预设
-const filteredPresets = computed(() => {
-  if (!searchKeyword.value) return allPresets
-  const kw = searchKeyword.value.toLowerCase()
-  return allPresets.filter(p =>
-    p.display_name.toLowerCase().includes(kw) ||
-    p.models.some(m => m.display_name.toLowerCase().includes(kw))
-  )
-})
-
-// 当前模型列表
-const currentModels = computed(() => {
-  if (selectedPreset.value) {
-    return selectedPreset.value.models
-  }
-  return []
-})
-
-// 获取预设名称
 function getPresetName(provider: string) {
-  const preset = allPresets.find(p => p.id === provider || p.id.includes(provider))
+  const preset = allPresets.find((p) => p.id === provider || p.id.includes(provider))
   return preset?.display_name || provider
 }
 
-// 选择预设
-function selectPreset(preset: ProviderPreset) {
-	selectedPreset.value = preset
-	isCustomMode.value = false
-	editForm.url = preset.base_url
-	editForm.model = preset.default_model
-	editForm.use_anthropic = preset.protocol === 'anthropic'
+function openWizard() {
+  showWizard.value = true
 }
 
-// 选择自定义
-function selectCustom() {
-	selectedPreset.value = null
-	isCustomMode.value = true
-	editForm.url = ''
-	editForm.model = ''
-	editForm.use_anthropic = false
-}
-
-// 打开配置弹窗：预填当前配置（form）+ 匹配已选 preset，避免用户看到空白表单直接保存报错
-function openConfigDialog() {
-	editForm.url = form.url || ''
-	editForm.model = form.model || ''
-	editForm.auth_token = ''
-	editForm.use_anthropic = form.use_anthropic || false
-	editForm.reasoning_mode = (form.reasoning_mode as any) || 'light'
-	editForm.reasoning_budget = form.reasoning_budget || 0
-	editForm.language = form.language || 'Chinese'
-	const preset = allPresets.find(p => p.id === form.provider)
-	if (preset) {
-		selectedPreset.value = preset
-		isCustomMode.value = false
-	} else {
-		selectedPreset.value = null
-		isCustomMode.value = true
-	}
-	showConfigDialog.value = true
-}
-
-// 保存配置
 async function handleSaveConfig() {
-	// 兜底：editForm 未预填时从当前配置（form）补，解决 openConfigDialog 未生效导致 editForm 空的问题
-	if (!editForm.url && form.url) editForm.url = form.url
-	if (!editForm.model && form.model) editForm.model = form.model
-	if (!editForm.url || !editForm.model) {
-		ElMessage.warning('请填写接口地址和模型')
-		return
-	}
+  if (!wizardRef.value) return
+
+  const editForm = wizardRef.value.getEditForm()
+
+  if (!editForm.url || !editForm.model) {
+    ElMessage.warning('请填写接口地址和模型')
+    return
+  }
 
   saving.value = true
   try {
     const settings: OCRSettings = {
       ...form,
       enabled: true,
-      provider: selectedPreset.value?.id || 'custom',
+      provider: wizardRef.value.selectedPreset?.id || 'custom',
       url: editForm.url,
       model: editForm.model,
       auth_token: editForm.auth_token || form.auth_token,
@@ -493,11 +370,17 @@ async function handleSaveConfig() {
       reasoning_mode: editForm.reasoning_mode,
       reasoning_budget: editForm.reasoning_budget,
       language: editForm.language,
+      audience: editForm.audience,
+      default_severity: editForm.default_severity,
+      concurrency: editForm.concurrency,
+      max_git_procs: editForm.max_git_procs,
+      timeout_minutes: editForm.timeout_minutes,
+      background: editForm.background,
     }
 
     await updateOCRSettings(settings)
     Object.assign(form, settings)
-    showConfigDialog.value = false
+    showWizard.value = false
     ElMessage.success('配置已保存')
   } catch (e: any) {
     ElMessage.error(e.message || '保存失败')
@@ -506,8 +389,38 @@ async function handleSaveConfig() {
   }
 }
 
-// 测试 LLM
 async function handleTestLLM() {
+  // 如果在向导模式中，先保存配置再测试
+  if (showWizard.value && wizardRef.value) {
+    const editForm = wizardRef.value.getEditForm()
+    if (editForm.url && editForm.model) {
+      try {
+        const settings: OCRSettings = {
+          ...form,
+          enabled: true,
+          provider: wizardRef.value.selectedPreset?.id || 'custom',
+          url: editForm.url,
+          model: editForm.model,
+          auth_token: editForm.auth_token || form.auth_token,
+          use_anthropic: editForm.use_anthropic,
+          reasoning_mode: editForm.reasoning_mode,
+          reasoning_budget: editForm.reasoning_budget,
+          language: editForm.language,
+          audience: editForm.audience,
+          default_severity: editForm.default_severity,
+          concurrency: editForm.concurrency,
+          max_git_procs: editForm.max_git_procs,
+          timeout_minutes: editForm.timeout_minutes,
+          background: editForm.background,
+        }
+        await updateOCRSettings(settings)
+        Object.assign(form, settings)
+      } catch (e: any) {
+        ElMessage.warning('保存配置失败，将测试当前已保存的配置')
+      }
+    }
+  }
+
   testingLLM.value = true
   try {
     const result = await testLLM()
@@ -523,7 +436,6 @@ async function handleTestLLM() {
   }
 }
 
-// 获取设置
 async function fetchSettings() {
   loading.value = true
   try {
@@ -537,7 +449,6 @@ async function fetchSettings() {
   }
 }
 
-// 提供上下文
 const ctx: ModelSettingsContext = {
   form,
   saving,
@@ -593,7 +504,6 @@ onMounted(fetchSettings)
   gap: 8px;
 }
 
-/* 状态卡片 */
 .status-card {
   display: flex;
   align-items: center;
@@ -618,20 +528,46 @@ onMounted(fetchSettings)
   flex-shrink: 0;
 }
 
-.status-icon.zhipu { background: linear-gradient(135deg, #6366f1, #4f46e5); }
-.status-icon.volcengine { background: linear-gradient(135deg, #f59e0b, #d97706); }
-.status-icon.mimo { background: linear-gradient(135deg, #10b981, #059669); }
-.status-icon.minimax { background: linear-gradient(135deg, #ec4899, #db2777); }
-.status-icon.kimi { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
-.status-icon.openai { background: linear-gradient(135deg, #10b981, #059669); }
-.status-icon.anthropic { background: linear-gradient(135deg, #d97706, #b45309); }
-.status-icon.deepseek { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-.status-icon.dashscope { background: linear-gradient(135deg, #6366f1, #4f46e5); }
-.status-icon.zhipu-coding-plan { background: linear-gradient(135deg, #6366f1, #4f46e5); }
-.status-icon.volcengine-coding-plan { background: linear-gradient(135deg, #f59e0b, #d97706); }
-.status-icon.mimo-coding-plan { background: linear-gradient(135deg, #10b981, #059669); }
-.status-icon.minimax-coding-plan { background: linear-gradient(135deg, #ec4899, #db2777); }
-.status-icon.kimi-coding-plan { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.status-icon.zhipu,
+.status-icon.zhipu-coding-plan {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+}
+
+.status-icon.volcengine,
+.status-icon.volcengine-coding-plan {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.status-icon.mimo,
+.status-icon.mimo-coding-plan {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.status-icon.minimax,
+.status-icon.minimax-coding-plan {
+  background: linear-gradient(135deg, #ec4899, #db2777);
+}
+
+.status-icon.kimi,
+.status-icon.kimi-coding-plan {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+.status-icon.openai {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.status-icon.anthropic {
+  background: linear-gradient(135deg, #d97706, #b45309);
+}
+
+.status-icon.deepseek {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.status-icon.dashscope {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+}
 
 .status-info {
   flex: 1;
@@ -667,7 +603,6 @@ onMounted(fetchSettings)
   gap: 8px;
 }
 
-/* 空状态 */
 .empty-state {
   text-align: center;
   padding: 60px 40px;
@@ -694,157 +629,30 @@ onMounted(fetchSettings)
   font-size: 14px;
 }
 
-/* 配置对话框 */
-.config-dialog-content {
-  display: flex;
-  gap: 24px;
-  min-height: 500px;
+.quick-config-section {
+  margin-top: 32px;
 }
 
-.preset-panel {
-  width: 280px;
-  flex-shrink: 0;
+.section-header {
   display: flex;
-  flex-direction: column;
-}
-
-.panel-header {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 16px;
 }
 
-.panel-header strong {
-  font-size: 14px;
-  color: var(--app-text);
-}
-
-.preset-list {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.preset-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--app-border);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.preset-item:hover {
-  border-color: var(--app-primary);
-  background: var(--app-bg-hover);
-}
-
-.preset-item.active {
-  border-color: var(--app-primary);
-  background: var(--app-primary-bg);
-}
-
-.preset-item.custom {
-  border-style: dashed;
-}
-
-.preset-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 14px;
-  color: white;
-  flex-shrink: 0;
-}
-
-.preset-icon.custom {
-  background: var(--app-border);
-  color: var(--app-text);
-}
-
-.preset-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.preset-info strong {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--app-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.preset-meta {
-  font-size: 11px;
-  color: var(--app-muted);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.thinking-badge {
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-  color: white;
-  font-size: 9px;
-  padding: 2px 5px;
-  border-radius: 3px;
-  font-weight: 600;
-}
-
-.config-panel {
-  flex: 1;
-  min-width: 0;
-  overflow-y: auto;
-}
-
-.config-section {
-  margin-bottom: 24px;
-}
-
-.config-section h4 {
-  margin: 0 0 16px;
-  font-size: 14px;
+.section-header h3 {
+  margin: 0;
+  font-size: 18px;
   font-weight: 600;
   color: var(--app-text);
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--app-border);
 }
 
-.empty-config {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--app-muted);
+.advanced-config {
+  margin-top: 8px;
 }
 
-.empty-config .empty-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-/* 其他配置卡片 */
-.other-config-card {
-  margin-top: 24px;
+.config-card {
+  border-radius: 14px;
 }
 
 @media (max-width: 768px) {
@@ -866,12 +674,17 @@ onMounted(fetchSettings)
     justify-content: center;
   }
 
-  .config-dialog-content {
+  .page-header {
     flex-direction: column;
+    gap: 16px;
   }
 
-  .preset-panel {
+  .header-actions {
     width: 100%;
+  }
+
+  .header-actions .el-button {
+    flex: 1;
   }
 }
 </style>

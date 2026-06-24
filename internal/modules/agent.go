@@ -9,7 +9,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/runner"
 
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	"go.uber.org/fx"
 )
 
@@ -53,16 +53,16 @@ func InitAgentManager(lc fx.Lifecycle, cfg *config.Config, repos *repository.Rep
 			agentMgr.SetFactory(runnerFactory) // 阶段 5：使 manager 具备构造 ephemeral agent 的能力
 			// 同步 agent 框架超时 = OCR 超时 + buffer（agent 超时必须大于 OCR 单次超时）
 			agentMgr.UpdateTimeouts(time.Duration(ocrTimeoutMinutes) * time.Minute)
-			hlog.Infof("agent manager 超时已同步: OCR=%dm, agent=%dm, total=%dm", ocrTimeoutMinutes, ocrTimeoutMinutes+5, ocrTimeoutMinutes+10)
+			logx.Infof("agent manager 超时已同步: OCR=%dm, agent=%dm, total=%dm", ocrTimeoutMinutes, ocrTimeoutMinutes+5, ocrTimeoutMinutes+10)
 			agentLoader := agent.NewAgentLoader(agentMgr, runnerFactory, 10*time.Minute)
 
 			enabledAgents, err := repos.ReviewerAgent.ListEnabled(ctx)
 			switch {
 			case err != nil:
-				hlog.Warnf("failed to load agents from database: %v", err)
+				logx.Warnf("failed to load agents from database: %v", err)
 			case len(enabledAgents) > 0:
 				if err := agentLoader.LoadFromDB(ctx, enabledAgents); err != nil {
-					hlog.Warnf("failed to load agents: %v", err)
+					logx.Warnf("failed to load agents: %v", err)
 				}
 			default:
 				ocrSettings, err := repos.OCRSettings.Get(ctx)

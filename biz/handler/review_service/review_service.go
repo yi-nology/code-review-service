@@ -19,11 +19,10 @@ import (
 	"github.com/oekit/pkg/slicex"
 	"github.com/oekit/pkg/stringx"
 
+	"github.com/oekit/logx"
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	provider_sdk "github.com/yi-nology/git-platform-sdk/provider"
-	gormLib "gorm.io/gorm"
 )
 
 var handlerInst *ReviewHandler
@@ -143,7 +142,7 @@ func ListReviews(ctx context.Context, c *app.RequestContext) {
 			Running:     int64(result.Stats.Running),
 			GateFailed:  int64(result.Stats.GateFailed),
 			Findings:    int64(result.Stats.Findings),
-			TotalTokens: result.Stats.TotalTokens,
+			TotalTokens: ptrx.Of(result.Stats.TotalTokens),
 		},
 	})
 }
@@ -155,9 +154,9 @@ func PreviewReview(ctx context.Context, c *app.RequestContext) {
 	}
 
 	svcReq := review.Request{
-		Provider:  req.Provider,
-		Repo:      req.Repo,
-		ProjectID: ptrx.Deref(req.ProjectID, ""),
+		Provider:        req.Provider,
+		Repo:            req.Repo,
+		ProjectID:       ptrx.Deref(req.ProjectID, ""),
 		PullRequestID:   ptrx.Deref(req.PullRequestID, ""),
 		MergeRequestIID: ptrx.Deref(req.MergeRequestIid, ""),
 		BaseSHA:         ptrx.Deref(req.BaseSha, ""),
@@ -181,7 +180,7 @@ func RerunReview(ctx context.Context, c *app.RequestContext) {
 
 	resp, err := handlerInst.reviewSvc.Requeue(ctx, req.ID)
 	if err != nil {
-		if errors.Is(err, review.ErrNotFound) || errors.Is(err, gormLib.ErrRecordNotFound) || strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, review.ErrNotFound) {
 			common.Fail(c, common.NotFound("review not found"))
 			return
 		}
@@ -205,7 +204,7 @@ func CancelReview(ctx context.Context, c *app.RequestContext) {
 
 	resp, err := handlerInst.reviewSvc.Cancel(ctx, req.ID)
 	if err != nil {
-		if errors.Is(err, review.ErrNotFound) || errors.Is(err, gormLib.ErrRecordNotFound) || strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, review.ErrNotFound) {
 			common.Fail(c, common.NotFound("review not found"))
 			return
 		}
@@ -371,7 +370,7 @@ func fillAuthorInfo(ctx context.Context, req *review.Request) {
 	}
 	cr, err := handlerInst.gitMgr.GetCR(ctx, req.Provider, owner, repo, number)
 	if err != nil {
-		hlog.CtxWarnf(ctx, "fillAuthorInfo: failed to get CR for %s/%s #%d: %v", owner, repo, number, err)
+		logx.CtxWarnf(ctx, "fillAuthorInfo: failed to get CR for %s/%s #%d: %v", owner, repo, number, err)
 		return
 	}
 	if cr == nil || cr.Author == nil {
@@ -398,7 +397,7 @@ func toServiceRequest(req *modelReview.CreateReviewReq) review.Request {
 	if len(req.EphemeralReviewers) > 0 {
 		svcReq.EphemeralReviewers = make([]review.EphemeralReviewer, len(req.EphemeralReviewers))
 		for i, e := range req.EphemeralReviewers {
-			svcReq.EphemeralReviewers[i] = review.EphemeralReviewer{Name: e.Name, Background: e.Background}
+			svcReq.EphemeralReviewers[i] = review.EphemeralReviewer{Name: ptrx.Deref(e.Name, ""), Background: e.Background}
 		}
 	}
 	return svcReq
@@ -440,8 +439,8 @@ func convertReport(r review.Report) *modelReview.Report {
 		Ocr: convertOCRMetadata(r.OCR), Scope: convertScopeMetadata(r.Scope),
 		Score: &modelReview.Score{
 			Value: int64(r.Score.Value), Grade: r.Score.Grade, Version: r.Score.Version,
-			Deductions:    convertDeductions(r.Score.Deductions),
-			ChangedLines:  ptrx.Of(int64(r.Score.ChangedLines)), FindingsDensity: ptrx.Of(r.Score.FindingsDensity),
+			Deductions:   convertDeductions(r.Score.Deductions),
+			ChangedLines: ptrx.Of(int64(r.Score.ChangedLines)), FindingsDensity: ptrx.Of(r.Score.FindingsDensity),
 		},
 		Counts: &modelReview.SeverityCounts{
 			Critical: int64(r.Counts.Critical), Major: int64(r.Counts.Major),

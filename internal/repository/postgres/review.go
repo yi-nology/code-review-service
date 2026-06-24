@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	ekitGorm "github.com/oekit/gormx"
 
 	gormLib "gorm.io/gorm"
@@ -35,7 +36,7 @@ func (r *ReviewRepo) GetByReviewID(ctx context.Context, reviewID string) (*model
 		First(&review).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, nil
+			return nil, repoerr.ErrNotFound
 		}
 		return nil, err
 	}
@@ -49,7 +50,7 @@ func (r *ReviewRepo) GetByidempotencyKey(ctx context.Context, key string) (*mode
 		First(&review).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, nil
+			return nil, repoerr.ErrNotFound
 		}
 		return nil, err
 	}
@@ -64,7 +65,7 @@ func (r *ReviewRepo) GetActiveByProviderRepo(ctx context.Context, provider, repo
 		First(&review).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, nil
+			return nil, repoerr.ErrNotFound
 		}
 		return nil, err
 	}
@@ -127,7 +128,7 @@ func (r *ReviewRepo) UpdateInTransaction(ctx context.Context, reviewID string, f
 		var review models.Review
 		if err := tx.Where("review_id = ?", reviewID).First(&review).Error; err != nil {
 			if errors.Is(err, gormLib.ErrRecordNotFound) {
-				return fmt.Errorf("%w: %s", gormLib.ErrRecordNotFound, reviewID)
+				return fmt.Errorf("%w: %s", repoerr.ErrNotFound, reviewID)
 			}
 			return err
 		}

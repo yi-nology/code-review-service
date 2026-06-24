@@ -9,7 +9,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/vcs"
 
 	"github.com/oekit/pkg/convert"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 func cloneAndResolvePR(
@@ -130,7 +130,7 @@ func pullRequestFetchRefs(platform string, prNumber int, sourceBranch, headSHA s
 func restoreDeletedFiles(ctx context.Context, git *vcs.Git, baseSHA, headRef, headSHA string) string {
 	deletedFiles, delErr := git.DeletedFiles(ctx, baseSHA, headRef)
 	if delErr != nil {
-		hlog.CtxWarnf(ctx, "failed to get deleted files: %v", delErr)
+		logx.CtxWarnf(ctx, "failed to get deleted files: %v", delErr)
 		return headSHA
 	}
 	if len(deletedFiles) == 0 {
@@ -138,18 +138,18 @@ func restoreDeletedFiles(ctx context.Context, git *vcs.Git, baseSHA, headRef, he
 	}
 
 	if err := git.CheckoutFiles(ctx, baseSHA, deletedFiles); err != nil {
-		hlog.CtxWarnf(ctx, "failed to checkout deleted files: %v", err)
+		logx.CtxWarnf(ctx, "failed to checkout deleted files: %v", err)
 		return headSHA
 	}
 
 	if err := git.CommitWithIdentity(ctx, "Review Service", "review-service@localhost", "restore deleted files for OCR context"); err != nil {
-		hlog.CtxWarnf(ctx, "failed to commit restored deleted files: %v", err)
+		logx.CtxWarnf(ctx, "failed to commit restored deleted files: %v", err)
 		return headSHA
 	}
 
 	newHead, err := git.RevParse(ctx, "HEAD")
 	if err != nil {
-		hlog.CtxWarnf(ctx, "failed to resolve new HEAD after restoring deleted files: %v", err)
+		logx.CtxWarnf(ctx, "failed to resolve new HEAD after restoring deleted files: %v", err)
 		return headSHA
 	}
 	return newHead

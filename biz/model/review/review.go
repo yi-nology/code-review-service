@@ -8,23 +8,17 @@ import (
 )
 
 type CreateReviewReq struct {
-	Provider           string                   `thrift:"provider,1" form:"provider" json:"provider"`
-	Repo               string                   `thrift:"repo,2" form:"repo" json:"repo"`
-	ProjectID          *string                  `thrift:"project_id,3,optional" form:"project_id" json:"project_id,omitempty"`
-	PullRequestID      *string                  `thrift:"pull_request_id,4,optional" form:"pull_request_id" json:"pull_request_id,omitempty"`
-	MergeRequestIid    *string                  `thrift:"merge_request_iid,5,optional" form:"merge_request_iid" json:"merge_request_iid,omitempty"`
-	BaseSha            *string                  `thrift:"base_sha,6,optional" form:"base_sha" json:"base_sha,omitempty"`
-	HeadSha            *string                  `thrift:"head_sha,7,optional" form:"head_sha" json:"head_sha,omitempty"`
-	CallbackMode       *string                  `thrift:"callback_mode,8,optional" form:"callback_mode" json:"callback_mode,omitempty"`
-	Wait               *bool                    `thrift:"wait,9,optional" form:"wait" json:"wait,omitempty"`
-	Requirements       []string                 `thrift:"requirements,10,optional,list<string>" form:"requirements" json:"requirements,omitempty"`
-	EphemeralReviewers []EphemeralReviewerInput `thrift:"ephemeral_reviewers,11,optional" form:"ephemeral_reviewers" json:"ephemeral_reviewers,omitempty"`
-}
-
-// EphemeralReviewerInput 是 API 层的临时 reviewer 输入（阶段 5）。
-type EphemeralReviewerInput struct {
-	Name       string `thrift:"name,1,optional" form:"name" json:"name,omitempty"`
-	Background string `thrift:"background,2" form:"background" json:"background"`
+	Provider           string                    `thrift:"provider,1" form:"provider" json:"provider"`
+	Repo               string                    `thrift:"repo,2" form:"repo" json:"repo"`
+	ProjectID          *string                   `thrift:"project_id,3,optional" form:"project_id" json:"project_id,omitempty"`
+	PullRequestID      *string                   `thrift:"pull_request_id,4,optional" form:"pull_request_id" json:"pull_request_id,omitempty"`
+	MergeRequestIid    *string                   `thrift:"merge_request_iid,5,optional" form:"merge_request_iid" json:"merge_request_iid,omitempty"`
+	BaseSha            *string                   `thrift:"base_sha,6,optional" form:"base_sha" json:"base_sha,omitempty"`
+	HeadSha            *string                   `thrift:"head_sha,7,optional" form:"head_sha" json:"head_sha,omitempty"`
+	CallbackMode       *string                   `thrift:"callback_mode,8,optional" form:"callback_mode" json:"callback_mode,omitempty"`
+	Wait               *bool                     `thrift:"wait,9,optional" form:"wait" json:"wait,omitempty"`
+	Requirements       []string                  `thrift:"requirements,10,optional,list<string>" form:"requirements" json:"requirements,omitempty"`
+	EphemeralReviewers []*EphemeralReviewerInput `thrift:"ephemeral_reviewers,11,optional,list<EphemeralReviewerInput>" form:"ephemeral_reviewers" json:"ephemeral_reviewers,omitempty"`
 }
 
 func NewCreateReviewReq() *CreateReviewReq {
@@ -105,16 +99,36 @@ func (p *CreateReviewReq) GetWait() (v bool) {
 	return *p.Wait
 }
 
+var CreateReviewReq_Requirements_DEFAULT []string
+
+func (p *CreateReviewReq) GetRequirements() (v []string) {
+	if !p.IsSetRequirements() {
+		return CreateReviewReq_Requirements_DEFAULT
+	}
+	return p.Requirements
+}
+
+var CreateReviewReq_EphemeralReviewers_DEFAULT []*EphemeralReviewerInput
+
+func (p *CreateReviewReq) GetEphemeralReviewers() (v []*EphemeralReviewerInput) {
+	if !p.IsSetEphemeralReviewers() {
+		return CreateReviewReq_EphemeralReviewers_DEFAULT
+	}
+	return p.EphemeralReviewers
+}
+
 var fieldIDToName_CreateReviewReq = map[int16]string{
-	1: "provider",
-	2: "repo",
-	3: "project_id",
-	4: "pull_request_id",
-	5: "merge_request_iid",
-	6: "base_sha",
-	7: "head_sha",
-	8: "callback_mode",
-	9: "wait",
+	1:  "provider",
+	2:  "repo",
+	3:  "project_id",
+	4:  "pull_request_id",
+	5:  "merge_request_iid",
+	6:  "base_sha",
+	7:  "head_sha",
+	8:  "callback_mode",
+	9:  "wait",
+	10: "requirements",
+	11: "ephemeral_reviewers",
 }
 
 func (p *CreateReviewReq) IsSetProjectID() bool {
@@ -143,6 +157,14 @@ func (p *CreateReviewReq) IsSetCallbackMode() bool {
 
 func (p *CreateReviewReq) IsSetWait() bool {
 	return p.Wait != nil
+}
+
+func (p *CreateReviewReq) IsSetRequirements() bool {
+	return p.Requirements != nil
+}
+
+func (p *CreateReviewReq) IsSetEphemeralReviewers() bool {
+	return p.EphemeralReviewers != nil
 }
 
 func (p *CreateReviewReq) Read(iprot thrift.TProtocol) (err error) {
@@ -231,6 +253,22 @@ func (p *CreateReviewReq) Read(iprot thrift.TProtocol) (err error) {
 		case 9:
 			if fieldTypeId == thrift.BOOL {
 				if err = p.ReadField9(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 10:
+			if fieldTypeId == thrift.LIST {
+				if err = p.ReadField10(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 11:
+			if fieldTypeId == thrift.LIST {
+				if err = p.ReadField11(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -364,6 +402,52 @@ func (p *CreateReviewReq) ReadField9(iprot thrift.TProtocol) error {
 	p.Wait = _field
 	return nil
 }
+func (p *CreateReviewReq) ReadField10(iprot thrift.TProtocol) error {
+	_, size, err := iprot.ReadListBegin()
+	if err != nil {
+		return err
+	}
+	_field := make([]string, 0, size)
+	for i := 0; i < size; i++ {
+
+		var _elem string
+		if v, err := iprot.ReadString(); err != nil {
+			return err
+		} else {
+			_elem = v
+		}
+
+		_field = append(_field, _elem)
+	}
+	if err := iprot.ReadListEnd(); err != nil {
+		return err
+	}
+	p.Requirements = _field
+	return nil
+}
+func (p *CreateReviewReq) ReadField11(iprot thrift.TProtocol) error {
+	_, size, err := iprot.ReadListBegin()
+	if err != nil {
+		return err
+	}
+	_field := make([]*EphemeralReviewerInput, 0, size)
+	values := make([]EphemeralReviewerInput, size)
+	for i := 0; i < size; i++ {
+		_elem := &values[i]
+		_elem.InitDefault()
+
+		if err := _elem.Read(iprot); err != nil {
+			return err
+		}
+
+		_field = append(_field, _elem)
+	}
+	if err := iprot.ReadListEnd(); err != nil {
+		return err
+	}
+	p.EphemeralReviewers = _field
+	return nil
+}
 
 func (p *CreateReviewReq) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -405,6 +489,14 @@ func (p *CreateReviewReq) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField9(oprot); err != nil {
 			fieldId = 9
+			goto WriteFieldError
+		}
+		if err = p.writeField10(oprot); err != nil {
+			fieldId = 10
+			goto WriteFieldError
+		}
+		if err = p.writeField11(oprot); err != nil {
+			fieldId = 11
 			goto WriteFieldError
 		}
 	}
@@ -592,11 +684,262 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 9 end error: ", p), err)
 }
 
+func (p *CreateReviewReq) writeField10(oprot thrift.TProtocol) (err error) {
+	if p.IsSetRequirements() {
+		if err = oprot.WriteFieldBegin("requirements", thrift.LIST, 10); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteListBegin(thrift.STRING, len(p.Requirements)); err != nil {
+			return err
+		}
+		for _, v := range p.Requirements {
+			if err := oprot.WriteString(v); err != nil {
+				return err
+			}
+		}
+		if err := oprot.WriteListEnd(); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 10 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 10 end error: ", p), err)
+}
+
+func (p *CreateReviewReq) writeField11(oprot thrift.TProtocol) (err error) {
+	if p.IsSetEphemeralReviewers() {
+		if err = oprot.WriteFieldBegin("ephemeral_reviewers", thrift.LIST, 11); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteListBegin(thrift.STRUCT, len(p.EphemeralReviewers)); err != nil {
+			return err
+		}
+		for _, v := range p.EphemeralReviewers {
+			if err := v.Write(oprot); err != nil {
+				return err
+			}
+		}
+		if err := oprot.WriteListEnd(); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 11 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 11 end error: ", p), err)
+}
+
 func (p *CreateReviewReq) String() string {
 	if p == nil {
 		return "<nil>"
 	}
 	return fmt.Sprintf("CreateReviewReq(%+v)", *p)
+
+}
+
+type EphemeralReviewerInput struct {
+	Name       *string `thrift:"name,1,optional" form:"name" json:"name,omitempty"`
+	Background string  `thrift:"background,2" form:"background" json:"background"`
+}
+
+func NewEphemeralReviewerInput() *EphemeralReviewerInput {
+	return &EphemeralReviewerInput{}
+}
+
+func (p *EphemeralReviewerInput) InitDefault() {
+}
+
+var EphemeralReviewerInput_Name_DEFAULT string
+
+func (p *EphemeralReviewerInput) GetName() (v string) {
+	if !p.IsSetName() {
+		return EphemeralReviewerInput_Name_DEFAULT
+	}
+	return *p.Name
+}
+
+func (p *EphemeralReviewerInput) GetBackground() (v string) {
+	return p.Background
+}
+
+var fieldIDToName_EphemeralReviewerInput = map[int16]string{
+	1: "name",
+	2: "background",
+}
+
+func (p *EphemeralReviewerInput) IsSetName() bool {
+	return p.Name != nil
+}
+
+func (p *EphemeralReviewerInput) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField2(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_EphemeralReviewerInput[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *EphemeralReviewerInput) ReadField1(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.Name = _field
+	return nil
+}
+func (p *EphemeralReviewerInput) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Background = _field
+	return nil
+}
+
+func (p *EphemeralReviewerInput) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("EphemeralReviewerInput"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *EphemeralReviewerInput) writeField1(oprot thrift.TProtocol) (err error) {
+	if p.IsSetName() {
+		if err = oprot.WriteFieldBegin("name", thrift.STRING, 1); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.Name); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *EphemeralReviewerInput) writeField2(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("background", thrift.STRING, 2); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Background); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
+func (p *EphemeralReviewerInput) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("EphemeralReviewerInput(%+v)", *p)
 
 }
 
@@ -8570,11 +8913,11 @@ func (p *ListItem) String() string {
 }
 
 type ListStats struct {
-	Total       int64 `thrift:"total,1" form:"total" json:"total"`
-	Running     int64 `thrift:"running,2" form:"running" json:"running"`
-	GateFailed  int64 `thrift:"gate_failed,3" form:"gate_failed" json:"gate_failed"`
-	Findings    int64 `thrift:"findings,4" form:"findings" json:"findings"`
-	TotalTokens int64 `thrift:"total_tokens,5,optional" form:"total_tokens" json:"total_tokens,omitempty"`
+	Total       int64  `thrift:"total,1" form:"total" json:"total"`
+	Running     int64  `thrift:"running,2" form:"running" json:"running"`
+	GateFailed  int64  `thrift:"gate_failed,3" form:"gate_failed" json:"gate_failed"`
+	Findings    int64  `thrift:"findings,4" form:"findings" json:"findings"`
+	TotalTokens *int64 `thrift:"total_tokens,5,optional" form:"total_tokens" json:"total_tokens,omitempty"`
 }
 
 func NewListStats() *ListStats {
@@ -8600,11 +8943,25 @@ func (p *ListStats) GetFindings() (v int64) {
 	return p.Findings
 }
 
+var ListStats_TotalTokens_DEFAULT int64
+
+func (p *ListStats) GetTotalTokens() (v int64) {
+	if !p.IsSetTotalTokens() {
+		return ListStats_TotalTokens_DEFAULT
+	}
+	return *p.TotalTokens
+}
+
 var fieldIDToName_ListStats = map[int16]string{
 	1: "total",
 	2: "running",
 	3: "gate_failed",
 	4: "findings",
+	5: "total_tokens",
+}
+
+func (p *ListStats) IsSetTotalTokens() bool {
+	return p.TotalTokens != nil
 }
 
 func (p *ListStats) Read(iprot thrift.TProtocol) (err error) {
@@ -8653,6 +9010,14 @@ func (p *ListStats) Read(iprot thrift.TProtocol) (err error) {
 		case 4:
 			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField4(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 5:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField5(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -8731,6 +9096,17 @@ func (p *ListStats) ReadField4(iprot thrift.TProtocol) error {
 	p.Findings = _field
 	return nil
 }
+func (p *ListStats) ReadField5(iprot thrift.TProtocol) error {
+
+	var _field *int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.TotalTokens = _field
+	return nil
+}
 
 func (p *ListStats) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -8752,6 +9128,10 @@ func (p *ListStats) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField4(oprot); err != nil {
 			fieldId = 4
+			goto WriteFieldError
+		}
+		if err = p.writeField5(oprot); err != nil {
+			fieldId = 5
 			goto WriteFieldError
 		}
 	}
@@ -8838,6 +9218,25 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 4 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 4 end error: ", p), err)
+}
+
+func (p *ListStats) writeField5(oprot thrift.TProtocol) (err error) {
+	if p.IsSetTotalTokens() {
+		if err = oprot.WriteFieldBegin("total_tokens", thrift.I64, 5); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteI64(*p.TotalTokens); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 end error: ", p), err)
 }
 
 func (p *ListStats) String() string {

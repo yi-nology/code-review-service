@@ -26,6 +26,7 @@ func ListPlatforms(ctx context.Context, c *app.RequestContext) {
 			Token: common.MaskToken(item.Token), Enabled: item.Enabled,
 			WebhookSecret:  common.MaskWebhookSecret(item.WebhookSecret),
 			InstallationID: &item.InstallationID,
+			SkipTLS:        &item.SkipTLS,
 		}
 	})
 	common.Success(c, &modelSettings.ListPlatformsResp{Items: platforms})
@@ -84,6 +85,7 @@ func PutPlatform(ctx context.Context, c *app.RequestContext) {
 			Token: common.MaskToken(p.Token), Enabled: p.Enabled,
 			WebhookSecret:  common.MaskWebhookSecret(p.WebhookSecret),
 			InstallationID: &p.InstallationID,
+			SkipTLS:        &p.SkipTLS,
 		},
 	})
 }

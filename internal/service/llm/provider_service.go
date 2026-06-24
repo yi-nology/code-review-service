@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 // ChatProvider LLM 聊天提供商接口
@@ -62,7 +62,7 @@ func (s *ProviderService) InitProviders(presets []ProviderPreset) {
 	defer s.mu.Unlock()
 
 	for _, preset := range presets {
-		hlog.Infof("init provider: %s (%s)", preset.ID, preset.DisplayName)
+		logx.Infof("init provider: %s (%s)", preset.ID, preset.DisplayName)
 	}
 }
 

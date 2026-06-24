@@ -224,6 +224,7 @@ struct GitPlatformInfo {
     4: bool enabled (api.body="enabled")
     5: optional string webhook_secret (api.body="webhook_secret")
     6: optional string installation_id (api.body="installation_id")
+    7: optional bool skip_tls (api.body="skip_tls")
 }
 
 struct ListPlatformsResp {
@@ -237,6 +238,7 @@ struct PutPlatformReq {
     4: optional bool enabled (api.body="enabled")
     5: optional string webhook_secret (api.body="webhook_secret")
     6: optional string installation_id (api.body="installation_id")
+    7: optional bool skip_tls (api.body="skip_tls")
 }
 
 struct PutPlatformResp {
@@ -253,6 +255,7 @@ struct TestPlatformReq {
     1: string provider (api.body="provider")
     2: optional string base_url (api.body="base_url")
     3: string token (api.body="token")
+    4: optional bool skip_tls (api.body="skip_tls")
 }
 
 struct GitTestResult {
@@ -275,6 +278,8 @@ struct ReviewerAgentInfo {
     6: bool enabled (api.body="enabled")
     7: i64 priority (api.body="priority")
     8: optional string tags (api.body="tags")
+    9: optional string rule_file (api.body="rule_file")
+    10: i64 redundancy (api.body="redundancy")
 }
 
 struct ListReviewerAgentsResp {
@@ -289,6 +294,8 @@ struct CreateReviewerAgentReq {
     5: optional bool enabled (api.body="enabled")
     6: optional i64 priority (api.body="priority")
     7: optional list<string> tags (api.body="tags")
+    8: optional string rule_file (api.body="rule_file")
+    9: optional i64 redundancy (api.body="redundancy")
 }
 
 struct CreateReviewerAgentResp {
@@ -303,6 +310,8 @@ struct UpdateReviewerAgentReq {
     5: optional bool enabled (api.body="enabled")
     6: optional i64 priority (api.body="priority")
     7: optional list<string> tags (api.body="tags")
+    8: optional string rule_file (api.body="rule_file")
+    9: optional i64 redundancy (api.body="redundancy")
 }
 
 struct UpdateReviewerAgentResp {
@@ -314,34 +323,3 @@ struct DeleteReviewerAgentReq {
 }
 
 struct DeleteReviewerAgentResp {}
-
-service settingsService {
-    GetOCRSettingsResp GetOCRSettings() (api.get="/api/v1/settings/ocr")
-    UpdateOCRSettingsResp UpdateOCRSettings(1: UpdateOCRSettingsReq req) (api.put="/api/v1/settings/ocr")
-    TestLLMResp TestLLM() (api.post="/api/v1/settings/ocr/test-llm")
-    ListLLMProvidersResp ListLLMProviders() (api.get="/api/v1/settings/ocr/providers")
-    ListCustomProvidersResp ListCustomProviders() (api.get="/api/v1/settings/ocr/custom-providers")
-    CreateCustomProviderResp CreateCustomProvider(1: CreateCustomProviderReq req) (api.post="/api/v1/settings/ocr/custom-providers")
-    UpdateCustomProviderResp UpdateCustomProvider(1: UpdateCustomProviderReq req) (api.put="/api/v1/settings/ocr/custom-providers/:id")
-    DeleteCustomProviderResp DeleteCustomProvider(1: DeleteCustomProviderReq req) (api.delete="/api/v1/settings/ocr/custom-providers/:id")
-    RulesCheckResp RulesCheck(1: RulesCheckReq req) (api.post="/api/v1/settings/ocr/rules-check")
-    OCRVersionResp OCRVersion() (api.get="/api/v1/settings/ocr/version")
-    ViewerStatusResp ViewerStatus() (api.get="/api/v1/settings/ocr/viewer")
-    StartViewerResp StartViewer(1: StartViewerReq req) (api.post="/api/v1/settings/ocr/viewer/start")
-    ViewerStatusResp StopViewer() (api.post="/api/v1/settings/ocr/viewer/stop")
-
-    ListProjectPoliciesResp ListProjectPolicies() (api.get="/api/v1/settings/projects")
-    PutProjectPolicyResp PutProjectPolicy(1: PutProjectPolicyReq req) (api.put="/api/v1/settings/projects")
-    DeleteProjectPolicyResp DeleteProjectPolicy(1: DeleteProjectPolicyReq req) (api.delete="/api/v1/settings/projects")
-    ListPlatformsResp ListPlatforms() (api.get="/api/v1/settings/platforms")
-    PutPlatformResp PutPlatform(1: PutPlatformReq req) (api.put="/api/v1/settings/platforms")
-    DeletePlatformResp DeletePlatform(1: DeletePlatformReq req) (api.delete="/api/v1/settings/platforms")
-    TestPlatformResp TestPlatform(1: TestPlatformReq req) (api.post="/api/v1/settings/platforms/test")
-    GetGlobalRulesResp GetGlobalRules() (api.get="/api/v1/settings/rules/global")
-    UpdateGlobalRulesResp UpdateGlobalRules(1: UpdateGlobalRulesReq req) (api.put="/api/v1/settings/rules/global")
-
-    ListReviewerAgentsResp ListReviewerAgents() (api.get="/api/v1/settings/agents")
-    CreateReviewerAgentResp CreateReviewerAgent(1: CreateReviewerAgentReq req) (api.post="/api/v1/settings/agents")
-    UpdateReviewerAgentResp UpdateReviewerAgent(1: UpdateReviewerAgentReq req) (api.put="/api/v1/settings/agents/:id")
-    DeleteReviewerAgentResp DeleteReviewerAgent(1: DeleteReviewerAgentReq req) (api.delete="/api/v1/settings/agents/:id")
-}

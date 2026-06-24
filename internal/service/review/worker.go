@@ -9,12 +9,12 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/concurrency/group"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval, staleAfter time.Duration) {
 	if concurrency <= 0 {
-		hlog.Info("review workers disabled")
+		logx.Info("review workers disabled")
 		return
 	}
 	if pollInterval <= 0 {
@@ -29,15 +29,15 @@ func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval,
 	// webhook 涌入时瞬间起几十个 OCR 进程压垮 LLM endpoint（雪崩根因）。
 	if s.concurrencySem == nil {
 		s.concurrencySem = make(chan struct{}, concurrency)
-		hlog.Infof("review concurrency limit=%d（同时进行的 review 上限）", concurrency)
+		logx.Infof("review concurrency limit=%d（同时进行的 review 上限）", concurrency)
 	}
 
 	// 启动时：重排所有 running 评审（服务重启后全是孤儿，必须重新处理）
 	orphaned, err := s.reviewRepo.RequeueStale(ctx, time.Now().UTC().Add(1*time.Hour))
 	if err != nil {
-		hlog.Error("failed to requeue orphaned reviews on startup", "error", err)
+		logx.Error("failed to requeue orphaned reviews on startup", "error", err)
 	} else if orphaned > 0 {
-		hlog.Warnf("requeued %d orphaned running reviews from previous instance", orphaned)
+		logx.Warnf("requeued %d orphaned running reviews from previous instance", orphaned)
 	}
 
 	g := &group.Group{}
@@ -55,7 +55,7 @@ func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval,
 
 	async.GoSafe(func() {
 		if err := g.Run(); err != nil {
-			hlog.Error("worker group failed", "error", err)
+			logx.Error("worker group failed", "error", err)
 		}
 	})
 
@@ -75,9 +75,9 @@ func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval,
 			case <-ticker.C:
 				n, err := s.reviewRepo.RequeueStale(ctx, time.Now().UTC().Add(-staleAfter))
 				if err != nil {
-					hlog.Error("periodic requeue stale failed", "error", err)
+					logx.Error("periodic requeue stale failed", "error", err)
 				} else if n > 0 {
-					hlog.Warnf("periodic requeue: %d stale reviews re-queued", n)
+					logx.Warnf("periodic requeue: %d stale reviews re-queued", n)
 				}
 			}
 		}
@@ -111,7 +111,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 		if err != nil {
 			release()
 			if ctx.Err() == nil {
-				hlog.Error("claim queued review failed", "worker_id", workerID, "error", err)
+				logx.Error("claim queued review failed", "worker_id", workerID, "error", err)
 			}
 			timer.Reset(pollInterval)
 			continue
@@ -125,7 +125,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 		review := reviews[0]
 		var req Request
 		if err := json.Unmarshal(review.Request, &req); err != nil {
-			hlog.Error("failed to decode review request", "review_id", review.ReviewID, "error", err)
+			logx.Error("failed to decode review request", "review_id", review.ReviewID, "error", err)
 			s.recordFailure(ctx, review.ReviewID, req, fmt.Errorf("decode request: %w", err))
 			release()
 			timer.Reset(0)
@@ -135,6 +135,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 		provider, ok := s.Providers.Get(req.Provider)
 		if !ok {
 			err := fmt.Errorf("%w: %q", ErrUnsupportedProvider, req.Provider)
+			logx.Errorf("worker: provider not found: requested=%q review_id=%s", req.Provider, review.ReviewID)
 			s.recordFailure(ctx, review.ReviewID, req, err)
 			release()
 			timer.Reset(0)
@@ -154,7 +155,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 			}
 
 			if _, err := s.Executor.Execute(ctx, review.ReviewID, req, provider, progressReporter); err != nil && ctx.Err() == nil {
-				hlog.Error("async review failed", "worker_id", workerID, "review_id", review.ReviewID, "error", err)
+				logx.Error("async review failed", "worker_id", workerID, "review_id", review.ReviewID, "error", err)
 				// Report error to progress tracker
 				if progressReporter != nil {
 					if tracker, ok := progressReporter.(*progress.ProgressTracker); ok {

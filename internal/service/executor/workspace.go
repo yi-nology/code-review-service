@@ -10,7 +10,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/vcs"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 func applyProjectScope(ctx context.Context, workspace review.Workspace, ignorePaths []string) (review.Workspace, error) {
@@ -81,7 +81,7 @@ func (s *Service) resolveRuleFile(ctx context.Context, projectPolicy models.Proj
 	if len(projectPolicy.Rules) > 0 {
 		var projectRules []ruleEntry
 		if err := json.Unmarshal(projectPolicy.Rules, &projectRules); err != nil {
-			hlog.Warn("failed to decode project rules", "error", err)
+			logx.Warn("failed to decode project rules", "error", err)
 		} else {
 			merged = append(merged, projectRules...)
 		}
@@ -90,11 +90,11 @@ func (s *Service) resolveRuleFile(ctx context.Context, projectPolicy models.Proj
 	if s.globalRulesRepo != nil {
 		globalRules, err := s.globalRulesRepo.Get(ctx)
 		if err != nil {
-			hlog.Warn("failed to load global rules", "error", err)
+			logx.Warn("failed to load global rules", "error", err)
 		} else if globalRules != nil && len(globalRules.Rules) > 0 {
 			var globalEntries []ruleEntry
 			if err := json.Unmarshal(globalRules.Rules, &globalEntries); err != nil {
-				hlog.Warn("failed to decode global rules", "error", err)
+				logx.Warn("failed to decode global rules", "error", err)
 			} else {
 				merged = append(merged, globalEntries...)
 			}

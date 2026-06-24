@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/review"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 // Translator 把多 agent 评审结果改写为拟人化评论（阶段 4）。
@@ -30,7 +31,15 @@ type HumanTranslateResult struct {
 // 遵循 Google 代码审查指南（简洁、聚焦代码而非作者、可操作）。
 // LLM 不可用时降级为结构化模板格式。
 func (t *Translator) TranslateToHumanVoice(ctx context.Context, findings []review.Finding, summary string) (HumanTranslateResult, error) {
-	if t.provider == nil || !t.provider.Available(ctx) || len(findings) == 0 {
+	if t.provider == nil || len(findings) == 0 {
+		return HumanTranslateResult{Markdown: t.fallbackFormat(findings, summary)}, nil
+	}
+
+	// Available() 内部查询 DB，必须带超时，否则连接池耗尽时无限阻塞导致请求卡死
+	availCtx, availCancel := context.WithTimeout(ctx, 5*time.Second)
+	available := t.provider.Available(availCtx)
+	availCancel()
+	if !available {
 		return HumanTranslateResult{Markdown: t.fallbackFormat(findings, summary)}, nil
 	}
 
@@ -68,13 +77,16 @@ func (t *Translator) TranslateToHumanVoice(ctx context.Context, findings []revie
 		fmt.Fprintf(&sb, "\n【原始汇总】%s\n", summary)
 	}
 
-	resp, err := t.provider.Complete(ctx, llm.CompleteRequest{
+	llmCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	resp, err := t.provider.Complete(llmCtx, llm.CompleteRequest{
 		SystemPrompt: systemPrompt,
 		UserPrompt:   sb.String(),
 		MaxTokens:    2048,
 	})
 	if err != nil {
-		hlog.Warnf("human translation failed, falling back to template: %v", err)
+		logx.Warnf("human translation failed, falling back to template: %v", err)
 		return HumanTranslateResult{Markdown: t.fallbackFormat(findings, summary)}, nil
 	}
 
