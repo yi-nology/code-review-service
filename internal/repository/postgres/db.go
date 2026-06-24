@@ -8,17 +8,20 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/oekit/gormx"
 
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	gormLib "gorm.io/driver/postgres"
 	gormDB "gorm.io/gorm"
 )
 
 func InitDB(cfg *config.DatabaseConfig) (*gormDB.DB, error) {
-	db, err := gormx.OpenWithPool(
+	db, err := gormx.OpenWithPoolConfig(
 		gormLib.Open(cfg.DSN),
-		cfg.MaxIdleConns,
-		cfg.MaxOpenConns,
-		30*time.Minute,
+		gormx.PoolConfig{
+			MaxIdleConns:    cfg.MaxIdleConns,
+			MaxOpenConns:    cfg.MaxOpenConns,
+			ConnMaxLifetime: 30 * time.Minute,
+			ConnMaxIdleTime: 5 * time.Minute, // 空闲连接 5 分钟后回收，防止 DB 端 wait_timeout 静默关闭后取到失效连接
+		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("init database: %w", err)
@@ -42,22 +45,21 @@ func InitDB(cfg *config.DatabaseConfig) (*gormDB.DB, error) {
 		); err != nil {
 			return nil, fmt.Errorf("auto migrate: %w", err)
 		}
-		hlog.Infof("database auto-migration completed")
+		logx.Infof("database auto-migration completed")
 
 		// 部分唯一索引：防止并发创建同一 (provider, repo, PR/MR) 的多个 active review（#24 TOCTOU 根因修复）。
-		// GORM AutoMigrate 不支持部分索引，需手动 SQL。IF NOT EXISTS 幂等。
-		// 失败时（通常因历史已有重复 active 数据）仅告警不阻断启动，需人工清理后再重启。
+		// 优先使用提取列 pull_request_id / merge_request_iid，JSONB 作为回退（兼容历史数据未回填的情况）。
 		if err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_reviews_active_change
-			ON reviews (provider, repo, (COALESCE(request->>'pull_request_id', request->>'merge_request_iid')))
+			ON reviews (provider, repo, (COALESCE(NULLIF(pull_request_id, ''), request->>'pull_request_id'), NULLIF(merge_request_iid, ''), request->>'merge_request_iid')))
 			WHERE status IN ('queued', 'running')
-			AND COALESCE(request->>'pull_request_id', request->>'merge_request_iid') != ''`).Error; err != nil {
-			hlog.Warnf("failed to create active review partial index (可能存在历史重复 active review，需人工清理): %v", err)
+			AND COALESCE(NULLIF(pull_request_id, ''), request->>'pull_request_id', request->>'merge_request_iid') != ''`).Error; err != nil {
+			logx.Warnf("failed to create active review partial index (可能存在历史重复 active review，需人工清理): %v", err)
 		}
 	} else {
-		hlog.Infof("database auto-migration disabled")
+		logx.Infof("database auto-migration disabled")
 	}
 
-	hlog.Infof("database initialized successfully")
+	logx.Infof("database initialized successfully")
 	return db, nil
 }
 

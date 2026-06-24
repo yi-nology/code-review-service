@@ -7,7 +7,7 @@ import (
 	svcReview "github.com/yi-nology/code-review-service/internal/service/review"
 
 	"github.com/oekit/concurrency/async"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	"go.uber.org/fx"
 )
 
@@ -26,7 +26,7 @@ func StartWorkers(lc fx.Lifecycle, cfg *config.Config, reviewSvc *svcReview.Serv
 					cfg.GetWorkerStaleAfter(),
 				)
 			})
-			hlog.Infof("background workers started with concurrency=%d", cfg.Review.WorkerConcurrency)
+			logx.Infof("background workers started with concurrency=%d", cfg.Review.WorkerConcurrency)
 			return nil
 		},
 	})

@@ -14,7 +14,7 @@ import (
 	"github.com/oekit/pkg/slicex"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	"gorm.io/datatypes"
 )
 
@@ -47,7 +47,7 @@ func GenerateMap(ctx context.Context, c *app.RequestContext) {
 
 	sess, err := handlerInst.sessionService.GetSession(ctx, req.SessionID)
 	if err != nil {
-		hlog.Errorf("get session failed: %v", err)
+		logx.Errorf("get session failed: %v", err)
 		common.Fail(c, common.NotFound("session not found"))
 		return
 	}
@@ -59,7 +59,7 @@ func GenerateMap(ctx context.Context, c *app.RequestContext) {
 
 	reviewMap, err := handlerInst.mapGenerator.Generate(req.SessionID, req.Diff, findings)
 	if err != nil {
-		hlog.Errorf("generate review map failed: %v", err)
+		logx.Errorf("generate review map failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -79,7 +79,7 @@ func GenerateMap(ctx context.Context, c *app.RequestContext) {
 	}
 
 	if err := handlerInst.reviewMapRepo.Create(ctx, dbMap); err != nil {
-		hlog.Errorf("save review map failed: %v", err)
+		logx.Errorf("save review map failed: %v", err)
 	}
 
 	common.Success(c, reviewMap)
@@ -93,7 +93,7 @@ func GetMaps(ctx context.Context, c *app.RequestContext) {
 
 	maps, err := handlerInst.reviewMapRepo.GetByReviewID(ctx, req.ID)
 	if err != nil {
-		hlog.Errorf("get review maps failed: %v", err)
+		logx.Errorf("get review maps failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -126,7 +126,7 @@ func GetMap(ctx context.Context, c *app.RequestContext) {
 
 	m, err := handlerInst.reviewMapRepo.GetByMapID(ctx, req.MapID)
 	if err != nil {
-		hlog.Errorf("get review map failed: %v", err)
+		logx.Errorf("get review map failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -146,7 +146,7 @@ func GetSessionMap(ctx context.Context, c *app.RequestContext) {
 
 	m, err := handlerInst.reviewMapRepo.GetBySessionID(ctx, req.SessionID)
 	if err != nil {
-		hlog.Errorf("get session map failed: %v", err)
+		logx.Errorf("get session map failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -200,7 +200,7 @@ func PreviewMap(ctx context.Context, c *app.RequestContext) {
 
 	reviewMap, err := handlerInst.mapGenerator.Generate("preview", req.Diff, nil)
 	if err != nil {
-		hlog.Errorf("generate preview map failed: %v", err)
+		logx.Errorf("generate preview map failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -217,7 +217,7 @@ func convertSessionFindings(sess *models.ReviewSession) []reviewmap.Finding {
 
 	var agentResults []models.AgentResultData
 	if err := json.Unmarshal(sess.AgentResults, &agentResults); err != nil {
-		hlog.Warnf("failed to parse agent results: %v", err)
+		logx.Warnf("failed to parse agent results: %v", err)
 		return findings
 	}
 
@@ -279,7 +279,7 @@ func UpdateFileReviewed(ctx context.Context, c *app.RequestContext) {
 	}
 
 	if err := handlerInst.reviewMapRepo.UpdateFileReviewed(ctx, mapID, filePath, req.Reviewed); err != nil {
-		hlog.Errorf("update file reviewed failed: %v", err)
+		logx.Errorf("update file reviewed failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -313,7 +313,7 @@ func UpdateSectionProgress(ctx context.Context, c *app.RequestContext) {
 	}
 
 	if err := handlerInst.reviewMapRepo.UpdateSectionFilesReviewed(ctx, mapID, sectionID, req.Reviewed); err != nil {
-		hlog.Errorf("update section progress failed: %v", err)
+		logx.Errorf("update section progress failed: %v", err)
 		common.Fail(c, err)
 		return
 	}

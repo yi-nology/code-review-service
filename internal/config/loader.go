@@ -3,12 +3,12 @@ package config
 import (
 	"flag"
 	"fmt"
-	"log/slog"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/oekit/core"
+	"github.com/oekit/logx"
 	"github.com/oekit/tracing"
 )
 
@@ -20,7 +20,7 @@ func Load() *Config {
 	cfg, err := config.LoadBootstrap[Config](*env)
 	if err != nil {
 		configFile := fmt.Sprintf("etc/config-%s.yaml", *env)
-		slog.Warn("config file not found, using defaults", "file", configFile, "error", err)
+		logx.Warn("config file not found, using defaults", "file", configFile, "error", err)
 		cfg = &Config{}
 	}
 

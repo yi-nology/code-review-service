@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	"gorm.io/datatypes"
 )
 
@@ -47,7 +47,7 @@ func (r *ConfigFileReader) SyncFromFile(ctx context.Context) error {
 	data, err := os.ReadFile(r.filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			hlog.Infof("config-file reader: %s 不存在，跳过同步", r.filePath)
+			logx.Infof("config-file reader: %s 不存在，跳过同步", r.filePath)
 			return nil
 		}
 		return err
@@ -56,26 +56,26 @@ func (r *ConfigFileReader) SyncFromFile(ctx context.Context) error {
 	// 解析配置文件
 	var cfg ocrConfigFile
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		hlog.Warnf("config-file reader: 解析配置文件失败: %v", err)
+		logx.Warnf("config-file reader: 解析配置文件失败: %v", err)
 		return nil
 	}
 
 	// 检查是否有 LLM 配置
 	if cfg.LLM == nil || (cfg.LLM.URL == "" && cfg.LLM.Model == "") {
-		hlog.Infof("config-file reader: 配置文件中无 LLM 配置，跳过同步")
+		logx.Infof("config-file reader: 配置文件中无 LLM 配置，跳过同步")
 		return nil
 	}
 
 	// 获取当前数据库设置
 	existing, err := r.ocrRepo.Get(ctx)
 	if err != nil {
-		hlog.Warnf("config-file reader: 读取数据库设置失败: %v", err)
+		logx.Warnf("config-file reader: 读取数据库设置失败: %v", err)
 		return nil
 	}
 
 	// 如果数据库已有 URL 配置，不覆盖
 	if existing.URL != "" {
-		hlog.Infof("config-file reader: 数据库已有 URL 配置，跳过同步")
+		logx.Infof("config-file reader: 数据库已有 URL 配置，跳过同步")
 		return nil
 	}
 
@@ -96,10 +96,10 @@ func (r *ConfigFileReader) SyncFromFile(ctx context.Context) error {
 	}
 
 	if err := r.ocrRepo.Save(ctx, existing); err != nil {
-		hlog.Warnf("config-file reader: 保存到数据库失败: %v", err)
+		logx.Warnf("config-file reader: 保存到数据库失败: %v", err)
 		return err
 	}
 
-	hlog.Infof("config-file reader: 已同步 %s 到数据库 (provider=%s, model=%s)", r.filePath, cfg.Provider, cfg.LLM.Model)
+	logx.Infof("config-file reader: 已同步 %s 到数据库 (provider=%s, model=%s)", r.filePath, cfg.Provider, cfg.LLM.Model)
 	return nil
 }

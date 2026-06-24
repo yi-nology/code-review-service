@@ -3,22 +3,23 @@ package session
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres"
+	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/oekit/gormx"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	"gorm.io/datatypes"
 )
 
 type SessionService struct {
-	repo postgres.SessionRepository
+	repo repository.SessionRepository
 }
 
-func NewSessionService(repo postgres.SessionRepository) *SessionService {
+func NewSessionService(repo repository.SessionRepository) *SessionService {
 	return &SessionService{repo: repo}
 }
 
@@ -43,16 +44,30 @@ func (s *SessionService) CreateSession(ctx context.Context, reviewID string, rou
 	if err := s.repo.Create(ctx, session); err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}
-	hlog.Infof("created session %s for review %s (round %d)", session.SessionID, reviewID, round)
+	logx.Infof("created session %s for review %s (round %d)", session.SessionID, reviewID, round)
 	return session, nil
 }
 
 func (s *SessionService) GetSession(ctx context.Context, sessionID string) (*models.ReviewSession, error) {
-	return s.repo.GetByID(ctx, sessionID)
+	session, err := s.repo.GetByID(ctx, sessionID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, fmt.Errorf("session not found: %s", sessionID)
+		}
+		return nil, err
+	}
+	return session, nil
 }
 
 func (s *SessionService) GetActiveSession(ctx context.Context, reviewID string) (*models.ReviewSession, error) {
-	return s.repo.GetActiveByReviewID(ctx, reviewID)
+	session, err := s.repo.GetActiveByReviewID(ctx, reviewID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return session, nil
 }
 
 func (s *SessionService) GetSessionsByReview(ctx context.Context, reviewID string) ([]*models.ReviewSession, error) {
@@ -62,6 +77,9 @@ func (s *SessionService) GetSessionsByReview(ctx context.Context, reviewID strin
 func (s *SessionService) UpdatePhase(ctx context.Context, sessionID string, phase models.SessionPhase, progress float64) error {
 	session, err := s.repo.GetByID(ctx, sessionID)
 	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return fmt.Errorf("session not found: %s", sessionID)
+		}
 		return fmt.Errorf("get session: %w", err)
 	}
 	if !isValidPhaseTransition(models.SessionPhase(session.Phase), phase) {
@@ -70,7 +88,7 @@ func (s *SessionService) UpdatePhase(ctx context.Context, sessionID string, phas
 	if err := s.repo.UpdatePhase(ctx, sessionID, string(phase), progress); err != nil {
 		return fmt.Errorf("update phase: %w", err)
 	}
-	hlog.Infof("session %s phase updated to %s (progress: %.1f%%)", sessionID, phase, progress)
+	logx.Infof("session %s phase updated to %s (progress: %.1f%%)", sessionID, phase, progress)
 	return nil
 }
 
@@ -78,7 +96,7 @@ func (s *SessionService) UpdateStatus(ctx context.Context, sessionID string, sta
 	if err := s.repo.UpdateStatus(ctx, sessionID, string(status)); err != nil {
 		return fmt.Errorf("update status: %w", err)
 	}
-	hlog.Infof("session %s status updated to %s", sessionID, status)
+	logx.Infof("session %s status updated to %s", sessionID, status)
 	return nil
 }
 
@@ -86,7 +104,7 @@ func (s *SessionService) UpdateAgentResults(ctx context.Context, sessionID strin
 	if err := s.repo.UpdateAgentResults(ctx, sessionID, agentResults); err != nil {
 		return fmt.Errorf("update agent results: %w", err)
 	}
-	hlog.Infof("session %s agent results updated (%d agents)", sessionID, len(agentResults))
+	logx.Infof("session %s agent results updated (%d agents)", sessionID, len(agentResults))
 	return nil
 }
 
@@ -94,7 +112,7 @@ func (s *SessionService) UpdateDiscussion(ctx context.Context, sessionID string,
 	if err := s.repo.UpdateDiscussion(ctx, sessionID, discussion); err != nil {
 		return fmt.Errorf("update discussion: %w", err)
 	}
-	hlog.Infof("session %s discussion updated (%d entries)", sessionID, len(discussion.Entries))
+	logx.Infof("session %s discussion updated (%d entries)", sessionID, len(discussion.Entries))
 	return nil
 }
 
@@ -102,7 +120,7 @@ func (s *SessionService) UpdateFinalReport(ctx context.Context, sessionID string
 	if err := s.repo.UpdateFinalReport(ctx, sessionID, finalReport); err != nil {
 		return fmt.Errorf("update final report: %w", err)
 	}
-	hlog.Infof("session %s final report updated", sessionID)
+	logx.Infof("session %s final report updated", sessionID)
 	return nil
 }
 
@@ -110,13 +128,16 @@ func (s *SessionService) CompleteSession(ctx context.Context, sessionID string, 
 	if err := s.repo.Complete(ctx, sessionID, finalReport); err != nil {
 		return fmt.Errorf("complete session: %w", err)
 	}
-	hlog.Infof("session %s completed", sessionID)
+	logx.Infof("session %s completed", sessionID)
 	return nil
 }
 
 func (s *SessionService) FailSession(ctx context.Context, sessionID string, reason string) error {
 	session, err := s.repo.GetByID(ctx, sessionID)
 	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return fmt.Errorf("session not found: %s", sessionID)
+		}
 		return fmt.Errorf("get session: %w", err)
 	}
 	metadata := make(map[string]interface{})
@@ -136,7 +157,7 @@ func (s *SessionService) FailSession(ctx context.Context, sessionID string, reas
 	}); err != nil {
 		return fmt.Errorf("fail session: %w", err)
 	}
-	hlog.Infof("session %s failed: %s", sessionID, reason)
+	logx.Infof("session %s failed: %s", sessionID, reason)
 	return nil
 }
 
@@ -144,7 +165,7 @@ func (s *SessionService) CancelSession(ctx context.Context, sessionID string) er
 	if err := s.repo.UpdateStatus(ctx, sessionID, string(models.SessionStatusCancelled)); err != nil {
 		return fmt.Errorf("cancel session: %w", err)
 	}
-	hlog.Infof("session %s cancelled", sessionID)
+	logx.Infof("session %s cancelled", sessionID)
 	return nil
 }
 

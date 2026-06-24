@@ -2,9 +2,9 @@ package webhook
 
 import (
 	"os"
-	"strconv"
 
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
+	"github.com/oekit/pkg/convert"
 )
 
 // insecureWarned 避免每次请求重复打日志。
@@ -18,9 +18,9 @@ var insecureWarned bool
 // 受影响的现有部署可通过环境变量 WEBHOOK_ALLOW_INSECURE=true 临时回退，
 // 但强烈建议改为在各平台正确配置 webhook secret。
 func allowInsecureSignature() bool {
-	v, _ := strconv.ParseBool(os.Getenv("WEBHOOK_ALLOW_INSECURE"))
+	v := convert.Str2Bool(os.Getenv("WEBHOOK_ALLOW_INSECURE"), false)
 	if v && !insecureWarned {
-		hlog.Errorf("[security] WEBHOOK_ALLOW_INSECURE=true: webhook 签名校验对未配置 secret 的平台放行，存在伪造风险，请尽快配置 webhook secret 并移除该环境变量")
+		logx.Errorf("[security] WEBHOOK_ALLOW_INSECURE=true: webhook 签名校验对未配置 secret 的平台放行，存在伪造风险，请尽快配置 webhook secret 并移除该环境变量")
 		insecureWarned = true
 	}
 	return v

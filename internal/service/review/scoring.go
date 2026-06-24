@@ -54,28 +54,32 @@ func BuildReport(result *Result) Report {
 	}
 
 	volumeMultiplier := mathx.Clamp(100.0/float64(changedLines), 0.2, 3.0)
-	adjustedDeduction := int(math.Round(float64(rawDeduction) * volumeMultiplier))
 
 	deductions := make([]ScoreDeduction, 0, 6)
+	totalSeverityDeduction := 0
 
 	if counts.Critical > 0 {
 		pts := int(math.Round(float64(counts.Critical*25) * volumeMultiplier))
 		deductions = append(deductions, ScoreDeduction{Reason: "严重问题", Points: pts, Count: counts.Critical})
+		totalSeverityDeduction += pts
 	}
 	if counts.Major > 0 {
 		pts := int(math.Round(float64(counts.Major*12) * volumeMultiplier))
 		deductions = append(deductions, ScoreDeduction{Reason: "高风险问题", Points: pts, Count: counts.Major})
+		totalSeverityDeduction += pts
 	}
 	if counts.Minor > 0 {
 		pts := int(math.Round(float64(counts.Minor*5) * volumeMultiplier))
 		deductions = append(deductions, ScoreDeduction{Reason: "中风险问题", Points: pts, Count: counts.Minor})
+		totalSeverityDeduction += pts
 	}
 	if counts.Info > 0 {
 		pts := int(math.Round(float64(counts.Info*1) * volumeMultiplier))
 		deductions = append(deductions, ScoreDeduction{Reason: "提示问题", Points: pts, Count: counts.Info})
+		totalSeverityDeduction += pts
 	}
 
-	value := 100 - adjustedDeduction
+	value := 100 - totalSeverityDeduction
 
 	scoringWarnings := 0
 	for _, warning := range result.Warnings {
@@ -151,6 +155,20 @@ func CountDiffLines(diff string) int {
 			count++
 		}
 		if line[0] == '-' && !strings.HasPrefix(line, "---") {
+			count++
+		}
+	}
+	return count
+}
+
+// CountDiffFiles 统计 diff 中涉及的变更文件数量。
+func CountDiffFiles(diff string) int {
+	if diff == "" {
+		return 0
+	}
+	count := 0
+	for _, line := range strings.Split(diff, "\n") {
+		if strings.HasPrefix(line, "diff --git ") {
 			count++
 		}
 	}

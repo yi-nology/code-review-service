@@ -14,7 +14,7 @@ import (
 	"github.com/oekit/pkg/ptrx"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 var handlerInst *SessionHandler
@@ -100,7 +100,7 @@ func ListSessions(ctx context.Context, c *app.RequestContext) {
 
 	result, err := handlerInst.sessionService.ListSessions(ctx, page, pageSize)
 	if err != nil {
-		hlog.Errorf("list sessions failed: %v", err)
+		logx.Errorf("list sessions failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -126,7 +126,7 @@ func GetSessions(ctx context.Context, c *app.RequestContext) {
 
 	rawSessions, err := handlerInst.sessionService.GetSessionsByReview(ctx, req.ID)
 	if err != nil {
-		hlog.Errorf("get sessions failed: %v", err)
+		logx.Errorf("get sessions failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -147,14 +147,14 @@ func CreateSession(ctx context.Context, c *app.RequestContext) {
 
 	round, err := handlerInst.sessionService.GetNextRound(ctx, req.ID)
 	if err != nil {
-		hlog.Errorf("get next round failed: %v", err)
+		logx.Errorf("get next round failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
 
 	session, err := handlerInst.sessionService.CreateSession(ctx, req.ID, round)
 	if err != nil {
-		hlog.Errorf("create session failed: %v", err)
+		logx.Errorf("create session failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -170,7 +170,7 @@ func GetActiveSession(ctx context.Context, c *app.RequestContext) {
 
 	session, err := handlerInst.sessionService.GetActiveSession(ctx, req.ID)
 	if err != nil {
-		hlog.Errorf("get active session failed: %v", err)
+		logx.Errorf("get active session failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -191,7 +191,7 @@ func GetSession(ctx context.Context, c *app.RequestContext) {
 
 	session, err := handlerInst.sessionService.GetSession(ctx, req.SessionID)
 	if err != nil {
-		hlog.Errorf("get session failed: %v", err)
+		logx.Errorf("get session failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -207,7 +207,7 @@ func UpdateSessionPhase(ctx context.Context, c *app.RequestContext) {
 
 	progress := ptrx.Deref(req.Progress, 0)
 	if err := handlerInst.sessionService.UpdatePhase(ctx, req.SessionID, models.SessionPhase(req.Phase), progress); err != nil {
-		hlog.Errorf("update session phase failed: %v", err)
+		logx.Errorf("update session phase failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -224,7 +224,7 @@ func UpdateSessionStatus(ctx context.Context, c *app.RequestContext) {
 	}
 
 	if err := handlerInst.sessionService.UpdateStatus(ctx, req.SessionID, models.SessionStatus(req.Status)); err != nil {
-		hlog.Errorf("update session status failed: %v", err)
+		logx.Errorf("update session status failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -247,7 +247,7 @@ func UpdateSessionAgentResults(ctx context.Context, c *app.RequestContext) {
 	}
 
 	if err := handlerInst.sessionService.UpdateAgentResults(ctx, req.SessionID, agentResults); err != nil {
-		hlog.Errorf("update session agent results failed: %v", err)
+		logx.Errorf("update session agent results failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -270,7 +270,7 @@ func UpdateSessionDiscussion(ctx context.Context, c *app.RequestContext) {
 	}
 
 	if err := handlerInst.sessionService.UpdateDiscussion(ctx, req.SessionID, discussion); err != nil {
-		hlog.Errorf("update session discussion failed: %v", err)
+		logx.Errorf("update session discussion failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -293,7 +293,7 @@ func UpdateSessionFinalReport(ctx context.Context, c *app.RequestContext) {
 	}
 
 	if err := handlerInst.sessionService.UpdateFinalReport(ctx, req.SessionID, finalReport); err != nil {
-		hlog.Errorf("update session final report failed: %v", err)
+		logx.Errorf("update session final report failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -316,7 +316,7 @@ func CompleteSession(ctx context.Context, c *app.RequestContext) {
 	}
 
 	if err := handlerInst.sessionService.CompleteSession(ctx, req.SessionID, finalReport); err != nil {
-		hlog.Errorf("complete session failed: %v", err)
+		logx.Errorf("complete session failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -333,7 +333,7 @@ func FailSession(ctx context.Context, c *app.RequestContext) {
 	}
 
 	if err := handlerInst.sessionService.FailSession(ctx, req.SessionID, req.Reason); err != nil {
-		hlog.Errorf("fail session failed: %v", err)
+		logx.Errorf("fail session failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -350,7 +350,7 @@ func CancelSession(ctx context.Context, c *app.RequestContext) {
 	}
 
 	if err := handlerInst.sessionService.CancelSession(ctx, req.SessionID); err != nil {
-		hlog.Errorf("cancel session failed: %v", err)
+		logx.Errorf("cancel session failed: %v", err)
 		common.Fail(c, err)
 		return
 	}

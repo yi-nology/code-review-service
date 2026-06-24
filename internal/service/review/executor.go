@@ -3,7 +3,7 @@ package review
 import (
 	"context"
 
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 func (s *Service) recordFailure(ctx context.Context, id string, req Request, runErr error) {
@@ -15,6 +15,6 @@ func (s *Service) recordFailure(ctx context.Context, id string, req Request, run
 		Error:    runErr.Error(),
 	}
 	if err := s.updateWithRawOCR(ctx, id, req, response, nil); err != nil {
-		hlog.Error("failed to persist review failure", "review_id", id, "error", err)
+		logx.Error("failed to persist review failure", "review_id", id, "error", err)
 	}
 }

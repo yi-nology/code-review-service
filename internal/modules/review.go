@@ -81,6 +81,7 @@ type ReviewServiceDeps struct {
 
 	Config          *config.Config
 	Repos           *repository.RepoContainer
+	SessionRepo     repository.SessionRepository
 	GitProviderSvc  *gitProvider.GitProviderService
 	GitProviders    *gitProvider.GitProviderProviders
 	GitProviderAdp  *gitProvider.GitProviderAdapter
@@ -97,6 +98,7 @@ func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 		ProjectRepo:     deps.Repos.ProjectPolicy,
 		GlobalRulesRepo: deps.Repos.GlobalRules,
 		ReviewMapRepo:   deps.Repos.ReviewMap,
+		SessionRepo:     deps.SessionRepo,
 		Policy:          deps.PolicyEngine,
 		Providers:       deps.GitProviders,
 		GitProvider:     deps.GitProviderAdp,

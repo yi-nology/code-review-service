@@ -9714,6 +9714,7 @@ type GitPlatformInfo struct {
 	Enabled        bool    `thrift:"enabled,4" form:"enabled" json:"enabled"`
 	WebhookSecret  *string `thrift:"webhook_secret,5,optional" form:"webhook_secret" json:"webhook_secret,omitempty"`
 	InstallationID *string `thrift:"installation_id,6,optional" form:"installation_id" json:"installation_id,omitempty"`
+	SkipTLS        *bool   `thrift:"skip_tls,7,optional" form:"skip_tls" json:"skip_tls,omitempty"`
 }
 
 func NewGitPlatformInfo() *GitPlatformInfo {
@@ -9757,6 +9758,15 @@ func (p *GitPlatformInfo) GetInstallationID() (v string) {
 	return *p.InstallationID
 }
 
+var GitPlatformInfo_SkipTLS_DEFAULT bool
+
+func (p *GitPlatformInfo) GetSkipTLS() (v bool) {
+	if !p.IsSetSkipTLS() {
+		return GitPlatformInfo_SkipTLS_DEFAULT
+	}
+	return *p.SkipTLS
+}
+
 var fieldIDToName_GitPlatformInfo = map[int16]string{
 	1: "provider",
 	2: "base_url",
@@ -9764,6 +9774,7 @@ var fieldIDToName_GitPlatformInfo = map[int16]string{
 	4: "enabled",
 	5: "webhook_secret",
 	6: "installation_id",
+	7: "skip_tls",
 }
 
 func (p *GitPlatformInfo) IsSetWebhookSecret() bool {
@@ -9772,6 +9783,10 @@ func (p *GitPlatformInfo) IsSetWebhookSecret() bool {
 
 func (p *GitPlatformInfo) IsSetInstallationID() bool {
 	return p.InstallationID != nil
+}
+
+func (p *GitPlatformInfo) IsSetSkipTLS() bool {
+	return p.SkipTLS != nil
 }
 
 func (p *GitPlatformInfo) Read(iprot thrift.TProtocol) (err error) {
@@ -9836,6 +9851,14 @@ func (p *GitPlatformInfo) Read(iprot thrift.TProtocol) (err error) {
 		case 6:
 			if fieldTypeId == thrift.STRING {
 				if err = p.ReadField6(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 7:
+			if fieldTypeId == thrift.BOOL {
+				if err = p.ReadField7(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -9936,6 +9959,17 @@ func (p *GitPlatformInfo) ReadField6(iprot thrift.TProtocol) error {
 	p.InstallationID = _field
 	return nil
 }
+func (p *GitPlatformInfo) ReadField7(iprot thrift.TProtocol) error {
+
+	var _field *bool
+	if v, err := iprot.ReadBool(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.SkipTLS = _field
+	return nil
+}
 
 func (p *GitPlatformInfo) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -9965,6 +9999,10 @@ func (p *GitPlatformInfo) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField6(oprot); err != nil {
 			fieldId = 6
+			goto WriteFieldError
+		}
+		if err = p.writeField7(oprot); err != nil {
+			fieldId = 7
 			goto WriteFieldError
 		}
 	}
@@ -10089,6 +10127,25 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 6 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 6 end error: ", p), err)
+}
+
+func (p *GitPlatformInfo) writeField7(oprot thrift.TProtocol) (err error) {
+	if p.IsSetSkipTLS() {
+		if err = oprot.WriteFieldBegin("skip_tls", thrift.BOOL, 7); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteBool(*p.SkipTLS); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 7 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 7 end error: ", p), err)
 }
 
 func (p *GitPlatformInfo) String() string {

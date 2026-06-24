@@ -221,6 +221,7 @@ export async function testGitPlatform(data: {
   provider: string
   base_url: string
   token: string
+  skip_tls?: boolean
 }): Promise<GitTestResult> {
   const resp: any = await request.post('/settings/platforms/test', data)
   return resp?.result ?? resp

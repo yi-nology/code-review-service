@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 // projectConventionFiles 是会被自动发现并注入评审上下文的项目约定文件（阶段 5）。
@@ -37,7 +37,7 @@ func discoverProjectStandards(repoDir string) map[string]string {
 			continue
 		}
 		standards[name] = content
-		hlog.Infof("discovered project standard: %s (%d chars)", name, len(content))
+		logx.Infof("discovered project standard: %s (%d chars)", name, len(content))
 	}
 	if len(standards) == 0 {
 		return nil

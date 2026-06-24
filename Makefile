@@ -1,7 +1,11 @@
 GO_PACKAGES := $(shell go list ./... | grep -v '/frontend/node_modules/')
 GO_LINT_PATHS := $(shell go list -f '{{.Dir}}' ./... | grep -v '/frontend/node_modules/')
 
-.PHONY: help fmt lint lint-strict test test-race vuln frontend-install frontend-lint frontend-build check
+# Local dependency paths (override with EKIT_PATH=... GIT_SDK_PATH=...)
+EKIT_PATH ?= ../ekit
+GIT_SDK_PATH ?= /opt/project/wechat_project/git-platform-sdk
+
+.PHONY: help fmt lint lint-strict test test-race vuln frontend-install frontend-lint frontend-build check setup-local-deps
 
 help:
 	@echo "Targets:"
@@ -14,6 +18,7 @@ help:
 	@echo "  make frontend-lint   Run Vue/TypeScript lint"
 	@echo "  make frontend-build  Run Vue typecheck and production build"
 	@echo "  make check           Run the default local quality gate"
+	@echo "  make setup-local-deps Verify/configure local replace directives"
 
 fmt:
 	gofmt -w $$(git ls-files '*.go')
@@ -51,3 +56,19 @@ frontend-build:
 	npm run build --prefix frontend
 
 check: test lint frontend-lint frontend-build
+
+setup-local-deps:
+	@echo "Checking local dependencies..."
+	@if [ ! -d "$(EKIT_PATH)" ]; then \
+		echo "WARNING: ekit not found at $(EKIT_PATH). Clone it: git clone <ekit-repo> $(EKIT_PATH)"; \
+	else \
+		echo "OK: ekit found at $(EKIT_PATH)"; \
+	fi
+	@if [ ! -d "$(GIT_SDK_PATH)" ]; then \
+		echo "WARNING: git-platform-sdk not found at $(GIT_SDK_PATH). Clone it or override with GIT_SDK_PATH=..."; \
+	else \
+		echo "OK: git-platform-sdk found at $(GIT_SDK_PATH)"; \
+	fi
+	@echo ""
+	@echo "Current go.mod replace directives:"
+	@grep "^replace" go.mod || echo "  (none)"

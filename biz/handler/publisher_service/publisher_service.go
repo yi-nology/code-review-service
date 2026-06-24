@@ -6,13 +6,15 @@ import (
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelPublisher "github.com/yi-nology/code-review-service/biz/model/publisher"
+	"github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
 
 	"github.com/oekit/pkg/ptrx"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 var handlerInst *PublisherHandler //nolint:unused // initialized by InitHandler, used by route handlers
@@ -26,14 +28,16 @@ type PublisherHandler struct {
 	writeback  *writeback.Orchestrator
 	translator *writeback.Translator
 	reviewSvc  reviewGetter
+	providerSvc *provider.GitProviderService
 }
 
-// InitHandler 注入 writeback 编排器、拟人化翻译器、评审服务。
-func InitHandler(writeback *writeback.Orchestrator, translator *writeback.Translator, reviewSvc reviewGetter) {
+// InitHandler 注入 writeback 编排器、拟人化翻译器、评审服务、Git 平台服务。
+func InitHandler(writeback *writeback.Orchestrator, translator *writeback.Translator, reviewSvc reviewGetter, providerSvc *provider.GitProviderService) {
 	handlerInst = &PublisherHandler{
-		writeback:  writeback,
-		translator: translator,
-		reviewSvc:  reviewSvc,
+		writeback:   writeback,
+		translator:  translator,
+		reviewSvc:   reviewSvc,
+		providerSvc: providerSvc,
 	}
 }
 
@@ -59,14 +63,28 @@ func PublishReview(ctx context.Context, c *app.RequestContext) {
 	if strings.EqualFold(ptrx.Deref(req.Mode, ""), "human") && handlerInst.translator != nil {
 		translated, terr := handlerInst.translator.TranslateToHumanVoice(ctx, findings, record.Response.Summary)
 		if terr != nil {
-			hlog.Warnf("human translation failed, falling back to team mode: %v", terr)
+			logx.Warnf("human translation failed, falling back to team mode: %v", terr)
 		} else {
 			result.Summary = translated.Markdown
 		}
 	}
 
-	// 发布（diff 为空 → orchestrator 自动降级为 summary-only）
-	if err := handlerInst.writeback.Publish(ctx, record.Request, result, ""); err != nil {
+	// 获取 diff 用于行内评论定位（summary_only 或 diff 为空时 orchestrator 降级为 summary-only）
+	diff := ""
+	summaryOnly := req.SummaryOnly != nil && *req.SummaryOnly
+	if !summaryOnly && handlerInst.providerSvc != nil {
+		owner, repoName, perr := provider.ParseRepoPath(record.Request.Repo)
+		number := types.ResolvePRNumber(record.Request.Provider, record.Request.PullRequestID, record.Request.MergeRequestIID)
+		if perr == nil && number > 0 {
+			if d, derr := handlerInst.providerSvc.GetCRDiffString(ctx, record.Request.Provider, owner, repoName, number); derr == nil {
+				diff = d
+			} else {
+				logx.Warn("failed to fetch diff for publish, falling back to summary-only", "error", derr)
+			}
+		}
+	}
+
+	if err := handlerInst.writeback.Publish(ctx, record.Request, result, diff); err != nil {
 		common.Fail(c, err)
 		return
 	}

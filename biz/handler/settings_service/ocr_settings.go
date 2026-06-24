@@ -15,7 +15,7 @@ import (
 	"github.com/oekit/pkg/ptrx"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	"gorm.io/datatypes"
 )
 
@@ -57,9 +57,9 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 			result, err := tester.TestLLMWithSettings(testCtx, dbSettings)
 			cancel()
 			if err != nil {
-				hlog.Warnf("[ocr-settings] LLM 连通测试执行失败（配置仍已保存）: %v", err)
+				logx.Warnf("[ocr-settings] LLM 连通测试执行失败（配置仍已保存）: %v", err)
 			} else if result != nil && !result.Success {
-				hlog.Warnf("[ocr-settings] LLM 连通测试未通过（配置仍已保存，建议检查 LLM 配置）: %s", result.Message)
+				logx.Warnf("[ocr-settings] LLM 连通测试未通过（配置仍已保存，建议检查 LLM 配置）: %s", result.Message)
 			}
 		}
 	}

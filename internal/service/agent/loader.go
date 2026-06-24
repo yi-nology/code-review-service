@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 // reviewRunnerFactory creates review runners with different configurations
@@ -36,14 +36,14 @@ func NewAgentLoader(agentManager *AgentManager, factory reviewRunnerFactory, tim
 // LoadFromDB loads agents from database and registers them
 func (l *AgentLoader) LoadFromDB(ctx context.Context, agents []models.ReviewerAgent) error {
 	if len(agents) == 0 {
-		hlog.Info("no agents found in database, using default single agent")
+		logx.Info("no agents found in database, using default single agent")
 		return nil
 	}
 
 	loaded := 0
 	for _, agentModel := range agents {
 		if !agentModel.Enabled {
-			hlog.Infof("skipping disabled agent: %s", agentModel.Name)
+			logx.Infof("skipping disabled agent: %s", agentModel.Name)
 			continue
 		}
 
@@ -76,11 +76,11 @@ func (l *AgentLoader) LoadFromDB(ctx context.Context, agents []models.ReviewerAg
 			loaded++
 		}
 
-		hlog.Infof("loaded agent from DB: %s (priority: %d, background: %d chars, rule: %d chars, redundancy: %d)",
+		logx.Infof("loaded agent from DB: %s (priority: %d, background: %d chars, rule: %d chars, redundancy: %d)",
 			agentModel.Name, agentModel.Priority, len(agentModel.Background), len(agentModel.RuleFile), redundancy)
 	}
 
-	hlog.Infof("loaded %d agents from database", loaded)
+	logx.Infof("loaded %d agents from database", loaded)
 	return nil
 }
 
@@ -98,7 +98,7 @@ func (l *AgentLoader) LoadDefaultAgent(background string) {
 	agent := newOCRAgent(runner, agentConfig)
 	l.agentManager.RegisterAgent(agent)
 
-	hlog.Infof("loaded default agent with background: %d chars", len(background))
+	logx.Infof("loaded default agent with background: %d chars", len(background))
 }
 
 // extractTags extracts tags from JSON

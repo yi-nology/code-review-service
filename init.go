@@ -38,6 +38,7 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 		modules.LLMProbeModule,
 		modules.WorkerModule,
 		modules.MigrateModule,
+		modules.CleanupModule,
 		fx.WithLogger(func() fxevent.Logger { return &fxevent.ConsoleLogger{W: os.Stderr} }),
 	)
 

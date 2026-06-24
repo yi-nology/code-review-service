@@ -9,7 +9,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	"gorm.io/datatypes"
 )
 
@@ -31,7 +31,7 @@ func (s *Service) appendHistory(ctx context.Context, id, stage, status, message 
 		return nil
 	})
 	if err != nil {
-		hlog.Warn("failed to append review history", "review_id", id, "error", err)
+		logx.Warn("failed to append review history", "review_id", id, "error", err)
 	}
 }
 
@@ -55,6 +55,7 @@ func (s *Service) updateStatus(ctx context.Context, id, status string) error {
 			})
 		}
 		r.Status = status
+		r.Summary = resp.Summary
 		r.Response = review.MustMarshal(resp)
 		r.UpdatedAt = time.Now().UTC()
 		return nil
@@ -95,6 +96,9 @@ func (s *Service) updateWithRawOCR(ctx context.Context, id string, req review.Re
 	}
 
 	r.Status = response.Status
+	r.Summary = response.Summary
+	r.Score = response.Report.Score.Value
+	r.Grade = response.Report.Score.Grade
 	r.Response = review.MustMarshal(response)
 	if len(rawOCR) > 0 {
 		r.RawOCR = datatypes.JSON(rawOCR)
@@ -111,7 +115,7 @@ func (s *Service) updateRequestSHAs(ctx context.Context, id string, req review.R
 	r.Request = review.MustMarshal(req)
 	r.UpdatedAt = time.Now().UTC()
 	if err := s.reviewRepo.Save(ctx, r); err != nil {
-		hlog.Warn("failed to update request SHAs", "review_id", id, "error", err)
+		logx.Warn("failed to update request SHAs", "review_id", id, "error", err)
 	}
 }
 

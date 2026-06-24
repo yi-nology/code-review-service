@@ -10,7 +10,7 @@ import (
 	"github.com/oekit/pkg/slicex"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 var handlerInst *ProjectAgentHandler
@@ -38,14 +38,14 @@ func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
 
 	projectAgents, err := handlerInst.projectAgentRepo.GetByProject(ctx, req.Provider, req.Repo)
 	if err != nil {
-		hlog.Errorf("get project agents failed: %v", err)
+		logx.Errorf("get project agents failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
 
 	allAgents, err := handlerInst.reviewerAgentRepo.List(ctx)
 	if err != nil {
-		hlog.Errorf("get all agents failed: %v", err)
+		logx.Errorf("get all agents failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -102,7 +102,7 @@ func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
 	}
 
 	if err := handlerInst.projectAgentRepo.Upsert(ctx, pa); err != nil {
-		hlog.Errorf("upsert project agent failed: %v", err)
+		logx.Errorf("upsert project agent failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -119,7 +119,7 @@ func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
 	}
 
 	if err := handlerInst.projectAgentRepo.DeleteByProject(ctx, req.Provider, req.Repo); err != nil {
-		hlog.Errorf("delete project agents failed: %v", err)
+		logx.Errorf("delete project agents failed: %v", err)
 		common.Fail(c, err)
 		return
 	}
@@ -133,7 +133,7 @@ func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
 			Priority: int(agentReq.Priority),
 		}
 		if err := handlerInst.projectAgentRepo.Upsert(ctx, pa); err != nil {
-			hlog.Errorf("upsert project agent failed: %v", err)
+			logx.Errorf("upsert project agent failed: %v", err)
 		}
 	}
 
@@ -150,7 +150,7 @@ func DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
 	}
 
 	if err := handlerInst.projectAgentRepo.Delete(ctx, req.Provider, req.Repo, common.SafeUint(req.AgentID)); err != nil {
-		hlog.Errorf("delete project agent failed: %v", err)
+		logx.Errorf("delete project agent failed: %v", err)
 		common.Fail(c, err)
 		return
 	}

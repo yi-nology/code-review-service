@@ -8,7 +8,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 type ruleEntry struct {
@@ -26,7 +26,7 @@ func (s *Service) resolveRuleFile(ctx context.Context, projectPolicy models.Proj
 	if len(projectPolicy.Rules) > 0 {
 		var projectRules []ruleEntry
 		if err := json.Unmarshal(projectPolicy.Rules, &projectRules); err != nil {
-			hlog.Warn("failed to decode project rules", "error", err)
+			logx.Warn("failed to decode project rules", "error", err)
 		} else {
 			merged = append(merged, projectRules...)
 		}
@@ -34,11 +34,11 @@ func (s *Service) resolveRuleFile(ctx context.Context, projectPolicy models.Proj
 
 	globalRules, err := s.globalRulesRepo.Get(ctx)
 	if err != nil {
-		hlog.Warn("failed to load global rules", "error", err)
+		logx.Warn("failed to load global rules", "error", err)
 	} else if globalRules != nil && len(globalRules.Rules) > 0 {
 		var globalEntries []ruleEntry
 		if err := json.Unmarshal(globalRules.Rules, &globalEntries); err != nil {
-			hlog.Warn("failed to decode global rules", "error", err)
+			logx.Warn("failed to decode global rules", "error", err)
 		} else {
 			merged = append(merged, globalEntries...)
 		}

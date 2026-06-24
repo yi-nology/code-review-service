@@ -8,7 +8,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	"go.uber.org/fx"
 )
 
@@ -27,16 +27,16 @@ func RegisterPreflight(lc fx.Lifecycle, repos *repository.RepoContainer, resolve
 				binary = "ocr"
 			}
 			if _, err := exec.LookPath(binary); err != nil {
-				hlog.Errorf("[preflight] OCR 二进制 %q 未在 PATH 找到: %v。代码评审功能将不可用，请在设置页配置正确的 OCR 二进制路径", binary, err)
+				logx.Errorf("[preflight] OCR 二进制 %q 未在 PATH 找到: %v。代码评审功能将不可用，请在设置页配置正确的 OCR 二进制路径", binary, err)
 			} else {
-				hlog.Infof("[preflight] OCR 二进制就绪: %s", binary)
+				logx.Infof("[preflight] OCR 二进制就绪: %s", binary)
 			}
 
 			if s, err := repos.OCRSettings.Get(ctx); err == nil && s != nil && s.Enabled {
 				if err := llmEndpointCheck(repos, resolver)(ctx); err != nil {
-					hlog.Errorf("[preflight] LLM endpoint 检查失败: %v。评审将会失败，请检查 LLM 配置（URL/认证/网络）", err)
+					logx.Errorf("[preflight] LLM endpoint 检查失败: %v。评审将会失败，请检查 LLM 配置（URL/认证/网络）", err)
 				} else {
-					hlog.Infof("[preflight] LLM endpoint 可达")
+					logx.Infof("[preflight] LLM endpoint 可达")
 				}
 			}
 

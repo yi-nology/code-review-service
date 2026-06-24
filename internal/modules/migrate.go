@@ -5,7 +5,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/runner"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	"go.uber.org/fx"
 )
 
@@ -17,6 +17,6 @@ var MigrateModule = fx.Options(
 func MigrateConfigFile(repos *repository.RepoContainer) {
 	reader := runner.NewConfigFileReader(repos.OCRSettings)
 	if err := reader.SyncFromFile(context.Background()); err != nil {
-		hlog.Warnf("migrate config file failed: %v", err)
+		logx.Warnf("migrate config file failed: %v", err)
 	}
 }

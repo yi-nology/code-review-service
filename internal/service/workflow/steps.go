@@ -14,7 +14,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/reviewmap"
 	"github.com/oekit/pkg/slicex"
 	"github.com/oekit/workflow"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 // toReviewSession 安全地将 Session 转换为 ReviewSession
@@ -70,7 +70,7 @@ func (s *changeAnalysisStep) Run(ctx context.Context, req workflow.Request, sess
 	rs.Tracker.UpdatePhase(progress.PhaseChangeContext, "active", 0, "Analyzing git diff and understanding changes")
 
 	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, models.SessionPhaseChangeContext, 50); err != nil {
-		hlog.Errorf("update session phase failed: %v", err)
+		logx.Errorf("update session phase failed: %v", err)
 	}
 
 	rs.Tracker.UpdatePhase(progress.PhaseChangeContext, "completed", 100, "Change analysis completed")
@@ -94,11 +94,11 @@ func (s *analysisStep) Run(ctx context.Context, req workflow.Request, sess workf
 	// B2: 用 LLM 做真 Tech Lead 分析；不可用则降级（仅更新进度）
 	if analysis := s.runTechLeadAnalysis(ctx, rs); analysis != nil {
 		rs.TechLeadAnalysis = analysis
-		hlog.Infof("tech lead analysis produced: %d risks, %d recommendations", len(analysis.Risks), len(analysis.Recommendations))
+		logx.Infof("tech lead analysis produced: %d risks, %d recommendations", len(analysis.Risks), len(analysis.Recommendations))
 	}
 
 	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, models.SessionPhaseAnalysis, 50); err != nil {
-		hlog.Errorf("update session phase failed: %v", err)
+		logx.Errorf("update session phase failed: %v", err)
 	}
 
 	rs.Tracker.UpdatePhase(progress.PhaseAnalysis, "completed", 100, "Analysis completed")
@@ -154,7 +154,7 @@ func (s *analysisStep) runTechLeadAnalysis(ctx context.Context, rs *ReviewSessio
 		UserPrompt:   sb.String(),
 		MaxTokens:    2048,
 	}, &analysis); err != nil {
-		hlog.Warnf("tech lead LLM analysis failed (degraded): %v", err)
+		logx.Warnf("tech lead LLM analysis failed (degraded): %v", err)
 		return nil
 	}
 	return &analysis
@@ -174,7 +174,7 @@ func (s *parallelReviewsStep) Run(ctx context.Context, req workflow.Request, ses
 	rs.Tracker.UpdatePhase(progress.PhaseReviews, "active", 0, "Running multiple review agents in parallel")
 
 	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, models.SessionPhaseReviews, 0); err != nil {
-		hlog.Errorf("update session phase failed: %v", err)
+		logx.Errorf("update session phase failed: %v", err)
 	}
 
 	// 准备 workspace
@@ -223,7 +223,7 @@ func (s *aggregationStep) Run(ctx context.Context, req workflow.Request, sess wo
 	rs.Tracker.UpdatePhase(progress.PhaseAggregation, "active", 0, "Merging findings from multiple agents")
 
 	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, models.SessionPhaseAggregation, 50); err != nil {
-		hlog.Errorf("update session phase failed: %v", err)
+		logx.Errorf("update session phase failed: %v", err)
 	}
 
 	rs.Tracker.UpdatePhase(progress.PhaseAggregation, "completed", 100, "Aggregation completed")
@@ -245,14 +245,14 @@ func (s *discussionStep) Run(ctx context.Context, req workflow.Request, sess wor
 
 	// 检查是否有足够的 agents 进行讨论
 	if rs.AggregatedResult == nil || len(rs.AggregatedResult.AgentResults) < 2 {
-		hlog.Info("skipping discussion: not enough agents")
+		logx.Info("skipping discussion: not enough agents")
 		return nil
 	}
 
 	rs.Tracker.UpdatePhase(progress.PhaseDiscussion, "active", 0, "Agents debating and validating findings")
 
 	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, models.SessionPhaseDiscussion, 0); err != nil {
-		hlog.Errorf("update session phase failed: %v", err)
+		logx.Errorf("update session phase failed: %v", err)
 	}
 
 	// 获取 agent 名称
@@ -266,13 +266,13 @@ func (s *discussionStep) Run(ctx context.Context, req workflow.Request, sess wor
 	discussionResult, err := s.discussionOrch.RunDiscussion(ctx, discussionFindings, agentNames, rs.Request.Requirements)
 	switch {
 	case err != nil:
-		hlog.Errorf("run discussion failed: %v", err)
+		logx.Errorf("run discussion failed: %v", err)
 	case discussionResult != nil:
 		rs.DiscussionResult = discussionResult
 		// 更新 findings confidence
 		updateFindingsFromDiscussion(rs.AggregatedResult.Findings, discussionResult)
 	default:
-		hlog.Warn("run discussion returned empty result")
+		logx.Warn("run discussion returned empty result")
 	}
 
 	rs.Tracker.UpdatePhase(progress.PhaseDiscussion, "completed", 100, "Discussion completed")
@@ -295,7 +295,7 @@ func (s *synthesisStep) Run(ctx context.Context, req workflow.Request, sess work
 	rs.Tracker.UpdatePhase(progress.PhaseSynthesis, "active", 0, "Producing final prioritized review")
 
 	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, models.SessionPhaseSynthesis, 0); err != nil {
-		hlog.Errorf("update session phase failed: %v", err)
+		logx.Errorf("update session phase failed: %v", err)
 	}
 
 	// 生成 requirements coverage
@@ -317,7 +317,7 @@ func (s *synthesisStep) Run(ctx context.Context, req workflow.Request, sess work
 		mapGenerator := reviewmap.NewGenerator()
 		reviewMap, err := mapGenerator.Generate(rs.SessionID, rs.Request.Diff, mapFindings)
 		if err != nil {
-			hlog.Errorf("generate review map failed: %v", err)
+			logx.Errorf("generate review map failed: %v", err)
 		} else {
 			rs.ReviewMap = reviewMap
 		}
@@ -364,7 +364,7 @@ func (s *synthesisStep) Run(ctx context.Context, req workflow.Request, sess work
 			}
 		}
 		if err := s.sessionService.UpdateFinalReport(ctx, rs.SessionID, finalReportData); err != nil {
-			hlog.Errorf("update session final report failed: %v", err)
+			logx.Errorf("update session final report failed: %v", err)
 		}
 	}
 
@@ -393,7 +393,7 @@ func (s *completeStep) Run(ctx context.Context, req workflow.Request, sess workf
 			GateReason: rs.FinalReport.GateReason,
 		}
 		if err := s.sessionService.CompleteSession(ctx, rs.SessionID, finalReportData); err != nil {
-			hlog.Errorf("complete session failed: %v", err)
+			logx.Errorf("complete session failed: %v", err)
 		}
 	}
 

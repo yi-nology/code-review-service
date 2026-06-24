@@ -85,11 +85,11 @@ export async function previewComment(reviewId: string, mode: 'team' | 'human' = 
   return res
 }
 
-export async function publishReview(reviewId: string, mode: 'team' | 'human' = 'team'): Promise<{
+export async function publishReview(reviewId: string, mode: 'team' | 'human' = 'team', summaryOnly = false): Promise<{
   message: string
   review_id: string
 }> {
-  return request.post(`/reviews/${reviewId}/publish`, { mode }) as any
+  return request.post(`/reviews/${reviewId}/publish`, { mode, summary_only: summaryOnly }) as any
 }
 
 export async function updatePublishedComment(reviewId: string): Promise<{

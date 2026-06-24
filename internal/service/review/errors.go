@@ -1,8 +1,8 @@
 package review
 
-import "errors"
+import "github.com/yi-nology/code-review-service/internal/repository"
 
 var (
-	ErrUnsupportedProvider = errors.New("unsupported provider")
-	ErrIdempotencyConflict = errors.New("idempotency key was already used with a different request")
+	ErrUnsupportedProvider = repository.ErrUnsupportedProvider
+	ErrIdempotencyConflict = repository.ErrIdempotencyConflict
 )

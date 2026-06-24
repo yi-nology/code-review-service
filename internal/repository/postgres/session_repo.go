@@ -3,58 +3,16 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	ekitGorm "github.com/oekit/gormx"
-	"github.com/google/uuid"
+	"github.com/oekit/pkg/uidgen"
 	gormLib "gorm.io/gorm"
 )
 
-// SessionRepository defines the interface for session repository operations
-type SessionRepository interface {
-	// Create creates a new session
-	Create(ctx context.Context, session *models.ReviewSession) error
-
-	// GetByID returns a session by ID
-	GetByID(ctx context.Context, sessionID string) (*models.ReviewSession, error)
-
-	// GetByReviewID returns sessions for a review
-	GetByReviewID(ctx context.Context, reviewID string) ([]*models.ReviewSession, error)
-
-	// GetActiveByReviewID returns the active session for a review
-	GetActiveByReviewID(ctx context.Context, reviewID string) (*models.ReviewSession, error)
-
-	// Update updates a session
-	Update(ctx context.Context, session *models.ReviewSession) error
-
-	// UpdatePhase updates the phase of a session
-	UpdatePhase(ctx context.Context, sessionID string, phase string, progress float64) error
-
-	// UpdateStatus updates the status of a session
-	UpdateStatus(ctx context.Context, sessionID string, status string) error
-
-	// UpdateAgentResults updates the agent results of a session
-	UpdateAgentResults(ctx context.Context, sessionID string, agentResults interface{}) error
-
-	// UpdateDiscussion updates the discussion of a session
-	UpdateDiscussion(ctx context.Context, sessionID string, discussion interface{}) error
-
-	// UpdateFinalReport updates the final report of a session
-	UpdateFinalReport(ctx context.Context, sessionID string, finalReport interface{}) error
-
-	// Complete marks a session as completed
-	Complete(ctx context.Context, sessionID string, finalReport interface{}) error
-
-	// Delete deletes a session
-	Delete(ctx context.Context, sessionID string) error
-
-	// List returns sessions with pagination
-	List(ctx context.Context, page, pageSize int) (*ekitGorm.PageResponse[models.ReviewSession], error)
-}
-
-// PostgresSessionRepository implements SessionRepository with PostgreSQL
+// PostgresSessionRepository implements repository.SessionRepository with PostgreSQL
 type PostgresSessionRepository struct {
 	db *gormLib.DB
 }
@@ -67,7 +25,7 @@ func NewPostgresSessionRepository(db *gormLib.DB) *PostgresSessionRepository {
 // Create creates a new session
 func (r *PostgresSessionRepository) Create(ctx context.Context, session *models.ReviewSession) error {
 	if session.SessionID == "" {
-		session.SessionID = uuid.New().String()
+		session.SessionID = uidgen.UUID()
 	}
 	if session.Status == "" {
 		session.Status = string(models.SessionStatusActive)
@@ -86,7 +44,7 @@ func (r *PostgresSessionRepository) GetByID(ctx context.Context, sessionID strin
 		First(&session).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, fmt.Errorf("session not found: %s", sessionID)
+			return nil, repoerr.ErrNotFound
 		}
 		return nil, err
 	}
@@ -112,7 +70,7 @@ func (r *PostgresSessionRepository) GetActiveByReviewID(ctx context.Context, rev
 		First(&session).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, nil
+			return nil, repoerr.ErrNotFound
 		}
 		return nil, err
 	}
@@ -186,6 +144,16 @@ func (r *PostgresSessionRepository) Delete(ctx context.Context, sessionID string
 	return r.db.WithContext(ctx).
 		Where("session_id = ?", sessionID).
 		Delete(&models.ReviewSession{}).Error
+}
+
+// CancelActiveByReviewID cancels all active sessions for a review.
+// This is called during Requeue to clean up orphaned sessions from prior
+// executions (e.g. process killed mid-flight, session never closed).
+func (r *PostgresSessionRepository) CancelActiveByReviewID(ctx context.Context, reviewID string) error {
+	return r.db.WithContext(ctx).
+		Model(&models.ReviewSession{}).
+		Where("review_id = ? AND status = ?", reviewID, models.SessionStatusActive).
+		Update("status", models.SessionStatusCancelled).Error
 }
 
 // List returns sessions with pagination

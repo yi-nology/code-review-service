@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/pkg/sliceutil"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 )
@@ -91,8 +90,8 @@ func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings, overrid
 		ContextWindow:           int(s.ContextWindow),
 		MaxOutputTokens:         int(s.MaxOutputTokens),
 	}
-	cfg.Concurrency = firstPositiveOr(overrides.Concurrency, s.Concurrency, r.fallback.config.Concurrency)
-	cfg.MaxGitProcs = firstPositiveOr(overrides.MaxGitProcs, s.MaxGitProcs, r.fallback.config.MaxGitProcs)
-	cfg.TimeoutMinutes = sliceutil.FirstPositiveOr(overrides.TimeoutMinutes, s.TimeoutMinutes, r.fallback.config.TimeoutMinutes)
+	cfg.Concurrency = firstPositive(overrides.Concurrency, s.Concurrency, r.fallback.config.Concurrency)
+	cfg.MaxGitProcs = firstPositive(overrides.MaxGitProcs, s.MaxGitProcs, r.fallback.config.MaxGitProcs)
+	cfg.TimeoutMinutes = firstPositive(overrides.TimeoutMinutes, s.TimeoutMinutes, r.fallback.config.TimeoutMinutes)
 	return cfg
 }

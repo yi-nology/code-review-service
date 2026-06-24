@@ -9,7 +9,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/oekit/pkg/slicex"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 // Orchestrator manages the discussion process.
@@ -38,12 +38,12 @@ func (o *Orchestrator) RunDiscussion(ctx context.Context, findings []Finding, ag
 		}, nil
 	}
 
-	hlog.Infof("starting discussion with %d agents and %d findings", len(agents), len(findings))
+	logx.Infof("starting discussion with %d agents and %d findings", len(agents), len(findings))
 
 	// B1: 优先用 LLM 驱动真讨论（每个 agent 一次调用，集中表态）
 	entries, newFindings, err := o.runLLMDiscourse(ctx, findings, agents, requirements)
 	if err != nil {
-		hlog.Warnf("LLM discourse unavailable, falling back to template logic: %v", err)
+		logx.Warnf("LLM discourse unavailable, falling back to template logic: %v", err)
 		entries = o.fallbackEntries(findings, agents, requirements)
 		newFindings = nil
 	}
@@ -52,7 +52,7 @@ func (o *Orchestrator) RunDiscussion(ctx context.Context, findings []Finding, ag
 	result := o.analyzeDiscussion(findings, entries)
 	result.NewFindings = newFindings
 
-	hlog.Infof("discussion completed: %d consensus, %d disagreements, %d new findings",
+	logx.Infof("discussion completed: %d consensus, %d disagreements, %d new findings",
 		len(result.Consensus), len(result.Disagreements), len(result.NewFindings))
 
 	return result, nil
@@ -79,7 +79,7 @@ func (o *Orchestrator) runLLMDiscourse(ctx context.Context, findings []Finding, 
 			MaxTokens:    4096,
 		}, &items)
 		if err != nil {
-			hlog.Warnf("LLM discourse for agent %s failed: %v", agentName, err)
+			logx.Warnf("LLM discourse for agent %s failed: %v", agentName, err)
 			continue // 单个 agent 失败不阻塞其他 agent
 		}
 

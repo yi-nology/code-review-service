@@ -78,6 +78,11 @@ const router = createRouter({
       component: () => import('@/views/AgentSettings.vue'),
     },
     {
+      path: '/api-docs',
+      name: 'ApiDocs',
+      component: () => import('@/views/ApiDocs.vue'),
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/reviews',
     },

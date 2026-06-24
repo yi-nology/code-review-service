@@ -28,6 +28,10 @@
           <el-icon><Notebook /></el-icon>
           <span>项目报告</span>
         </router-link>
+        <router-link to="/api-docs" class="nav-item">
+          <el-icon><Document /></el-icon>
+          <span>接口文档</span>
+        </router-link>
 
         <p class="nav-label settings-label">配置中心</p>
 
@@ -113,6 +117,7 @@ import {
   Connection,
   Cpu,
   DataAnalysis,
+  Document,
   DocumentChecked,
   Finished,
   FolderChecked,

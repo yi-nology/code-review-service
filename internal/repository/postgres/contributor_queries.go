@@ -5,7 +5,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/oekit/pkg/mathx"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 
 	gormLib "gorm.io/gorm"
 )
@@ -75,7 +75,7 @@ func (r *ContributorStatsRepo) GetContributor(ctx context.Context, opts models.C
 			COALESCE(AVG(NULLIF(response->'report'->'score'->>'changed_lines','')::int), 0)
 		FROM reviews WHERE author = ? AND `+baseReviewWhere+`
 	`, opts.Author).Row().Scan(&maxScore, &minScore, &medianScore, &avgFindings, &avgChangedLines); err != nil {
-		hlog.Warnf("failed to scan contributor stats: %v", err)
+		logx.Warnf("failed to scan contributor stats: %v", err)
 	}
 
 	gradeDist := r.getGradeDistribution(ctx, "author = ?", opts.Author)

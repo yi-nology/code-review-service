@@ -224,6 +224,7 @@ struct GitPlatformInfo {
     4: bool enabled (api.body="enabled")
     5: optional string webhook_secret (api.body="webhook_secret")
     6: optional string installation_id (api.body="installation_id")
+    7: optional bool skip_tls (api.body="skip_tls")
 }
 
 struct ListPlatformsResp {

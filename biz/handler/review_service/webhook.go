@@ -13,7 +13,7 @@ import (
 
 	"github.com/oekit/pkg/convert"
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 type WebhookHandler struct {
@@ -59,7 +59,7 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 
 	platform, err := h.platformRepo.GetByProviderAndInstallation(ctx, req.Provider, req.Installation)
 	if err != nil {
-		hlog.Error("lookup installation failed", "provider", req.Provider, "installation", req.Installation, "error", err)
+		logx.Error("lookup installation failed", "provider", req.Provider, "installation", req.Installation, "error", err)
 		common.Fail(c, common.BizErr(500, "internal error"))
 		return
 	}
@@ -85,7 +85,7 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 			common.Fail(c, common.BizErr(401, "signature verification failed"))
 			return
 		}
-		hlog.Error("webhook handling failed", "provider", req.Provider, "error", err)
+		logx.Error("webhook handling failed", "provider", req.Provider, "error", err)
 		common.Fail(c, common.BizErr(500, "internal error"))
 		return
 	}
@@ -126,7 +126,7 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 
 	resp, err := h.reviewSvc.CreateFromWebhook(ctx, reviewReq, idempotencyKey)
 	if err != nil {
-		hlog.Error("create review from webhook failed", "provider", req.Provider, "error", err)
+		logx.Error("create review from webhook failed", "provider", req.Provider, "error", err)
 		_ = h.webhookSvc.MarkDeliveryProcessed(ctx, req.Provider, req.Installation, deliveryID, "error", err.Error())
 		common.Fail(c, common.BizErr(500, "failed to create review"))
 		return

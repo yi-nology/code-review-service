@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/service/llm"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 // ClarifyingQuestion 表示一条需向利益相关者澄清的问题（阶段 4）。
@@ -58,7 +58,7 @@ func GenerateClarifyingQuestions(ctx context.Context, provider llm.Provider, req
 		UserPrompt:   sb.String(),
 		MaxTokens:    2048,
 	}, &questions); err != nil {
-		hlog.Warnf("generate clarifying questions failed (degraded): %v", err)
+		logx.Warnf("generate clarifying questions failed (degraded): %v", err)
 		return nil
 	}
 	return questions

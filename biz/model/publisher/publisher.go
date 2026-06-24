@@ -8,8 +8,9 @@ import (
 )
 
 type PublishReviewReq struct {
-	ID   string  `thrift:"id,1" json:"id" path:"id"`
-	Mode *string `thrift:"mode,2,optional" form:"mode" json:"mode,omitempty"`
+	ID         string  `thrift:"id,1" json:"id" path:"id"`
+	Mode       *string `thrift:"mode,2,optional" form:"mode" json:"mode,omitempty"`
+	SummaryOnly *bool  `thrift:"summary_only,3,optional" form:"summary_only" json:"summary_only,omitempty"`
 }
 
 func NewPublishReviewReq() *PublishReviewReq {
@@ -32,6 +33,15 @@ func (p *PublishReviewReq) GetMode() (v string) {
 	return *p.Mode
 }
 
+var PublishReviewReq_SummaryOnly_DEFAULT bool
+
+func (p *PublishReviewReq) GetSummaryOnly() (v bool) {
+	if !p.IsSetSummaryOnly() {
+		return PublishReviewReq_SummaryOnly_DEFAULT
+	}
+	return *p.SummaryOnly
+}
+
 var fieldIDToName_PublishReviewReq = map[int16]string{
 	1: "id",
 	2: "mode",
@@ -39,6 +49,10 @@ var fieldIDToName_PublishReviewReq = map[int16]string{
 
 func (p *PublishReviewReq) IsSetMode() bool {
 	return p.Mode != nil
+}
+
+func (p *PublishReviewReq) IsSetSummaryOnly() bool {
+	return p.SummaryOnly != nil
 }
 
 func (p *PublishReviewReq) Read(iprot thrift.TProtocol) (err error) {

@@ -5,7 +5,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/oekit/pkg/mathx"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 )
 
 func (r *ContributorStatsRepo) ListProjects(ctx context.Context, opts models.ProjectStatsOptions) (*models.ProjectListResult, error) {
@@ -80,7 +80,7 @@ func (r *ContributorStatsRepo) GetProject(ctx context.Context, opts models.Proje
 		WHERE provider = ? AND repo = ? AND `+baseReviewWhere+`
 			`+projectFilterClauseWithoutProject(opts)+`
 	`, append([]interface{}{opts.Provider, opts.Repo}, projectFilterArgsWithoutProject(opts)...)...).Row().Scan(&maxScore, &minScore, &medianScore, &avgFindings, &avgChangedLines); err != nil {
-		hlog.Warnf("failed to scan project stats: %v", err)
+		logx.Warnf("failed to scan project stats: %v", err)
 	}
 
 	gradeDist := r.getGradeDistribution(ctx,

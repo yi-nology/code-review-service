@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/oekit/network/wsutil"
-	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	"github.com/hertz-contrib/websocket"
 )
 
@@ -46,7 +46,7 @@ func (b *broadcaster) BroadcastEvent(room string, event progressEvent) {
 	event.Timestamp = time.Now()
 	data, err := json.Marshal(event)
 	if err != nil {
-		hlog.Errorf("failed to marshal progress event: %v", err)
+		logx.Errorf("failed to marshal progress event: %v", err)
 		return
 	}
 	b.bc.Broadcast(room, data)
