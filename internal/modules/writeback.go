@@ -23,9 +23,10 @@ func NewWritebackOrchestrator(
 ) *writeback.Orchestrator {
 	return writeback.NewOrchestrator(writeback.OrchestratorConfig{
 		Adapters: map[string]writeback.Adapter{
-			"github": writeback.NewGitHubAdapter(gitProviderSvc),
-			"gitlab": writeback.NewGitLabAdapter(gitProviderSvc),
-			"gitea":  writeback.NewGiteaAdapter(gitProviderSvc),
+			"github":  writeback.NewGitHubAdapter(gitProviderSvc),
+			"gitlab":  writeback.NewGitLabAdapter(gitProviderSvc),
+			"gitea":   writeback.NewGiteaAdapter(gitProviderSvc),
+			"gitcode": writeback.NewGitCodeAdapter(gitProviderSvc),
 		},
 		ItemRepo:    repos.WritebackItem,
 		ChangeRepo:  repos.ChangeRevision,

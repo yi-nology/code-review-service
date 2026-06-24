@@ -3,9 +3,11 @@ package executor
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 
@@ -64,7 +66,7 @@ func (s *Service) updateStatus(ctx context.Context, id, status string) error {
 
 func (s *Service) updateWithRawOCR(ctx context.Context, id string, req review.Request, response review.Response, rawOCR json.RawMessage) error {
 	r, err := s.reviewRepo.GetByReviewID(ctx, id)
-	if err != nil {
+	if err != nil && !errors.Is(err, repository.ErrNotFound) {
 		return err
 	}
 	if r == nil {
@@ -109,7 +111,7 @@ func (s *Service) updateWithRawOCR(ctx context.Context, id string, req review.Re
 
 func (s *Service) updateRequestSHAs(ctx context.Context, id string, req review.Request) {
 	r, err := s.reviewRepo.GetByReviewID(ctx, id)
-	if err != nil || r == nil {
+	if err != nil {
 		return
 	}
 	r.Request = review.MustMarshal(req)
@@ -122,10 +124,10 @@ func (s *Service) updateRequestSHAs(ctx context.Context, id string, req review.R
 func (s *Service) updateWithOCRInput(ctx context.Context, id string, ocrInput review.OCRInput) error {
 	r, err := s.reviewRepo.GetByReviewID(ctx, id)
 	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return fmt.Errorf("review not found: %s", id)
+		}
 		return err
-	}
-	if r == nil {
-		return fmt.Errorf("review not found: %s", id)
 	}
 	r.RawOCRInput = review.MustMarshal(ocrInput)
 	r.UpdatedAt = time.Now().UTC()

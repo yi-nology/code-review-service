@@ -179,7 +179,10 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 	if err := s.reviewRepo.Create(ctx, review); err != nil {
 		if idempotencyKey != "" && gormx.IsUniqueViolation(err) {
 			existing, getErr := s.reviewRepo.GetByidempotencyKey(ctx, idempotencyKey)
-			if getErr == nil && existing != nil {
+			if getErr != nil && !errors.Is(getErr, repository.ErrNotFound) {
+				return Response{}, fmt.Errorf("idempotency recovery: %w", getErr)
+			}
+			if existing != nil {
 				if existing.RequestFingerprint != fingerprint {
 					return Response{}, ErrIdempotencyConflict
 				}
@@ -219,9 +222,6 @@ func (s *Service) findActiveReview(ctx context.Context, req Request) *Response {
 			return nil
 		}
 		logx.CtxErrorf(ctx, "failed to query active review by provider=%s repo=%s: %v", req.Provider, req.Repo, err)
-		return nil
-	}
-	if existing == nil {
 		return nil
 	}
 	var existingReq Request
@@ -270,9 +270,6 @@ func (s *Service) Get(ctx context.Context, reviewID string) (Record, bool, error
 			return Record{}, false, nil
 		}
 		return Record{}, false, err
-	}
-	if review == nil {
-		return Record{}, false, nil
 	}
 
 	var req Request

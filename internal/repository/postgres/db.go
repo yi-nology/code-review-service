@@ -50,9 +50,10 @@ func InitDB(cfg *config.DatabaseConfig) (*gormDB.DB, error) {
 		// 部分唯一索引：防止并发创建同一 (provider, repo, PR/MR) 的多个 active review（#24 TOCTOU 根因修复）。
 		// 优先使用提取列 pull_request_id / merge_request_iid，JSONB 作为回退（兼容历史数据未回填的情况）。
 		if err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_reviews_active_change
-			ON reviews (provider, repo, (COALESCE(NULLIF(pull_request_id, ''), request->>'pull_request_id'), NULLIF(merge_request_iid, ''), request->>'merge_request_iid')))
+			ON reviews (provider, repo,
+				(COALESCE(NULLIF(pull_request_id, ''), NULLIF(merge_request_iid, ''), request->>'pull_request_id', request->>'merge_request_iid')))
 			WHERE status IN ('queued', 'running')
-			AND COALESCE(NULLIF(pull_request_id, ''), request->>'pull_request_id', request->>'merge_request_iid') != ''`).Error; err != nil {
+			AND COALESCE(NULLIF(pull_request_id, ''), NULLIF(merge_request_iid, ''), request->>'pull_request_id', request->>'merge_request_iid') != ''`).Error; err != nil {
 			logx.Warnf("failed to create active review partial index (可能存在历史重复 active review，需人工清理): %v", err)
 		}
 	} else {

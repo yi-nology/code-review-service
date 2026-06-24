@@ -25,7 +25,7 @@ func NewSessionService(repo repository.SessionRepository) *SessionService {
 
 func (s *SessionService) CreateSession(ctx context.Context, reviewID string, round int) (*models.ReviewSession, error) {
 	activeSession, err := s.repo.GetActiveByReviewID(ctx, reviewID)
-	if err != nil {
+	if err != nil && !errors.Is(err, repository.ErrNotFound) {
 		return nil, fmt.Errorf("check active session: %w", err)
 	}
 	if activeSession != nil {
