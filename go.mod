@@ -3,7 +3,7 @@ module github.com/yi-nology/code-review-service
 go 1.26
 
 require (
-	github.com/yi-nology/ekit v0.9.0
+	github.com/yi-nology/ekit v0.9.1
 	github.com/apache/thrift v0.23.0
 	github.com/cloudwego/hertz v0.10.4
 	github.com/hertz-contrib/swagger v0.1.1
