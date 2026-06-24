@@ -6,8 +6,6 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/types"
-
-	"github.com/oekit/logx"
 )
 
 type ValidatedComment struct {
@@ -19,7 +17,7 @@ func ValidateFindings(findings []review.Finding, diffIndex *DiffIndex) []Validat
 	var result []ValidatedComment
 	for _, f := range findings {
 		comment := findingToComment(f)
-		if comment.Path == "" || diffIndex == nil {
+		if comment.Path == "" {
 			result = append(result, ValidatedComment{Comment: comment, ValidLocation: false})
 			continue
 		}
@@ -31,6 +29,11 @@ func ValidateFindings(findings []review.Finding, diffIndex *DiffIndex) []Validat
 		}
 		comment.Path = path
 
+		if diffIndex == nil {
+			result = append(result, ValidatedComment{Comment: comment, ValidLocation: comment.Range.Start > 0})
+			continue
+		}
+
 		valid := false
 		if comment.Range.Start > 0 && comment.Range.End >= comment.Range.Start {
 			valid = diffIndex.ContainsRange(path, comment.Range)
@@ -38,12 +41,6 @@ func ValidateFindings(findings []review.Finding, diffIndex *DiffIndex) []Validat
 			valid = diffIndex.Contains(path, comment.Range.Side, comment.Range.Start)
 		}
 
-		logx.Info("validate finding",
-			"path", path,
-			"start", comment.Range.Start,
-			"end", comment.Range.End,
-			"valid", valid,
-		)
 		result = append(result, ValidatedComment{Comment: comment, ValidLocation: valid})
 	}
 	return result
