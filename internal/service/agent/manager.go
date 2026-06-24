@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/oekit/concurrency/async"
-	"github.com/oekit/pkg/slicex"
 	"github.com/oekit/logx"
+	"github.com/oekit/pkg/slicex"
 )
 
 // AgentManager manages multiple review agents
@@ -16,7 +16,7 @@ type AgentManager struct {
 	agents          []reviewAgent
 	aggregator      ResultAggregator
 	config          ManagerConfig
-	factory         reviewRunnerFactory // 用于构造 ephemeral agent 的 runner（阶段 5）
+	factory         reviewRunnerFactory  // 用于构造 ephemeral agent 的 runner（阶段 5）
 	projectResolver ProjectAgentResolver // 解析项目级 agent 覆盖（per-project 白名单）
 	mu              sync.RWMutex
 }
@@ -205,6 +205,7 @@ type AgentStatus struct {
 func (m *AgentManager) RunAgentsWithCallback(ctx context.Context, workspace Workspace, callback func(status AgentStatus)) (AggregatedResult, error) {
 	return m.RunAgentsWithEphemeral(ctx, workspace, nil, callback)
 }
+
 // RunAgentsWithEphemeral 运行已注册 agent + 临时（ephemeral）agent（阶段 5）。
 // ephemeral agent 仅存在于本次调用，不入库、不持久化。
 func (m *AgentManager) RunAgentsWithEphemeral(ctx context.Context, workspace Workspace, ephemeral []EphemeralSpec, callback func(status AgentStatus)) (AggregatedResult, error) {

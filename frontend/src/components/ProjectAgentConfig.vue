@@ -31,6 +31,13 @@
               />
               <span class="agent-name">{{ agent.display_name }}</span>
               <el-tag
+                v-if="agent.is_default"
+                type="success"
+                size="small"
+              >
+                默认
+              </el-tag>
+              <el-tag
                 v-if="!agent.enabled"
                 type="info"
                 size="small"
@@ -183,6 +190,14 @@ onMounted(() => {
 <style scoped>
 .project-agent-config {
   padding: 4px 0;
+}
+
+.hint-bar {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  line-height: 1.5;
 }
 
 .loading {

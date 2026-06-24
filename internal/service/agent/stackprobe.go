@@ -9,7 +9,7 @@ import (
 
 // 约定：技术栈标签使用 "stack:" 前缀；特殊标签 "always" 表示任何项目都参与。
 const (
-	tagAlways = "always"
+	tagAlways   = "always"
 	stackPrefix = "stack:"
 )
 

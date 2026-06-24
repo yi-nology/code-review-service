@@ -63,14 +63,14 @@ func (l *AgentLoader) LoadFromDB(ctx context.Context, agents []models.ReviewerAg
 				instanceName = fmt.Sprintf("%s-%d", agentModel.Name, i)
 			}
 
-		agentConfig := ocrAgentConfig{
-			Name:      instanceName,
-			Persona:   agentModel.Name,
-			Priority:  agentModel.Priority,
-			Focus:     extractTags(agentModel.Tags),
-			Timeout:   l.timeout,
-			IsDefault: agentModel.IsDefault,
-		}
+			agentConfig := ocrAgentConfig{
+				Name:      instanceName,
+				Persona:   agentModel.Name,
+				Priority:  agentModel.Priority,
+				Focus:     extractTags(agentModel.Tags),
+				Timeout:   l.timeout,
+				IsDefault: agentModel.IsDefault,
+			}
 
 			agentInstance := newOCRAgent(runnerInstance, agentConfig)
 			l.agentManager.RegisterAgent(agentInstance)

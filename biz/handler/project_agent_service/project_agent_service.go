@@ -9,8 +9,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/oekit/pkg/slicex"
 
-	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/oekit/logx"
+	"github.com/cloudwego/hertz/pkg/app"
 )
 
 var handlerInst *ProjectAgentHandler
