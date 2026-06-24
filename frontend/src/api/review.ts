@@ -48,8 +48,26 @@ export async function rerunReview(id: string): Promise<ReviewDetail> {
   return res?.review ?? res
 }
 
+function parseJSON(raw: any): any {
+  if (raw == null) return null
+  if (typeof raw === 'string') {
+    try { return JSON.parse(raw) } catch { return raw }
+  }
+  return raw
+}
+
+function parseReviewMap(raw: any): any {
+  if (!raw) return raw
+  return {
+    ...raw,
+    sections: parseJSON(raw.sections) ?? [],
+    dependencies: parseJSON(raw.dependencies) ?? [],
+  }
+}
+
 export async function getSessionMap(reviewId: string, sessionId: string): Promise<any> {
-  return request.get(`/reviews/${reviewId}/sessions/${sessionId}/map`) as any
+  const data: any = await request.get(`/reviews/${reviewId}/sessions/${sessionId}/map`)
+  return parseReviewMap(data?.map ?? data)
 }
 
 export async function getReviewMaps(reviewId: string): Promise<any> {
@@ -57,7 +75,8 @@ export async function getReviewMaps(reviewId: string): Promise<any> {
 }
 
 export async function getReviewMap(reviewId: string, mapId: string): Promise<any> {
-  return request.get(`/reviews/${reviewId}/maps/${mapId}`) as any
+  const data: any = await request.get(`/reviews/${reviewId}/maps/${mapId}`)
+  return parseReviewMap(data?.map ?? data)
 }
 
 export async function generateReviewMap(reviewId: string, sessionId: string, diff?: string): Promise<any> {

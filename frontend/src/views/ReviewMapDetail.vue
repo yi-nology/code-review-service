@@ -114,8 +114,10 @@ const mapId = computed(() => route.params.mapId as string)
 
 const reviewedCount = computed(() => {
   if (!reviewMap.value) return 0
+  const raw = reviewMap.value.sections
+  const sections = Array.isArray(raw) ? raw : (typeof raw === 'string' ? (() => { try { return JSON.parse(raw) ?? [] } catch { return [] } })() : [])
   let count = 0
-  for (const section of reviewMap.value.sections) {
+  for (const section of sections) {
     for (const file of section.files) {
       if (file.reviewed) count++
     }
@@ -151,9 +153,11 @@ async function handleSectionReviewed(sectionId: string, reviewed: boolean) {
 
 function handleNodeClick(nodeId: string) {
   if (!reviewMap.value) return
-  
+
   // Find the section by sanitized title
-  const section = reviewMap.value.sections.find((s: any) => {
+  const raw = reviewMap.value.sections
+  const sections = Array.isArray(raw) ? raw : (typeof raw === 'string' ? (() => { try { return JSON.parse(raw) ?? [] } catch { return [] } })() : [])
+  const section = sections.find((s: any) => {
     const sanitized = s.title.replace(/[^a-zA-Z0-9]/g, '_')
     return sanitized === nodeId
   })

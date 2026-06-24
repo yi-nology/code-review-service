@@ -339,15 +339,30 @@ const activeDependencyType = ref('all')
 const activeNodeId = ref<string | null>(null)
 const radarRings = [{ r: 80 }, { r: 150 }, { r: 220 }]
 
-const totalFiles = computed(() => props.map?.sections.reduce((sum, section) => sum + section.files.length, 0) || 0)
+const safeSections = computed<any[]>(() => {
+  const raw = props.map?.sections
+  if (Array.isArray(raw)) return raw
+  if (typeof raw === 'string') { try { return JSON.parse(raw) ?? [] } catch { return [] } }
+  return []
+})
+
+const totalFiles = computed(() => safeSections.value.reduce((sum, section) => sum + section.files.length, 0) || 0)
 
 const reviewedCount = computed(() => {
   if (!props.map) return 0
-  return props.map.sections.reduce((sum, section) => sum + section.files.filter((file) => file.reviewed).length, 0)
+  return safeSections.value.reduce((sum, section) => sum + section.files.filter((file: any) => file.reviewed).length, 0)
 })
 
-const findingCount = computed(() => props.map?.sections.reduce((sum, section) => sum + section.findings.length, 0) || 0)
-const dependencyCount = computed(() => props.map?.dependencies?.length || 0)
+const findingCount = computed(() => safeSections.value.reduce((sum, section) => sum + section.findings.length, 0) || 0)
+
+const safeDependencies = computed<any[]>(() => {
+  const raw = props.map?.dependencies
+  if (Array.isArray(raw)) return raw
+  if (typeof raw === 'string') { try { return JSON.parse(raw) ?? [] } catch { return [] } }
+  return []
+})
+
+const dependencyCount = computed(() => safeDependencies.value.length || 0)
 const hasDependencies = computed(() => dependencyCount.value > 0)
 
 const overallProgress = computed(() => {
@@ -356,19 +371,19 @@ const overallProgress = computed(() => {
 })
 
 const dependencyFilters = computed(() => {
-  const types = new Set((props.map?.dependencies || []).map((dep) => dep.type || 'related'))
+  const types = new Set(safeDependencies.value.map((dep: any) => dep.type || 'related'))
   return ['all', ...Array.from(types)]
 })
 
 const visibleDependencies = computed(() => {
-  const dependencies = props.map?.dependencies || []
+  const dependencies = safeDependencies.value
   if (activeDependencyType.value === 'all') return dependencies
-  return dependencies.filter((dep) => (dep.type || 'related') === activeDependencyType.value)
+  return dependencies.filter((dep: any) => (dep.type || 'related') === activeDependencyType.value)
 })
 
 const sortedSections = computed(() => {
   const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
-  return [...(props.map?.sections || [])].sort((a, b) => (order[a.priority] ?? 2) - (order[b.priority] ?? 2))
+  return [...safeSections.value].sort((a, b) => (order[a.priority] ?? 2) - (order[b.priority] ?? 2))
 })
 
 const nodeStats = computed(() => {
@@ -471,7 +486,7 @@ const strengthStats = computed(() => {
 })
 
 watch(() => props.map?.id, () => {
-  expandedSections.value = props.map?.sections?.slice(0, 2).map((section) => section.id) || []
+  expandedSections.value = safeSections.value.slice(0, 2).map((section: any) => section.id)
   activeDependencyType.value = 'all'
   activeNodeId.value = null
 }, { immediate: true })
