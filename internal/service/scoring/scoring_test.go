@@ -193,21 +193,6 @@ func TestCountDiffFiles(t *testing.T) {
 	}
 }
 
-func TestSeverityWeight(t *testing.T) {
-	cases := map[string]int{
-		"critical": 25,
-		"major":    12,
-		"minor":    5,
-		"info":     1,
-		"":         1,
-	}
-	for sev, want := range cases {
-		if got := SeverityWeight(sev); got != want {
-			t.Errorf("SeverityWeight(%q) = %d, want %d", sev, got, want)
-		}
-	}
-}
-
 // TestComputeDeductionsMatchScore 验证扣分明细与分数永远来自同一函数、不会矛盾。
 // 不变量：value = clamp(100 - sum(deductions.points), 0, 100)。
 // 这正是最初 bug 的根因——score 与 deductions 来自不同公式。现在统一后不可能再出现。

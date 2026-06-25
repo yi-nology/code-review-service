@@ -29,20 +29,6 @@ const (
 	ptsInfo     = 1
 )
 
-// SeverityWeight 返回指定严重级别的原始权重分值，供外部（如回写格式化）复用。
-func SeverityWeight(severity string) int {
-	switch strings.ToLower(severity) {
-	case "critical":
-		return ptsCritical
-	case "major":
-		return ptsMajor
-	case "minor":
-		return ptsMinor
-	default:
-		return ptsInfo
-	}
-}
-
 // Counts 是按严重级别统计的问题数量。
 type Counts struct {
 	Critical int `json:"critical"`
