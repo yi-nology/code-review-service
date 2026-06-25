@@ -26,10 +26,6 @@ func (e *AppError) Error() string {
 	return e.Message
 }
 
-func NewAppError(code int, msg string) *AppError {
-	return &AppError{Code: code, Message: msg}
-}
-
 func Fail(c *hertzApp.RequestContext, err error) {
 	var appErr *AppError
 	if errors.As(err, &appErr) {
@@ -86,17 +82,6 @@ func MaskToken(token string) string {
 		return "***"
 	}
 	return token[:4] + "****" + token[len(token)-4:]
-}
-
-// MaskSecret 通用脱敏，保留首尾各 visible 字符。
-func MaskSecret(val string, visible int) *string {
-	if val == "" {
-		return nil
-	}
-	if len(val) <= visible*2 {
-		return ptrx.Of("***")
-	}
-	return ptrx.Of(val[:visible] + "****" + val[len(val)-visible:])
 }
 
 // MaskWebhookSecret 脱敏 webhook secret。
@@ -163,21 +148,6 @@ func Bind[T any](c *hertzApp.RequestContext) (*T, bool) {
 		return nil, false
 	}
 	return &req, true
-}
-
-// RequireFields 检查字段非空。任一为空时返回 400。
-//
-// 用法:
-//
-//	if !common.RequireFields(c, req.Provider, req.Repo) { return }
-func RequireFields(c *hertzApp.RequestContext, fields ...string) bool {
-	for _, f := range fields {
-		if f == "" {
-			Fail(c, BadRequest("required field is empty"))
-			return false
-		}
-	}
-	return true
 }
 
 // FeatureGuard 检查可选功能是否已配置。未配置时返回 400。

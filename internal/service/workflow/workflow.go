@@ -29,18 +29,6 @@ type WorkflowConfig struct {
 	EnableRequirements bool
 	DiscussionRounds   int
 	ContextWindow      int // 上下文窗口大小（tokens），0=模型默认
-	MaxOutputTokens    int // 最大输出 tokens，0=模型默认
-}
-
-// DefaultWorkflowConfig returns default workflow configuration
-func DefaultWorkflowConfig() WorkflowConfig {
-	return WorkflowConfig{
-		EnableDiscussion:   true,
-		EnableRequirements: true,
-		DiscussionRounds:   1,
-		ContextWindow:      0,
-		MaxOutputTokens:    0,
-	}
 }
 
 // GetMaxDiffChars 根据上下文窗口大小计算合适的 diff 截断字符数
@@ -59,14 +47,6 @@ func (c *WorkflowConfig) GetMaxDiffChars() int {
 		limit = 500000
 	}
 	return limit
-}
-
-// GetMaxOutputTokensForStep 根据配置返回特定步骤的最大输出 tokens
-func (c *WorkflowConfig) GetMaxOutputTokensForStep(defaultTokens int) int {
-	if c.MaxOutputTokens > 0 {
-		return c.MaxOutputTokens
-	}
-	return defaultTokens
 }
 
 // NewReviewWorkflow creates a new review workflow

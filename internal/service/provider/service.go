@@ -113,14 +113,6 @@ func (s *GitProviderService) GetCRFiles(ctx context.Context, platform, owner, re
 	return p.GetCRFiles(ctx, owner, repo, number)
 }
 
-func (s *GitProviderService) CreateComment(ctx context.Context, platform, owner, repo string, number int, body string) (string, error) {
-	p, err := s.GetProvider(platform)
-	if err != nil {
-		return "", err
-	}
-	return p.CreateNote(ctx, owner, repo, number, body)
-}
-
 func (s *GitProviderService) CreateCommitStatus(ctx context.Context, platform, owner, repo, sha string, opts provider.CommitStatusOptions) error {
 	p, err := s.GetProvider(platform)
 	if err != nil {

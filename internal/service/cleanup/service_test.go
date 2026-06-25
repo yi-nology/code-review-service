@@ -34,7 +34,6 @@ func TestWorkspaceCleaner_RemovesExpiredDirs(t *testing.T) {
 
 	cleaner := NewWorkspaceCleaner(
 		1*time.Hour,
-		WithPattern("review-workspace-*"),
 	)
 	cleaner.baseDir = tmpDir
 

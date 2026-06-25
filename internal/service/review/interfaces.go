@@ -10,12 +10,6 @@ type Provider interface {
 	Prepare(context.Context, Request) (Workspace, error)
 }
 
-type GitProvider interface {
-	GetCRDiff(ctx context.Context, platform, owner, repo string, number int) (string, error)
-	CreateComment(ctx context.Context, platform, owner, repo string, number int, body string) (string, error)
-	HasProvider(platform string) bool
-}
-
 type Runner interface {
 	Run(context.Context, Workspace) (Result, error)
 }

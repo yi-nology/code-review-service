@@ -77,8 +77,8 @@ func InitProgressHandler(progressMgr *progress.ProgressManager) {
 	progress_service.InitHandler(progressMgr)
 }
 
-func InitPublisherHandler(writebackOrch *writeback.Orchestrator, translator *writeback.Translator, reviewSvc *svcReview.Service, providerSvc *gitProvider.GitProviderService) {
-	publisher_service.InitHandler(writebackOrch, translator, reviewSvc, providerSvc)
+func InitPublisherHandler(writebackOrch *writeback.Orchestrator, reviewSvc *svcReview.Service, providerSvc *gitProvider.GitProviderService) {
+	publisher_service.InitHandler(writebackOrch, reviewSvc, providerSvc)
 }
 
 func InitProjectAgentHandler(repos *repository.RepoContainer) {

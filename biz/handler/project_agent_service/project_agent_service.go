@@ -161,6 +161,3 @@ func DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func GetProjectAgentConfig(ctx context.Context, provider, repo string) ([]models.ProjectAgent, error) {
-	return handlerInst.projectAgentRepo.GetEnabledByProject(ctx, provider, repo)
-}

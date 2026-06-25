@@ -48,7 +48,7 @@ export async function rerunReview(id: string): Promise<ReviewDetail> {
   return res?.review ?? res
 }
 
-export async function previewComment(reviewId: string, mode: 'team' | 'human' = 'team'): Promise<{
+export async function previewComment(reviewId: string, mode?: 'team'): Promise<{
   review_id: string
   summary: string
   findings: string
@@ -58,7 +58,7 @@ export async function previewComment(reviewId: string, mode: 'team' | 'human' = 
   return res
 }
 
-export async function publishReview(reviewId: string, mode: 'team' | 'human' = 'team', summaryOnly = false): Promise<{
+export async function publishReview(reviewId: string, mode?: 'team', summaryOnly = false): Promise<{
   message: string
   review_id: string
 }> {

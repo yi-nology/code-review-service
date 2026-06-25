@@ -90,13 +90,6 @@ func (m *AgentManager) RegisterAgent(agent reviewAgent) {
 	logx.Infof("registered agent: %s (priority: %d)", agent.Name(), agent.Priority())
 }
 
-// RegisterAgents registers multiple review agents
-func (m *AgentManager) RegisterAgents(agents []reviewAgent) {
-	for _, agent := range agents {
-		m.RegisterAgent(agent)
-	}
-}
-
 // GetAgents returns all registered agents
 func (m *AgentManager) GetAgents() []reviewAgent {
 	m.mu.RLock()
@@ -104,18 +97,6 @@ func (m *AgentManager) GetAgents() []reviewAgent {
 	agents := make([]reviewAgent, len(m.agents))
 	copy(agents, m.agents)
 	return agents
-}
-
-// GetAgent returns an agent by name
-func (m *AgentManager) GetAgent(name string) (reviewAgent, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	for _, agent := range m.agents {
-		if agent.Name() == name {
-			return agent, nil
-		}
-	}
-	return nil, fmt.Errorf("agent not found: %s", name)
 }
 
 // getFilteredAgents returns agents matching the filter
@@ -131,65 +112,7 @@ func (m *AgentManager) getFilteredAgents(filter func(reviewAgent) bool) []review
 	return agents
 }
 
-// RunAgents runs all registered agents in parallel
-func (m *AgentManager) RunAgents(ctx context.Context, workspace Workspace) (AggregatedResult, error) {
-	return m.RunAgentsWithCallback(ctx, workspace, nil)
-}
-
-// RunAgentsWithFilter runs agents matching the filter in parallel
-func (m *AgentManager) RunAgentsWithFilter(ctx context.Context, workspace Workspace, filter func(reviewAgent) bool) (AggregatedResult, error) {
-	agents := m.getFilteredAgents(filter)
-	if len(agents) == 0 {
-		return AggregatedResult{}, fmt.Errorf("no agents available for review")
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, m.config.TotalTimeout)
-	defer cancel()
-
-	logx.Infof("starting review with %d agents", len(agents))
-	startTime := time.Now()
-
-	agentResults, agentErrors := m.runParallel(ctx, agents, workspace, nil)
-
-	if len(agentErrors) > 0 {
-		logx.Warnf("%d agents failed:", len(agentErrors))
-		for _, err := range agentErrors {
-			logx.Warnf("  - %v", err)
-		}
-	}
-
-	if len(agentResults) == 0 {
-		return AggregatedResult{}, fmt.Errorf("all agents failed: %v", agentErrors)
-	}
-
-	aggregated := m.aggregator.Aggregate(agentResults)
-	aggregated.Duration = time.Since(startTime)
-
-	logx.Infof("review completed in %v with %d findings (confidence: %.2f)",
-		aggregated.Duration, len(aggregated.Findings), aggregated.Confidence)
-
-	return aggregated, nil
-}
-
-// RunAgent runs a single agent by name
-func (m *AgentManager) RunAgent(ctx context.Context, agentName string, workspace Workspace) (AgentResult, error) {
-	agent, err := m.GetAgent(agentName)
-	if err != nil {
-		return AgentResult{}, err
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, m.config.AgentTimeout)
-	defer cancel()
-
-	startTime := time.Now()
-	result, err := agent.Review(ctx, workspace)
-	if err != nil {
-		return AgentResult{}, fmt.Errorf("agent %s failed: %w", agentName, err)
-	}
-
-	result.Duration = time.Since(startTime)
-	return result, nil
-}
+// RunAgentsForProject 按项目裁剪后运行审查员，实现三层优先级：
 
 // AgentStatus represents the status of an agent
 type AgentStatus struct {
@@ -199,17 +122,6 @@ type AgentStatus struct {
 	Message  string        `json:"message"`
 	Duration time.Duration `json:"duration"`
 	Error    string        `json:"error,omitempty"`
-}
-
-// RunAgentsWithCallback runs agents with progress callbacks
-func (m *AgentManager) RunAgentsWithCallback(ctx context.Context, workspace Workspace, callback func(status AgentStatus)) (AggregatedResult, error) {
-	return m.RunAgentsWithEphemeral(ctx, workspace, nil, callback)
-}
-
-// RunAgentsWithEphemeral 运行已注册 agent + 临时（ephemeral）agent（阶段 5）。
-// ephemeral agent 仅存在于本次调用，不入库、不持久化。
-func (m *AgentManager) RunAgentsWithEphemeral(ctx context.Context, workspace Workspace, ephemeral []EphemeralSpec, callback func(status AgentStatus)) (AggregatedResult, error) {
-	return m.runAgents(ctx, m.getFilteredAgents(nil), ephemeral, workspace, callback)
 }
 
 // RunAgentsForProject 按项目裁剪后运行审查员，实现三层优先级：

@@ -83,7 +83,6 @@ type ReviewServiceDeps struct {
 	SessionRepo     repository.SessionRepository
 	GitProviderSvc  *gitProvider.GitProviderService
 	GitProviders    *gitProvider.GitProviderProviders
-	GitProviderAdp  *gitProvider.GitProviderAdapter
 	OcrRunner       *runner.DynamicOpenCodeReviewRunner
 	ProgressManager *progress.ProgressManager
 	PolicyEngine    *policy.Engine
@@ -99,7 +98,6 @@ func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 		SessionRepo:     deps.SessionRepo,
 		Policy:          deps.PolicyEngine,
 		Providers:       deps.GitProviders,
-		GitProvider:     deps.GitProviderAdp,
 		Runner:          deps.OcrRunner,
 		PreviewRunner:   deps.OcrRunner,
 		ProgressManager: deps.ProgressManager,

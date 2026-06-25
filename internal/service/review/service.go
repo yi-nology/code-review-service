@@ -65,7 +65,6 @@ type ServiceConfig struct {
 	SessionRepo     SessionRepo
 	Policy          *policy.Engine
 	Providers       Providers
-	GitProvider     GitProvider
 	Runner          Runner
 	PreviewRunner   PreviewRunner
 	ProgressManager *progress.ProgressManager
@@ -80,7 +79,6 @@ type Service struct {
 	sessionRepo     SessionRepo
 	policy          *policy.Engine
 	Providers       Providers
-	GitProvider     GitProvider
 	runner          Runner
 	PreviewRunner   PreviewRunner
 	progressManager *progress.ProgressManager
@@ -98,7 +96,6 @@ func NewService(cfg ServiceConfig) *Service {
 		sessionRepo:     cfg.SessionRepo,
 		policy:          cfg.Policy,
 		Providers:       cfg.Providers,
-		GitProvider:     cfg.GitProvider,
 		runner:          cfg.Runner,
 		PreviewRunner:   cfg.PreviewRunner,
 		progressManager: cfg.ProgressManager,

@@ -23,22 +23,6 @@
     </template>
 
     <div class="mode-row">
-      <span class="mode-label">评论语气</span>
-      <el-radio-group
-        v-model="mode"
-        size="small"
-      >
-        <el-radio-button value="team">
-          团队评审
-        </el-radio-button>
-        <el-radio-button value="human">
-          拟人化改写
-        </el-radio-button>
-      </el-radio-group>
-      <span class="mode-hint">{{ mode === 'human' ? 'LLM 改写为第一人称自然语言' : '保持多 Agent 原始结构' }}</span>
-    </div>
-
-    <div class="mode-row">
       <span class="mode-label">评论范围</span>
       <el-radio-group
         v-model="commentScope"
@@ -152,7 +136,6 @@ const emit = defineEmits<{
   (e: 'published'): void
 }>()
 
-const mode = ref<'team' | 'human'>('team')
 const commentScope = ref<'inline' | 'summary'>('inline')
 const previewLoading = ref(false)
 const publishing = ref(false)
@@ -166,7 +149,7 @@ watch(() => props.published, (v) => {
 async function loadPreview() {
   previewLoading.value = true
   try {
-    previewData.value = await previewComment(props.reviewId, mode.value)
+    previewData.value = await previewComment(props.reviewId)
   } catch {
     previewData.value = null
   } finally {
@@ -174,9 +157,6 @@ async function loadPreview() {
   }
 }
 
-watch(mode, () => {
-  if (previewData.value) loadPreview()
-})
 watch(commentScope, () => {
   if (previewData.value) loadPreview()
 })
@@ -193,7 +173,7 @@ async function handlePublish() {
   }
   publishing.value = true
   try {
-    await publishReview(props.reviewId, mode.value, commentScope.value === 'summary')
+    await publishReview(props.reviewId, undefined, commentScope.value === 'summary')
     published.value = true
     ElMessage.success('评论已发布到代码平台')
     emit('published')

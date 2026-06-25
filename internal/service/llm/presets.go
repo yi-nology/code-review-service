@@ -235,24 +235,3 @@ var Presets = []ProviderPreset{
 		RequiresKey: false,
 	},
 }
-
-// GetPresetByID 根据 ID 获取预设
-func GetPresetByID(id string) *ProviderPreset {
-	for i := range Presets {
-		if Presets[i].ID == id {
-			return &Presets[i]
-		}
-	}
-	return nil
-}
-
-// GetPresetsByCategory 根据分类获取预设列表
-func GetPresetsByCategory(category string) []ProviderPreset {
-	var result []ProviderPreset
-	for _, p := range Presets {
-		if p.Category == category {
-			result = append(result, p)
-		}
-	}
-	return result
-}

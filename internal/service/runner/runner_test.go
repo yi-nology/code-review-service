@@ -1,50 +1,11 @@
 package runner_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/runner"
 )
-
-func TestDeterministicRunnerReturnsEmptyFindings(t *testing.T) {
-	r := runner.NewDeterministicRunner()
-	workspace := review.Workspace{
-		Repo:    "acme/app",
-		BaseSHA: "a1b2c3d4e5f6a1b2",
-		HeadSHA: "f6e5d4c3b2a1f6e5",
-	}
-
-	result, err := r.Run(context.Background(), workspace)
-	if err != nil {
-		t.Fatalf("Run returned error: %v", err)
-	}
-	if len(result.Findings) != 0 {
-		t.Fatalf("expected 0 findings, got %d", len(result.Findings))
-	}
-	if result.Summary == "" {
-		t.Fatal("expected non-empty summary")
-	}
-}
-
-func TestDeterministicRunnerIncludesDiffInfo(t *testing.T) {
-	r := runner.NewDeterministicRunner()
-	workspace := review.Workspace{
-		Repo:    "acme/app",
-		BaseSHA: "a1b2c3d4e5f6a1b2",
-		HeadSHA: "f6e5d4c3b2a1f6e5",
-		Diff:    "diff --git a/main.go b/main.go\n...",
-	}
-
-	result, err := r.Run(context.Background(), workspace)
-	if err != nil {
-		t.Fatalf("Run returned error: %v", err)
-	}
-	if result.Summary == "" {
-		t.Fatal("expected non-empty summary")
-	}
-}
 
 func TestParseOpenCodeReviewOutputBasic(t *testing.T) {
 	input := []byte(`{

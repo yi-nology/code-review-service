@@ -3,6 +3,16 @@ package review
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/yi-nology/code-review-service/internal/service/scoring"
+)
+
+// Score / SeverityCounts / ScoreDeduction 通过类型别名委托给 scoring 包，
+// 消费方（handler、persistence 等）无需改 import 即可继续使用 review.Score 等名称。
+type (
+	Score          = scoring.Result
+	ScoreDeduction = scoring.Deduction
+	SeverityCounts = scoring.Counts
 )
 
 type Result struct {
@@ -39,28 +49,6 @@ type OCRWarning struct {
 	Type    string `json:"type,omitempty"`
 	Message string `json:"message"`
 	Path    string `json:"path,omitempty"`
-}
-
-type ScoreDeduction struct {
-	Reason string `json:"reason"`
-	Points int    `json:"points"`
-	Count  int    `json:"count,omitempty"`
-}
-
-type Score struct {
-	Value           int              `json:"value"`
-	Grade           string           `json:"grade"`
-	Version         string           `json:"version"`
-	Deductions      []ScoreDeduction `json:"deductions"`
-	ChangedLines    int              `json:"changed_lines,omitempty"`
-	FindingsDensity float64          `json:"findings_density,omitempty"`
-}
-
-type SeverityCounts struct {
-	Critical int `json:"critical"`
-	Major    int `json:"major"`
-	Minor    int `json:"minor"`
-	Info     int `json:"info"`
 }
 
 type Report struct {

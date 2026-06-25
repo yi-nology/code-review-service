@@ -251,28 +251,3 @@ func generateThinkingJSON(format providerThinkingFormat, budget int, mode string
 	}
 	return string(out)
 }
-
-// GetProviderThinkingFormat 获取 provider 的 thinking 格式（供外部查询）
-func GetProviderThinkingFormat(provider string) string {
-	normalizedProvider := strings.ToLower(strings.TrimSpace(provider))
-	format, ok := providerFormatMap[normalizedProvider]
-	if !ok {
-		return "anthropic" // 默认
-	}
-	switch format {
-	case formatAnthropic:
-		return "anthropic"
-	case formatOpenAIReasoning:
-		return "openai"
-	case formatQwenThinking:
-		return "qwen"
-	case formatGLMThinking:
-		return "glm"
-	case formatDeepSeekThinking:
-		return "deepseek"
-	case formatMiMoThinking:
-		return "mimo"
-	default:
-		return "anthropic"
-	}
-}

@@ -11,9 +11,10 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/requirements"
+	"github.com/yi-nology/code-review-service/internal/service/scoring"
+	"github.com/oekit/logx"
 	"github.com/oekit/pkg/slicex"
 	"github.com/oekit/workflow"
-	"github.com/oekit/logx"
 )
 
 // toReviewSession 安全地将 Session 转换为 ReviewSession
@@ -309,7 +310,8 @@ func (s *synthesisStep) Run(ctx context.Context, req workflow.Request, sess work
 
 	// 生成最终报告
 	if rs.AggregatedResult != nil {
-		report := generateFinalReport(*rs.AggregatedResult, rs.DiscussionResult, rs.Requirements)
+		changedLines := scoring.CountDiffLines(rs.Request.Diff)
+		report := generateFinalReport(*rs.AggregatedResult, rs.DiscussionResult, rs.Requirements, changedLines)
 
 		// 阶段 4：用 LLM 生成澄清问题（需求歧义/范围/验收/边缘场景），LLM 不可用时为空
 		if len(rs.Request.Requirements) > 0 {
@@ -434,45 +436,33 @@ func generateFinalReport(
 	aggregatedResult agent.AggregatedResult,
 	discussionResult *discussion.DiscussionResult,
 	requirementsCoverage *requirements.CoverageAssessment,
+	changedLines int,
 ) FinalReport {
 	var blockers []agent.Finding
 	var shouldFix []agent.Finding
 	var suggestions []agent.Finding
+	counts := scoring.Counts{}
 
+	// 单次遍历：同一 normalized severity 同时决定 bucket 归属和评分计数，
+	// 确保「严重」问题不会被分到 suggestions 却按 critical 计分等不一致。
 	for _, finding := range aggregatedResult.Findings {
-		switch finding.Severity {
+		switch normalizeSeverity(finding.Severity) {
 		case "critical":
 			blockers = append(blockers, finding)
+			counts.Critical++
 		case "major":
 			shouldFix = append(shouldFix, finding)
-		default:
+			counts.Major++
+		case "minor":
 			suggestions = append(suggestions, finding)
+			counts.Minor++
+		default: // info
+			suggestions = append(suggestions, finding)
+			counts.Info++
 		}
 	}
 
-	// 评分：各类别递减扣分 + 上限，避免少量问题就归零
-	score := 100
-	// Blockers: 每个 -25，最多扣 75
-	deduct := len(blockers) * 25
-	if deduct > 75 {
-		deduct = 75
-	}
-	score -= deduct
-	// ShouldFix: 每个 -8，最多扣 50
-	deduct = len(shouldFix) * 8
-	if deduct > 50 {
-		deduct = 50
-	}
-	score -= deduct
-	// Suggestions: 每个 -3，最多扣 15
-	deduct = len(suggestions) * 3
-	if deduct > 15 {
-		deduct = 15
-	}
-	score -= deduct
-	if score < 0 {
-		score = 0
-	}
+	score := scoring.Compute(counts, changedLines, 0, true)
 
 	verdict := "APPROVE"
 	gatePassed := true
@@ -497,9 +487,24 @@ func generateFinalReport(
 		Blockers:    blockers,
 		ShouldFix:   shouldFix,
 		Suggestions: suggestions,
-		Score:       score,
+		Score:       score.Value,
 		GatePassed:  gatePassed,
 		GateReason:  gateReason,
+	}
+}
+
+// normalizeSeverity 与 review.NormalizeSeverity 行为一致：大小写/空白容错，
+// 未知值兜底为 major。本地定义避免 workflow → review 反向依赖。
+func normalizeSeverity(s string) string {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "critical":
+		return "critical"
+	case "minor":
+		return "minor"
+	case "info":
+		return "info"
+	default: // "major"、空值、未知 → major
+		return "major"
 	}
 }
 

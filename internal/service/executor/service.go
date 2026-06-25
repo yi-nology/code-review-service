@@ -201,32 +201,12 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 	s.appendHistory(ctx, id, "workflow", "completed", fmt.Sprintf("multi-agent review completed with %d findings", len(result.AgentResults)), nil)
 
 	var findings []review.Finding
-	for _, f := range result.FinalReport.Blockers {
-		findings = append(findings, review.Finding{
-			Severity: review.SeverityCritical,
-			Path:     f.Path,
-			Line:     f.Line,
-			Title:    f.Title,
-			Body:     f.Body,
-		})
-	}
-	for _, f := range result.FinalReport.ShouldFix {
-		findings = append(findings, review.Finding{
-			Severity: review.SeverityMajor,
-			Path:     f.Path,
-			Line:     f.Line,
-			Title:    f.Title,
-			Body:     f.Body,
-		})
-	}
-	for _, f := range result.FinalReport.Suggestions {
-		findings = append(findings, review.Finding{
-			Severity: review.SeverityMinor,
-			Path:     f.Path,
-			Line:     f.Line,
-			Title:    f.Title,
-			Body:     f.Body,
-		})
+	for _, bucket := range [][]agent.Finding{
+		result.FinalReport.Blockers,
+		result.FinalReport.ShouldFix,
+		result.FinalReport.Suggestions,
+	} {
+		findings = append(findings, toReviewFindings(bucket)...)
 	}
 
 	scope := workspace.Scope
@@ -258,10 +238,8 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 		},
 	}
 	report := review.BuildReport(&dummyResult)
-	// workflow 路径：评分/完成状态/门禁直接采用 workflow FinalReport，与「最终报告」同步。
-	// 原实现用 BuildReport 基于 findings 重算，导致与 workflow 实际评分/结论不一致（用户反馈不同步）。
-	report.Score.Value = result.FinalReport.Score
-	report.Score.Grade = review.ScoreGrade(result.FinalReport.Score)
+	// workflow 路径：评分由 scoring.Compute 统一计算（BuildReport 和 generateFinalReport
+	// 共用同一函数），两条路径分数天然一致，无需再覆盖。
 	report.Complete = true
 	report.Generated = true
 
@@ -422,6 +400,25 @@ func classifyReviewErrorType(err error) string {
 func toPolicyFindings(findings []review.Finding) []policy.Finding {
 	return slicex.Map(findings, func(f review.Finding) policy.Finding {
 		return policy.Finding{Severity: string(f.Severity), Path: f.Path}
+	})
+}
+
+// toReviewFindings 把 workflow 路径的 agent.Finding 映射为 review.Finding，
+// 保留原始 severity（而非按 bucket 硬编码），避免 info 问题被误判为 minor。
+func toReviewFindings(fs []agent.Finding) []review.Finding {
+	if len(fs) == 0 {
+		return nil
+	}
+	return slicex.Map(fs, func(f agent.Finding) review.Finding {
+		return review.Finding{
+			Severity: review.NormalizeSeverity(f.Severity),
+			Path:     f.Path,
+			Line:     f.Line,
+			EndLine:  f.EndLine,
+			Title:    f.Title,
+			Body:     f.Body,
+			Thinking: f.Thinking,
+		}
 	})
 }
 
