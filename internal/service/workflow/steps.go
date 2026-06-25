@@ -11,7 +11,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/requirements"
-	"github.com/yi-nology/code-review-service/internal/service/reviewmap"
 	"github.com/oekit/pkg/slicex"
 	"github.com/oekit/workflow"
 	"github.com/oekit/logx"
@@ -283,7 +282,6 @@ func (s *discussionStep) Run(ctx context.Context, req workflow.Request, sess wor
 type synthesisStep struct {
 	sessionService     sessionService
 	enableRequirements bool
-	enableReviewMap    bool
 	llmProvider        llm.Provider
 }
 
@@ -307,20 +305,6 @@ func (s *synthesisStep) Run(ctx context.Context, req workflow.Request, sess work
 		parsedReqs := parser.ParseRequirements(strings.Join(rs.Request.Requirements, "\n"))
 		requirementEval := requirements.NewEvaluator()
 		rs.Requirements = requirementEval.Evaluate(reqFindings, parsedReqs)
-	}
-
-	// 生成 review map
-	if s.enableReviewMap && rs.AggregatedResult != nil {
-		mapFindings := make([]reviewmap.Finding, len(rs.AggregatedResult.Findings))
-		copy(mapFindings, rs.AggregatedResult.Findings)
-
-		mapGenerator := reviewmap.NewGenerator()
-		reviewMap, err := mapGenerator.Generate(rs.SessionID, rs.Request.Diff, mapFindings)
-		if err != nil {
-			logx.Errorf("generate review map failed: %v", err)
-		} else {
-			rs.ReviewMap = reviewMap
-		}
 	}
 
 	// 生成最终报告

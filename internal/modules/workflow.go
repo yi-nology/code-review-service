@@ -25,7 +25,6 @@ func NewReviewWorkflow(
 	wfCfg := workflow.WorkflowConfig{
 		EnableDiscussion:   cfg.Agents.Discussion.Enabled,
 		EnableRequirements: cfg.Agents.Requirements.Enabled,
-		EnableReviewMap:    cfg.Agents.ReviewMap.Enabled,
 		DiscussionRounds:   cfg.Agents.Discussion.MaxRounds,
 		ContextWindow:      cfg.OCR.ContextWindow,
 		MaxOutputTokens:    cfg.OCR.MaxOutputTokens,

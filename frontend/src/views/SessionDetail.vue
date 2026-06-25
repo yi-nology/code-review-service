@@ -211,24 +211,6 @@
                 </div>
               </div>
             </el-card>
-
-            <el-card
-              v-loading="mapLoading"
-              class="section-card"
-            >
-              <template #header>
-                <div class="card-header">
-                  <span>代码审查地图</span>
-                  <el-tag
-                    v-if="reviewMap"
-                    size="small"
-                  >
-                    {{ reviewMap.file_count }} 个文件
-                  </el-tag>
-                </div>
-              </template>
-              <ReviewMap :map="reviewMap" />
-            </el-card>
           </el-col>
 
           <el-col
@@ -276,9 +258,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import DiscussionViewer from '@/components/DiscussionViewer.vue'
 import SessionTimeline from '@/components/SessionTimeline.vue'
 import RequirementsCoverage from '@/components/RequirementsCoverage.vue'
-import ReviewMap from '@/components/ReviewMap.vue'
 import { sessionApi, type ReviewSession } from '@/api/session'
-import { getSessionMap } from '@/api/review'
 import { getSessionStatusType, getSessionStatusLabel, getPhaseLabel } from '@/utils/status'
 import { formatDateTime } from '@/utils/format'
 import { ElMessage } from 'element-plus/es/components/message/index'
@@ -289,8 +269,6 @@ const router = useRouter()
 const loading = ref(true)
 const acting = ref(false)
 const session = ref<ReviewSession | null>(null)
-const reviewMap = ref<any>(null)
-const mapLoading = ref(false)
 const viewportWidth = ref(window.innerWidth)
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -315,19 +293,6 @@ async function fetchSession() {
     session.value = await sessionApi.getSession(reviewId, sessionId)
   } catch (error) {
     console.error('Failed to load session:', error)
-  }
-}
-
-async function fetchMap() {
-  const reviewId = route.params.reviewId as string
-  const sessionId = route.params.sessionId as string
-  mapLoading.value = true
-  try {
-    reviewMap.value = await getSessionMap(reviewId, sessionId)
-  } catch {
-    reviewMap.value = null
-  } finally {
-    mapLoading.value = false
   }
 }
 
@@ -390,7 +355,6 @@ onMounted(async () => {
   window.addEventListener('resize', updateViewportWidth)
   await fetchSession()
   loading.value = false
-  await fetchMap()
   schedulePolling()
 })
 

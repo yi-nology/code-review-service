@@ -294,32 +294,6 @@
               :review-id="detail.review_id"
             />
 
-            <!-- 代码审查地图 -->
-            <el-card class="review-map-card" v-if="reviewMaps.length > 0">
-              <template #header>
-                <div class="card-header">
-                  <span>代码审查地图</span>
-                  <el-tag size="small">{{ reviewMaps.length }} 个</el-tag>
-                </div>
-              </template>
-              <ReviewMap v-for="map in reviewMaps" :key="map.id" :map="map" style="margin-bottom: 16px;" />
-            </el-card>
-
-            <!-- 无地图时生成入口 -->
-            <el-card class="review-map-card" v-else-if="canGenerateMap">
-              <template #header>
-                <div class="card-header">
-                  <span>代码审查地图</span>
-                </div>
-              </template>
-              <el-empty description="本次审查尚未生成代码地图" :image-size="80">
-                <el-button type="primary" plain :loading="generatingMap" @click="handleGenerateMap">
-                  <el-icon><MagicStick /></el-icon>
-                  生成评审地图
-                </el-button>
-              </el-empty>
-            </el-card>
-
             <!-- Debug 区域 - OCR 原始输入 -->
             <el-card class="debug-card" v-if="debugMode && detail.raw_ocr_input">
               <template #header>
@@ -435,12 +409,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft, ArrowRight, SuccessFilled, CircleCloseFilled, InfoFilled, Refresh, MagicStick } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, SuccessFilled, CircleCloseFilled, InfoFilled, Refresh } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import ReviewMap from '@/components/ReviewMap.vue'
 import ProgressTracker from '@/components/ProgressTracker.vue'
 import PublishPanel from '@/components/PublishPanel.vue'
-import { getReview, getReviewMaps, getReviewMap, generateReviewMap, cancelReview, rerunReview } from '@/api/review'
+import { getReview, cancelReview, rerunReview } from '@/api/review'
 import { sessionApi, type ReviewSession } from '@/api/session'
 import { getProviderLabel } from '@/utils/url-parser'
 import { getStatusLabel, getStatusType, getSeverityType, getPhaseLabel, getSessionStatusType, getSessionStatusLabel } from '@/utils/status'
@@ -454,8 +427,6 @@ const route = useRoute()
 const loading = ref(false)
 const detail = ref<ReviewDetail | null>(null)
 const sessions = ref<ReviewSession[]>([])
-const reviewMaps = ref<any[]>([])
-const generatingMap = ref(false)
 const acting = ref(false)
 const viewportWidth = ref(window.innerWidth)
 let pollTimer: ReturnType<typeof setTimeout> | null = null
@@ -467,18 +438,6 @@ const showProgressTracker = computed(() => Boolean(detail.value && (
   sessions.value.length > 0 ||
   (detail.value.history?.length || 0) > 0
 )))
-
-const canGenerateMap = computed(() => Boolean(
-  detail.value
-  && ['success', 'completed'].includes(detail.value.status)
-  && !generatingMap.value
-  && sessions.value.length > 0
-))
-
-const mapSessionId = computed(() => {
-  const completed = sessions.value.find((s) => s.status === 'completed')
-  return (completed || sessions.value[sessions.value.length - 1])?.session_id || ''
-})
 
 // Debug mode
 const debugMode = ref(localStorage.getItem('review-debug-mode') === 'true')
@@ -531,7 +490,7 @@ async function fetchDetail(background = false) {
   if (!background) loading.value = true
   try {
     detail.value = await getReview(route.params.id as string)
-    await Promise.all([fetchSessions(), fetchReviewMaps()])
+    await fetchSessions()
   } finally {
     fetchInFlight = false
     if (!background) loading.value = false
@@ -549,40 +508,8 @@ async function fetchSessions() {
   }
 }
 
-async function fetchReviewMaps() {
-  try {
-    const response = await getReviewMaps(route.params.id as string)
-    const mapList = response.maps || response || []
-    // 获取每个 map 的完整数据
-    const fullMaps = await Promise.all(
-      mapList.map((m: any) => getReviewMap(route.params.id as string, m.id).catch(() => m))
-    )
-    reviewMaps.value = fullMaps
-  } catch (error) {
-    console.error('Failed to fetch review maps:', error)
-    reviewMaps.value = []
-  }
-}
-
 function goToSession(sess: ReviewSession) {
   router.push(`/reviews/${route.params.id}/sessions/${sess.session_id}`)
-}
-
-async function handleGenerateMap() {
-  if (!mapSessionId.value) {
-    ElMessage.warning('暂无可用会话，无法生成评审地图')
-    return
-  }
-  generatingMap.value = true
-  try {
-    await generateReviewMap(route.params.id as string, mapSessionId.value)
-    ElMessage.success('评审地图已生成')
-    await fetchReviewMaps()
-  } catch {
-    ElMessage.error('生成评审地图失败，请稍后重试')
-  } finally {
-    generatingMap.value = false
-  }
 }
 
 async function handleCancel() {
@@ -813,7 +740,6 @@ function schedulePolling() {
 .warnings-card,
 .analysis-card,
 .findings-card,
-.review-map-card,
 .raw-ocr-card,
 .debug-card,
 .gate-card,

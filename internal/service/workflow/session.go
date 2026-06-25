@@ -7,7 +7,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/discussion"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/requirements"
-	"github.com/yi-nology/code-review-service/internal/service/reviewmap"
 )
 
 // ReviewSession 在各步骤间共享的会话数据
@@ -24,7 +23,6 @@ type ReviewSession struct {
 	AggregatedResult *agent.AggregatedResult
 	DiscussionResult *discussion.DiscussionResult
 	Requirements     *requirements.CoverageAssessment
-	ReviewMap        *reviewmap.ReviewMap
 	TechLeadAnalysis *TechLeadAnalysis
 	FinalReport      *FinalReport
 
@@ -54,7 +52,6 @@ type ReviewResult struct {
 	AgentResults     []agent.AgentResult
 	Discussion       *discussion.DiscussionResult
 	Requirements     *requirements.CoverageAssessment
-	ReviewMap        *reviewmap.ReviewMap
 	TechLeadAnalysis *TechLeadAnalysis
 	FinalReport      FinalReport
 	Duration         time.Duration

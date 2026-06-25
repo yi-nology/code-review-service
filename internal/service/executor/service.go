@@ -15,7 +15,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
-	"github.com/yi-nology/code-review-service/internal/service/reviewmap"
 	"github.com/yi-nology/code-review-service/internal/service/runner"
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
 
@@ -27,7 +26,6 @@ type Service struct {
 	reviewRepo      repository.ReviewRepository
 	projectRepo     repository.ProjectPolicyRepository
 	globalRulesRepo repository.GlobalRulesRepository
-	reviewMapRepo   repository.ReviewMapRepository
 	runner          review.Runner
 	writeback       review.WritebackPublisher
 	policy          *policy.Engine
@@ -41,7 +39,6 @@ type Config struct {
 	ReviewRepo      repository.ReviewRepository
 	ProjectRepo     repository.ProjectPolicyRepository
 	GlobalRulesRepo repository.GlobalRulesRepository
-	ReviewMapRepo   repository.ReviewMapRepository
 	Runner          review.Runner
 	Writeback       review.WritebackPublisher
 	Policy          *policy.Engine
@@ -56,7 +53,6 @@ func NewService(cfg Config) *Service {
 		reviewRepo:      cfg.ReviewRepo,
 		projectRepo:     cfg.ProjectRepo,
 		globalRulesRepo: cfg.GlobalRulesRepo,
-		reviewMapRepo:   cfg.ReviewMapRepo,
 		runner:          cfg.Runner,
 		writeback:       cfg.Writeback,
 		policy:          cfg.Policy,
@@ -301,11 +297,6 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 
 	s.publishWriteback(ctx, req, workspace, review.Result{Summary: resp.Summary, Findings: findings})
 
-	// workflow 路径也生成代码审查地图（原仅 executeWithRunner 生成，多 agent 评审地图为空）
-	if s.reviewMapRepo != nil && workspace.Diff != "" {
-		s.generateAndSaveReviewMap(ctx, id, req, workspace, dummyResult)
-	}
-
 	return resp, nil
 }
 
@@ -357,10 +348,6 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req review.R
 
 	if err := s.updateWithRawOCR(ctx, id, req, resp, result.RawOCR); err != nil {
 		return review.Response{}, err
-	}
-
-	if s.reviewMapRepo != nil && workspace.Diff != "" {
-		s.generateAndSaveReviewMap(ctx, id, req, workspace, result)
 	}
 
 	return resp, nil
@@ -430,53 +417,6 @@ func classifyReviewErrorType(err error) string {
 		return "exit"
 	}
 	return ""
-}
-
-func (s *Service) generateAndSaveReviewMap(ctx context.Context, id string, req review.Request, workspace review.Workspace, result review.Result) {
-	var findings []reviewmap.Finding
-	for i, f := range result.Findings {
-		findings = append(findings, reviewmap.Finding{
-			ID:         fmt.Sprintf("finding-%d", i),
-			Severity:   string(f.Severity),
-			Category:   f.Category,
-			Path:       f.Path,
-			Line:       f.Line,
-			EndLine:    f.EndLine,
-			Title:      f.Title,
-			Body:       f.Body,
-			Suggestion: f.SuggestionCode,
-			Confidence: 0.8,
-			Agents:     []string{"default"},
-		})
-	}
-
-	generator := reviewmap.NewGenerator()
-	reviewMap, err := generator.Generate(id, workspace.Diff, findings)
-	if err != nil {
-		logx.Warn("failed to generate review map", "review_id", id, "error", err)
-		return
-	}
-
-	dbMap := &models.ReviewMap{
-		MapID:          reviewMap.ID,
-		ReviewID:       id,
-		SessionID:      id,
-		Title:          reviewMap.Title,
-		Description:    reviewMap.Description,
-		Sections:       review.MustMarshal(reviewMap.Sections),
-		Dependencies:   review.MustMarshal(reviewMap.Dependencies),
-		Summary:        reviewMap.Summary,
-		FileCount:      reviewMap.FileCount,
-		SectionCount:   reviewMap.SectionCount,
-		MermaidDiagram: reviewMap.ToMermaid(),
-	}
-
-	if err := s.reviewMapRepo.Create(ctx, dbMap); err != nil {
-		logx.Warn("failed to save review map", "review_id", id, "error", err)
-		return
-	}
-
-	logx.Info("review map generated and saved", "review_id", id, "map_id", reviewMap.ID, "sections", reviewMap.SectionCount, "files", reviewMap.FileCount)
 }
 
 func toPolicyFindings(findings []review.Finding) []policy.Finding {

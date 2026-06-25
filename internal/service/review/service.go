@@ -62,7 +62,6 @@ type ServiceConfig struct {
 	OCRSettingsRepo repository.OCRSettingsRepository
 	ProjectRepo     repository.ProjectPolicyRepository
 	GlobalRulesRepo repository.GlobalRulesRepository
-	ReviewMapRepo   repository.ReviewMapRepository
 	SessionRepo     SessionRepo
 	Policy          *policy.Engine
 	Providers       Providers
@@ -78,7 +77,6 @@ type Service struct {
 	ocrSettingsRepo repository.OCRSettingsRepository
 	projectRepo     repository.ProjectPolicyRepository
 	globalRulesRepo repository.GlobalRulesRepository
-	reviewMapRepo   repository.ReviewMapRepository
 	sessionRepo     SessionRepo
 	policy          *policy.Engine
 	Providers       Providers
@@ -97,7 +95,6 @@ func NewService(cfg ServiceConfig) *Service {
 		ocrSettingsRepo: cfg.OCRSettingsRepo,
 		projectRepo:     cfg.ProjectRepo,
 		globalRulesRepo: cfg.GlobalRulesRepo,
-		reviewMapRepo:   cfg.ReviewMapRepo,
 		sessionRepo:     cfg.SessionRepo,
 		policy:          cfg.Policy,
 		Providers:       cfg.Providers,

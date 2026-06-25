@@ -40,7 +40,6 @@ func InitDB(cfg *config.DatabaseConfig) (*gormDB.DB, error) {
 			&models.ReviewSession{},
 			&models.ReviewerAgent{},
 			&models.ProjectAgent{},
-			&models.ReviewMap{},
 			&models.CustomProvider{},
 		); err != nil {
 			return nil, fmt.Errorf("auto migrate: %w", err)

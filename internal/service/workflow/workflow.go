@@ -27,7 +27,6 @@ type ReviewWorkflow struct {
 type WorkflowConfig struct {
 	EnableDiscussion   bool
 	EnableRequirements bool
-	EnableReviewMap    bool
 	DiscussionRounds   int
 	ContextWindow      int // 上下文窗口大小（tokens），0=模型默认
 	MaxOutputTokens    int // 最大输出 tokens，0=模型默认
@@ -38,7 +37,6 @@ func DefaultWorkflowConfig() WorkflowConfig {
 	return WorkflowConfig{
 		EnableDiscussion:   true,
 		EnableRequirements: true,
-		EnableReviewMap:    true,
 		DiscussionRounds:   1,
 		ContextWindow:      0,
 		MaxOutputTokens:    0,
@@ -133,7 +131,6 @@ func (w *ReviewWorkflow) RunReview(ctx context.Context, request ReviewRequest) (
 	}
 	result.Discussion = rs.DiscussionResult
 	result.Requirements = rs.Requirements
-	result.ReviewMap = rs.ReviewMap
 	result.TechLeadAnalysis = rs.TechLeadAnalysis
 	if rs.FinalReport != nil {
 		result.FinalReport = *rs.FinalReport
@@ -186,7 +183,6 @@ func (w *ReviewWorkflow) buildPipeline() *workflow.PipeFlow {
 	pipe.Add(&synthesisStep{
 		sessionService:     w.sessionService,
 		enableRequirements: w.config.EnableRequirements,
-		enableReviewMap:    w.config.EnableReviewMap,
 		llmProvider:        w.llmProvider,
 	})
 
