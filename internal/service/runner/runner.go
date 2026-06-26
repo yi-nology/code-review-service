@@ -112,8 +112,15 @@ func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Wor
 	if strings.TrimSpace(r.config.ToolsPath) != "" {
 		args = append(args, "--tools", r.config.ToolsPath)
 	}
-	if strings.TrimSpace(r.config.Background) != "" {
-		args = append(args, "--background", r.config.Background)
+	background := r.config.Background
+	if strings.EqualFold(r.config.Language, "Chinese") && !strings.Contains(background, "中文") {
+		if background != "" {
+			background += " "
+		}
+		background += "请用中文输出所有评审意见和总结。"
+	}
+	if strings.TrimSpace(background) != "" {
+		args = append(args, "--background", background)
 	}
 
 	cmd := exec.CommandContext(ctx, r.config.Binary, args...)
