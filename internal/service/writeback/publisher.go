@@ -14,6 +14,6 @@ func NewWritebackPublisherAdapter(orchestrator *Orchestrator) *WritebackPublishe
 	return &WritebackPublisherAdapter{orchestrator: orchestrator}
 }
 
-func (a *WritebackPublisherAdapter) PublishWithDiff(ctx context.Context, req review.Request, result review.Result, diff string) error {
+func (a *WritebackPublisherAdapter) PublishWithDiff(ctx context.Context, req review.Request, result review.Result, diff string) (*review.WritebackResult, error) {
 	return a.orchestrator.Publish(ctx, req, result, diff)
 }

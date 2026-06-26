@@ -42,15 +42,15 @@ func NewOrchestrator(cfg OrchestratorConfig) *Orchestrator {
 	}
 }
 
-func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result review.Result, diff string) error {
+func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result review.Result, diff string) (*review.WritebackResult, error) {
 	adapter, ok := o.adapters[req.Provider]
 	if !ok {
-		return fmt.Errorf("no writeback adapter for provider %q", req.Provider)
+		return nil, fmt.Errorf("no writeback adapter for provider %q", req.Provider)
 	}
 
 	number := types.ResolvePRNumber(req.Provider, req.PullRequestID, req.MergeRequestIID)
 	if number == 0 {
-		return fmt.Errorf("cannot determine PR/MR number for writeback")
+		return nil, fmt.Errorf("cannot determine PR/MR number for writeback")
 	}
 
 	cr := ChangeRequest{
@@ -63,7 +63,7 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 
 	caps, err := adapter.Capabilities(ctx, cr)
 	if err != nil {
-		return fmt.Errorf("check capabilities: %w", err)
+		return nil, fmt.Errorf("check capabilities: %w", err)
 	}
 
 	summaryBody := FormatSummaryBody(result.Summary, result.Findings, o.maxComments)
@@ -129,14 +129,15 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 
 	wbResult, err := adapter.Publish(ctx, rev)
 	if err != nil {
-		return fmt.Errorf("publish writeback: %w", err)
+		return nil, fmt.Errorf("publish writeback: %w", err)
 	}
 
 	if wbResult.ReviewID == "" && len(wbResult.Comments) == 0 {
 		logx.Info("writeback skipped (stale or empty)")
-		return nil
+		return &review.WritebackResult{Skipped: true}, nil
 	}
 
+	published, failed := 0, 0
 	for _, cr := range wbResult.Comments {
 		status := "published"
 		if !cr.Inline {
@@ -144,6 +145,9 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 		}
 		if cr.Error != "" {
 			status = "failed"
+			failed++
+		} else {
+			published++
 		}
 		_ = o.itemRepo.Create(ctx, &models.WritebackItem{
 			ReviewID:           wbResult.ReviewID,
@@ -153,6 +157,7 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 			ProviderURL:        cr.URL,
 			Status:             status,
 			Attempts:           1,
+			LastError:          cr.Error,
 		})
 	}
 
@@ -161,8 +166,10 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 		"repo", req.Repo,
 		"number", number,
 		"comments", len(comments),
+		"published", published,
+		"failed", failed,
 	)
-	return nil
+	return &review.WritebackResult{Published: published, Failed: failed}, nil
 }
 
 func findSeverity(findings []review.Finding, i int) review.Severity {

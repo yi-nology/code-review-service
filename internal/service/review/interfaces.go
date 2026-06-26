@@ -15,7 +15,13 @@ type Runner interface {
 }
 
 type WritebackPublisher interface {
-	PublishWithDiff(ctx context.Context, req Request, result Result, diff string) error
+	PublishWithDiff(ctx context.Context, req Request, result Result, diff string) (*WritebackResult, error)
+}
+
+type WritebackResult struct {
+	Published int
+	Failed    int
+	Skipped   bool
 }
 
 type PreviewRunner interface {

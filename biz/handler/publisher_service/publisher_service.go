@@ -70,7 +70,7 @@ func PublishReview(ctx context.Context, c *app.RequestContext) {
 		}
 	}
 
-	if err := handlerInst.writeback.Publish(ctx, record.Request, result, diff); err != nil {
+	if _, err := handlerInst.writeback.Publish(ctx, record.Request, result, diff); err != nil {
 		common.Fail(c, err)
 		return
 	}

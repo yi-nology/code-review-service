@@ -273,7 +273,7 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 		return review.Response{}, err
 	}
 
-	s.publishWriteback(ctx, req, workspace, review.Result{Summary: resp.Summary, Findings: findings})
+	s.publishWriteback(ctx, id, req, workspace, review.Result{Summary: resp.Summary, Findings: findings})
 
 	return resp, nil
 }
@@ -322,7 +322,7 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req review.R
 		Gate:     review.CompletedGate(gate.Passed, gate.Reason),
 	}
 
-	s.publishWriteback(ctx, req, workspace, review.Result{Summary: result.Summary, Findings: result.Findings})
+	s.publishWriteback(ctx, id, req, workspace, review.Result{Summary: result.Summary, Findings: result.Findings})
 
 	if err := s.updateWithRawOCR(ctx, id, req, resp, result.RawOCR); err != nil {
 		return review.Response{}, err
@@ -332,7 +332,7 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req review.R
 }
 
 // publishWriteback 在审查完成后将结果回写到代码平台（runner 和 workflow 路径共用）。
-func (s *Service) publishWriteback(ctx context.Context, req review.Request, workspace review.Workspace, result review.Result) {
+func (s *Service) publishWriteback(ctx context.Context, id string, req review.Request, workspace review.Workspace, result review.Result) {
 	if s.writeback == nil {
 		return
 	}
@@ -347,12 +347,25 @@ func (s *Service) publishWriteback(ctx context.Context, req review.Request, work
 		return
 	}
 
+	s.appendHistory(ctx, id, "writeback", "running", "publishing review comments to git platform", nil)
+
 	writebackReq := req
 	if workspace.OriginalHeadSHA != "" {
 		writebackReq.HeadSHA = workspace.OriginalHeadSHA
 	}
-	if err := s.writeback.PublishWithDiff(ctx, writebackReq, result, workspace.Diff); err != nil {
+	wbResult, err := s.writeback.PublishWithDiff(ctx, writebackReq, result, workspace.Diff)
+	if err != nil {
 		logx.Warn("writeback publish failed", "error", err)
+		s.appendHistory(ctx, id, "writeback", "failed", fmt.Sprintf("writeback failed: %v", err), nil)
+		return
+	}
+
+	if wbResult.Skipped {
+		s.appendHistory(ctx, id, "writeback", "completed", "writeback skipped (stale or empty)", nil)
+	} else {
+		s.appendHistory(ctx, id, "writeback", "completed",
+			fmt.Sprintf("comments published to git platform (published=%d, failed=%d)", wbResult.Published, wbResult.Failed),
+			map[string]any{"published": wbResult.Published, "failed": wbResult.Failed})
 	}
 }
 
