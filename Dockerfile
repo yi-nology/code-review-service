@@ -1,26 +1,22 @@
 FROM docker.io/library/golang:1.26-alpine AS build
 
-ENV GOPROXY=https://goproxy.cn,direct
-ENV GONOSUMCHECK='*'
-ENV GONOSUMDB='*'
-ENV GOPRIVATE=''
+ENV GOPROXY=https://goproxy.cn,direct \
+    GONOSUMCHECK='*' \
+    GONOSUMDB='*' \
+    GOPRIVATE=''
 RUN apk add --no-cache git
 
 WORKDIR /src
-COPY review-service/go.mod review-service/go.sum ./
-RUN go mod download
-COPY review-service/main.go review-service/init.go ./
-COPY review-service/biz ./biz
-COPY review-service/internal ./internal
-COPY review-service/swagger ./swagger
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/review-service .
+COPY review-service/ ./review-service/
+COPY ocr-build/ ./ocr-build/
 
-# Build open-code-review (ocr) binary from source
-WORKDIR /ocr-src
-COPY ocr-build/go.mod ocr-build/go.sum ./
-RUN go mod download
-COPY ocr-build/ ./
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/ocr ./cmd/opencodereview
+# Build review-service
+WORKDIR /src/review-service
+RUN go mod download && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/review-service .
+
+# Build open-code-review (ocr)
+WORKDIR /src/ocr-build
+RUN go mod download && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/ocr ./cmd/opencodereview
 
 FROM docker.io/library/alpine:3.21
 
