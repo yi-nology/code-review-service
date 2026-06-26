@@ -55,6 +55,7 @@ func InitAgentManager(lc fx.Lifecycle, cfg *config.Config, repos *repository.Rep
 			// 后 agent 仍按旧超时杀掉 OCR（#25）。
 			var reasoningExtraBody string
 			ocrTimeoutMinutes := 30
+			llmURL, llmModel, llmAuthToken, llmAuthHeader, llmLanguage := "", "", "", "", ""
 			if ocrSettings, err := repos.OCRSettings.Get(ctx); err == nil && ocrSettings != nil {
 				mode := ocrSettings.ReasoningMode
 				if mode == "" {
@@ -64,6 +65,11 @@ func InitAgentManager(lc fx.Lifecycle, cfg *config.Config, repos *repository.Rep
 				if ocrSettings.TimeoutMinutes > 0 {
 					ocrTimeoutMinutes = ocrSettings.TimeoutMinutes
 				}
+				llmURL = ocrSettings.URL
+				llmModel = ocrSettings.ModelName
+				llmAuthToken = ocrSettings.AuthToken
+				llmAuthHeader = ocrSettings.AuthHeader
+				llmLanguage = ocrSettings.Language
 			}
 
 			runnerFactory := agent.NewOCRRunnerFactory(runner.OpenCodeReviewConfig{
@@ -74,6 +80,11 @@ func InitAgentManager(lc fx.Lifecycle, cfg *config.Config, repos *repository.Rep
 				MaxGitProcs:     4,
 				TimeoutMinutes:  ocrTimeoutMinutes,
 				ExtraBody:       reasoningExtraBody,
+				URL:             llmURL,
+				Model:           llmModel,
+				AuthToken:       llmAuthToken,
+				AuthHeader:      llmAuthHeader,
+				Language:        llmLanguage,
 			})
 			agentMgr.SetFactory(runnerFactory) // 阶段 5：使 manager 具备构造 ephemeral agent 的能力
 			// 注入项目级 agent 解析器：使审查按项目裁剪（per-project 白名单覆盖 / 缺省自动推断）
