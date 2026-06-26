@@ -684,6 +684,7 @@ function applyDefaultBranches() {
 }
 
 function onPRChange(prNumber: number) {
+  selectedPR.value = prNumber
   const pr = pullRequests.value.find((item) => item.number === prNumber)
   if (pr) {
     selectedPRInfo.value = pr
