@@ -2,13 +2,13 @@ package webhook
 
 import (
 	"os"
+	"sync/atomic"
 
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/convert"
 )
 
-// insecureWarned 避免每次请求重复打日志。
-var insecureWarned bool
+var insecureWarned atomic.Bool
 
 // allowInsecureSignature 控制未配置 webhook secret 时是否放行签名校验。
 //
@@ -19,9 +19,8 @@ var insecureWarned bool
 // 但强烈建议改为在各平台正确配置 webhook secret。
 func allowInsecureSignature() bool {
 	v := convert.Str2Bool(os.Getenv("WEBHOOK_ALLOW_INSECURE"), false)
-	if v && !insecureWarned {
+	if v && insecureWarned.CompareAndSwap(false, true) {
 		logx.Errorf("[security] WEBHOOK_ALLOW_INSECURE=true: webhook 签名校验对未配置 secret 的平台放行，存在伪造风险，请尽快配置 webhook secret 并移除该环境变量")
-		insecureWarned = true
 	}
 	return v
 }

@@ -65,15 +65,16 @@ func (r *OCRSettingsRepo) defaultSettings() *models.OCRSettings {
 }
 
 func (r *OCRSettingsRepo) Save(ctx context.Context, settings *models.OCRSettings) error {
-	var existing models.OCRSettings
-	err := r.db.WithContext(ctx).Order("id DESC").First(&existing).Error
-	if errors.Is(err, gormLib.ErrRecordNotFound) {
-		return r.db.WithContext(ctx).Create(settings).Error
-	}
-	if err != nil {
-		return err
-	}
-
-	settings.ID = existing.ID
-	return r.db.WithContext(ctx).Save(settings).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gormLib.DB) error {
+		var existing models.OCRSettings
+		err := tx.Order("id DESC").First(&existing).Error
+		if errors.Is(err, gormLib.ErrRecordNotFound) {
+			return tx.Create(settings).Error
+		}
+		if err != nil {
+			return err
+		}
+		settings.ID = existing.ID
+		return tx.Save(settings).Error
+	})
 }

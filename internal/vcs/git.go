@@ -3,6 +3,7 @@ package vcs
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/yi-nology/git-platform-sdk/gitbackend"
 )
@@ -11,19 +12,27 @@ import (
 // type name while the implementation (and all git operations) live in the SDK.
 type Git = gitbackend.Repository
 
-// newBackend creates a native git backend. It panics when git is unavailable on
-// the host since the service cannot function without it.
-func newBackend() gitbackend.GitBackend {
-	b, err := gitbackend.NewNativeGitBackend(gitbackend.Options{})
-	if err != nil {
-		panic(fmt.Sprintf("native git backend unavailable (git not found?): %v", err))
-	}
-	return b
+var (
+	backendOnce sync.Once
+	backendInst gitbackend.GitBackend
+	backendErr  error
+)
+
+// getBackend returns a cached native git backend, initializing once.
+func getBackend() (gitbackend.GitBackend, error) {
+	backendOnce.Do(func() {
+		backendInst, backendErr = gitbackend.NewNativeGitBackend(gitbackend.Options{})
+	})
+	return backendInst, backendErr
 }
 
 // Clone clones url into dir and returns a Git bound to it.
 func Clone(ctx context.Context, dir, url, token string, skipTLS bool) (*Git, error) {
-	repo, err := gitbackend.CloneRepository(ctx, newBackend(), url, dir, gitbackend.NewTokenAuth(token), skipTLS)
+	b, err := getBackend()
+	if err != nil {
+		return nil, fmt.Errorf("git backend unavailable: %w", err)
+	}
+	repo, err := gitbackend.CloneRepository(ctx, b, url, dir, gitbackend.NewTokenAuth(token), skipTLS)
 	if err != nil {
 		return nil, fmt.Errorf("git clone: %w", err)
 	}
@@ -32,5 +41,9 @@ func Clone(ctx context.Context, dir, url, token string, skipTLS bool) (*Git, err
 
 // Open wraps an already-present working tree at dir with token auth.
 func Open(dir, token string) (*Git, error) {
-	return gitbackend.OpenRepository(newBackend(), dir, gitbackend.NewTokenAuth(token), false), nil
+	b, err := getBackend()
+	if err != nil {
+		return nil, fmt.Errorf("git backend unavailable: %w", err)
+	}
+	return gitbackend.OpenRepository(b, dir, gitbackend.NewTokenAuth(token), false), nil
 }

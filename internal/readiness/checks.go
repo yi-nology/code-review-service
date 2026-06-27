@@ -18,6 +18,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/oekit/hertz/health"
+	"github.com/oekit/logx"
 	"gorm.io/gorm"
 )
 
@@ -46,7 +47,10 @@ func OCRBinaryCheck(repos *repository.RepoContainer, resolver *ocr.ConfigResolve
 		}
 		// 配置读取失败（如首次启动尚未配置）时用默认 binary 检查，
 		// 不应阻断就绪探针——配置问题由 preflight 与日志反映。
-		cfg, _ := resolver.Resolve(domain.OCROverrides{})
+		cfg, err := resolver.Resolve(domain.OCROverrides{})
+		if err != nil {
+			logx.Warnf("[readiness] failed to resolve OCR config: %v", err)
+		}
 		binary := cfg.Binary
 		if binary == "" {
 			binary = "ocr"

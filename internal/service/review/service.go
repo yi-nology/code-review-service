@@ -180,7 +180,7 @@ func (s *Service) createReview(ctx context.Context, req domain.Request, idempote
 
 	if err := s.reviewRepo.Create(ctx, review); err != nil {
 		if idempotencyKey != "" && gormx.IsUniqueViolation(err) {
-			existing, getErr := s.reviewRepo.GetByidempotencyKey(ctx, idempotencyKey)
+			existing, getErr := s.reviewRepo.GetByIdempotencyKey(ctx, idempotencyKey)
 			if getErr != nil && !errors.Is(getErr, repository.ErrNotFound) {
 				return domain.Response{}, fmt.Errorf("idempotency recovery: %w", getErr)
 			}
@@ -513,6 +513,11 @@ func (s *Service) Scan(ctx context.Context, req domain.ScanRequest) (*domain.Sca
 	if req.Preview || scanResult == nil || scanResult.Result == nil {
 		return scanResult, nil
 	}
+
+	report := BuildReport(scanResult.Result)
+	analysis := BuildAnalysis(*scanResult.Result)
+	scanResult.Report = &report
+	scanResult.Analysis = &analysis
 
 	reviewID, err := s.persistScanResult(ctx, req, projectPolicy, scanResult)
 	if err != nil {

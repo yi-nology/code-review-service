@@ -52,7 +52,7 @@ func TestDeliveryIDDynamicFallback(t *testing.T) {
 // 默认拒绝签名校验（安全优先），防止 webhook 被伪造。
 func TestVerifySignatureEmptySecretDefaultDeny(t *testing.T) {
 	t.Setenv("WEBHOOK_ALLOW_INSECURE", "")
-	insecureWarned = false
+	insecureWarned.Store(false)
 
 	verifiers := []struct {
 		name string
@@ -87,7 +87,7 @@ func TestVerifySignatureAllowInsecureEnv(t *testing.T) {
 		{"gitcode", (&GitCodeNormalizer{}).VerifySignature},
 		{"tencent", (&TencentCodeNormalizer{}).VerifySignature},
 	} {
-		insecureWarned = false
+		insecureWarned.Store(false)
 		if !tc.fn([]byte("body"), "any-signature", "") {
 			t.Errorf("%s: expected verification to pass when WEBHOOK_ALLOW_INSECURE=true", tc.name)
 		}

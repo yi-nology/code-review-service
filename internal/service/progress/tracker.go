@@ -29,7 +29,7 @@ func (pt *ProgressTracker) GetRoomID() string {
 func (pt *ProgressTracker) GetProgress() *ReviewProgress {
 	pt.mu.RLock()
 	defer pt.mu.RUnlock()
-	return pt.progress
+	return pt.progress.Clone()
 }
 
 func (pt *ProgressTracker) UpdatePhase(phase Phase, status string, progress float64, message string) {
@@ -52,11 +52,13 @@ func (pt *ProgressTracker) UpdatePhase(phase Phase, status string, progress floa
 func (pt *ProgressTracker) UpdateAgentStatus(agentName, status string, progress float64, message string) {
 	pt.mu.Lock()
 	pt.progress.UpdateAgentStatus(agentName, status, progress, message)
+	phase := pt.progress.Phase
+	prog := pt.progress.Progress
 	pt.mu.Unlock()
 
 	pt.broadcaster.BroadcastEvent(pt.GetRoomID(), progressEvent{
-		Type: eventAgentStatus, Phase: pt.progress.Phase, Status: "active",
-		Progress: pt.progress.Progress, Message: message,
+		Type: eventAgentStatus, Phase: phase, Status: "active",
+		Progress: prog, Message: message,
 		AgentStatus: map[string]AgentStatus{
 			agentName: {Name: agentName, Status: status, Progress: progress, Message: message},
 		},
@@ -66,11 +68,13 @@ func (pt *ProgressTracker) UpdateAgentStatus(agentName, status string, progress 
 func (pt *ProgressTracker) SetError(err string) {
 	pt.mu.Lock()
 	pt.progress.SetError(err)
+	phase := pt.progress.Phase
+	prog := pt.progress.Progress
 	pt.mu.Unlock()
 
 	pt.broadcaster.BroadcastEvent(pt.GetRoomID(), progressEvent{
-		Type: eventError, Phase: pt.progress.Phase, Status: "failed",
-		Progress: pt.progress.Progress, Error: err, Message: "Review failed: " + err,
+		Type: eventError, Phase: phase, Status: "failed",
+		Progress: prog, Error: err, Message: "Review failed: " + err,
 	})
 }
 
@@ -97,8 +101,11 @@ func (pt *ProgressTracker) ReportProgress(message string, progress float64) {
 }
 
 func (pt *ProgressTracker) ReportFileProgress(filename string, current, total int) {
-	progress := float64(current) / float64(total) * 100
-	pt.ReportProgress(fmt.Sprintf("Processing file %d/%d: %s", current, total, filename), progress)
+	var pct float64
+	if total > 0 {
+		pct = float64(current) / float64(total) * 100
+	}
+	pt.ReportProgress(fmt.Sprintf("Processing file %d/%d: %s", current, total, filename), pct)
 }
 
 func (pt *ProgressTracker) ReportAgentStatus(agentName, status, message string) {

@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -95,17 +96,14 @@ func (n *GitLabNormalizer) normalizeMergeRequest(rawBody []byte) (*ChangeEvent, 
 	if lastCommit, ok := attrs["last_commit"].(map[string]any); ok {
 		headSHA, _ = lastCommit["id"].(string)
 	}
-	if source, ok := attrs["source"].(map[string]any); ok {
-		if branch, ok := source["branch"].(string); ok {
-			_ = branch
-		}
-	}
 	baseSHA, _ = attrs["merge_commit_sha"].(string)
 	if baseSHA == "" {
 		if diffRefs, ok := attrs["diff_refs"].(map[string]any); ok {
 			baseSHA, _ = diffRefs["base_sha"].(string)
-			headSHA, _ = diffRefs["head_sha"].(string)
 			startSHA, _ = diffRefs["start_sha"].(string)
+			if h, ok := diffRefs["head_sha"].(string); ok && h != "" {
+				headSHA = h
+			}
 		}
 	}
 
@@ -153,7 +151,7 @@ func (n *GitLabNormalizer) VerifySignature(body []byte, signature string, secret
 	if secret == "" {
 		return false
 	}
-	return strings.TrimSpace(signature) == strings.TrimSpace(secret)
+	return subtle.ConstantTimeCompare([]byte(strings.TrimSpace(signature)), []byte(strings.TrimSpace(secret))) == 1
 }
 
 func (n *GitLabNormalizer) EventType(headerValue string) string {

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/yi-nology/code-review-service/biz/router"
 	"github.com/yi-nology/code-review-service/internal/config"
@@ -105,6 +106,9 @@ func registerViewerProxyRoute(h *server.Hertz, viewerMgr *ocr.ViewerManager) {
 }
 
 func viewerProxyHandler(viewerMgr *ocr.ViewerManager) app.HandlerFunc {
+	proxyClient := &http.Client{Timeout: 30 * time.Second}
+	const maxProxyBody = 10 << 20 // 10 MB
+
 	return func(ctx context.Context, c *app.RequestContext) {
 		if viewerMgr == nil {
 			c.SetStatusCode(http.StatusServiceUnavailable)
@@ -132,10 +136,10 @@ func viewerProxyHandler(viewerMgr *ocr.ViewerManager) app.HandlerFunc {
 			c.SetStatusCode(http.StatusBadRequest)
 			return
 		}
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := proxyClient.Do(req)
 		if err != nil {
 			c.SetStatusCode(http.StatusBadGateway)
-			_, _ = c.WriteString(err.Error())
+			_, _ = c.WriteString("upstream request failed")
 			return
 		}
 		defer resp.Body.Close()
@@ -144,7 +148,7 @@ func viewerProxyHandler(viewerMgr *ocr.ViewerManager) app.HandlerFunc {
 				c.Response.Header.Set(key, values[0])
 			}
 		}
-		body, err := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(io.LimitReader(resp.Body, maxProxyBody))
 		if err != nil {
 			c.SetStatusCode(http.StatusBadGateway)
 			return

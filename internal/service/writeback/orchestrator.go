@@ -154,14 +154,20 @@ func (o *Orchestrator) Publish(ctx context.Context, req domain.Request, result d
 		} else {
 			published++
 		}
-		_ = o.itemRepo.Create(ctx, &models.WritebackItem{
+		if err := o.itemRepo.Create(ctx, &models.WritebackItem{
 			ReviewID:   serviceReviewID,
 			FindingKey: cr.Key,
 			Kind:       "inline",
 			Status:     "pending",
-		})
-		_ = o.itemRepo.IncrementAttempts(ctx, serviceReviewID, cr.Key, "inline")
-		_ = o.itemRepo.UpdateStatus(ctx, serviceReviewID, cr.Key, "inline", status, cr.ExternalID, cr.URL, cr.Error)
+		}); err != nil {
+			logx.Warn("writeback: failed to create item record", "key", cr.Key, "error", err)
+		}
+		if err := o.itemRepo.IncrementAttempts(ctx, serviceReviewID, cr.Key, "inline"); err != nil {
+			logx.Warn("writeback: failed to increment attempts", "key", cr.Key, "error", err)
+		}
+		if err := o.itemRepo.UpdateStatus(ctx, serviceReviewID, cr.Key, "inline", status, cr.ExternalID, cr.URL, cr.Error); err != nil {
+			logx.Warn("writeback: failed to update item status", "key", cr.Key, "error", err)
+		}
 	}
 
 	logx.Info("writeback completed",

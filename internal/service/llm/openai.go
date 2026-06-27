@@ -179,13 +179,16 @@ func (p *DynamicProvider) doHTTP(httpReq *http.Request, parse func([]byte) (Comp
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	raw, readErr := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		snippet := strings.TrimSpace(string(raw))
 		if len(snippet) > 500 {
 			snippet = snippet[:500]
 		}
 		return CompleteResponse{}, fmt.Errorf("llm http %d: %s", resp.StatusCode, snippet)
+	}
+	if readErr != nil {
+		return CompleteResponse{}, fmt.Errorf("llm response read failed: %w", readErr)
 	}
 	return parse(raw)
 }

@@ -32,7 +32,10 @@ func RegisterPreflight(lc fx.Lifecycle, repos *repository.RepoContainer, resolve
 				return nil
 			}
 
-			cfg, _ := resolver.Resolve(domain.OCROverrides{})
+			cfg, err := resolver.Resolve(domain.OCROverrides{})
+			if err != nil {
+				logx.Warnf("[preflight] OCR 配置解析失败: %v", err)
+			}
 			binary := cfg.Binary
 			if binary == "" {
 				binary = "ocr"

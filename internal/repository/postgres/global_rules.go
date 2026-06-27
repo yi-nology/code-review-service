@@ -32,16 +32,16 @@ func (r *GlobalRulesRepo) Get(ctx context.Context) (*models.GlobalRules, error) 
 }
 
 func (r *GlobalRulesRepo) Save(ctx context.Context, rules *models.GlobalRules) error {
-	var existing models.GlobalRules
-	err := r.db.WithContext(ctx).
-		Order("id DESC").
-		First(&existing).Error
-	if err != nil && !errors.Is(err, gormLib.ErrRecordNotFound) {
-		return err
-	}
-	if existing.ID > 0 {
-		rules.ID = existing.ID
-		return r.db.WithContext(ctx).Save(rules).Error
-	}
-	return r.db.WithContext(ctx).Create(rules).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gormLib.DB) error {
+		var existing models.GlobalRules
+		err := tx.Order("id DESC").First(&existing).Error
+		if err != nil && !errors.Is(err, gormLib.ErrRecordNotFound) {
+			return err
+		}
+		if existing.ID > 0 {
+			rules.ID = existing.ID
+			return tx.Save(rules).Error
+		}
+		return tx.Create(rules).Error
+	})
 }

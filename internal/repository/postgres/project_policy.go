@@ -40,19 +40,20 @@ func (r *ProjectPolicyRepo) GetByProviderRepo(ctx context.Context, provider, rep
 }
 
 func (r *ProjectPolicyRepo) Save(ctx context.Context, policy *models.ProjectPolicy) error {
-	// Unscoped 查询含软删除记录，避免"删除后再保存同 provider+repo"触发 unique index 冲突。
-	var existing models.ProjectPolicy
-	err := r.db.WithContext(ctx).Unscoped().
-		Where("provider = ? AND repo = ?", policy.Provider, policy.Repo).
-		First(&existing).Error
-	if errors.Is(err, gormLib.ErrRecordNotFound) {
-		return r.db.WithContext(ctx).Create(policy).Error
-	}
-	if err != nil {
-		return err
-	}
-	policy.ID = existing.ID
-	return r.db.WithContext(ctx).Unscoped().Save(policy).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gormLib.DB) error {
+		var existing models.ProjectPolicy
+		err := tx.Unscoped().
+			Where("provider = ? AND repo = ?", policy.Provider, policy.Repo).
+			First(&existing).Error
+		if errors.Is(err, gormLib.ErrRecordNotFound) {
+			return tx.Create(policy).Error
+		}
+		if err != nil {
+			return err
+		}
+		policy.ID = existing.ID
+		return tx.Unscoped().Save(policy).Error
+	})
 }
 
 func (r *ProjectPolicyRepo) Delete(ctx context.Context, provider, repo string) error {

@@ -43,7 +43,7 @@ func (r *ReviewRepo) GetByReviewID(ctx context.Context, reviewID string) (*model
 	return &review, nil
 }
 
-func (r *ReviewRepo) GetByidempotencyKey(ctx context.Context, key string) (*models.Review, error) {
+func (r *ReviewRepo) GetByIdempotencyKey(ctx context.Context, key string) (*models.Review, error) {
 	var review models.Review
 	err := r.db.WithContext(ctx).
 		Where("idempotency_key = ?", key).

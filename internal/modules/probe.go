@@ -18,18 +18,21 @@ import (
 var LLMProbeModule = fx.Options(fx.Invoke(RegisterLLMProbe))
 
 func RegisterLLMProbe(lc fx.Lifecycle, repos *repository.RepoContainer, resolver *ocr.ConfigResolver) {
+	var probeCancel context.CancelFunc
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			probeCtx, cancel := context.WithCancel(context.Background())
+			probeCancel = cancel
 			async.GoSafe(func() {
 				ticker := time.NewTicker(30 * time.Second)
 				defer ticker.Stop()
 				check := readiness.LLMEndpointCheck(repos, resolver)
 				for {
 					select {
-					case <-ctx.Done():
+					case <-probeCtx.Done():
 						return
 					case <-ticker.C:
-						if err := check(ctx); err != nil {
+						if err := check(probeCtx); err != nil {
 							logx.Errorf("[llm-probe] LLM endpoint 探活失败: %v（评审将会失败，请检查 LLM 配置/网络）", err)
 						}
 					}
@@ -38,6 +41,9 @@ func RegisterLLMProbe(lc fx.Lifecycle, repos *repository.RepoContainer, resolver
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
+			if probeCancel != nil {
+				probeCancel()
+			}
 			logx.Info("llm endpoint probe stopped")
 			return nil
 		},

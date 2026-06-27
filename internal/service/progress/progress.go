@@ -116,3 +116,21 @@ func (p *ReviewProgress) Complete() {
 func (p *ReviewProgress) IsActive() bool {
 	return p.Status != "completed" && p.Status != "failed" && p.Status != "cancelled"
 }
+
+func (p *ReviewProgress) Clone() *ReviewProgress {
+	if p == nil {
+		return nil
+	}
+	cp := *p
+	if p.Phases != nil {
+		cp.Phases = make([]PhaseInfo, len(p.Phases))
+		copy(cp.Phases, p.Phases)
+	}
+	if p.AgentStatus != nil {
+		cp.AgentStatus = make(map[string]AgentStatus, len(p.AgentStatus))
+		for k, v := range p.AgentStatus {
+			cp.AgentStatus[k] = v
+		}
+	}
+	return &cp
+}

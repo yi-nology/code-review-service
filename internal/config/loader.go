@@ -3,6 +3,7 @@ package config
 import (
 	"flag"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -17,11 +18,16 @@ var env = flag.String("env", "local", "environment: local, dev, prod")
 func Load() *Config {
 	flag.Parse()
 
+	cfgFile := fmt.Sprintf("etc/config-%s.yaml", *env)
 	cfg, err := config.LoadBootstrap[Config](*env)
 	if err != nil {
-		configFile := fmt.Sprintf("etc/config-%s.yaml", *env)
-		logx.Warn("config file not found, using defaults", "file", configFile, "error", err)
-		cfg = &Config{}
+		if _, statErr := os.Stat(cfgFile); os.IsNotExist(statErr) {
+			logx.Warn("config file not found, using defaults", "file", cfgFile, "error", err)
+			cfg = &Config{}
+		} else {
+			logx.Errorf("failed to parse config file %s: %v", cfgFile, err)
+			cfg = &Config{}
+		}
 	}
 
 	if cfg.Port == 0 {

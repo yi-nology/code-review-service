@@ -73,7 +73,7 @@ func (m *mockReviewRepo) GetByReviewID(_ context.Context, reviewID string) (*mod
 	return nil, repository.ErrNotFound
 }
 
-func (m *mockReviewRepo) GetByidempotencyKey(_ context.Context, key string) (*models.Review, error) {
+func (m *mockReviewRepo) GetByIdempotencyKey(_ context.Context, key string) (*models.Review, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, r := range m.reviews {

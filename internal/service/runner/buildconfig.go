@@ -72,7 +72,7 @@ func DefaultToolConfig(tools ToolPackageLister, mode string) string {
 	if tools == nil {
 		return ""
 	}
-	items, err := tools.List(context.Background())
+	items, err := tools.List(context.TODO())
 	if err != nil {
 		return ""
 	}

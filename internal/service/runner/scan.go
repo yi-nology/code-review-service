@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -8,12 +9,13 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/concurrency/async"
+	"github.com/oekit/logx"
 	"github.com/oekit/pkg/convert"
 )
 
@@ -114,28 +116,42 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace domain.Worksp
 	cmd.Env = env
 
 	var stdout bytes.Buffer
-	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
 
-	done := make(chan struct{})
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return nil, &BinaryMissingError{Binary: r.config.Binary, Err: err}
+	}
+
+	var stderrLines []string
+	var stderrMu sync.Mutex
+	var stderrWg sync.WaitGroup
+	stderrWg.Add(1)
 	async.GoSafe(func() {
-		select {
-		case <-ctx.Done():
-			if cmd.Process != nil {
-				_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-			}
-		case <-done:
+		defer stderrWg.Done()
+		scanner := bufio.NewScanner(stderrPipe)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1<<20)
+		for scanner.Scan() {
+			line := scanner.Text()
+			stderrMu.Lock()
+			stderrLines = append(stderrLines, line)
+			stderrMu.Unlock()
+		}
+		if err := scanner.Err(); err != nil {
+			logx.Warnf("ocr stderr scanner error: %v", err)
 		}
 	})
 
-	err = cmd.Run()
-	close(done)
+	err = cmd.Wait()
+	stderrWg.Wait()
 	if err != nil {
-		if cmd.Process != nil {
-			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		}
-		message := strings.TrimSpace(stderr.String())
+		stderrMu.Lock()
+		message := strings.Join(stderrLines, "\n")
+		stderrMu.Unlock()
 		return nil, classifyExitError(ctx, err, timeout, message)
 	}
 
@@ -152,12 +168,8 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace domain.Worksp
 		result.Scope.ReviewedFiles = int(result.OCR.FilesReviewed)
 		result.Scope.ChangedFiles = int(result.OCR.FilesReviewed)
 	}
-	report := review.BuildReport(&result)
-	analysis := review.BuildAnalysis(result)
 	return &domain.ScanResult{
 		Result:   &result,
-		Report:   &report,
-		Analysis: &analysis,
 		Warnings: result.Warnings,
 	}, nil
 }

@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -8,11 +9,14 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/concurrency/async"
+	"github.com/oekit/logx"
+	"github.com/oekit/pkg/convert"
 )
 
 func runPreview(ctx context.Context, cfg OpenCodeReviewConfig, workspace domain.Workspace) (*domain.PreviewResult, error) {
@@ -35,6 +39,10 @@ func runPreview(ctx context.Context, cfg OpenCodeReviewConfig, workspace domain.
 		"--repo", workspace.Dir,
 		"--from", fromRef,
 		"--to", workspace.HeadSHA,
+		"--concurrency", convert.IntToStr(cfg.Concurrency),
+		"--max-git-procs", convert.IntToStr(cfg.MaxGitProcs),
+		"--timeout", convert.IntToStr(cfg.TimeoutMinutes),
+		"--audience", cfg.Audience,
 	}
 	rulePath := cfg.RulePath
 	if strings.TrimSpace(workspace.RulePath) != "" {
@@ -53,32 +61,43 @@ func runPreview(ctx context.Context, cfg OpenCodeReviewConfig, workspace domain.
 	cmd.Env = env
 
 	var stdout bytes.Buffer
-	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
 
-	done := make(chan struct{})
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return nil, &BinaryMissingError{Binary: cfg.Binary, Err: err}
+	}
+
+	var stderrLines []string
+	var stderrMu sync.Mutex
+	var stderrWg sync.WaitGroup
+	stderrWg.Add(1)
 	async.GoSafe(func() {
-		select {
-		case <-ctx.Done():
-			if cmd.Process != nil {
-				_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-			}
-		case <-done:
+		defer stderrWg.Done()
+		scanner := bufio.NewScanner(stderrPipe)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1<<20)
+		for scanner.Scan() {
+			line := scanner.Text()
+			stderrMu.Lock()
+			stderrLines = append(stderrLines, line)
+			stderrMu.Unlock()
+		}
+		if err := scanner.Err(); err != nil {
+			logx.Warnf("ocr stderr scanner error: %v", err)
 		}
 	})
 
-	err := cmd.Run()
-	close(done)
+	err = cmd.Wait()
+	stderrWg.Wait()
 	if err != nil {
-		if cmd.Process != nil {
-			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		}
-		msg := strings.TrimSpace(stderr.String())
-		if msg == "" {
-			msg = err.Error()
-		}
-		return nil, fmt.Errorf("预览失败: %s", msg)
+		stderrMu.Lock()
+		message := strings.Join(stderrLines, "\n")
+		stderrMu.Unlock()
+		return nil, classifyExitError(ctx, err, timeout, message)
 	}
 
 	output := bytes.TrimSpace(stdout.Bytes())
@@ -100,5 +119,3 @@ func runPreview(ctx context.Context, cfg OpenCodeReviewConfig, workspace domain.
 
 	return &domain.PreviewResult{Files: files}, nil
 }
-
-// appendLLMEnv 已迁移到 config.go 中的 AppendLLMEnv

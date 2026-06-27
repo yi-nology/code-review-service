@@ -65,8 +65,11 @@ func (a *GitLabAdapter) Publish(ctx context.Context, rev Review) (Result, error)
 	}
 
 	event := "COMMENT"
-	if rev.Event == EventRequestChanges {
+	switch rev.Event {
+	case EventRequestChanges:
 		event = "REQUEST_CHANGES"
+	case EventApprove:
+		event = "APPROVE"
 	}
 
 	reviewResult, err := p.CreateReview(ctx, owner, repo, rev.ChangeRequest.Number, sdk.CreateReviewOptions{

@@ -12,6 +12,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
+	"github.com/oekit/logx"
 	"gorm.io/datatypes"
 )
 
@@ -104,7 +105,9 @@ func (s *Service) HandleWebhook(ctx context.Context, provider, installationID st
 	_ = json.Unmarshal(rawBody, &payload)
 
 	if IsBotSender(provider, payload, s.botUsername) {
-		_ = s.deliveryRepo.MarkProcessed(ctx, provider, installationID, deliveryID, "ignored", "bot sender")
+		if err := s.deliveryRepo.MarkProcessed(ctx, provider, installationID, deliveryID, "ignored", "bot sender"); err != nil {
+			logx.Warn("failed to mark delivery as ignored (bot sender)", "error", err)
+		}
 		return &HandleResult{Ignored: true}, nil
 	}
 
@@ -113,12 +116,16 @@ func (s *Service) HandleWebhook(ctx context.Context, provider, installationID st
 		return nil, fmt.Errorf("normalize: %w", err)
 	}
 	if event == nil {
-		_ = s.deliveryRepo.MarkProcessed(ctx, provider, installationID, deliveryID, "ignored", "")
+		if err := s.deliveryRepo.MarkProcessed(ctx, provider, installationID, deliveryID, "ignored", ""); err != nil {
+			logx.Warn("failed to mark delivery as ignored (nil event)", "error", err)
+		}
 		return &HandleResult{Ignored: true}, nil
 	}
 
 	if IsDraftEvent(provider, payload) {
-		_ = s.deliveryRepo.MarkProcessed(ctx, provider, installationID, deliveryID, "ignored", "draft PR")
+		if err := s.deliveryRepo.MarkProcessed(ctx, provider, installationID, deliveryID, "ignored", "draft PR"); err != nil {
+			logx.Warn("failed to mark delivery as ignored (draft PR)", "error", err)
+		}
 		return &HandleResult{Ignored: true}, nil
 	}
 
