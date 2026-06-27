@@ -95,6 +95,7 @@ func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 		OCRSettingsRepo: deps.Repos.OCRSettings,
 		ProjectRepo:     deps.Repos.ProjectPolicy,
 		GlobalRulesRepo: deps.Repos.GlobalRules,
+		RulePackageRepo: deps.Repos.OCRRulePackage,
 		SessionRepo:     deps.SessionRepo,
 		Policy:          deps.PolicyEngine,
 		Providers:       deps.GitProviders,

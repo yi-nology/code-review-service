@@ -3,7 +3,7 @@ import type {
   OCRSettings, ProjectPolicy, ProjectPolicyList, GitPlatform, GitPlatformList,
   GitTestResult, GlobalRules, TestLLMResult, PlatformRepo, PlatformBranch,
   PlatformPullRequest, ReviewerAgent, LLMProvider, CustomProvider,
-  RulesCheckResult, OCRVersion, ViewerStatus
+  RulesCheckResult, OCRVersion, ViewerStatus, OCRRulePackage, OCRToolPackage
 } from '@/types/config'
 
 function parseIgnorePaths(raw: any): string[] {
@@ -201,6 +201,48 @@ export async function getGlobalRules(): Promise<GlobalRules> {
 export async function updateGlobalRules(data: GlobalRules): Promise<GlobalRules> {
   const resp: any = await request.put('/settings/rules/global', { rules: data })
   return resp?.rules ?? resp
+}
+
+// ==================== Rule Packages ====================
+
+export async function listRulePackages(): Promise<OCRRulePackage[]> {
+  const resp: any = await request.get('/settings/rules/packages')
+  return resp?.items ?? []
+}
+
+export async function saveRulePackage(data: OCRRulePackage): Promise<OCRRulePackage> {
+  const resp: any = data.id
+    ? await request.put(`/settings/rules/packages/${data.id}`, data)
+    : await request.post('/settings/rules/packages', data)
+  return resp?.item ?? resp
+}
+
+export async function deleteRulePackage(id: number): Promise<void> {
+  return request.delete(`/settings/rules/packages/${id}`) as any
+}
+
+// ==================== Tool Packages ====================
+
+export async function listToolPackages(): Promise<OCRToolPackage[]> {
+  const resp: any = await request.get('/settings/ocr/tool-packages')
+  return resp?.items ?? []
+}
+
+export async function saveToolPackage(data: OCRToolPackage): Promise<OCRToolPackage> {
+  const payload = { ...data, config: typeof data.config === 'string' ? JSON.parse(data.config) : data.config }
+  const resp: any = data.id
+    ? await request.put(`/settings/ocr/tool-packages/${data.id}`, payload)
+    : await request.post('/settings/ocr/tool-packages', payload)
+  return resp?.item ?? resp
+}
+
+export async function deleteToolPackage(id: number): Promise<void> {
+  return request.delete(`/settings/ocr/tool-packages/${id}`) as any
+}
+
+export async function validateToolPackage(config: any): Promise<{ valid: boolean; message?: string }> {
+  const payload = { config: typeof config === 'string' ? JSON.parse(config) : config }
+  return request.post('/settings/ocr/tool-packages/validate', payload) as any
 }
 
 // ==================== Git Platforms ====================

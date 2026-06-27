@@ -48,6 +48,18 @@
     </el-form-item>
 
     <el-form-item label="工具配置 JSON">
+      <div class="tool-package-row">
+        <el-select v-model="selectedToolPackage" placeholder="选择托管工具包" clearable @change="applyToolPackage">
+          <el-option
+            v-for="pkg in toolPackages"
+            :key="pkg.id || pkg.name"
+            :label="`${pkg.name}${pkg.scan_type ? ' · ' + pkg.scan_type : ''}`"
+            :value="pkg.id || pkg.name"
+          />
+        </el-select>
+        <el-button @click="refreshToolPackages" :loading="toolPackageLoading">刷新</el-button>
+        <el-button type="primary" plain @click="handleValidateTools" :loading="validatingTools">校验</el-button>
+      </div>
       <el-input
         v-model="form.tools_config"
         type="textarea"
@@ -126,9 +138,13 @@
       <el-button
         v-if="viewerStatus?.running && viewerStatus?.addr"
         type="primary"
-        @click="openViewer"
-      >打开 Viewer</el-button>
+        @click="embedViewer = !embedViewer"
+      >{{ embedViewer ? '收起 Viewer' : '嵌入 Viewer' }}</el-button>
     </el-form-item>
+
+    <div v-if="embedViewer && viewerStatus?.running" class="viewer-frame">
+      <iframe title="OCR Viewer" src="/api/v1/settings/ocr/viewer/proxy/" />
+    </div>
 
     <el-divider content-position="left">执行预览</el-divider>
 
@@ -145,14 +161,20 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { ElMessage } from 'element-plus/es/components/message/index'
 import { useModelSettings } from './context'
-import { getViewerStatus, startViewer, stopViewer } from '@/api/config'
-import type { ViewerStatus } from '@/types/config'
+import { getViewerStatus, listToolPackages, startViewer, stopViewer, validateToolPackage } from '@/api/config'
+import type { OCRToolPackage, ViewerStatus } from '@/types/config'
 
 const { form, saving, extraBodyText, save, syncExtraBody } = useModelSettings()
 
 const viewerStatus = ref<ViewerStatus | null>(null)
 const viewerLoading = ref(false)
+const embedViewer = ref(false)
+const toolPackages = ref<OCRToolPackage[]>([])
+const selectedToolPackage = ref<number | string | undefined>()
+const toolPackageLoading = ref(false)
+const validatingTools = ref(false)
 
 async function refreshViewerStatus() {
   viewerLoading.value = true
@@ -187,15 +209,39 @@ async function handleStopViewer() {
   }
 }
 
-function openViewer() {
-  const addr = viewerStatus.value?.addr
-  if (addr) {
-    window.open(`http://${addr}`, '_blank')
+async function refreshToolPackages() {
+  toolPackageLoading.value = true
+  try {
+    toolPackages.value = await listToolPackages()
+  } finally {
+    toolPackageLoading.value = false
+  }
+}
+
+function applyToolPackage(value?: number | string) {
+  const pkg = toolPackages.value.find((item) => (item.id || item.name) === value)
+  if (!pkg) return
+  form.tools_config = JSON.stringify(pkg.config, null, 2)
+}
+
+async function handleValidateTools() {
+  if (!form.tools_config?.trim()) return
+  validatingTools.value = true
+  try {
+    const result = await validateToolPackage(form.tools_config)
+    if (result.valid) {
+      ElMessage.success(result.message || '工具配置校验通过')
+    }
+  } catch (e: any) {
+    ElMessage.error(e.message || '工具配置校验失败')
+  } finally {
+    validatingTools.value = false
   }
 }
 
 onMounted(() => {
   refreshViewerStatus()
+  refreshToolPackages()
 })
 
 const commandPreview = computed(() => {
@@ -256,8 +302,39 @@ const commandPreview = computed(() => {
   line-height: 1.6;
 }
 
+.tool-package-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.viewer-frame {
+  height: 520px;
+  margin: 0 0 22px 120px;
+  overflow: hidden;
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.viewer-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
 @media (max-width: 720px) {
   .command-preview {
+    margin-left: 0;
+  }
+
+  .tool-package-row {
+    grid-template-columns: 1fr;
+  }
+
+  .viewer-frame {
     margin-left: 0;
   }
 }

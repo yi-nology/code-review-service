@@ -70,6 +70,31 @@ export interface GlobalRules {
   rules: ReviewRule[]
 }
 
+export interface OCRRulePackage {
+  id?: number
+  name: string
+  description?: string
+  languages?: string[]
+  tags?: string[]
+  includes?: string[]
+  excludes?: string[]
+  rules: ReviewRule[]
+  enabled: boolean
+  project_refs?: string[]
+  built_in?: boolean
+}
+
+export interface OCRToolPackage {
+  id?: number
+  name: string
+  description?: string
+  scan_type?: 'all' | 'diff' | 'scan'
+  config: any
+  enabled: boolean
+  project_refs?: string[]
+  built_in?: boolean
+}
+
 export interface TestLLMResult {
   success: boolean
   message?: string

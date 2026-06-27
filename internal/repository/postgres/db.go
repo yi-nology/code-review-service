@@ -37,6 +37,8 @@ func InitDB(cfg *config.DatabaseConfig) (*gormDB.DB, error) {
 			&models.ChangeRevision{},
 			&models.WritebackItem{},
 			&models.GlobalRules{},
+			&models.OCRRulePackage{},
+			&models.OCRToolPackage{},
 			&models.ReviewSession{},
 			&models.ReviewerAgent{},
 			&models.ProjectAgent{},

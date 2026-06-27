@@ -30,6 +30,9 @@ func (r *DynamicOpenCodeReviewRunner) Scan(ctx context.Context, workspace review
 	}
 
 	cfg := r.buildConfig(s, workspace.OCR)
+	if strings.TrimSpace(cfg.ToolsPath) == "" && strings.TrimSpace(cfg.ToolsConfig) == "" {
+		cfg.ToolsConfig = r.defaultToolConfig("scan")
+	}
 	ocr := &OpenCodeReviewRunner{config: cfg}
 	return ocr.Scan(ctx, workspace, req)
 }

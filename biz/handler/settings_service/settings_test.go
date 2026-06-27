@@ -1,6 +1,7 @@
 package settings_service
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -85,6 +86,48 @@ func TestValidateOCRSettings(t *testing.T) {
 			err := validateOCRSettings(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validateOCRSettings() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateToolConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		raw     string
+		wantErr bool
+	}{
+		{
+			name:    "valid array config",
+			raw:     `[{"name":"code_search","definition":{"name":"code_search","parameters":{"type":"object"}}}]`,
+			wantErr: false,
+		},
+		{
+			name:    "valid object config",
+			raw:     `{"tools":[{"name":"file_read","definition":{"name":"file_read"}}]}`,
+			wantErr: false,
+		},
+		{
+			name:    "invalid json",
+			raw:     `{`,
+			wantErr: true,
+		},
+		{
+			name:    "missing definition",
+			raw:     `[{"name":"file_read"}]`,
+			wantErr: true,
+		},
+		{
+			name:    "object missing tools",
+			raw:     `{"name":"file_read"}`,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateToolConfig(json.RawMessage(tt.raw))
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("validateToolConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

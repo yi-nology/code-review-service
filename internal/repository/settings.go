@@ -22,3 +22,17 @@ type GlobalRulesRepository interface {
 	Get(ctx context.Context) (*models.GlobalRules, error)
 	Save(ctx context.Context, rules *models.GlobalRules) error
 }
+
+type OCRRulePackageRepository interface {
+	List(ctx context.Context) ([]models.OCRRulePackage, error)
+	GetByID(ctx context.Context, id uint) (*models.OCRRulePackage, error)
+	Save(ctx context.Context, pkg *models.OCRRulePackage) error
+	Delete(ctx context.Context, id uint) error
+}
+
+type OCRToolPackageRepository interface {
+	List(ctx context.Context) ([]models.OCRToolPackage, error)
+	GetByID(ctx context.Context, id uint) (*models.OCRToolPackage, error)
+	Save(ctx context.Context, pkg *models.OCRToolPackage) error
+	Delete(ctx context.Context, id uint) error
+}

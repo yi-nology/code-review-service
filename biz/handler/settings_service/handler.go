@@ -13,6 +13,8 @@ type SettingsHandler struct {
 	project        repository.ProjectPolicyRepository
 	platform       repository.GitPlatformRepository
 	globalRules    repository.GlobalRulesRepository
+	rulePackages   repository.OCRRulePackageRepository
+	toolPackages   repository.OCRToolPackageRepository
 	agentRepo      repository.ReviewerAgentRepository
 	customProvider repository.CustomProviderRepository
 	gitMgr         svcApp.GitProviderManager
@@ -28,6 +30,8 @@ func InitHandler(
 	project repository.ProjectPolicyRepository,
 	platform repository.GitPlatformRepository,
 	globalRules repository.GlobalRulesRepository,
+	rulePackages repository.OCRRulePackageRepository,
+	toolPackages repository.OCRToolPackageRepository,
 	agentRepo repository.ReviewerAgentRepository,
 	customProvider repository.CustomProviderRepository,
 	gitMgr svcApp.GitProviderManager,
@@ -42,6 +46,8 @@ func InitHandler(
 		project:        project,
 		platform:       platform,
 		globalRules:    globalRules,
+		rulePackages:   rulePackages,
+		toolPackages:   toolPackages,
 		agentRepo:      agentRepo,
 		customProvider: customProvider,
 		gitMgr:         gitMgr,

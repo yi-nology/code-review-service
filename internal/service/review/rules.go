@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
@@ -29,6 +30,26 @@ func (s *Service) resolveRuleFile(ctx context.Context, projectPolicy models.Proj
 			logx.Warn("failed to decode project rules", "error", err)
 		} else {
 			merged = append(merged, projectRules...)
+		}
+	}
+
+	if s.rulePackageRepo != nil {
+		packages, err := s.rulePackageRepo.List(ctx)
+		if err != nil {
+			logx.Warn("failed to load rule packages", "error", err)
+		} else {
+			for i := range packages {
+				pkg := packages[i]
+				if !pkg.Enabled || !matchesProjectRefs(pkg.ProjectRefs, projectPolicy.Provider, projectPolicy.Repo) {
+					continue
+				}
+				var packageRules []ruleEntry
+				if err := json.Unmarshal(pkg.Rules, &packageRules); err != nil {
+					logx.Warn("failed to decode rule package", "name", pkg.Name, "error", err)
+					continue
+				}
+				merged = append(merged, packageRules...)
+			}
 		}
 	}
 
@@ -69,4 +90,23 @@ func (s *Service) resolveRuleFile(ctx context.Context, projectPolicy models.Proj
 
 	cleanup := func() { _ = os.Remove(f.Name()) }
 	return f.Name(), cleanup, nil
+}
+
+func matchesProjectRefs(raw []byte, provider, repo string) bool {
+	if len(raw) == 0 {
+		return true
+	}
+	var refs []string
+	if err := json.Unmarshal(raw, &refs); err != nil || len(refs) == 0 {
+		return true
+	}
+	current := strings.Trim(strings.ToLower(provider+"/"+repo), "/")
+	repoOnly := strings.Trim(strings.ToLower(repo), "/")
+	for _, ref := range refs {
+		ref = strings.Trim(strings.ToLower(ref), "/")
+		if ref == "" || ref == current || ref == repoOnly {
+			return true
+		}
+	}
+	return false
 }

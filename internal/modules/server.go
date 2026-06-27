@@ -3,8 +3,11 @@ package modules
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
+	"strings"
 
+	settingsHandler "github.com/yi-nology/code-review-service/biz/handler/settings_service"
 	"github.com/yi-nology/code-review-service/biz/router"
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/middleware"
@@ -54,7 +57,7 @@ func RegisterGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 	h.Use(middleware.SecurityHeaders())
 }
 
-func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos *repository.RepoContainer, resolver *ocr.ConfigResolver) {
+func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos *repository.RepoContainer, resolver *ocr.ConfigResolver, viewerMgr *ocr.ViewerManager) {
 	logx.Infof("[routes] registering routes...")
 
 	healthOpts := []health.Option{}
@@ -93,4 +96,70 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos
 	swagger.RegisterRoutes(h)
 
 	router.GeneratedRegister(h)
+	registerOCRAssetRoutes(h, viewerMgr)
+}
+
+func registerOCRAssetRoutes(h *server.Hertz, viewerMgr *ocr.ViewerManager) {
+	api := h.Group("/api/v1/settings")
+	api.GET("/rules/packages", settingsHandler.ListRulePackages)
+	api.POST("/rules/packages", settingsHandler.UpsertRulePackage)
+	api.PUT("/rules/packages/:id", settingsHandler.UpsertRulePackage)
+	api.DELETE("/rules/packages/:id", settingsHandler.DeleteRulePackage)
+
+	api.GET("/ocr/tool-packages", settingsHandler.ListToolPackages)
+	api.POST("/ocr/tool-packages", settingsHandler.UpsertToolPackage)
+	api.PUT("/ocr/tool-packages/:id", settingsHandler.UpsertToolPackage)
+	api.DELETE("/ocr/tool-packages/:id", settingsHandler.DeleteToolPackage)
+	api.POST("/ocr/tool-packages/validate", settingsHandler.ValidateToolPackage)
+	api.GET("/ocr/viewer/proxy/*path", viewerProxyHandler(viewerMgr))
+}
+
+func viewerProxyHandler(viewerMgr *ocr.ViewerManager) app.HandlerFunc {
+	return func(ctx context.Context, c *app.RequestContext) {
+		if viewerMgr == nil {
+			c.SetStatusCode(http.StatusServiceUnavailable)
+			return
+		}
+		status := viewerMgr.Status()
+		if !status.Running || status.Addr == "" {
+			c.SetStatusCode(http.StatusServiceUnavailable)
+			_, _ = c.WriteString("OCR viewer is not running")
+			return
+		}
+		path := c.Param("path")
+		if path == "" || path == "/" {
+			path = "/"
+		}
+		if !strings.HasPrefix(path, "/") {
+			path = "/" + path
+		}
+		target := "http://" + status.Addr + path
+		if query := string(c.Request.URI().QueryString()); query != "" {
+			target += "?" + query
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+		if err != nil {
+			c.SetStatusCode(http.StatusBadRequest)
+			return
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			c.SetStatusCode(http.StatusBadGateway)
+			_, _ = c.WriteString(err.Error())
+			return
+		}
+		defer resp.Body.Close()
+		for key, values := range resp.Header {
+			if len(values) > 0 {
+				c.Response.Header.Set(key, values[0])
+			}
+		}
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			c.SetStatusCode(http.StatusBadGateway)
+			return
+		}
+		c.SetStatusCode(resp.StatusCode)
+		_, _ = c.Write(body)
+	}
 }

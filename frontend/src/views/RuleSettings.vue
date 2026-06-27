@@ -56,9 +56,26 @@
           <el-card>
             <template #header>
               <div class="card-header compact">
-                <strong>规则模板</strong>
+                <strong>规则包市场</strong>
               </div>
             </template>
+            <div v-if="rulePackages.length" class="package-list">
+              <button
+                v-for="pkg in rulePackages"
+                :key="pkg.id || pkg.name"
+                class="package-item"
+                type="button"
+                @click="applyRulePackage(pkg)"
+              >
+                <span>{{ pkg.name }}</span>
+                <small>{{ pkg.description || (pkg.rules.length + ' 条规则') }}</small>
+                <em>{{ pkg.built_in ? '内置' : '自定义' }} · {{ pkg.enabled ? '启用' : '停用' }}</em>
+              </button>
+            </div>
+            <el-divider v-if="rulePackages.length" />
+            <div class="card-header compact">
+              <strong>快速模板</strong>
+            </div>
             <div class="template-list">
               <button
                 v-for="template in ruleTemplates"
@@ -131,8 +148,8 @@ import { ElMessage } from 'element-plus/es/components/message/index'
 import { CircleCheckFilled, Refresh } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import RuleEditor from '@/components/RuleEditor.vue'
-import { getGlobalRules, updateGlobalRules, rulesCheck } from '@/api/config'
-import type { ReviewRule, RulesCheckResult } from '@/types/config'
+import { getGlobalRules, updateGlobalRules, rulesCheck, listRulePackages } from '@/api/config'
+import type { OCRRulePackage, ReviewRule, RulesCheckResult } from '@/types/config'
 
 type RuleTemplate = ReviewRule & { name: string }
 
@@ -165,6 +182,7 @@ const ruleTemplates: RuleTemplate[] = [
 ]
 
 const globalRules = ref<ReviewRule[]>([])
+const rulePackages = ref<OCRRulePackage[]>([])
 const originalJson = ref('[]')
 const globalLoading = ref(false)
 const globalSaving = ref(false)
@@ -217,11 +235,12 @@ function normalizePath(path: string) {
 async function fetchGlobalRules() {
   globalLoading.value = true
   try {
-    const data = await getGlobalRules()
+    const [data, packages] = await Promise.all([getGlobalRules(), listRulePackages()])
     globalRules.value = (data?.rules || []).map((rule) => ({
       path: normalizePath(rule.path || ''),
       rule: rule.rule || '',
     }))
+    rulePackages.value = packages
     originalJson.value = JSON.stringify(normalizedRules.value)
   } finally {
     globalLoading.value = false
@@ -245,6 +264,16 @@ async function saveGlobalRules() {
 
 function applyTemplate(template: RuleTemplate) {
   globalRules.value.push({ path: template.path, rule: template.rule })
+}
+
+function applyRulePackage(pkg: OCRRulePackage) {
+  if (!pkg.enabled) {
+    ElMessage.warning('这个规则包当前未启用')
+    return
+  }
+  const rules = (pkg.rules || []).map((rule) => ({ path: normalizePath(rule.path || ''), rule: rule.rule || '' }))
+  globalRules.value.push(...rules)
+  ElMessage.success(`已加入规则包：${pkg.name}`)
 }
 
 async function handleRulesCheck() {
@@ -383,6 +412,12 @@ onMounted(fetchGlobalRules)
   gap: 8px;
 }
 
+.package-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
 .template-item {
   width: 100%;
   padding: 11px 12px;
@@ -394,6 +429,47 @@ onMounted(fetchGlobalRules)
   cursor: pointer;
   transition: 160ms ease;
 }
+
+.package-item {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e6ebf2;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--app-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.package-item:hover {
+  border-color: #9db1ff;
+  background: #fff;
+}
+
+.package-item span,
+.package-item small,
+.package-item em {
+  display: block;
+}
+
+.package-item span {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.package-item small {
+  margin-top: 4px;
+  color: var(--app-muted);
+  line-height: 1.5;
+}
+
+.package-item em {
+  margin-top: 6px;
+  color: var(--app-primary);
+  font-size: 11px;
+  font-style: normal;
+}
+
 
 .template-item:hover {
   border-color: #cfd3ff;

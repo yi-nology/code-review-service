@@ -17,14 +17,23 @@ type globalRulesSource interface {
 	Get(ctx context.Context) (*models.GlobalRules, error)
 }
 
-type DynamicOpenCodeReviewRunner struct {
-	fallback    *OpenCodeReviewRunner
-	settings    ocrSettingsSource
-	globalRules globalRulesSource
+type toolPackageSource interface {
+	List(ctx context.Context) ([]models.OCRToolPackage, error)
 }
 
-func NewDynamicOpenCodeReviewRunner(fallback *OpenCodeReviewRunner, settings ocrSettingsSource, globalRules globalRulesSource) *DynamicOpenCodeReviewRunner {
-	return &DynamicOpenCodeReviewRunner{fallback: fallback, settings: settings, globalRules: globalRules}
+type DynamicOpenCodeReviewRunner struct {
+	fallback     *OpenCodeReviewRunner
+	settings     ocrSettingsSource
+	globalRules  globalRulesSource
+	toolPackages toolPackageSource
+}
+
+func NewDynamicOpenCodeReviewRunner(fallback *OpenCodeReviewRunner, settings ocrSettingsSource, globalRules globalRulesSource, toolPackages ...toolPackageSource) *DynamicOpenCodeReviewRunner {
+	r := &DynamicOpenCodeReviewRunner{fallback: fallback, settings: settings, globalRules: globalRules}
+	if len(toolPackages) > 0 {
+		r.toolPackages = toolPackages[0]
+	}
+	return r
 }
 
 func (r *DynamicOpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspace) (review.Result, error) {
@@ -95,5 +104,24 @@ func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings, overrid
 	cfg.Concurrency = firstPositive(overrides.Concurrency, s.Concurrency, r.fallback.config.Concurrency)
 	cfg.MaxGitProcs = firstPositive(overrides.MaxGitProcs, s.MaxGitProcs, r.fallback.config.MaxGitProcs)
 	cfg.TimeoutMinutes = firstPositive(overrides.TimeoutMinutes, s.TimeoutMinutes, r.fallback.config.TimeoutMinutes)
+	if strings.TrimSpace(cfg.ToolsPath) == "" && strings.TrimSpace(cfg.ToolsConfig) == "" {
+		cfg.ToolsConfig = r.defaultToolConfig("diff")
+	}
 	return cfg
+}
+
+func (r *DynamicOpenCodeReviewRunner) defaultToolConfig(mode string) string {
+	if r.toolPackages == nil {
+		return ""
+	}
+	items, err := r.toolPackages.List(context.Background())
+	if err != nil {
+		return ""
+	}
+	for i := range items {
+		if items[i].Enabled && (items[i].ScanType == "" || items[i].ScanType == "all" || items[i].ScanType == mode) {
+			return string(items[i].Config)
+		}
+	}
+	return ""
 }

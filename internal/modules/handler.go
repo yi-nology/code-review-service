@@ -54,6 +54,8 @@ func InitSettingsHandler(
 		repos.ProjectPolicy,
 		repos.GitPlatform,
 		repos.GlobalRules,
+		repos.OCRRulePackage,
+		repos.OCRToolPackage,
 		repos.ReviewerAgent,
 		repos.CustomProvider,
 		gitMgr,

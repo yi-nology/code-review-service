@@ -16,6 +16,8 @@ type RepoContainer struct {
 	ChangeRevision   ChangeRevisionRepository
 	WritebackItem    WritebackItemRepository
 	GlobalRules      GlobalRulesRepository
+	OCRRulePackage   OCRRulePackageRepository
+	OCRToolPackage   OCRToolPackageRepository
 	ContributorStats ContributorStatsRepository
 	ReviewerAgent    ReviewerAgentRepository
 	ProjectAgent     ProjectAgentRepository
@@ -32,6 +34,8 @@ func NewRepoContainer(db *gormDB.DB, cfg *config.Config) *RepoContainer {
 		ChangeRevision:   postgres.NewChangeRevisionRepo(db),
 		WritebackItem:    postgres.NewWritebackItemRepo(db),
 		GlobalRules:      postgres.NewGlobalRulesRepo(db),
+		OCRRulePackage:   postgres.NewOCRRulePackageRepo(db),
+		OCRToolPackage:   postgres.NewOCRToolPackageRepo(db),
 		ContributorStats: postgres.NewContributorStatsRepo(db),
 		ReviewerAgent:    postgres.NewReviewerAgentRepo(db),
 		ProjectAgent:     postgres.NewProjectAgentRepo(db),
