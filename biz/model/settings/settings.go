@@ -1165,6 +1165,7 @@ type OCRSettings struct {
 	Audience                *string `thrift:"audience,16,optional" form:"audience" json:"audience,omitempty"`
 	DefaultSeverity         *string `thrift:"default_severity,17,optional" form:"default_severity" json:"default_severity,omitempty"`
 	ToolsPath               *string `thrift:"tools_path,18,optional" form:"tools_path" json:"tools_path,omitempty"`
+	ToolsConfig             *string `thrift:"tools_config,28,optional" form:"tools_config" json:"tools_config,omitempty"`
 	TelemetryEnabled        *bool   `thrift:"telemetry_enabled,19,optional" form:"telemetry_enabled" json:"telemetry_enabled,omitempty"`
 	TelemetryExporter       *string `thrift:"telemetry_exporter,20,optional" form:"telemetry_exporter" json:"telemetry_exporter,omitempty"`
 	TelemetryOtlpEndpoint   *string `thrift:"telemetry_otlp_endpoint,21,optional" form:"telemetry_otlp_endpoint" json:"telemetry_otlp_endpoint,omitempty"`
@@ -1348,6 +1349,15 @@ func (p *OCRSettings) GetToolsPath() (v string) {
 	return *p.ToolsPath
 }
 
+var OCRSettings_ToolsConfig_DEFAULT string
+
+func (p *OCRSettings) GetToolsConfig() (v string) {
+	if !p.IsSetToolsConfig() {
+		return OCRSettings_ToolsConfig_DEFAULT
+	}
+	return *p.ToolsConfig
+}
+
 var OCRSettings_TelemetryEnabled_DEFAULT bool
 
 func (p *OCRSettings) GetTelemetryEnabled() (v bool) {
@@ -1519,6 +1529,10 @@ func (p *OCRSettings) IsSetDefaultSeverity() bool {
 
 func (p *OCRSettings) IsSetToolsPath() bool {
 	return p.ToolsPath != nil
+}
+
+func (p *OCRSettings) IsSetToolsConfig() bool {
+	return p.ToolsConfig != nil
 }
 
 func (p *OCRSettings) IsSetTelemetryEnabled() bool {

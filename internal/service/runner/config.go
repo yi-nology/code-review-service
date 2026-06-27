@@ -36,6 +36,7 @@ type OpenCodeReviewConfig struct {
 	Language                string
 	Background              string
 	ToolsPath               string
+	ToolsConfig             string
 	TelemetryEnabled        bool
 	TelemetryExporter       string
 	TelemetryOTLPEndpoint   string

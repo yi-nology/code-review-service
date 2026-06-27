@@ -47,6 +47,16 @@
       <div class="form-tip">可选。JSON 文件路径，限制 OCR 可用的工具集。</div>
     </el-form-item>
 
+    <el-form-item label="工具配置 JSON">
+      <el-input
+        v-model="form.tools_config"
+        type="textarea"
+        :rows="6"
+        placeholder='[{"name":"code_search","main_task":true,"plan_task":true,"definition":{"name":"code_search","description":"Search code","parameters":{"type":"object","properties":{}}}}]'
+      />
+      <div class="form-tip">可选。未设置工具白名单路径时生效，服务会临时写入 tools.json 并传给 OCR。</div>
+    </el-form-item>
+
     <el-form-item label="额外请求体">
       <el-input
         v-model="extraBodyText"
@@ -206,6 +216,8 @@ const commandPreview = computed(() => {
   }
   if (form.tools_path) {
     args.push(`--tools ${form.tools_path}`)
+  } else if (form.tools_config) {
+    args.push('--tools <managed tools.json>')
   }
   if (form.background) {
     args.push('--background <configured background>')

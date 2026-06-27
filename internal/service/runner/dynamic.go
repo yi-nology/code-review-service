@@ -84,6 +84,7 @@ func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings, overrid
 		MaxTools:                firstPositive(overrides.MaxTools, s.MaxTools),
 		Background:              firstNonBlank(overrides.Background, s.Background),
 		ToolsPath:               firstNonBlank(overrides.ToolsPath, s.ToolsPath),
+		ToolsConfig:             string(s.ToolsConfig),
 		TelemetryEnabled:        s.TelemetryEnabled,
 		TelemetryExporter:       s.TelemetryExporter,
 		TelemetryOTLPEndpoint:   s.TelemetryOTLPEndpoint,

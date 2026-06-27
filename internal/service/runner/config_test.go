@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"os"
 	"testing"
 )
 
@@ -38,5 +39,54 @@ func TestOpenCodeReviewConfig_Validate(t *testing.T) {
 				t.Errorf("Validate() error = %v, wantErr = %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestAppendToolsArgsUsesPathFirst(t *testing.T) {
+	args, cleanup, err := appendToolsArgs([]string{"review"}, OpenCodeReviewConfig{
+		ToolsPath:   "/opt/ocr/tools.json",
+		ToolsConfig: `[{"name":"code_search"}]`,
+	})
+	if err != nil {
+		t.Fatalf("appendToolsArgs returned error: %v", err)
+	}
+	if cleanup != nil {
+		t.Fatal("expected no cleanup for explicit tools path")
+	}
+	if len(args) != 3 || args[1] != "--tools" || args[2] != "/opt/ocr/tools.json" {
+		t.Fatalf("unexpected args: %#v", args)
+	}
+}
+
+func TestAppendToolsArgsWritesManagedConfig(t *testing.T) {
+	args, cleanup, err := appendToolsArgs([]string{"scan"}, OpenCodeReviewConfig{
+		ToolsConfig: `[{"name":"code_search"}]`,
+	})
+	if err != nil {
+		t.Fatalf("appendToolsArgs returned error: %v", err)
+	}
+	if cleanup == nil {
+		t.Fatal("expected cleanup for managed tools config")
+	}
+	defer cleanup()
+
+	if len(args) != 3 || args[1] != "--tools" {
+		t.Fatalf("unexpected args: %#v", args)
+	}
+	data, err := os.ReadFile(args[2])
+	if err != nil {
+		t.Fatalf("read managed tools config: %v", err)
+	}
+	if string(data) != `[{"name":"code_search"}]` {
+		t.Fatalf("unexpected tools config contents: %s", data)
+	}
+}
+
+func TestAppendToolsArgsRejectsInvalidConfig(t *testing.T) {
+	_, _, err := appendToolsArgs([]string{"review"}, OpenCodeReviewConfig{
+		ToolsConfig: `{bad-json`,
+	})
+	if err == nil {
+		t.Fatal("expected invalid JSON error")
 	}
 }

@@ -15,8 +15,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/oekit/concurrency/async"
-	"github.com/oekit/pkg/convert"
 	"github.com/oekit/logx"
+	"github.com/oekit/pkg/convert"
 )
 
 type OpenCodeReviewRunner struct {
@@ -109,8 +109,13 @@ func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Wor
 	if r.config.MaxTools > 0 {
 		args = append(args, "--max-tools", convert.IntToStr(r.config.MaxTools))
 	}
-	if strings.TrimSpace(r.config.ToolsPath) != "" {
-		args = append(args, "--tools", r.config.ToolsPath)
+	toolsArgs, cleanupTools, err := appendToolsArgs(args, r.config)
+	if err != nil {
+		return review.Result{}, err
+	}
+	args = toolsArgs
+	if cleanupTools != nil {
+		defer cleanupTools()
 	}
 	if strings.TrimSpace(r.config.Background) != "" {
 		args = append(args, "--background", r.config.Background)

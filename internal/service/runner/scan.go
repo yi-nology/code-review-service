@@ -89,8 +89,13 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace review.Worksp
 	if r.config.MaxTools > 0 {
 		args = append(args, "--max-tools", convert.IntToStr(r.config.MaxTools))
 	}
-	if strings.TrimSpace(r.config.ToolsPath) != "" {
-		args = append(args, "--tools", r.config.ToolsPath)
+	toolsArgs, cleanupTools, err := appendToolsArgs(args, r.config)
+	if err != nil {
+		return nil, err
+	}
+	args = toolsArgs
+	if cleanupTools != nil {
+		defer cleanupTools()
 	}
 	background := firstNonBlank(req.Background, r.config.Background)
 	if strings.TrimSpace(background) != "" {
@@ -120,7 +125,7 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace review.Worksp
 		}
 	})
 
-	err := cmd.Run()
+	err = cmd.Run()
 	close(done)
 	if err != nil {
 		if cmd.Process != nil {

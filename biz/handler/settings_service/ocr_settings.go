@@ -126,6 +126,9 @@ func validateOCRSettings(s *models.OCRSettings) error {
 	if len(s.ExtraBody) > 0 && !json.Valid(s.ExtraBody) {
 		return fmt.Errorf("额外请求体必须是合法 JSON")
 	}
+	if len(s.ToolsConfig) > 0 && !json.Valid(s.ToolsConfig) {
+		return fmt.Errorf("工具配置必须是合法 JSON")
+	}
 	if strings.ContainsAny(s.ExtraHeaders, "\r\n") {
 		return fmt.Errorf("额外请求头不能包含换行")
 	}
@@ -136,6 +139,10 @@ func dbOCRSettingsToAPI(s *models.OCRSettings) *modelSettings.OCRSettings {
 	var extraBody string
 	if len(s.ExtraBody) > 0 {
 		extraBody = string(s.ExtraBody)
+	}
+	var toolsConfig string
+	if len(s.ToolsConfig) > 0 {
+		toolsConfig = string(s.ToolsConfig)
 	}
 	return &modelSettings.OCRSettings{
 		Enabled: s.Enabled, Provider: common.StrPtr(s.Provider),
@@ -148,6 +155,7 @@ func dbOCRSettingsToAPI(s *models.OCRSettings) *modelSettings.OCRSettings {
 		Binary: common.StrPtr(s.Binary), Audience: common.StrPtr(s.Audience),
 		DefaultSeverity:  common.StrPtr(s.DefaultSeverity),
 		ToolsPath:        common.StrPtr(s.ToolsPath),
+		ToolsConfig:      common.StrPtr(toolsConfig),
 		TelemetryEnabled: ptrx.Of(s.TelemetryEnabled), TelemetryExporter: common.StrPtr(s.TelemetryExporter),
 		TelemetryOtlpEndpoint: common.StrPtr(s.TelemetryOTLPEndpoint), TelemetryContentLogging: ptrx.Of(s.TelemetryContentLogging),
 		ReasoningMode:   common.StrPtr(s.ReasoningMode),
@@ -190,6 +198,9 @@ func apiOCRSettingsToDB(s *modelSettings.OCRSettings) *models.OCRSettings {
 	db.MaxOutputTokens = ptrx.Deref(s.MaxOutputTokens, 0)
 	if s.IsSetExtraBody() && s.ExtraBody != nil && *s.ExtraBody != "" {
 		db.ExtraBody = datatypes.JSON(*s.ExtraBody)
+	}
+	if s.IsSetToolsConfig() && s.ToolsConfig != nil && *s.ToolsConfig != "" {
+		db.ToolsConfig = datatypes.JSON(*s.ToolsConfig)
 	}
 	return db
 }

@@ -60,6 +60,7 @@ func (r *ConfigResolver) buildConfig(s *models.OCRSettings, overrides review.OCR
 		MaxTools:        firstPositive(overrides.MaxTools, s.MaxTools),
 		Background:      firstNonBlank(overrides.Background, s.Background),
 		ToolsPath:       firstNonBlank(overrides.ToolsPath, s.ToolsPath),
+		ToolsConfig:     string(s.ToolsConfig),
 	}
 	cfg.Concurrency = firstPositive(overrides.Concurrency, s.Concurrency, r.fallback.Concurrency)
 	cfg.MaxGitProcs = firstPositive(overrides.MaxGitProcs, s.MaxGitProcs, r.fallback.MaxGitProcs)

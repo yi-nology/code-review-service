@@ -18,6 +18,7 @@ export interface OCRSettings {
   max_tools: number
   background?: string
   tools_path?: string
+  tools_config?: string
   telemetry_enabled?: boolean
   telemetry_exporter?: string
   telemetry_otlp_endpoint?: string

@@ -329,6 +329,7 @@ const form = reactive<OCRSettings>({
   max_tools: 0,
   background: '',
   tools_path: '',
+  tools_config: '',
   telemetry_enabled: false,
   telemetry_exporter: '',
   telemetry_otlp_endpoint: '',
