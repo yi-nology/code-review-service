@@ -198,6 +198,7 @@ export interface ScanRepositoryOptions {
 }
 
 export interface ScanRepositoryResult {
+  review_id?: string
   preview_files?: string[]
   result?: {
     summary: string

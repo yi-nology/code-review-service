@@ -521,13 +521,23 @@ func convertReport(r review.Report) *modelReview.Report {
 }
 
 func convertOCRMetadata(o review.OCRMetadata) *modelReview.OCRMetadata {
-	return &modelReview.OCRMetadata{
+	item := &modelReview.OCRMetadata{
 		Engine: common.StrPtr(o.Engine), Status: common.StrPtr(o.Status),
 		FilesReviewed: ptrx.Of(o.FilesReviewed), Comments: ptrx.Of(o.Comments),
 		TotalTokens: ptrx.Of(o.TotalTokens), InputTokens: ptrx.Of(o.InputTokens),
 		OutputTokens: ptrx.Of(o.OutputTokens), CacheReadTokens: ptrx.Of(o.CacheReadTokens),
 		CacheWriteTokens: ptrx.Of(o.CacheWriteTokens), Elapsed: common.StrPtr(o.Elapsed),
 	}
+	if o.ToolCalls != nil {
+		item.ToolCalls = &modelReview.OCRToolCalls{
+			Total:  o.ToolCalls.Total,
+			ByTool: o.ToolCalls.ByTool,
+		}
+	}
+	if strings.TrimSpace(o.ProjectSummary) != "" {
+		item.ProjectSummary = common.StrPtr(o.ProjectSummary)
+	}
+	return item
 }
 
 func convertDeductions(ds []review.ScoreDeduction) []*modelReview.ScoreDeduction {

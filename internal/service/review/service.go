@@ -25,6 +25,7 @@ import (
 	"github.com/oekit/gormx"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/ptrx"
+	"gorm.io/datatypes"
 )
 
 var gitObjectIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{7,64}$`)
@@ -501,7 +502,20 @@ func (s *Service) Scan(ctx context.Context, req ScanRequest) (*ScanResult, error
 		}
 	}
 
-	return s.ScanRunner.Scan(ctx, workspace, req)
+	scanResult, err := s.ScanRunner.Scan(ctx, workspace, req)
+	if err != nil {
+		return nil, err
+	}
+	if req.Preview || scanResult == nil || scanResult.Result == nil {
+		return scanResult, nil
+	}
+
+	reviewID, err := s.persistScanResult(ctx, req, projectPolicy, scanResult)
+	if err != nil {
+		return nil, err
+	}
+	scanResult.ReviewID = reviewID
+	return scanResult, nil
 }
 
 func scanPolicyOCROverrides(p models.ProjectPolicy) OCROverrides {
@@ -527,6 +541,102 @@ func scanPolicyOCROverrides(p models.ProjectPolicy) OCROverrides {
 		TelemetryOTLPEndpoint:   p.OCRTelemetryOTLPEndpoint,
 		TelemetryContentLogging: p.OCRTelemetryContentLogging,
 	}
+}
+
+func (s *Service) persistScanResult(ctx context.Context, scanReq ScanRequest, projectPolicy models.ProjectPolicy, scanResult *ScanResult) (string, error) {
+	result := scanResult.Result
+	if result == nil {
+		return "", fmt.Errorf("scan result is empty")
+	}
+	report := BuildReport(result)
+	if scanResult.Report != nil {
+		report = *scanResult.Report
+	}
+	analysis := BuildAnalysis(*result)
+	if scanResult.Analysis != nil {
+		analysis = *scanResult.Analysis
+	}
+
+	gateEngine := s.policy
+	if gateEngine == nil {
+		gateEngine = policy.NewEngine(policy.Config{})
+	}
+	if projectPolicy.FailOn != "" {
+		gateEngine = policy.NewEngine(policy.Config{FailOn: projectPolicy.FailOn})
+	}
+	gate := gateEngine.Evaluate(scanPolicyFindings(result.Findings))
+
+	id := newReviewID(time.Now().UTC())
+	req := Request{
+		Provider:     scanReq.Provider,
+		Repo:         scanReq.Repo,
+		ProjectID:    scanReq.ProjectID,
+		BaseSHA:      scanReq.HeadSHA,
+		HeadSHA:      scanReq.HeadSHA,
+		CallbackMode: "scan",
+	}
+	resp := Response{
+		ReviewID: id,
+		Status:   statusSuccess,
+		Summary:  result.Summary,
+		Gate:     CompletedGate(gate.Passed, gate.Reason),
+		Report:   report,
+		Analysis: analysis,
+		Findings: result.Findings,
+		History: []Event{
+			{
+				Stage:     "repository",
+				Status:    statusCompleted,
+				Message:   "repository prepared for full scan",
+				CreatedAt: time.Now().UTC(),
+			},
+			{
+				Stage:   "ocr_scan",
+				Status:  statusCompleted,
+				Message: "full repository scan completed",
+				Details: map[string]any{
+					"files_reviewed": result.OCR.FilesReviewed,
+					"comments":       result.OCR.Comments,
+					"total_tokens":   result.OCR.TotalTokens,
+					"elapsed":        result.OCR.Elapsed,
+				},
+				CreatedAt: time.Now().UTC(),
+			},
+		},
+	}
+	fingerprint, err := requestFingerprint(req)
+	if err != nil {
+		return "", err
+	}
+	record := &models.Review{
+		ReviewID:           id,
+		RequestFingerprint: fingerprint,
+		Provider:           req.Provider,
+		Repo:               req.Repo,
+		Status:             resp.Status,
+		BaseSHA:            req.BaseSHA,
+		HeadSHA:            req.HeadSHA,
+		Score:              report.Score.Value,
+		Grade:              report.Score.Grade,
+		Summary:            resp.Summary,
+		Request:            mustMarshal(req),
+		Response:           mustMarshal(resp),
+	}
+	if len(result.RawOCR) > 0 {
+		record.RawOCR = datatypes.JSON(result.RawOCR)
+	}
+	if err := s.reviewRepo.Create(ctx, record); err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+func scanPolicyFindings(findings []Finding) []policy.Finding {
+	out := make([]policy.Finding, 0, len(findings))
+	for _, finding := range findings {
+		out = append(out, policy.Finding{Severity: string(finding.Severity), Path: finding.Path})
+	}
+	return out
 }
 
 func (s *Service) Requeue(ctx context.Context, reviewID string) (Response, error) {

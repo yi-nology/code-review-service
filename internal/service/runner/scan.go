@@ -144,6 +144,10 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace review.Worksp
 	if err != nil {
 		return nil, err
 	}
+	if result.Scope.ReviewedFiles == 0 && result.OCR.FilesReviewed > 0 {
+		result.Scope.ReviewedFiles = int(result.OCR.FilesReviewed)
+		result.Scope.ChangedFiles = int(result.OCR.FilesReviewed)
+	}
 	report := review.BuildReport(&result)
 	analysis := review.BuildAnalysis(result)
 	return &review.ScanResult{

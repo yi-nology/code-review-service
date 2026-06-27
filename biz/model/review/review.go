@@ -2517,16 +2517,23 @@ func (p *Score) String() string {
 }
 
 type OCRMetadata struct {
-	Engine           *string `thrift:"engine,1,optional" form:"engine" json:"engine,omitempty"`
-	Status           *string `thrift:"status,2,optional" form:"status" json:"status,omitempty"`
-	FilesReviewed    *int64  `thrift:"files_reviewed,3,optional" form:"files_reviewed" json:"files_reviewed,omitempty"`
-	Comments         *int64  `thrift:"comments,4,optional" form:"comments" json:"comments,omitempty"`
-	TotalTokens      *int64  `thrift:"total_tokens,5,optional" form:"total_tokens" json:"total_tokens,omitempty"`
-	InputTokens      *int64  `thrift:"input_tokens,6,optional" form:"input_tokens" json:"input_tokens,omitempty"`
-	OutputTokens     *int64  `thrift:"output_tokens,7,optional" form:"output_tokens" json:"output_tokens,omitempty"`
-	CacheReadTokens  *int64  `thrift:"cache_read_tokens,8,optional" form:"cache_read_tokens" json:"cache_read_tokens,omitempty"`
-	CacheWriteTokens *int64  `thrift:"cache_write_tokens,9,optional" form:"cache_write_tokens" json:"cache_write_tokens,omitempty"`
-	Elapsed          *string `thrift:"elapsed,10,optional" form:"elapsed" json:"elapsed,omitempty"`
+	Engine           *string       `thrift:"engine,1,optional" form:"engine" json:"engine,omitempty"`
+	Status           *string       `thrift:"status,2,optional" form:"status" json:"status,omitempty"`
+	FilesReviewed    *int64        `thrift:"files_reviewed,3,optional" form:"files_reviewed" json:"files_reviewed,omitempty"`
+	Comments         *int64        `thrift:"comments,4,optional" form:"comments" json:"comments,omitempty"`
+	TotalTokens      *int64        `thrift:"total_tokens,5,optional" form:"total_tokens" json:"total_tokens,omitempty"`
+	InputTokens      *int64        `thrift:"input_tokens,6,optional" form:"input_tokens" json:"input_tokens,omitempty"`
+	OutputTokens     *int64        `thrift:"output_tokens,7,optional" form:"output_tokens" json:"output_tokens,omitempty"`
+	CacheReadTokens  *int64        `thrift:"cache_read_tokens,8,optional" form:"cache_read_tokens" json:"cache_read_tokens,omitempty"`
+	CacheWriteTokens *int64        `thrift:"cache_write_tokens,9,optional" form:"cache_write_tokens" json:"cache_write_tokens,omitempty"`
+	Elapsed          *string       `thrift:"elapsed,10,optional" form:"elapsed" json:"elapsed,omitempty"`
+	ToolCalls        *OCRToolCalls `thrift:"tool_calls,11,optional" form:"tool_calls" json:"tool_calls,omitempty"`
+	ProjectSummary   *string       `thrift:"project_summary,12,optional" form:"project_summary" json:"project_summary,omitempty"`
+}
+
+type OCRToolCalls struct {
+	Total  int64            `json:"total"`
+	ByTool map[string]int64 `json:"by_tool,omitempty"`
 }
 
 func NewOCRMetadata() *OCRMetadata {

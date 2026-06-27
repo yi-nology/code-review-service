@@ -135,6 +135,21 @@
           </div>
 
           <div v-if="result?.result" class="scan-result">
+            <el-alert
+              v-if="result.review_id"
+              class="saved-alert"
+              type="success"
+              :closable="false"
+              title="扫描报告已保存到审查记录"
+            >
+              <template #default>
+                <div class="saved-alert-body">
+                  <code>{{ result.review_id }}</code>
+                  <el-button size="small" type="success" plain @click="router.push(`/reviews/${result?.review_id}`)">查看详情</el-button>
+                </div>
+              </template>
+            </el-alert>
+
             <div class="metric-strip">
               <div>
                 <small>发现问题</small>
@@ -185,6 +200,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { Files, Search } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -194,6 +210,7 @@ import type { GitPlatform, PlatformBranch, PlatformRepo } from '@/types/config'
 import type { ScanRepositoryResult } from '@/types/review'
 
 const platforms = ref<GitPlatform[]>([])
+const router = useRouter()
 const repos = ref<PlatformRepo[]>([])
 const branches = ref<PlatformBranch[]>([])
 const reposLoading = ref(false)
@@ -507,6 +524,18 @@ onMounted(loadPlatforms)
 
 .overview {
   --el-alert-padding: 12px 14px;
+}
+
+.saved-alert {
+  --el-alert-padding: 12px 14px;
+}
+
+.saved-alert-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
 }
 
 .tool-calls,

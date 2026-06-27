@@ -142,6 +142,7 @@ type ScanRequest struct {
 }
 
 type ScanResult struct {
+	ReviewID     string       `json:"review_id,omitempty"`
 	PreviewFiles []string     `json:"preview_files,omitempty"`
 	Result       *Result      `json:"result,omitempty"`
 	Report       *Report      `json:"report,omitempty"`
