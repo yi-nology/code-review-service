@@ -20,276 +20,17 @@
       </button>
     </div>
 
-    <section v-if="inputMode === 'url'" class="create-panel">
-      <div class="panel-heading">
-        <div>
-          <h3>粘贴链接</h3>
-          <p>支持 PR/MR/CR 链接和 compare 分支对比链接，粘贴后自动识别平台、仓库、编号或对比分支。</p>
-        </div>
-        <el-button :icon="DocumentCopy" @click="pasteFromClipboard">读取剪贴板</el-button>
-      </div>
-
-      <el-input
-        v-model="urlInput"
-        class="url-box"
-        type="textarea"
-        :rows="3"
-        placeholder="例如：https://github.com/owner/repo/pull/42 或 https://github.com/owner/repo/compare/main...feature"
-        clearable
-        @input="onUrlInput"
-        @paste="onUrlPaste"
-      />
-
-      <div v-if="parsedUrl" class="parse-card success">
-        <div class="parse-main">
-          <el-icon><Select /></el-icon>
-          <div>
-            <strong>已识别 {{ getProviderLabel(parsedUrl.provider) }} 审查请求</strong>
-            <span>{{ parsedUrl.repo }} · #{{ parsedUrl.number }}</span>
-          </div>
-        </div>
-        <el-button type="primary" plain @click="applyParsedUrl('pr')">去选择详情</el-button>
-      </div>
-      <div v-else-if="parsedCompareUrl" class="parse-card success">
-        <div class="parse-main">
-          <el-icon><Select /></el-icon>
-          <div>
-            <strong>已识别 {{ getProviderLabel(parsedCompareUrl.provider) }} 分支对比</strong>
-            <span>{{ parsedCompareUrl.repo }} · {{ parsedCompareUrl.head_branch }} → {{ parsedCompareUrl.base_branch }}</span>
-          </div>
-        </div>
-        <el-button type="primary" plain @click="applyParsedCompareUrl('branch')">去分支对比</el-button>
-      </div>
-      <div v-else-if="urlInput.trim()" class="parse-card danger">
-        <div class="parse-main">
-          <el-icon><Warning /></el-icon>
-          <div>
-            <strong>暂时无法解析这个链接</strong>
-            <span>请确认链接包含仓库路径、PR/MR/CR 编号，或 compare 的 base...head 分支。</span>
-          </div>
-        </div>
-      </div>
-
-      <submit-options
-        v-model:mode="submitMode"
-        v-model:advanced="showAdvanced"
-        v-model:idempotency-key="createForm.idempotency_key"
-        v-model:callback-mode="createForm.callback_mode"
-        v-model:requirements="requirements"
-        v-model:ephemeral-reviewers="ephemeralReviewers"
-        @add-reviewer="ephemeralReviewers.push({ name: '', background: '' })"
-        @remove-reviewer="(i: number) => ephemeralReviewers.splice(i, 1)"
-      />
-    </section>
-
-    <div v-if="inputMode === 'pr'" class="create-panel">
-      <div class="panel-heading compact">
-        <div>
-          <h3>选择 PR/CR</h3>
-          <p>选择平台和仓库，然后点击要审查的 PR/MR/CR。</p>
-        </div>
-      </div>
-
-      <div class="pr-config-row">
-        <el-select v-model="createForm.provider" placeholder="选择平台" @change="onPlatformChange" class="pr-config-platform">
-          <el-option v-for="p in availablePlatforms" :key="p.provider" :label="getProviderLabel(p.provider)" :value="p.provider" />
-        </el-select>
-        <el-select
-          v-model="selectedRepo"
-          filterable
-          remote
-          allow-create
-          default-first-option
-          reserve-keyword
-          :remote-method="searchRepos"
-          :loading="reposLoading"
-          placeholder="搜索或输入 owner/repo"
-          @change="onRepoChange"
-          @focus="ensureReposLoaded"
-          class="pr-config-repo"
-        >
-          <el-option v-for="r in filteredRepos" :key="r.full_name" :label="r.full_name" :value="r.full_name">
-            <div class="repo-option">
-              <span class="repo-option-name">{{ r.full_name }}</span>
-              <span v-if="r.description" class="repo-option-desc">{{ r.description }}</span>
-            </div>
-          </el-option>
-        </el-select>
-        <el-button :icon="Refresh" :loading="prsLoading" :disabled="!selectedRepo" @click="reloadPullRequests" circle />
-      </div>
-
-      <div v-if="selectedRepo" class="pr-panel">
-        <div class="pr-panel-header" v-if="pullRequests.length > 0 || prsLoading">
-          <div class="pr-panel-title">
-            <span>PR 列表</span>
-            <el-tag size="small" type="info">{{ filteredPullRequests.length }} / {{ pullRequests.length }}</el-tag>
-          </div>
-          <div class="pr-panel-controls">
-            <el-segmented v-model="prState" :options="prStateOptions" size="small" @change="reloadPullRequests" />
-            <el-input v-model="prKeyword" :prefix-icon="Search" placeholder="搜索标题、编号、分支" clearable size="small" class="pr-panel-search" />
-          </div>
-        </div>
-
-        <div v-if="prsLoading" class="pr-list">
-          <div v-for="i in 4" :key="i" class="pr-card-skeleton">
-            <el-skeleton :rows="2" animated />
-          </div>
-        </div>
-
-        <div v-else-if="filteredPullRequests.length > 0" class="pr-list">
-          <button
-            v-for="pr in filteredPullRequests"
-            :key="pr.number"
-            type="button"
-            :class="['pr-card', { selected: selectedPR === pr.number }]"
-            @click="onPRChange(pr.number)"
-          >
-            <div class="pr-card-main">
-              <span class="pr-card-num">#{{ pr.number }}</span>
-              <strong class="pr-card-title">{{ pr.title }}</strong>
-              <el-tag v-if="pr.state && pr.state !== 'opened'" size="small" :type="pr.state === 'closed' ? 'info' : 'success'">{{ pr.state === 'closed' ? '已关闭' : '已合并' }}</el-tag>
-            </div>
-            <div class="pr-card-meta">
-              <span class="pr-card-branch">
-                <el-icon><Right /></el-icon>
-                {{ pr.source_branch || '?' }} → {{ pr.target_branch || '?' }}
-              </span>
-              <span v-if="pr.author" class="pr-card-author">
-                <img v-if="pr.author.avatar_url" :src="pr.author.avatar_url" class="pr-card-avatar" />
-                {{ pr.author.name || pr.author.username }}
-              </span>
-            </div>
-          </button>
-        </div>
-
-        <div v-else class="pr-panel-empty">
-          <el-icon size="36" color="#c0c4cc"><Connection /></el-icon>
-          <p>该仓库暂无{{ prState === 'opened' ? '打开中的' : '' }} PR/MR/CR</p>
-          <small v-if="prState === 'opened' && pullRequests.length === 0">可以切换到「分支对比」模式直接比较两个分支</small>
-          <small v-else-if="prKeyword">没有匹配「{{ prKeyword }}」的结果，试试清除搜索</small>
-        </div>
-      </div>
-
-      <div v-else class="pr-empty-hint">
-        <el-icon size="28"><Connection /></el-icon>
-        <p>请先选择代码平台和仓库</p>
-      </div>
-
-      <submit-options
-        v-model:mode="submitMode"
-        v-model:advanced="showAdvanced"
-        v-model:idempotency-key="createForm.idempotency_key"
-        v-model:callback-mode="createForm.callback_mode"
-        v-model:requirements="requirements"
-        v-model:ephemeral-reviewers="ephemeralReviewers"
-        @add-reviewer="ephemeralReviewers.push({ name: '', background: '' })"
-        @remove-reviewer="(i: number) => ephemeralReviewers.splice(i, 1)"
-      />
-    </div>
-
-    <el-form
-      v-if="inputMode === 'branch'"
-      :model="createForm"
-      label-width="96px"
-      class="create-form create-panel"
+    <ReviewUrlInput
+      v-if="inputMode === 'url'"
+      :url-input="urlInput"
+      :parsed-url="parsedUrl"
+      :parsed-compare-url="parsedCompareUrl"
+      @update:url-input="urlInput = $event"
+      @url-input="onUrlInput"
+      @url-paste="onUrlPaste"
+      @apply-url="applyParsedUrl('pr')"
+      @apply-compare-url="applyParsedCompareUrl('branch')"
     >
-      <div class="panel-heading compact">
-        <div>
-          <h3>分支对比</h3>
-          <p>适合没有 PR 的场景。选择基准分支和目标分支，提交时会自动补齐最新 SHA。</p>
-        </div>
-        <el-button :icon="Refresh" :loading="branchesLoading" :disabled="!selectedRepo" @click="reloadBranches">刷新分支</el-button>
-      </div>
-
-      <div class="form-grid">
-        <el-form-item label="代码平台" required>
-          <el-select v-model="createForm.provider" style="width: 100%" placeholder="选择平台" @change="onPlatformChange">
-            <el-option v-for="p in availablePlatforms" :key="p.provider" :label="getProviderLabel(p.provider)" :value="p.provider" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="代码仓库" required>
-          <el-select
-            v-model="selectedRepo"
-            style="width: 100%"
-            filterable
-            remote
-            allow-create
-            default-first-option
-            reserve-keyword
-            :remote-method="searchRepos"
-            :loading="reposLoading"
-            placeholder="输入 owner/repo 或仓库名"
-            @change="onRepoChange"
-            @focus="ensureReposLoaded"
-          >
-            <el-option v-for="r in filteredRepos" :key="r.full_name" :label="r.full_name" :value="r.full_name">
-              <div class="repo-option">
-                <span class="repo-option-name">{{ r.full_name }}</span>
-                <span v-if="r.default_branch" class="repo-option-desc">默认分支：{{ r.default_branch }}</span>
-              </div>
-            </el-option>
-          </el-select>
-        </el-form-item>
-      </div>
-
-      <div class="branch-picker">
-        <el-form-item label="基准分支" required>
-          <el-select
-            v-model="createForm.base_branch"
-            style="width: 100%"
-            filterable
-            allow-create
-            default-first-option
-            :loading="branchesLoading"
-            placeholder="例如 main/master"
-            :disabled="!selectedRepo"
-          >
-            <el-option v-for="b in branches" :key="b.name" :label="b.name" :value="b.name" />
-          </el-select>
-        </el-form-item>
-        <el-button class="swap-button" :icon="Switch" :disabled="!createForm.base_branch || !createForm.head_branch" @click="swapBranches" />
-        <el-form-item label="目标分支" required>
-          <el-select
-            v-model="createForm.head_branch"
-            style="width: 100%"
-            filterable
-            allow-create
-            default-first-option
-            :loading="branchesLoading"
-            placeholder="选择要审查的分支"
-            :disabled="!selectedRepo"
-          >
-            <el-option v-for="b in branches" :key="b.name" :label="b.name" :value="b.name" />
-          </el-select>
-        </el-form-item>
-      </div>
-
-      <div v-if="selectedRepo && !branchesLoading && branches.length === 0" class="manual-hint">
-        分支列表暂不可用，可以直接输入基准分支和目标分支名称。
-      </div>
-
-      <div v-if="branchSummary" class="branch-summary">
-        <div class="branch-flow">
-          <span>{{ createForm.head_branch }}</span>
-          <el-icon><Right /></el-icon>
-          <span>{{ createForm.base_branch }}</span>
-        </div>
-        <p>{{ branchSummary }}</p>
-      </div>
-
-      <el-collapse class="sha-collapse">
-        <el-collapse-item title="指定提交 SHA（可选）" name="sha">
-          <div class="form-grid">
-            <el-form-item label="基准 SHA">
-              <el-input v-model="createForm.base_sha" placeholder="留空则使用基准分支最新提交" clearable />
-            </el-form-item>
-            <el-form-item label="目标 SHA">
-              <el-input v-model="createForm.head_sha" placeholder="留空则使用目标分支最新提交" clearable />
-            </el-form-item>
-          </div>
-        </el-collapse-item>
-      </el-collapse>
-
       <submit-options
         v-model:mode="submitMode"
         v-model:advanced="showAdvanced"
@@ -300,7 +41,74 @@
         @add-reviewer="ephemeralReviewers.push({ name: '', background: '' })"
         @remove-reviewer="(i: number) => ephemeralReviewers.splice(i, 1)"
       />
-    </el-form>
+    </ReviewUrlInput>
+
+    <ReviewPrSelector
+      v-if="inputMode === 'pr'"
+      :provider="createForm.provider"
+      :platforms="availablePlatforms"
+      :selected-repo="selectedRepo"
+      :repos="filteredRepos"
+      :repos-loading="reposLoading"
+      :pull-requests="pullRequests"
+      :filtered-pull-requests="filteredPullRequests"
+      :prs-loading="prsLoading"
+      :selected-pr-number="selectedPR"
+      :pr-state="prState"
+      :pr-keyword="prKeyword"
+      @update:provider="createForm.provider = $event; onPlatformChange()"
+      @update:selected-repo="onRepoChange"
+      @update:pr-state="prState = $event"
+      @update:pr-keyword="prKeyword = $event"
+      @search-repos="searchRepos"
+      @ensure-repos="ensureReposLoaded"
+      @reload-prs="reloadPullRequests"
+      @select-pr="onPRChange"
+    >
+      <submit-options
+        v-model:mode="submitMode"
+        v-model:advanced="showAdvanced"
+        v-model:idempotency-key="createForm.idempotency_key"
+        v-model:callback-mode="createForm.callback_mode"
+        v-model:requirements="requirements"
+        v-model:ephemeral-reviewers="ephemeralReviewers"
+        @add-reviewer="ephemeralReviewers.push({ name: '', background: '' })"
+        @remove-reviewer="(i: number) => ephemeralReviewers.splice(i, 1)"
+      />
+    </ReviewPrSelector>
+
+    <ReviewBranchSelector
+      v-if="inputMode === 'branch'"
+      :form="createForm"
+      :platforms="availablePlatforms"
+      :selected-repo="selectedRepo"
+      :repos="filteredRepos"
+      :repos-loading="reposLoading"
+      :branches="branches"
+      :branches-loading="branchesLoading"
+      :branch-summary="branchSummary"
+      @update:provider="createForm.provider = $event; onPlatformChange()"
+      @update:selected-repo="onRepoChange"
+      @update:base-branch="createForm.base_branch = $event"
+      @update:head-branch="createForm.head_branch = $event"
+      @update:base-sha="createForm.base_sha = $event"
+      @update:head-sha="createForm.head_sha = $event"
+      @search-repos="searchRepos"
+      @ensure-repos="ensureReposLoaded"
+      @reload-branches="reloadBranches"
+      @swap-branches="swapBranches"
+    >
+      <submit-options
+        v-model:mode="submitMode"
+        v-model:advanced="showAdvanced"
+        v-model:idempotency-key="createForm.idempotency_key"
+        v-model:callback-mode="createForm.callback_mode"
+        v-model:requirements="requirements"
+        v-model:ephemeral-reviewers="ephemeralReviewers"
+        @add-reviewer="ephemeralReviewers.push({ name: '', background: '' })"
+        @remove-reviewer="(i: number) => ephemeralReviewers.splice(i, 1)"
+      />
+    </ReviewBranchSelector>
 
     <template #footer>
       <div class="dialog-footer">
@@ -362,6 +170,9 @@ import { parseMRUrl, parseCompareUrl, getProviderLabel } from '@/utils/url-parse
 import type { GitPlatform, PlatformRepo, PlatformBranch, PlatformPullRequest } from '@/types/config'
 import type { EphemeralReviewer } from '@/types/review'
 import SubmitOptions from './SubmitOptions.vue'
+import ReviewUrlInput from './review-create/ReviewUrlInput.vue'
+import ReviewPrSelector from './review-create/ReviewPrSelector.vue'
+import ReviewBranchSelector from './review-create/ReviewBranchSelector.vue'
 
 const props = defineProps<{ modelValue: boolean }>()
 const emit = defineEmits<{
