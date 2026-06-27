@@ -275,8 +275,11 @@ export async function restoreToolPackageVersion(id: number, version: number): Pr
   return resp?.item ?? resp
 }
 
-export async function validateToolPackage(config: any): Promise<{ valid: boolean; message?: string }> {
-  const payload = { config: typeof config === 'string' ? JSON.parse(config) : config }
+export async function validateToolPackage(config: any, options?: { dry_run?: boolean }): Promise<{ valid: boolean; message?: string; dry_run?: boolean; output?: string }> {
+  const payload = {
+    config: typeof config === 'string' ? JSON.parse(config) : config,
+    dry_run: Boolean(options?.dry_run),
+  }
   return request.post('/settings/ocr/tool-packages/validate', payload) as any
 }
 

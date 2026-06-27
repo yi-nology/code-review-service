@@ -59,7 +59,8 @@
         </el-select>
         <el-button @click="refreshToolPackages" :loading="toolPackageLoading">刷新</el-button>
         <el-button plain @click="openToolDrawer">管理</el-button>
-        <el-button type="primary" plain @click="handleValidateTools" :loading="validatingTools">校验</el-button>
+        <el-button type="primary" plain @click="handleValidateTools(false)" :loading="validatingTools">JSON 校验</el-button>
+        <el-button type="success" plain @click="handleValidateTools(true)" :loading="validatingTools">OCR dry-run</el-button>
       </div>
       <el-input
         v-model="form.tools_config"
@@ -215,7 +216,8 @@
               <el-input v-model="toolDraft.configText" type="textarea" :rows="9" @blur="syncToolDraftSelection" />
             </el-form-item>
             <div class="tool-editor-actions">
-              <el-button @click="validateToolDraft" :loading="validatingDraft">校验</el-button>
+              <el-button @click="validateToolDraft(false)" :loading="validatingDraft">JSON 校验</el-button>
+              <el-button type="success" plain @click="validateToolDraft(true)" :loading="validatingDraft">OCR dry-run</el-button>
               <el-button type="primary" @click="saveToolDraft" :loading="savingToolPackage">保存工具包</el-button>
             </div>
           </el-form>
@@ -365,13 +367,13 @@ function applyToolPackage(value?: number | string) {
   form.tools_config = JSON.stringify(pkg.config, null, 2)
 }
 
-async function handleValidateTools() {
+async function handleValidateTools(dryRun = false) {
   if (!form.tools_config?.trim()) return
   validatingTools.value = true
   try {
-    const result = await validateToolPackage(form.tools_config)
+    const result = await validateToolPackage(form.tools_config, { dry_run: dryRun })
     if (result.valid) {
-      ElMessage.success(result.message || '工具配置校验通过')
+      ElMessage.success(result.message || (dryRun ? 'OCR dry-run 通过' : '工具配置校验通过'))
     }
   } catch (e: any) {
     ElMessage.error(e.message || '工具配置校验失败')
@@ -477,11 +479,11 @@ async function restoreToolPackage(version: number) {
   }
 }
 
-async function validateToolDraft() {
+async function validateToolDraft(dryRun = false) {
   validatingDraft.value = true
   try {
-    await validateToolPackage(toolDraft.value.configText)
-    ElMessage.success('工具包配置校验通过')
+    const result = await validateToolPackage(toolDraft.value.configText, { dry_run: dryRun })
+    ElMessage.success(result.message || (dryRun ? 'OCR dry-run 通过' : '工具包配置校验通过'))
   } catch (e: any) {
     ElMessage.error(e.message || '工具包配置校验失败')
   } finally {
@@ -648,7 +650,7 @@ const commandPreview = computed(() => {
 
 .tool-package-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
   gap: 8px;
   width: 100%;
   margin-bottom: 8px;

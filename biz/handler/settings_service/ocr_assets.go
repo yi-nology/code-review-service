@@ -4,8 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
@@ -294,6 +298,7 @@ func RestoreToolPackageVersion(ctx context.Context, c *app.RequestContext) {
 func ValidateToolPackage(ctx context.Context, c *app.RequestContext) {
 	var req struct {
 		Config json.RawMessage `json:"config"`
+		DryRun bool            `json:"dry_run"`
 	}
 	if err := c.BindAndValidate(&req); err != nil {
 		common.Fail(c, common.BadRequest(err.Error()))
@@ -303,7 +308,18 @@ func ValidateToolPackage(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, common.BadRequest(err.Error()))
 		return
 	}
-	common.Success(c, map[string]any{"valid": true, "message": "工具配置 JSON 可用"})
+	resp := map[string]any{"valid": true, "message": "工具配置 JSON 可用"}
+	if req.DryRun {
+		output, err := dryRunToolConfig(ctx, req.Config)
+		if err != nil {
+			common.Fail(c, common.BadRequest(err.Error()))
+			return
+		}
+		resp["message"] = "工具配置已通过 OCR dry-run"
+		resp["dry_run"] = true
+		resp["output"] = output
+	}
+	common.Success(c, resp)
 }
 
 func dtoToRulePackage(req rulePackageDTO) (*models.OCRRulePackage, error) {
@@ -391,6 +407,65 @@ func validateToolConfig(raw json.RawMessage) error {
 		return fmt.Errorf("工具配置必须是数组或包含 tools 的对象")
 	}
 	return nil
+}
+
+func dryRunToolConfig(ctx context.Context, raw json.RawMessage) (string, error) {
+	binary := "ocr"
+	if handlerInst != nil && handlerInst.ocrRepo != nil {
+		if settings, err := handlerInst.ocrRepo.Get(ctx); err == nil && strings.TrimSpace(settings.Binary) != "" {
+			binary = strings.TrimSpace(settings.Binary)
+		}
+	}
+
+	tmpDir, err := os.MkdirTemp("", "ocr-tools-dry-run-*")
+	if err != nil {
+		return "", fmt.Errorf("创建 dry-run 临时目录失败: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	if err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0o644); err != nil {
+		return "", fmt.Errorf("写入 dry-run 文件失败: %w", err)
+	}
+	toolsPath := filepath.Join(tmpDir, "tools.json")
+	if err := os.WriteFile(toolsPath, raw, 0o600); err != nil {
+		return "", fmt.Errorf("写入 tools 配置失败: %w", err)
+	}
+	if _, err := runDryRunCommand(ctx, tmpDir, "git", "-C", tmpDir, "init", "-q"); err != nil {
+		return "", err
+	}
+	if _, err := runDryRunCommand(ctx, tmpDir, "git", "-C", tmpDir, "add", "main.go"); err != nil {
+		return "", err
+	}
+	if _, err := runDryRunCommand(ctx, tmpDir, "git", "-C", tmpDir, "-c", "user.name=review-service", "-c", "user.email=review-service@example.invalid", "commit", "-q", "-m", "init"); err != nil {
+		return "", err
+	}
+
+	output, err := runDryRunCommand(ctx, tmpDir, binary, "scan", "--preview", "--repo", tmpDir, "--path", "main.go", "--tools", toolsPath, "--audience", "agent")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(output), nil
+}
+
+func runDryRunCommand(parent context.Context, dir, name string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Dir = dir
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	output, err := cmd.CombinedOutput()
+	if ctx.Err() != nil && cmd.Process != nil {
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
+	text := strings.TrimSpace(string(output))
+	if err != nil {
+		if text == "" {
+			text = err.Error()
+		}
+		return text, fmt.Errorf("OCR dry-run 失败: %s", text)
+	}
+	return text, nil
 }
 
 func dbRulePackageToDTO(pkg *models.OCRRulePackage) rulePackageDTO {
