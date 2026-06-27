@@ -98,6 +98,7 @@ func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 		GlobalRulesRepo: deps.Repos.GlobalRules,
 		RulePackageRepo: deps.Repos.OCRRulePackage,
 		SessionRepo:     deps.SessionRepo,
+		GitProviderSvc:  deps.GitProviderSvc,
 		Policy:          deps.PolicyEngine,
 		Providers:       deps.GitProviders,
 		Runner:          deps.OcrRunner,

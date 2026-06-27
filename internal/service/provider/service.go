@@ -129,6 +129,14 @@ func (s *GitProviderService) GetCR(ctx context.Context, platform, owner, repo st
 	return p.GetCR(ctx, owner, repo, number)
 }
 
+func (s *GitProviderService) CreateCR(ctx context.Context, platform string, opts provider.CreateCROptions) (*provider.ChangeRequest, error) {
+	p, err := s.GetProvider(platform)
+	if err != nil {
+		return nil, err
+	}
+	return p.CreateCR(ctx, opts)
+}
+
 func (s *GitProviderService) TestConnection(ctx context.Context, platform string) (*provider.TestConnectionResult, error) {
 	p, err := s.GetProvider(platform)
 	if err != nil {

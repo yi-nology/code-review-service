@@ -113,6 +113,8 @@ export interface SuggestionPatchApplyResult extends SuggestionPatchPreview {
   branch: string
   commit_sha?: string
   workspace?: string
+  cr_number?: number
+  cr_url?: string
   output?: string
   error?: string
 }

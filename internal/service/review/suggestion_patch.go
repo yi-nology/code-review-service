@@ -3,6 +3,7 @@ package review
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"os/exec"
@@ -58,6 +59,8 @@ type SuggestionPatchApplyResult struct {
 	Branch    string `json:"branch"`
 	CommitSHA string `json:"commit_sha,omitempty"`
 	Workspace string `json:"workspace,omitempty"`
+	CRNumber  int    `json:"cr_number,omitempty"`
+	CRURL     string `json:"cr_url,omitempty"`
 	Output    string `json:"output,omitempty"`
 	Error     string `json:"error,omitempty"`
 }
@@ -309,7 +312,12 @@ func (s *Service) ApplySuggestionPatch(ctx context.Context, reviewID string, opt
 	}
 
 	branch := normalizeSuggestionPatchBranch(opts.Branch, record.ID)
-	output, commitSHA, err := applyPatchCommit(applyCtx, workspace.Dir, branch, preview.Patch, opts.Push)
+	pushAuth := suggestionPatchPushAuth{}
+	if opts.Push && s.gitProviderSvc != nil {
+		pushAuth.Token = s.gitProviderSvc.GetToken(record.Request.Provider)
+		pushAuth.SkipTLS = s.gitProviderSvc.GetSkipTLS(record.Request.Provider)
+	}
+	output, commitSHA, err := applyPatchCommit(applyCtx, workspace.Dir, branch, preview.Patch, opts.Push, pushAuth)
 	result.Branch = branch
 	result.CommitSHA = commitSHA
 	result.Workspace = workspace.Dir
@@ -340,7 +348,12 @@ func runGitApplyCheck(ctx context.Context, dir, patch string) (string, error) {
 	return strings.TrimSpace(out.String()), nil
 }
 
-func applyPatchCommit(ctx context.Context, dir, branch, patch string, push bool) (string, string, error) {
+type suggestionPatchPushAuth struct {
+	Token   string
+	SkipTLS bool
+}
+
+func applyPatchCommit(ctx context.Context, dir, branch, patch string, push bool, pushAuth suggestionPatchPushAuth) (string, string, error) {
 	if strings.TrimSpace(dir) == "" {
 		return "", "", fmt.Errorf("workspace dir is empty")
 	}
@@ -374,7 +387,16 @@ func applyPatchCommit(ctx context.Context, dir, branch, patch string, push bool)
 	}
 	commitSHA = strings.TrimSpace(commitSHA)
 	if push {
-		if _, err := run("push", "-u", "origin", branch); err != nil {
+		args := []string{}
+		if pushAuth.SkipTLS {
+			args = append(args, "-c", "http.sslVerify=false")
+		}
+		if strings.TrimSpace(pushAuth.Token) != "" {
+			cred := base64.StdEncoding.EncodeToString([]byte("x-access-token:" + pushAuth.Token))
+			args = append(args, "-c", "http.extraHeader=Authorization: Basic "+cred)
+		}
+		args = append(args, "push", "-u", "origin", branch)
+		if _, err := run(args...); err != nil {
 			return strings.TrimSpace(combined.String()), commitSHA, fmt.Errorf("git push failed: %w", err)
 		}
 	}

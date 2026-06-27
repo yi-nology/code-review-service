@@ -23,6 +23,15 @@
             placeholder="修复分支名"
             clearable
           />
+          <el-input
+            v-if="patchCreateCR"
+            v-model="patchTargetBranch"
+            class="patch-branch-input"
+            size="small"
+            placeholder="目标分支"
+            clearable
+          />
+          <el-checkbox v-model="patchCreateCR" size="small">创建 PR/MR</el-checkbox>
           <el-button size="small" @click="clearPatchSelection">清空</el-button>
           <el-button size="small" type="primary" plain :disabled="!patchSelectionIndexes.length" :loading="patchLoading" @click="handlePreviewPatch">
             生成预览
@@ -53,6 +62,9 @@
         <div v-if="patchApplyResult" class="patch-apply-result" :class="{ failed: !patchApplyResult.applied }">
           <template v-if="patchApplyResult.applied">
             已创建 {{ patchApplyResult.branch }} · {{ patchApplyResult.commit_sha || '本地提交' }}
+            <a v-if="patchApplyResult.cr_url" :href="patchApplyResult.cr_url" target="_blank" rel="noreferrer">
+              PR/MR #{{ patchApplyResult.cr_number || '' }}
+            </a>
             <span v-if="patchApplyResult.workspace">工作区：{{ patchApplyResult.workspace }}</span>
           </template>
           <template v-else>
@@ -120,6 +132,8 @@ const patchPreview = ref<SuggestionPatchPreview | null>(null)
 const patchCheck = ref<SuggestionPatchCheck | null>(null)
 const patchApplyResult = ref<SuggestionPatchApplyResult | null>(null)
 const patchBranch = ref('')
+const patchTargetBranch = ref('')
+const patchCreateCR = ref(false)
 const patchLoading = ref(false)
 const patchChecking = ref(false)
 const patchDownloading = ref(false)
@@ -194,11 +208,17 @@ async function applyPatch() {
   if (!patchSelectionIndexes.value.length) return
   patchApplying.value = true
   try {
-    patchApplyResult.value = await applySuggestionPatch(props.reviewId, patchSelectionIndexes.value, patchBranch.value || undefined)
+    patchApplyResult.value = await applySuggestionPatch(props.reviewId, {
+      indexes: patchSelectionIndexes.value,
+      branch: patchBranch.value || undefined,
+      push: patchCreateCR.value,
+      create_cr: patchCreateCR.value,
+      target_branch: patchTargetBranch.value || undefined,
+    })
     if (patchApplyResult.value.applied) {
       patchPreview.value = patchApplyResult.value
       patchCheck.value = null
-      ElMessage.success('修复提交已创建')
+      ElMessage.success(patchApplyResult.value.cr_url ? '修复 PR/MR 已创建' : '修复提交已创建')
     } else {
       ElMessage.warning(patchApplyResult.value.error || 'Patch 当前不可应用')
     }
@@ -304,6 +324,11 @@ defineExpose({ resetPatchState })
 .patch-apply-result.failed {
   color: #b4233c;
   background: #fff0f2;
+}
+
+.patch-apply-result a {
+  color: inherit;
+  font-weight: 700;
 }
 
 .patch-skipped {

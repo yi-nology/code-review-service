@@ -112,10 +112,24 @@ export async function downloadSuggestionPatch(reviewId: string, indexes?: number
   }) as any
 }
 
-export async function applySuggestionPatch(reviewId: string, indexes?: number[], branch?: string, push = false): Promise<SuggestionPatchApplyResult> {
+export async function applySuggestionPatch(reviewId: string, options: {
+  indexes?: number[]
+  branch?: string
+  push?: boolean
+  create_cr?: boolean
+  target_branch?: string
+  title?: string
+  description?: string
+  remove_source_branch?: boolean
+} = {}): Promise<SuggestionPatchApplyResult> {
   return request.post(`/reviews/${reviewId}/suggestion-patch/apply`, {
-    finding_indexes: indexes || [],
-    branch,
-    push,
+    finding_indexes: options.indexes || [],
+    branch: options.branch,
+    push: options.push,
+    create_cr: options.create_cr,
+    target_branch: options.target_branch,
+    title: options.title,
+    description: options.description,
+    remove_source_branch: options.remove_source_branch,
   }, { timeout: 300000 }) as any
 }

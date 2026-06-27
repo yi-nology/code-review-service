@@ -19,6 +19,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
+	gitprovider "github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	mw "github.com/oekit/middleware"
@@ -66,6 +67,7 @@ type ServiceConfig struct {
 	GlobalRulesRepo repository.GlobalRulesRepository
 	RulePackageRepo repository.OCRRulePackageRepository
 	SessionRepo     SessionRepo
+	GitProviderSvc  *gitprovider.GitProviderService
 	Policy          *policy.Engine
 	Providers       domain.Providers
 	Runner          domain.Runner
@@ -82,6 +84,7 @@ type Service struct {
 	globalRulesRepo repository.GlobalRulesRepository
 	rulePackageRepo repository.OCRRulePackageRepository
 	sessionRepo     SessionRepo
+	gitProviderSvc  *gitprovider.GitProviderService
 	policy          *policy.Engine
 	Providers       domain.Providers
 	runner          domain.Runner
@@ -101,6 +104,7 @@ func NewService(cfg ServiceConfig) *Service {
 		globalRulesRepo: cfg.GlobalRulesRepo,
 		rulePackageRepo: cfg.RulePackageRepo,
 		sessionRepo:     cfg.SessionRepo,
+		gitProviderSvc:  cfg.GitProviderSvc,
 		policy:          cfg.Policy,
 		Providers:       cfg.Providers,
 		runner:          cfg.Runner,

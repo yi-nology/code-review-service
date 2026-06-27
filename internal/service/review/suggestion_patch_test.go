@@ -148,7 +148,7 @@ func TestApplyPatchCommitCreatesRepairBranch(t *testing.T) {
 	run("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "initial")
 
 	patch := "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -4 +4 @@\n-\told := call()\n+\tnew := call(ctx)\n"
-	output, commitSHA, err := applyPatchCommit(t.Context(), dir, "review-service/fix-r1", patch, false)
+	output, commitSHA, err := applyPatchCommit(t.Context(), dir, "review-service/fix-r1", patch, false, suggestionPatchPushAuth{})
 	if err != nil {
 		t.Fatalf("applyPatchCommit() error = %v output=%q", err, output)
 	}
