@@ -25,11 +25,11 @@ func Register(r *server.Hertz) {
 				_reviews := _v1.Group("/reviews", _reviewsMw()...)
 				{
 					_id := _reviews.Group("/:id", _idMw()...)
-				_id.GET("/preview", append(_previewcommentMw(), publisher_service.PreviewComment)...)
-				_id.POST("/publish", append(_publishreviewMw(), publisher_service.PublishReview)...)
-				_id.PUT("/publish", append(_updatepublishedcommentMw(), publisher_service.UpdatePublishedComment)...)
-				_id.GET("/publish/status", append(_publishstatusMw(), publisher_service.PublishStatus)...)
-				_id.POST("/publish/retry", append(_retrypublishMw(), publisher_service.RetryPublish)...)
+					_id.GET("/preview", append(_previewcommentMw(), publisher_service.PreviewComment)...)
+					_id.POST("/publish", append(_publishreviewMw(), publisher_service.PublishReview)...)
+					_id.PUT("/publish", append(_updatepublishedcommentMw(), publisher_service.UpdatePublishedComment)...)
+					_id.GET("/publish/status", append(_publishstatusMw(), publisher_service.PublishStatus)...)
+					_id.POST("/publish/retry", append(_retrypublishMw(), publisher_service.RetryPublish)...)
 				}
 			}
 		}
