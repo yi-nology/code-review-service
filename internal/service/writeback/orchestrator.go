@@ -155,15 +155,13 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 			published++
 		}
 		_ = o.itemRepo.Create(ctx, &models.WritebackItem{
-			ReviewID:           serviceReviewID,
-			FindingKey:         cr.Key,
-			Kind:               "inline",
-			ProviderExternalID: cr.ExternalID,
-			ProviderURL:        cr.URL,
-			Status:             status,
-			Attempts:           1,
-			LastError:          cr.Error,
+			ReviewID:   serviceReviewID,
+			FindingKey: cr.Key,
+			Kind:       "inline",
+			Status:     "pending",
 		})
+		_ = o.itemRepo.IncrementAttempts(ctx, serviceReviewID, cr.Key, "inline")
+		_ = o.itemRepo.UpdateStatus(ctx, serviceReviewID, cr.Key, "inline", status, cr.ExternalID, cr.URL, cr.Error)
 	}
 
 	logx.Info("writeback completed",
@@ -175,6 +173,40 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 		"failed", failed,
 	)
 	return &review.WritebackResult{Published: published, Failed: failed}, nil
+}
+
+func (o *Orchestrator) Status(ctx context.Context, reviewID string) (*PublishStatus, error) {
+	items, err := o.itemRepo.ListByReview(ctx, reviewID)
+	if err != nil {
+		return nil, err
+	}
+	status := &PublishStatus{
+		ReviewID: reviewID,
+		Items:    make([]PublishStatusItem, 0, len(items)),
+	}
+	for _, item := range items {
+		status.Total++
+		switch item.Status {
+		case "published":
+			status.Published++
+		case "failed":
+			status.Failed++
+		case "downgraded":
+			status.Downgraded++
+		default:
+			status.Pending++
+		}
+		status.Items = append(status.Items, PublishStatusItem{
+			FindingKey: item.FindingKey,
+			Kind:       item.Kind,
+			Status:     item.Status,
+			Attempts:   item.Attempts,
+			ExternalID: item.ProviderExternalID,
+			URL:        item.ProviderURL,
+			LastError:  item.LastError,
+		})
+	}
+	return status, nil
 }
 
 func findSeverity(findings []review.Finding, i int) review.Severity {

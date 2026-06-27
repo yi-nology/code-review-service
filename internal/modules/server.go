@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	publisherHandler "github.com/yi-nology/code-review-service/biz/handler/publisher_service"
 	reviewHandler "github.com/yi-nology/code-review-service/biz/handler/review_service"
 	settingsHandler "github.com/yi-nology/code-review-service/biz/handler/settings_service"
 	statsHandler "github.com/yi-nology/code-review-service/biz/handler/stats_service"
@@ -99,6 +100,7 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos
 
 	router.GeneratedRegister(h)
 	registerSuggestionPatchRoutes(h)
+	registerPublishStatusRoutes(h)
 	registerOCRAssetRoutes(h, viewerMgr)
 }
 
@@ -107,6 +109,12 @@ func registerSuggestionPatchRoutes(h *server.Hertz) {
 	api.GET("/:id/suggestion-patch", reviewHandler.PreviewSuggestionPatch)
 	api.GET("/:id/suggestion-patch/check", reviewHandler.CheckSuggestionPatch)
 	api.GET("/:id/suggestion-patch.diff", reviewHandler.DownloadSuggestionPatch)
+}
+
+func registerPublishStatusRoutes(h *server.Hertz) {
+	api := h.Group("/api/v1/reviews")
+	api.GET("/:id/publish/status", publisherHandler.PublishStatus)
+	api.POST("/:id/publish/retry", publisherHandler.RetryPublish)
 }
 
 func registerOCRAssetRoutes(h *server.Hertz, viewerMgr *ocr.ViewerManager) {

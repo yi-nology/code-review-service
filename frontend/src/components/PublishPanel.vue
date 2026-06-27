@@ -38,6 +38,22 @@
       <span class="mode-hint">{{ commentScope === 'inline' ? '每条问题评论到代码对应行上（GitHub 风格）' : '只发布一条总结评论' }}</span>
     </div>
 
+    <div v-if="publishStatus" class="status-strip">
+      <span>记录 {{ publishStatus.total }}</span>
+      <el-tag size="small" type="success">成功 {{ publishStatus.published }}</el-tag>
+      <el-tag v-if="publishStatus.downgraded" size="small" type="warning">降级 {{ publishStatus.downgraded }}</el-tag>
+      <el-tag v-if="publishStatus.failed" size="small" type="danger">失败 {{ publishStatus.failed }}</el-tag>
+      <el-tag v-if="publishStatus.pending" size="small" type="info">等待 {{ publishStatus.pending }}</el-tag>
+      <el-button size="small" text :loading="statusLoading" @click="loadStatus">刷新状态</el-button>
+    </div>
+
+    <div v-if="failedItems.length" class="failed-list">
+      <div v-for="item in failedItems.slice(0, 3)" :key="item.finding_key" class="failed-item">
+        <span>{{ item.finding_key }}</span>
+        <small>{{ item.last_error || '发布失败' }}</small>
+      </div>
+    </div>
+
     <div class="preview-area">
       <div class="preview-toolbar">
         <span class="preview-title">评论预览</span>
@@ -104,7 +120,17 @@
           @click="handleUpdate"
         >
           <el-icon><Refresh /></el-icon>
-          更新已发布评论
+          重新发布更新
+        </el-button>
+        <el-button
+          v-if="publishStatus?.failed || publishStatus?.pending"
+          type="warning"
+          plain
+          :loading="publishing"
+          :disabled="!reviewId"
+          @click="handleRetry"
+        >
+          重试失败项
         </el-button>
         <el-button
           type="danger"
@@ -121,11 +147,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { Promotion, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
-import { previewComment, publishReview, updatePublishedComment } from '@/api/review'
+import { getPublishStatus, previewComment, publishReview, retryPublish, updatePublishedComment } from '@/api/review'
+import type { PublishStatus } from '@/types/review'
 
 const props = defineProps<{
   reviewId: string
@@ -138,12 +165,19 @@ const emit = defineEmits<{
 
 const commentScope = ref<'inline' | 'summary'>('inline')
 const previewLoading = ref(false)
+const statusLoading = ref(false)
 const publishing = ref(false)
 const published = ref(props.published ?? false)
 const previewData = ref<{ review_id: string; summary: string; findings: string; total: number } | null>(null)
+const publishStatus = ref<PublishStatus | null>(null)
+const failedItems = computed(() => (publishStatus.value?.items || []).filter((item) => item.status === 'failed' || item.status === 'pending'))
 
 watch(() => props.published, (v) => {
   published.value = Boolean(v)
+})
+
+onMounted(() => {
+  loadStatus()
 })
 
 async function loadPreview() {
@@ -154,6 +188,19 @@ async function loadPreview() {
     previewData.value = null
   } finally {
     previewLoading.value = false
+  }
+}
+
+async function loadStatus() {
+  if (!props.reviewId) return
+  statusLoading.value = true
+  try {
+    publishStatus.value = await getPublishStatus(props.reviewId)
+    if (publishStatus.value.total > 0) {
+      published.value = true
+    }
+  } finally {
+    statusLoading.value = false
   }
 }
 
@@ -175,6 +222,7 @@ async function handlePublish() {
   try {
     await publishReview(props.reviewId, undefined, commentScope.value === 'summary')
     published.value = true
+    await loadStatus()
     ElMessage.success('评论已发布到代码平台')
     emit('published')
   } catch {
@@ -188,10 +236,26 @@ async function handleUpdate() {
   publishing.value = true
   try {
     await updatePublishedComment(props.reviewId)
-    ElMessage.success('已更新已发布评论')
+    await loadStatus()
+    ElMessage.success('已重新发布并刷新状态')
     emit('published')
   } catch {
     ElMessage.error('更新失败，请稍后重试')
+  } finally {
+    publishing.value = false
+  }
+}
+
+async function handleRetry() {
+  publishing.value = true
+  try {
+    await retryPublish(props.reviewId)
+    await loadStatus()
+    published.value = true
+    ElMessage.success('已重试失败发布项')
+    emit('published')
+  } catch {
+    ElMessage.error('重试失败，请稍后重试')
   } finally {
     publishing.value = false
   }
@@ -232,6 +296,43 @@ async function handleUpdate() {
 .mode-hint {
   color: #909399;
   font-size: 12px;
+}
+
+.status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #606266;
+  font-size: 12px;
+}
+
+.failed-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.failed-item {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  background: #fff7ed;
+}
+
+.failed-item span {
+  overflow-wrap: anywhere;
+  color: #9a3412;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.failed-item small {
+  overflow-wrap: anywhere;
+  color: #c2410c;
 }
 
 .preview-area {

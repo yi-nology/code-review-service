@@ -43,10 +43,57 @@ func PublishReview(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	record, found, err := handlerInst.reviewSvc.Get(ctx, req.ID)
-	if err != nil || !found {
-		common.Fail(c, common.NotFound("review not found"))
+	if err := publishReview(ctx, req.ID, req.SummaryOnly != nil && *req.SummaryOnly); err != nil {
+		common.Fail(c, err)
 		return
+	}
+
+	common.Success(c, &modelPublisher.PublishReviewResp{
+		Message:  "review published successfully",
+		ReviewID: req.ID,
+	})
+}
+
+func PublishStatus(ctx context.Context, c *app.RequestContext) {
+	id := strings.TrimSpace(c.Param("id"))
+	if id == "" {
+		common.Fail(c, common.BadRequest("review id 不能为空"))
+		return
+	}
+	status, err := handlerInst.writeback.Status(ctx, id)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	common.Success(c, status)
+}
+
+func RetryPublish(ctx context.Context, c *app.RequestContext) {
+	id := strings.TrimSpace(c.Param("id"))
+	if id == "" {
+		common.Fail(c, common.BadRequest("review id 不能为空"))
+		return
+	}
+	status, err := handlerInst.writeback.Status(ctx, id)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	if status.Failed == 0 && status.Pending == 0 {
+		common.Success(c, map[string]any{"message": "no retryable writeback items", "review_id": id})
+		return
+	}
+	if err := publishReview(ctx, id, false); err != nil {
+		common.Fail(c, err)
+		return
+	}
+	common.Success(c, map[string]any{"message": "retry published", "review_id": id})
+}
+
+func publishReview(ctx context.Context, id string, summaryOnly bool) error {
+	record, found, err := handlerInst.reviewSvc.Get(ctx, id)
+	if err != nil || !found {
+		return common.NotFound("review not found")
 	}
 
 	findings := record.Response.Findings
@@ -57,7 +104,6 @@ func PublishReview(ctx context.Context, c *app.RequestContext) {
 
 	// 获取 diff 用于行内评论定位（summary_only 或 diff 为空时 orchestrator 降级为 summary-only）
 	diff := ""
-	summaryOnly := req.SummaryOnly != nil && *req.SummaryOnly
 	if !summaryOnly && handlerInst.providerSvc != nil {
 		owner, repoName, perr := provider.ParseRepoPath(record.Request.Repo)
 		number := types.ResolvePRNumber(record.Request.Provider, record.Request.PullRequestID, record.Request.MergeRequestIID)
@@ -73,14 +119,9 @@ func PublishReview(ctx context.Context, c *app.RequestContext) {
 	publishReq := record.Request
 	publishReq.ReviewID = record.ID
 	if _, err := handlerInst.writeback.Publish(ctx, publishReq, result, diff); err != nil {
-		common.Fail(c, err)
-		return
+		return err
 	}
-
-	common.Success(c, &modelPublisher.PublishReviewResp{
-		Message:  "review published successfully",
-		ReviewID: req.ID,
-	})
+	return nil
 }
 
 func PreviewComment(ctx context.Context, c *app.RequestContext) {
@@ -112,8 +153,13 @@ func UpdatePublishedComment(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	if err := publishReview(ctx, req.ID, false); err != nil {
+		common.Fail(c, err)
+		return
+	}
+
 	common.Success(c, &modelPublisher.UpdatePublishedCommentResp{
-		Message:  "published comment updated successfully",
+		Message:  "published comment refreshed successfully",
 		ReviewID: req.ID,
 	})
 }

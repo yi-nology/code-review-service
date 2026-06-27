@@ -1,7 +1,7 @@
 import request from './request'
 import type {
   ReviewDetail, ListResult, ListOptions, CreateReviewOptions,
-  ScanRepositoryOptions, ScanRepositoryResult, SuggestionPatchCheck, SuggestionPatchPreview,
+  PublishStatus, ScanRepositoryOptions, ScanRepositoryResult, SuggestionPatchCheck, SuggestionPatchPreview,
 } from '@/types/review'
 
 export async function getReviews(params: ListOptions): Promise<ListResult> {
@@ -75,6 +75,17 @@ export async function updatePublishedComment(reviewId: string): Promise<{
   review_id: string
 }> {
   return request.put(`/reviews/${reviewId}/publish`) as any
+}
+
+export async function getPublishStatus(reviewId: string): Promise<PublishStatus> {
+  return request.get(`/reviews/${reviewId}/publish/status`) as any
+}
+
+export async function retryPublish(reviewId: string): Promise<{
+  message: string
+  review_id: string
+}> {
+  return request.post(`/reviews/${reviewId}/publish/retry`) as any
 }
 
 function findingIndexesParam(indexes?: number[]) {

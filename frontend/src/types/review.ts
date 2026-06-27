@@ -257,3 +257,23 @@ export interface PublishResult {
   message: string
   review_id: string
 }
+
+export interface PublishStatusItem {
+  finding_key: string
+  kind: string
+  status: string
+  attempts: number
+  external_id?: string
+  url?: string
+  last_error?: string
+}
+
+export interface PublishStatus {
+  review_id: string
+  total: number
+  published: number
+  failed: number
+  downgraded: number
+  pending: number
+  items: PublishStatusItem[]
+}

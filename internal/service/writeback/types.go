@@ -69,6 +69,26 @@ type Result struct {
 	Comments   []CommentResult
 }
 
+type PublishStatusItem struct {
+	FindingKey string `json:"finding_key"`
+	Kind       string `json:"kind"`
+	Status     string `json:"status"`
+	Attempts   int    `json:"attempts"`
+	ExternalID string `json:"external_id,omitempty"`
+	URL        string `json:"url,omitempty"`
+	LastError  string `json:"last_error,omitempty"`
+}
+
+type PublishStatus struct {
+	ReviewID   string              `json:"review_id"`
+	Total      int                 `json:"total"`
+	Published  int                 `json:"published"`
+	Failed     int                 `json:"failed"`
+	Downgraded int                 `json:"downgraded"`
+	Pending    int                 `json:"pending"`
+	Items      []PublishStatusItem `json:"items"`
+}
+
 type Adapter interface {
 	Capabilities(context.Context, ChangeRequest) (Capabilities, error)
 	Publish(context.Context, Review) (Result, error)

@@ -29,7 +29,8 @@ func (r *WritebackItemRepo) Create(ctx context.Context, item *models.WritebackIt
 
 func (r *WritebackItemRepo) UpdateStatus(ctx context.Context, reviewID, findingKey, kind, status, externalID, providerURL, lastErr string) error {
 	updates := map[string]interface{}{
-		"status": status,
+		"status":     status,
+		"last_error": lastErr,
 	}
 	if externalID != "" {
 		updates["provider_external_id"] = externalID
@@ -40,9 +41,6 @@ func (r *WritebackItemRepo) UpdateStatus(ctx context.Context, reviewID, findingK
 	if status == "published" {
 		now := time.Now().UTC()
 		updates["published_at"] = &now
-	}
-	if lastErr != "" {
-		updates["last_error"] = lastErr
 	}
 	return r.db.WithContext(ctx).
 		Model(&models.WritebackItem{}).
