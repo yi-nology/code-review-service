@@ -36,6 +36,16 @@ type ProjectOCRMetrics struct {
 	ToolCalls          []ToolCallStat
 }
 
+type ProjectOCRTrendPoint struct {
+	Period          string
+	ReviewCount     int64
+	TotalTokens     int64
+	AvgTokens       float64
+	AvgElapsedMs    float64
+	AvgScore        float64
+	FindingsDensity float64
+}
+
 type ToolCallStat struct {
 	Tool  string `json:"tool"`
 	Count int64  `json:"count"`

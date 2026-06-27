@@ -75,6 +75,24 @@
         </div>
       </section>
 
+      <section class="ocr-trend-band" v-loading="metricsLoading">
+        <div class="trend-head">
+          <div>
+            <h2>OCR 成本趋势</h2>
+            <p>按天聚合 tokens、耗时、质量分与问题密度</p>
+          </div>
+          <span>{{ ocrTrend.length }} 天</span>
+        </div>
+        <div v-if="ocrTrend.length" class="trend-points">
+          <div v-for="point in ocrTrend.slice(-8)" :key="point.period" class="trend-point">
+            <span>{{ formatDay(point.period) }}</span>
+            <strong>{{ formatNumber(point.total_tokens) }}</strong>
+            <small>{{ point.review_count }} 次 · {{ Math.round(point.avg_elapsed_ms) }}ms · {{ point.avg_score.toFixed(1) }}分</small>
+          </div>
+        </div>
+        <el-empty v-else description="暂无 OCR 趋势数据" :image-size="48" />
+      </section>
+
       <el-card class="reports-card">
         <div class="toolbar">
           <div>
@@ -213,8 +231,8 @@ import {
   WarningFilled,
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import { getProjectOCRMetrics, getProjects } from '@/api/stats'
-import type { ProjectOCRMetrics, ProjectSummary } from '@/types/stats'
+import { getProjectOCRMetrics, getProjectOCRTrend, getProjects } from '@/api/stats'
+import type { ProjectOCRMetrics, ProjectOCRTrendPoint, ProjectSummary } from '@/types/stats'
 import { formatDateRelative, getProviderInitial } from '@/utils/format'
 import { getScoreColor } from '@/utils/colors'
 import { PROVIDER_OPTIONS } from '@/utils/url-parser'
@@ -224,6 +242,7 @@ const loading = ref(false)
 const metricsLoading = ref(false)
 const projects = ref<ProjectSummary[]>([])
 const ocrMetrics = ref<ProjectOCRMetrics | null>(null)
+const ocrTrend = ref<ProjectOCRTrendPoint[]>([])
 const filters = reactive({ provider: '', repo: '', sort: 'avg_score' })
 const dateRange = ref<[Date, Date] | []>([])
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
@@ -258,13 +277,15 @@ async function fetchProjects() {
       page: pagination.page,
       page_size: pagination.pageSize,
     }
-    const [result, metrics] = await Promise.all([
+    const [result, metrics, trend] = await Promise.all([
       getProjects(params),
       getProjectOCRMetrics({ provider: filters.provider || undefined, repo: filters.repo || undefined, ...dateParams() }),
+      getProjectOCRTrend({ provider: filters.provider || undefined, repo: filters.repo || undefined, ...dateParams() }),
     ])
     projects.value = result.projects || []
     pagination.total = result.total
     ocrMetrics.value = metrics
+    ocrTrend.value = trend || []
   } finally {
     loading.value = false
     metricsLoading.value = false
@@ -332,6 +353,12 @@ function providerLabel(provider: string) {
 
 function formatNumber(value?: number) {
   return value ? value.toLocaleString() : '0'
+}
+
+function formatDay(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })
 }
 
 onMounted(fetchProjects)
@@ -403,6 +430,69 @@ onMounted(fetchProjects)
 
 .obs-card.tools strong {
   color: var(--app-primary);
+}
+
+.ocr-trend-band {
+  margin-bottom: 20px;
+  padding: 16px 18px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+}
+
+.trend-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.trend-head h2 {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 16px;
+}
+
+.trend-head p {
+  margin: 4px 0 0;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.trend-head > span {
+  color: var(--app-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.trend-points {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.trend-point {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #edf0f4;
+  border-radius: 8px;
+  background: #fafbfc;
+}
+
+.trend-point span,
+.trend-point small {
+  display: block;
+  color: var(--app-muted);
+  font-size: 11px;
+}
+
+.trend-point strong {
+  display: block;
+  margin: 6px 0 4px;
+  color: var(--app-primary);
+  font-size: 16px;
+  overflow-wrap: anywhere;
 }
 
 .stats-row .el-col {
@@ -671,11 +761,23 @@ onMounted(fetchProjects)
   .ocr-observability {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .trend-points {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
   .ocr-observability {
     grid-template-columns: 1fr;
+  }
+
+  .trend-head {
+    flex-direction: column;
+  }
+
+  .trend-points {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

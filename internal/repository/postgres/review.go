@@ -306,6 +306,48 @@ func (r *ReviewRepo) ProjectOCRMetrics(ctx context.Context, opts models.ProjectS
 	}, nil
 }
 
+func (r *ReviewRepo) ProjectOCRTrend(ctx context.Context, opts models.ProjectStatsOptions) ([]models.ProjectOCRTrendPoint, error) {
+	clause, args := reviewMetricsFilterClause(opts)
+	type trendRow struct {
+		Period          string
+		ReviewCount     int64
+		TotalTokens     int64
+		AvgTokens       float64
+		AvgElapsedMs    float64
+		AvgScore        float64
+		FindingsDensity float64
+	}
+	var rows []trendRow
+	query := `SELECT
+			to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS period,
+			COUNT(*) AS review_count,
+			COALESCE(SUM(CASE WHEN response #>> '{report,ocr,total_tokens}' ~ '^[0-9]+$' THEN (response #>> '{report,ocr,total_tokens}')::bigint ELSE 0 END), 0) AS total_tokens,
+			COALESCE(AVG(CASE WHEN response #>> '{report,ocr,total_tokens}' ~ '^[0-9]+$' THEN (response #>> '{report,ocr,total_tokens}')::double precision END), 0) AS avg_tokens,
+			COALESCE(AVG(CASE WHEN response #>> '{report,ocr,elapsed}' ~ '^[0-9]+(\.[0-9]+)?s$' THEN replace(response #>> '{report,ocr,elapsed}', 's', '')::double precision * 1000 END), 0) AS avg_elapsed_ms,
+			COALESCE(AVG(score), 0) AS avg_score,
+			COALESCE(AVG(CASE WHEN response #>> '{report,score,findings_density}' ~ '^[0-9]+(\.[0-9]+)?$' THEN (response #>> '{report,score,findings_density}')::double precision END), 0) AS findings_density
+		FROM reviews
+		WHERE deleted_at IS NULL AND status = 'success'` + clause + `
+		GROUP BY date_trunc('day', created_at)
+		ORDER BY period ASC`
+	if err := r.db.WithContext(ctx).Raw(query, args...).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	points := make([]models.ProjectOCRTrendPoint, 0, len(rows))
+	for _, row := range rows {
+		points = append(points, models.ProjectOCRTrendPoint{
+			Period:          row.Period,
+			ReviewCount:     row.ReviewCount,
+			TotalTokens:     row.TotalTokens,
+			AvgTokens:       row.AvgTokens,
+			AvgElapsedMs:    row.AvgElapsedMs,
+			AvgScore:        row.AvgScore,
+			FindingsDensity: row.FindingsDensity,
+		})
+	}
+	return points, nil
+}
+
 func reviewMetricsFilterClause(opts models.ProjectStatsOptions) (string, []any) {
 	var clause string
 	var args []any

@@ -110,6 +110,16 @@ export interface ProjectOCRMetrics {
   tool_calls: Array<{ tool: string; count: number }>
 }
 
+export interface ProjectOCRTrendPoint {
+  period: string
+  review_count: number
+  total_tokens: number
+  avg_tokens: number
+  avg_elapsed_ms: number
+  avg_score: number
+  findings_density: number
+}
+
 export interface ProjectListOptions {
   provider?: string
   repo?: string

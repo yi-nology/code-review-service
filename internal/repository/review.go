@@ -17,6 +17,7 @@ type ReviewRepository interface {
 	List(ctx context.Context, opts models.ListOptions) (*ekitGorm.PageResponse[models.Review], error)
 	AggregateStats(ctx context.Context, opts models.ListOptions) (*models.AggregateStats, error)
 	ProjectOCRMetrics(ctx context.Context, opts models.ProjectStatsOptions) (*models.ProjectOCRMetrics, error)
+	ProjectOCRTrend(ctx context.Context, opts models.ProjectStatsOptions) ([]models.ProjectOCRTrendPoint, error)
 	ClaimQueued(ctx context.Context, limit int) ([]models.Review, error)
 	RequeueStale(ctx context.Context, before time.Time) (int64, error)
 	UpdateInTransaction(ctx context.Context, reviewID string, fn func(review *models.Review) error) error

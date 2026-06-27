@@ -212,6 +212,24 @@ func (s *Service) GetProjectOCRMetrics(ctx context.Context, provider, repo, from
 	}, nil
 }
 
+func (s *Service) GetProjectOCRTrend(ctx context.Context, provider, repo, from, to string) ([]ProjectOCRTrendPoint, error) {
+	if s.reviewRepo == nil {
+		return nil, nil
+	}
+	points, err := s.reviewRepo.ProjectOCRTrend(ctx, models.ProjectStatsOptions{
+		Provider: provider,
+		Repo:     repo,
+		From:     parseTime(from),
+		To:       parseTime(to),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return slicex.Map(points, func(p models.ProjectOCRTrendPoint) ProjectOCRTrendPoint {
+		return ProjectOCRTrendPoint(p)
+	}), nil
+}
+
 func toContributorSummary(s models.ContributorSummary) ContributorSummary {
 	return ContributorSummary{
 		Author:        s.Author,

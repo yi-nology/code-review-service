@@ -133,6 +133,7 @@ func registerOCRAssetRoutes(h *server.Hertz, viewerMgr *ocr.ViewerManager) {
 
 	statsAPI := h.Group("/api/v1/stats")
 	statsAPI.GET("/projects/ocr", statsHandler.GetProjectOCRMetrics)
+	statsAPI.GET("/projects/ocr/trend", statsHandler.GetProjectOCRTrend)
 }
 
 func viewerProxyHandler(viewerMgr *ocr.ViewerManager) app.HandlerFunc {

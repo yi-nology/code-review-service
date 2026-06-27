@@ -11,6 +11,7 @@ import type {
   ProjectListOptions,
   ProjectListResult,
   ProjectOCRMetrics,
+  ProjectOCRTrendPoint,
   ProjectReportParams,
   ProjectTrendPoint,
 } from '@/types/stats'
@@ -64,4 +65,9 @@ export async function getProjectContributors(params: ProjectReportParams & { lim
 export async function getProjectOCRMetrics(params: Partial<ProjectReportParams>): Promise<ProjectOCRMetrics> {
   const data: any = await request.get('/stats/projects/ocr', { params })
   return data?.metrics ?? data
+}
+
+export async function getProjectOCRTrend(params: Partial<ProjectReportParams>): Promise<ProjectOCRTrendPoint[]> {
+  const data: any = await request.get('/stats/projects/ocr/trend', { params })
+  return data?.trend ?? data ?? []
 }

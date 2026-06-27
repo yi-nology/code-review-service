@@ -27,6 +27,7 @@ type StatsService interface {
 	GetProjectFiles(ctx context.Context, provider, repo, from, to string) ([]stats.FileRiskStat, error)
 	GetProjectContributors(ctx context.Context, provider, repo, from, to string, limit int) ([]stats.ContributorSummary, error)
 	GetProjectOCRMetrics(ctx context.Context, provider, repo, from, to string) (*stats.ProjectOCRMetrics, error)
+	GetProjectOCRTrend(ctx context.Context, provider, repo, from, to string) ([]stats.ProjectOCRTrendPoint, error)
 }
 
 type StatsHandler struct {
@@ -211,6 +212,19 @@ func GetProjectOCRMetrics(ctx context.Context, c *hertzApp.RequestContext) {
 		return
 	}
 	common.Success(c, map[string]any{"metrics": metrics})
+}
+
+func GetProjectOCRTrend(ctx context.Context, c *hertzApp.RequestContext) {
+	req, ok := common.Bind[modelStats.GetProjectReq](c)
+	if !ok {
+		return
+	}
+	trend, err := handlerInst.statsSvc.GetProjectOCRTrend(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	common.Success(c, map[string]any{"trend": trend})
 }
 
 func GetProjectCategories(ctx context.Context, c *hertzApp.RequestContext) {
