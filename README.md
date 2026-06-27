@@ -67,6 +67,8 @@ go run .
 
 ### With OCR enabled
 
+OCR runtime settings are stored in the database and can be enabled from the web console settings page or the settings API. Environment variables such as `OCR_ENABLED` and `OCR_BINARY` provide initial defaults before settings are saved.
+
 ```sh
 OCR_ENABLED=true \
 OCR_BINARY=ocr \
@@ -75,11 +77,19 @@ REVIEW_TOKEN=dev-token \
 go run .
 ```
 
+### Docker Compose
+
+```sh
+docker compose up --build
+```
+
+The compose stack starts PostgreSQL, the API service, and the web console. The API is exposed on `http://localhost:8080`, and the web console is exposed on `http://localhost/`. OCR is disabled by default so the service can become ready without an `ocr` binary; enable it after configuring OCR in the web console or settings API.
+
 ### Health check
 
 ```sh
-curl http://localhost:8080/healthz
-curl http://localhost:8080/readyz
+curl http://localhost:8081/healthz
+curl http://localhost:8081/readyz
 ```
 
 ### Web Console
@@ -95,7 +105,7 @@ Open `http://localhost:3000/` and connect with `REVIEW_TOKEN`.
 ### Create Review
 
 ```sh
-curl -X POST http://localhost:8080/api/v1/reviews \
+curl -X POST http://localhost:8081/api/v1/reviews \
   -H "Authorization: Bearer dev-token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -110,21 +120,21 @@ curl -X POST http://localhost:8080/api/v1/reviews \
 ### Get Review
 
 ```sh
-curl http://localhost:8080/api/v1/reviews/{review_id} \
+curl http://localhost:8081/api/v1/reviews/{review_id} \
   -H "Authorization: Bearer dev-token"
 ```
 
 ### List Reviews
 
 ```sh
-curl "http://localhost:8080/api/v1/reviews?provider=github&status=success&page=1&page_size=50" \
+curl "http://localhost:8081/api/v1/reviews?provider=github&status=success&page=1&page_size=50" \
   -H "Authorization: Bearer dev-token"
 ```
 
 ### Webhook Endpoint
 
 ```sh
-curl -X POST http://localhost:8080/api/v1/webhooks \
+curl -X POST http://localhost:8081/api/v1/webhooks \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "github",
@@ -234,6 +244,8 @@ go run .
 
 ### 启用 OCR
 
+OCR 运行时配置保存在数据库中，可在 Web 控制台设置页或 settings API 中启用。`OCR_ENABLED`、`OCR_BINARY` 等环境变量用于未保存设置前的初始默认值。
+
 ```sh
 OCR_ENABLED=true \
 OCR_BINARY=ocr \
@@ -242,11 +254,19 @@ REVIEW_TOKEN=dev-token \
 go run .
 ```
 
+### Docker Compose
+
+```sh
+docker compose up --build
+```
+
+Compose 会启动 PostgreSQL、API 服务和 Web 控制台。API 暴露在 `http://localhost:8080`，Web 控制台暴露在 `http://localhost/`。默认关闭 OCR，因此即使镜像内没有 `ocr` 二进制，服务也能先进入 ready；之后可在 Web 控制台或 settings API 配置并启用 OCR。
+
 ### 健康检查
 
 ```sh
-curl http://localhost:8080/healthz
-curl http://localhost:8080/readyz
+curl http://localhost:8081/healthz
+curl http://localhost:8081/readyz
 ```
 
 ### Web 控制台
@@ -262,7 +282,7 @@ cd frontend && npm install && npm run dev
 ### 创建评审
 
 ```sh
-curl -X POST http://localhost:8080/api/v1/reviews \
+curl -X POST http://localhost:8081/api/v1/reviews \
   -H "Authorization: Bearer dev-token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -277,21 +297,21 @@ curl -X POST http://localhost:8080/api/v1/reviews \
 ### 查询评审
 
 ```sh
-curl http://localhost:8080/api/v1/reviews/{review_id} \
+curl http://localhost:8081/api/v1/reviews/{review_id} \
   -H "Authorization: Bearer dev-token"
 ```
 
 ### 评审列表
 
 ```sh
-curl "http://localhost:8080/api/v1/reviews?provider=github&status=success&page=1&page_size=50" \
+curl "http://localhost:8081/api/v1/reviews?provider=github&status=success&page=1&page_size=50" \
   -H "Authorization: Bearer dev-token"
 ```
 
 ### Webhook 端点
 
 ```sh
-curl -X POST http://localhost:8080/api/v1/webhooks \
+curl -X POST http://localhost:8081/api/v1/webhooks \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "github",

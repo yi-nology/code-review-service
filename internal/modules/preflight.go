@@ -21,6 +21,16 @@ var PreflightModule = fx.Invoke(RegisterPreflight)
 func RegisterPreflight(lc fx.Lifecycle, repos *repository.RepoContainer, resolver *ocr.ConfigResolver) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			s, err := repos.OCRSettings.Get(ctx)
+			if err != nil {
+				logx.Errorf("[preflight] OCR 配置读取失败: %v", err)
+				return nil
+			}
+			if s == nil || !s.Enabled {
+				logx.Infof("[preflight] OCR 未启用，跳过 OCR/LLM 依赖检查")
+				return nil
+			}
+
 			cfg, _ := resolver.Resolve(review.OCROverrides{})
 			binary := cfg.Binary
 			if binary == "" {
@@ -32,12 +42,10 @@ func RegisterPreflight(lc fx.Lifecycle, repos *repository.RepoContainer, resolve
 				logx.Infof("[preflight] OCR 二进制就绪: %s", binary)
 			}
 
-			if s, err := repos.OCRSettings.Get(ctx); err == nil && s != nil && s.Enabled {
-				if err := llmEndpointCheck(repos, resolver)(ctx); err != nil {
-					logx.Errorf("[preflight] LLM endpoint 检查失败: %v。评审将会失败，请检查 LLM 配置（URL/认证/网络）", err)
-				} else {
-					logx.Infof("[preflight] LLM endpoint 可达")
-				}
+			if err := llmEndpointCheck(repos, resolver)(ctx); err != nil {
+				logx.Errorf("[preflight] LLM endpoint 检查失败: %v。评审将会失败，请检查 LLM 配置（URL/认证/网络）", err)
+			} else {
+				logx.Infof("[preflight] LLM endpoint 可达")
 			}
 
 			return nil

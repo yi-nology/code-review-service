@@ -1,11 +1,11 @@
-GO_PACKAGES := $(shell go list ./... | grep -v '/frontend/node_modules/')
-GO_LINT_PATHS := $(shell go list -f '{{.Dir}}' ./... | grep -v '/frontend/node_modules/')
+GO_PACKAGES = $(shell go list ./... | grep -v '/frontend/node_modules/')
+GO_LINT_PATHS = $(shell go list -f '{{.Dir}}' ./... | grep -v '/frontend/node_modules/')
 
 # Local dependency paths (override with EKIT_PATH=... GIT_SDK_PATH=...)
 EKIT_PATH ?= ../ekit
 GIT_SDK_PATH ?= /opt/project/wechat_project/git-platform-sdk
 
-.PHONY: help fmt lint lint-strict test test-race vuln frontend-install frontend-lint frontend-build check setup-local-deps
+.PHONY: help fmt lint lint-strict test test-race vuln frontend-install frontend-lint frontend-build compose-config check setup-local-deps
 
 help:
 	@echo "Targets:"
@@ -17,6 +17,7 @@ help:
 	@echo "  make vuln            Run govulncheck"
 	@echo "  make frontend-lint   Run Vue/TypeScript lint"
 	@echo "  make frontend-build  Run Vue typecheck and production build"
+	@echo "  make compose-config  Validate docker compose configuration"
 	@echo "  make check           Run the default local quality gate"
 	@echo "  make setup-local-deps Verify/configure local replace directives"
 
@@ -54,6 +55,9 @@ frontend-lint:
 
 frontend-build:
 	npm run build --prefix frontend
+
+compose-config:
+	docker compose config >/dev/null
 
 check: test lint frontend-lint frontend-build
 

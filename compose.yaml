@@ -24,6 +24,7 @@ services:
       HTTP_ADDR: ":8080"
       REVIEW_TOKEN: ${REVIEW_TOKEN:-dev-token}
       DATABASE_URL: postgres://review_service:review_service@postgres:5432/review_service?sslmode=disable
+      OCR_ENABLED: ${OCR_ENABLED:-false}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       GITLAB_TOKEN: ${GITLAB_TOKEN:-}
       GITEA_TOKEN: ${GITEA_TOKEN:-}

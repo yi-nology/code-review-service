@@ -4,6 +4,8 @@
 node_modules
 frontend/node_modules
 *.md
-deploy/
+deploy/*
+!deploy/nginx.conf
+!deploy/Dockerfile.frontend
 docs/
 tmp/

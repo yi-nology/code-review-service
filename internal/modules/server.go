@@ -17,9 +17,9 @@ import (
 	mw "github.com/oekit/middleware"
 	emetrics "github.com/oekit/metrics"
 
+	"github.com/oekit/logx"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
-	"github.com/oekit/logx"
 	"go.uber.org/fx"
 	"gorm.io/gorm"
 )
@@ -62,7 +62,7 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos
 		healthOpts = append(healthOpts, health.WithCheckers(health.DBChecker(sqlDB)))
 	}
 	healthOpts = append(healthOpts,
-		health.WithCheckers(health.NamedChecker("ocr-binary", ocrBinaryCheck(resolver))),
+		health.WithCheckers(health.NamedChecker("ocr-binary", ocrBinaryCheck(repos, resolver))),
 		health.WithCheckers(health.NamedChecker("llm-endpoint", llmEndpointCheck(repos, resolver))),
 	)
 	health.RegisterBasicRoutes(h, healthOpts...)
@@ -71,7 +71,7 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos
 	// 之前这些路径未注册导致 k8s probe 404。
 	probeHandler := health.NewHealthHandler(
 		health.NamedChecker("db", dbCheck(db)),
-		health.NamedChecker("ocr-binary", ocrBinaryCheck(resolver)),
+		health.NamedChecker("ocr-binary", ocrBinaryCheck(repos, resolver)),
 		health.NamedChecker("llm-endpoint", llmEndpointCheck(repos, resolver)),
 	)
 	h.GET("/healthz", probeHandler)

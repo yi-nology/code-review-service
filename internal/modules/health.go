@@ -33,8 +33,12 @@ func dbCheck(db *gorm.DB) health.HealthChecker {
 // ocrBinaryCheck 检查 OCR 二进制是否存在于 PATH。
 // 轻量（exec.LookPath 不 fork），用于 /health 就绪探针。
 // 二进制缺失会让所有评审失败，因此作为就绪条件。
-func ocrBinaryCheck(resolver *ocr.ConfigResolver) health.HealthChecker {
-	return func(_ context.Context) error {
+func ocrBinaryCheck(repos *repository.RepoContainer, resolver *ocr.ConfigResolver) health.HealthChecker {
+	return func(ctx context.Context) error {
+		s, err := repos.OCRSettings.Get(ctx)
+		if err != nil || s == nil || !s.Enabled {
+			return nil
+		}
 		// 配置读取失败（如首次启动尚未配置）时用默认 binary 检查，
 		// 不应阻断就绪探针——配置问题由 preflight 与日志反映。
 		cfg, _ := resolver.Resolve(review.OCROverrides{})
