@@ -77,6 +77,30 @@ export interface Finding {
   suggestion_code?: string
 }
 
+export interface SuggestionPatchItem {
+  index: number
+  path: string
+  start_line: number
+  end_line: number
+  title?: string
+}
+
+export interface SuggestionPatchSkipped {
+  index: number
+  path?: string
+  title?: string
+  reason: string
+}
+
+export interface SuggestionPatchPreview {
+  review_id: string
+  patch: string
+  items: SuggestionPatchItem[]
+  skipped: SuggestionPatchSkipped[]
+  generated_count: number
+  skipped_count: number
+}
+
 export interface Report {
   ocr: OCRMetadata
   scope: ScopeMetadata

@@ -288,12 +288,52 @@
               <template #header>
                 <div class="card-header">
                   <span>问题报告</span>
-                  <el-tag>{{ detail.findings.length }} 个问题</el-tag>
+                  <div class="finding-header-actions">
+                    <el-tag>{{ detail.findings.length }} 个问题</el-tag>
+                    <el-button size="small" plain @click="selectPatchableFindings">全选可生成</el-button>
+                  </div>
                 </div>
               </template>
+              <div class="suggestion-patch-panel">
+                <div class="patch-summary">
+                  <div>
+                    <strong>修复 Patch</strong>
+                    <span>已选 {{ selectedPatchIndexes.length }} / 可生成 {{ patchableFindingIndexes.length }}</span>
+                  </div>
+                  <div class="patch-actions">
+                    <el-button size="small" @click="clearPatchSelection">清空</el-button>
+                    <el-button size="small" type="primary" plain :disabled="!patchSelectionIndexes.length" :loading="patchLoading" @click="handlePreviewPatch">
+                      生成预览
+                    </el-button>
+                    <el-button size="small" plain :disabled="!patchPreview?.patch" @click="copyPatch">复制</el-button>
+                    <el-button size="small" plain :disabled="!patchPreview?.patch" :loading="patchDownloading" @click="downloadPatch">
+                      下载 .diff
+                    </el-button>
+                  </div>
+                </div>
+                <div v-if="patchPreview" class="patch-result">
+                  <div class="patch-result-meta">
+                    <el-tag type="success" size="small">生成 {{ patchPreview.generated_count }}</el-tag>
+                    <el-tag v-if="patchPreview.skipped_count" type="warning" size="small">跳过 {{ patchPreview.skipped_count }}</el-tag>
+                  </div>
+                  <div v-if="patchPreview.skipped?.length" class="patch-skipped">
+                    <span v-for="item in patchPreview.skipped" :key="`${item.index}-${item.reason}`">
+                      #{{ item.index + 1 }} {{ item.path || item.title || '未命名问题' }}：{{ item.reason }}
+                    </span>
+                  </div>
+                  <pre v-if="patchPreview.patch" class="patch-preview">{{ patchPreview.patch }}</pre>
+                  <el-empty v-else description="当前选择没有可生成的 Patch" :image-size="48" />
+                </div>
+              </div>
               <div class="finding-list">
                 <div v-for="(finding, index) in detail.findings" :key="index" class="finding-item">
                   <div class="finding-header">
+                    <el-checkbox
+                      class="finding-patch-checkbox"
+                      :model-value="selectedPatchIndexes.includes(index)"
+                      :disabled="!isPatchableFinding(finding)"
+                      @change="(checked: boolean | string | number) => togglePatchFinding(index, Boolean(checked))"
+                    />
                     <el-tag :type="getSeverityType(finding.severity)" size="small">
                       {{ finding.severity.toUpperCase() }}
                     </el-tag>
@@ -440,13 +480,13 @@ import { ArrowLeft, ArrowRight, SuccessFilled, CircleCloseFilled, InfoFilled, Re
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ProgressTracker from '@/components/ProgressTracker.vue'
 import PublishPanel from '@/components/PublishPanel.vue'
-import { getReview, cancelReview, rerunReview } from '@/api/review'
+import { getReview, cancelReview, rerunReview, previewSuggestionPatch, downloadSuggestionPatch } from '@/api/review'
 import { getViewerStatus, startViewer } from '@/api/config'
 import { sessionApi, type ReviewSession } from '@/api/session'
 import { getProviderLabel } from '@/utils/url-parser'
 import { getStatusLabel, getStatusType, getSeverityType, getPhaseLabel, getSessionStatusType, getSessionStatusLabel } from '@/utils/status'
 import { formatDateTime } from '@/utils/format'
-import type { ReviewDetail } from '@/types/review'
+import type { Finding, ReviewDetail, SuggestionPatchPreview } from '@/types/review'
 import type { ViewerStatus } from '@/types/config'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
@@ -461,6 +501,10 @@ const viewportWidth = ref(window.innerWidth)
 const viewerStatus = ref<ViewerStatus | null>(null)
 const viewerLoading = ref(false)
 const reviewViewerOpen = ref(false)
+const selectedPatchIndexes = ref<number[]>([])
+const patchPreview = ref<SuggestionPatchPreview | null>(null)
+const patchLoading = ref(false)
+const patchDownloading = ref(false)
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 let fetchInFlight = false
 const descriptionColumns = computed(() => viewportWidth.value < 720 ? 1 : 2)
@@ -470,6 +514,16 @@ const toolCallRows = computed(() => {
   return Object.entries(byTool)
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count)
+})
+const patchableFindingIndexes = computed(() => {
+  return (detail.value?.findings || [])
+    .map((finding, index) => ({ finding, index }))
+    .filter(({ finding }) => isPatchableFinding(finding))
+    .map(({ index }) => index)
+})
+const patchSelectionIndexes = computed(() => {
+  const allowed = new Set(patchableFindingIndexes.value)
+  return selectedPatchIndexes.value.filter((index) => allowed.has(index))
 })
 const showProgressTracker = computed(() => Boolean(detail.value && (
   ['queued', 'running', 'failed', 'success', 'completed'].includes(detail.value.status) ||
@@ -528,11 +582,75 @@ async function fetchDetail(background = false) {
   if (!background) loading.value = true
   try {
     detail.value = await getReview(route.params.id as string)
+    selectedPatchIndexes.value = patchableFindingIndexes.value
+    patchPreview.value = null
     await fetchSessions()
   } finally {
     fetchInFlight = false
     if (!background) loading.value = false
     schedulePolling()
+  }
+}
+
+function isPatchableFinding(finding: Finding) {
+  const line = finding.start_line || finding.line || 0
+  return Boolean(finding.path?.trim() && finding.existing_code?.trim() && finding.suggestion_code?.trim() && line > 0)
+}
+
+function togglePatchFinding(index: number, checked: boolean) {
+  const current = new Set(selectedPatchIndexes.value)
+  if (checked) {
+    current.add(index)
+  } else {
+    current.delete(index)
+  }
+  selectedPatchIndexes.value = Array.from(current).sort((a, b) => a - b)
+}
+
+function selectPatchableFindings() {
+  selectedPatchIndexes.value = patchableFindingIndexes.value
+}
+
+function clearPatchSelection() {
+  selectedPatchIndexes.value = []
+  patchPreview.value = null
+}
+
+async function handlePreviewPatch() {
+  if (!detail.value || patchSelectionIndexes.value.length === 0) return
+  patchLoading.value = true
+  try {
+    patchPreview.value = await previewSuggestionPatch(detail.value.review_id, patchSelectionIndexes.value)
+  } finally {
+    patchLoading.value = false
+  }
+}
+
+async function copyPatch() {
+  if (!patchPreview.value?.patch) return
+  try {
+    await navigator.clipboard.writeText(patchPreview.value.patch)
+    ElMessage.success('Patch 已复制')
+  } catch {
+    ElMessage.error('复制失败，请手动复制预览内容')
+  }
+}
+
+async function downloadPatch() {
+  if (!detail.value || patchSelectionIndexes.value.length === 0) return
+  patchDownloading.value = true
+  try {
+    const blob = await downloadSuggestionPatch(detail.value.review_id, patchSelectionIndexes.value)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${detail.value.review_id}-suggestion.patch`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  } finally {
+    patchDownloading.value = false
   }
 }
 
@@ -878,6 +996,69 @@ code {
   color: #0f172a;
 }
 
+.finding-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.suggestion-patch-panel {
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.patch-summary,
+.patch-actions,
+.patch-result-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.patch-summary {
+  justify-content: space-between;
+}
+
+.patch-summary strong,
+.patch-summary span {
+  display: block;
+}
+
+.patch-summary span {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.patch-result {
+  margin-top: 12px;
+}
+
+.patch-skipped {
+  display: grid;
+  gap: 5px;
+  margin-top: 8px;
+  color: #92400e;
+  font-size: 12px;
+}
+
+.patch-preview {
+  max-height: 360px;
+  margin: 10px 0 0;
+  padding: 12px;
+  overflow: auto;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #dbeafe;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre;
+}
+
 .review-viewer-frame {
   margin-top: 14px;
   overflow: hidden;
@@ -1033,6 +1214,11 @@ code {
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+}
+
+.finding-patch-checkbox {
+  flex: 0 0 auto;
+  height: 22px;
 }
 
 .finding-title {
@@ -1205,6 +1391,12 @@ code {
   }
 
   .finding-header {
+    flex-wrap: wrap;
+  }
+
+  .finding-header-actions,
+  .patch-summary,
+  .patch-actions {
     flex-wrap: wrap;
   }
 

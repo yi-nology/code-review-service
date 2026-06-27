@@ -1,7 +1,7 @@
 import request from './request'
 import type {
   ReviewDetail, ListResult, ListOptions, CreateReviewOptions,
-  ScanRepositoryOptions, ScanRepositoryResult,
+  ScanRepositoryOptions, ScanRepositoryResult, SuggestionPatchPreview,
 } from '@/types/review'
 
 export async function getReviews(params: ListOptions): Promise<ListResult> {
@@ -75,4 +75,21 @@ export async function updatePublishedComment(reviewId: string): Promise<{
   review_id: string
 }> {
   return request.put(`/reviews/${reviewId}/publish`) as any
+}
+
+function findingIndexesParam(indexes?: number[]) {
+  return indexes && indexes.length ? indexes.join(',') : undefined
+}
+
+export async function previewSuggestionPatch(reviewId: string, indexes?: number[]): Promise<SuggestionPatchPreview> {
+  return request.get(`/reviews/${reviewId}/suggestion-patch`, {
+    params: { finding_indexes: findingIndexesParam(indexes) },
+  }) as any
+}
+
+export async function downloadSuggestionPatch(reviewId: string, indexes?: number[]): Promise<Blob> {
+  return request.get(`/reviews/${reviewId}/suggestion-patch.diff`, {
+    params: { finding_indexes: findingIndexesParam(indexes) },
+    responseType: 'blob',
+  }) as any
 }
