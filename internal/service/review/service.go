@@ -23,7 +23,7 @@ import (
 
 	mw "github.com/oekit/middleware"
 
-	"github.com/oekit/gormx"
+	"github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/ptrx"
 	"gorm.io/datatypes"

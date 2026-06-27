@@ -15,7 +15,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-	ekitGorm "github.com/oekit/gormx"
+	ekitGorm "github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/datatypes"

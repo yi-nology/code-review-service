@@ -8,7 +8,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
-	ekitGorm "github.com/oekit/gormx"
+	ekitGorm "github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 
 	gormLib "gorm.io/gorm"
 )

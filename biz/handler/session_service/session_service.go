@@ -9,7 +9,7 @@ import (
 	modelSession "github.com/yi-nology/code-review-service/biz/model/session"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
-	"github.com/oekit/gormx"
+	"github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 	"github.com/oekit/pkg/convert"
 	"github.com/oekit/pkg/ptrx"
 
