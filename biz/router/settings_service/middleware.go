@@ -153,3 +153,39 @@ func _getglobalrulesMw() []app.HandlerFunc {
 func _updateglobalrulesMw() []app.HandlerFunc {
 	return nil
 }
+
+func _listrulepackagesMw() []app.HandlerFunc {
+	return nil
+}
+
+func _upsertrulepackageMw() []app.HandlerFunc {
+	return nil
+}
+
+func _updaterulepackageMw() []app.HandlerFunc {
+	return nil
+}
+
+func _deleterulepackageMw() []app.HandlerFunc {
+	return nil
+}
+
+func _listtoolpackagesMw() []app.HandlerFunc {
+	return nil
+}
+
+func _upserttoolpackageMw() []app.HandlerFunc {
+	return nil
+}
+
+func _updatetoolpackageMw() []app.HandlerFunc {
+	return nil
+}
+
+func _deletetoolpackageMw() []app.HandlerFunc {
+	return nil
+}
+
+func _validatetoolpackageMw() []app.HandlerFunc {
+	return nil
+}

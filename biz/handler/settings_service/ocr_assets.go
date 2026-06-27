@@ -62,6 +62,14 @@ func ListRulePackages(ctx context.Context, c *app.RequestContext) {
 }
 
 func UpsertRulePackage(ctx context.Context, c *app.RequestContext) {
+	upsertRulePackage(ctx, c)
+}
+
+func UpdateRulePackage(ctx context.Context, c *app.RequestContext) {
+	upsertRulePackage(ctx, c)
+}
+
+func upsertRulePackage(ctx context.Context, c *app.RequestContext) {
 	var req rulePackageDTO
 	if err := c.BindAndValidate(&req); err != nil {
 		common.Fail(c, common.BadRequest(err.Error()))
@@ -130,6 +138,14 @@ func ListToolPackages(ctx context.Context, c *app.RequestContext) {
 }
 
 func UpsertToolPackage(ctx context.Context, c *app.RequestContext) {
+	upsertToolPackage(ctx, c)
+}
+
+func UpdateToolPackage(ctx context.Context, c *app.RequestContext) {
+	upsertToolPackage(ctx, c)
+}
+
+func upsertToolPackage(ctx context.Context, c *app.RequestContext) {
 	var req toolPackageDTO
 	if err := c.BindAndValidate(&req); err != nil {
 		common.Fail(c, common.BadRequest(err.Error()))

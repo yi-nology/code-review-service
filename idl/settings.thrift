@@ -55,6 +55,8 @@ struct OCRSettings {
     24: optional i64 reasoning_budget (api.body="reasoning_budget")
     25: optional i64 context_window (api.body="context_window")
     26: optional i64 max_output_tokens (api.body="max_output_tokens")
+    27: optional string extra_headers (api.body="extra_headers")
+    28: optional string tools_config (api.body="tools_config")
 }
 
 struct GetOCRSettingsResp {
@@ -152,6 +154,25 @@ struct OCRVersionResp {
     2: optional string commit (api.body="commit")
     3: optional string platform (api.body="platform")
     4: optional string build_time (api.body="build_time")
+}
+
+struct OCRUpdateInfoResp {
+    1: string current_version (api.body="current_version")
+    2: string latest_version (api.body="latest_version")
+    3: bool update_available (api.body="update_available")
+    4: optional string release_notes (api.body="release_notes")
+    5: optional string release_url (api.body="release_url")
+}
+
+struct StartOCRUpgradeReq {
+    1: optional string version (api.body="version")
+}
+
+struct OCRUpgradeStatusResp {
+    1: string state (api.body="state")
+    2: optional string message (api.body="message")
+    3: optional string version (api.body="version")
+    4: optional i32 progress (api.body="progress")
 }
 
 struct ViewerStatusResp {
@@ -326,3 +347,62 @@ struct DeleteReviewerAgentReq {
 }
 
 struct DeleteReviewerAgentResp {}
+
+struct RulePackage {
+    1: optional i64 id (api.body="id")
+    2: string name (api.body="name")
+    3: optional string description (api.body="description")
+    4: optional list<string> languages (api.body="languages")
+    5: optional list<string> tags (api.body="tags")
+    6: optional list<string> includes (api.body="includes")
+    7: optional list<string> excludes (api.body="excludes")
+    8: list<map<string,string>> rules (api.body="rules")
+    9: bool enabled (api.body="enabled")
+    10: optional list<string> project_refs (api.body="project_refs")
+    11: optional bool built_in (api.body="built_in")
+}
+
+struct ListRulePackagesReq {}
+
+struct ListRulePackagesResp {
+    1: list<RulePackage> items (api.body="items")
+}
+
+struct UpsertRulePackageReq {
+    1: optional i64 id (api.path="id")
+    2: RulePackage package (api.body="package")
+}
+
+struct UpsertRulePackageResp {
+    1: RulePackage item (api.body="item")
+}
+
+struct DeleteRulePackageReq {
+    1: i64 id (api.path="id")
+}
+
+struct DeleteRulePackageResp {}
+
+struct ListToolPackagesReq {}
+
+struct ListToolPackagesResp {}
+
+struct UpsertToolPackageReq {}
+
+struct UpsertToolPackageResp {}
+
+struct UpdateToolPackageReq {
+    1: optional i64 id (api.path="id")
+}
+
+struct UpdateToolPackageResp {}
+
+struct DeleteToolPackageReq {
+    1: i64 id (api.path="id")
+}
+
+struct DeleteToolPackageResp {}
+
+struct ValidateToolPackageReq {}
+
+struct ValidateToolPackageResp {}

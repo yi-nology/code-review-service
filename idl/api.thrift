@@ -15,6 +15,9 @@ service reviewService {
     review.PreviewResp PreviewReview(1: review.PreviewReq req) (api.post="/api/v1/reviews/preview")
     review.CreateReviewResp RerunReview(1: review.ReviewActionReq req) (api.post="/api/v1/reviews/:id/rerun")
     review.CreateReviewResp CancelReview(1: review.ReviewActionReq req) (api.post="/api/v1/reviews/:id/cancel")
+    review.SuggestionPatchPreview PreviewSuggestionPatch(1: review.PreviewSuggestionPatchReq req) (api.get="/api/v1/reviews/:id/suggestion-patch")
+    review.SuggestionPatchCheck CheckSuggestionPatch(1: review.CheckSuggestionPatchReq req) (api.get="/api/v1/reviews/:id/suggestion-patch/check")
+    review.SuggestionPatchPreview DownloadSuggestionPatch(1: review.PreviewSuggestionPatchReq req) (api.get="/api/v1/reviews/:id/suggestion-patch.diff")
 
     webhook.HandleWebhookResp HandleWebhook(1: webhook.HandleWebhookReq req) (api.post="/api/v1/webhooks/:provider/:installation")
 
@@ -35,6 +38,8 @@ service statsService {
     stats.GetProjectCategoriesResp GetProjectCategories(1: stats.GetProjectReq req) (api.get="/api/v1/stats/projects/categories")
     stats.GetProjectFilesResp GetProjectFiles(1: stats.GetProjectReq req) (api.get="/api/v1/stats/projects/files")
     stats.GetProjectContributorsResp GetProjectContributors(1: stats.GetProjectContributorsReq req) (api.get="/api/v1/stats/projects/contributors")
+    stats.GetProjectOCRMetricsResp GetProjectOCRMetrics(1: stats.GetProjectReq req) (api.get="/api/v1/stats/projects/ocr")
+    stats.GetProjectOCRTrendResp GetProjectOCRTrend(1: stats.GetProjectReq req) (api.get="/api/v1/stats/projects/ocr/trend")
 }
 
 service sessionService {
@@ -63,6 +68,8 @@ service publisherService {
     publisher.PublishReviewResp PublishReview(1: publisher.PublishReviewReq req) (api.post="/api/v1/reviews/:id/publish")
     publisher.PreviewCommentResp PreviewComment(1: publisher.PreviewCommentReq req) (api.get="/api/v1/reviews/:id/preview")
     publisher.UpdatePublishedCommentResp UpdatePublishedComment(1: publisher.UpdatePublishedCommentReq req) (api.put="/api/v1/reviews/:id/publish")
+    publisher.PublishStatus PublishStatus(1: publisher.PublishStatusReq req) (api.get="/api/v1/reviews/:id/publish/status")
+    publisher.RetryPublishResp RetryPublish(1: publisher.RetryPublishReq req) (api.post="/api/v1/reviews/:id/publish/retry")
 }
 
 service projectAgentService {
@@ -86,6 +93,9 @@ service settingsService {
     settings.ViewerStatusResp ViewerStatus() (api.get="/api/v1/settings/ocr/viewer")
     settings.StartViewerResp StartViewer(1: settings.StartViewerReq req) (api.post="/api/v1/settings/ocr/viewer/start")
     settings.ViewerStatusResp StopViewer() (api.post="/api/v1/settings/ocr/viewer/stop")
+    settings.OCRUpdateInfoResp CheckOCRUpdate() (api.get="/api/v1/settings/ocr/upgrade/info")
+    settings.OCRUpgradeStatusResp StartOCRUpgrade(1: settings.StartOCRUpgradeReq req) (api.post="/api/v1/settings/ocr/upgrade")
+    settings.OCRUpgradeStatusResp OCRUpgradeStatus() (api.get="/api/v1/settings/ocr/upgrade/status")
 
     settings.ListProjectPoliciesResp ListProjectPolicies() (api.get="/api/v1/settings/projects")
     settings.PutProjectPolicyResp PutProjectPolicy(1: settings.PutProjectPolicyReq req) (api.put="/api/v1/settings/projects")
@@ -101,4 +111,15 @@ service settingsService {
     settings.CreateReviewerAgentResp CreateReviewerAgent(1: settings.CreateReviewerAgentReq req) (api.post="/api/v1/settings/agents")
     settings.UpdateReviewerAgentResp UpdateReviewerAgent(1: settings.UpdateReviewerAgentReq req) (api.put="/api/v1/settings/agents/:id")
     settings.DeleteReviewerAgentResp DeleteReviewerAgent(1: settings.DeleteReviewerAgentReq req) (api.delete="/api/v1/settings/agents/:id")
+
+    settings.ListRulePackagesResp ListRulePackages() (api.get="/api/v1/settings/rules/packages")
+    settings.UpsertRulePackageResp UpsertRulePackage(1: settings.UpsertRulePackageReq req) (api.post="/api/v1/settings/rules/packages")
+    settings.UpsertRulePackageResp UpdateRulePackage(1: settings.UpsertRulePackageReq req) (api.put="/api/v1/settings/rules/packages/:id")
+    settings.DeleteRulePackageResp DeleteRulePackage(1: settings.DeleteRulePackageReq req) (api.delete="/api/v1/settings/rules/packages/:id")
+
+    settings.ListToolPackagesResp ListToolPackages() (api.get="/api/v1/settings/ocr/tool-packages")
+    settings.UpsertToolPackageResp UpsertToolPackage(1: settings.UpsertToolPackageReq req) (api.post="/api/v1/settings/ocr/tool-packages")
+    settings.UpsertToolPackageResp UpdateToolPackage(1: settings.UpdateToolPackageReq req) (api.put="/api/v1/settings/ocr/tool-packages/:id")
+    settings.DeleteToolPackageResp DeleteToolPackage(1: settings.DeleteToolPackageReq req) (api.delete="/api/v1/settings/ocr/tool-packages/:id")
+    settings.ValidateToolPackageResp ValidateToolPackage(1: settings.ValidateToolPackageReq req) (api.post="/api/v1/settings/ocr/tool-packages/validate")
 }

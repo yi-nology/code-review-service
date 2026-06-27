@@ -53,6 +53,11 @@ struct Score {
     6: optional double findings_density (api.body="findings_density")
 }
 
+struct OCRToolCalls {
+    1: i64 total (api.body="total")
+    2: optional map<string, i64> by_tool (api.body="by_tool")
+}
+
 struct OCRMetadata {
     1: optional string engine (api.body="engine")
     2: optional string status (api.body="status")
@@ -64,6 +69,8 @@ struct OCRMetadata {
     8: optional i64 cache_read_tokens (api.body="cache_read_tokens")
     9: optional i64 cache_write_tokens (api.body="cache_write_tokens")
     10: optional string elapsed (api.body="elapsed")
+    11: optional OCRToolCalls tool_calls (api.body="tool_calls")
+    12: optional string project_summary (api.body="project_summary")
 }
 
 struct ScopeMetadata {
@@ -218,4 +225,50 @@ struct PreviewResp {
 
 struct ReviewActionReq {
     1: string id (api.path="id")
+}
+
+struct SuggestionPatchItem {
+    1: i64 index (api.body="index")
+    2: string path (api.body="path")
+    3: i64 start_line (api.body="start_line")
+    4: i64 end_line (api.body="end_line")
+    5: optional string title (api.body="title")
+}
+
+struct SuggestionPatchSkipped {
+    1: i64 index (api.body="index")
+    2: optional string path (api.body="path")
+    3: optional string title (api.body="title")
+    4: string reason (api.body="reason")
+}
+
+struct SuggestionPatchPreview {
+    1: string review_id (api.body="review_id")
+    2: string patch (api.body="patch")
+    3: list<SuggestionPatchItem> items (api.body="items")
+    4: list<SuggestionPatchSkipped> skipped (api.body="skipped")
+    5: i64 generated_count (api.body="generated_count")
+    6: i64 skipped_count (api.body="skipped_count")
+}
+
+struct PreviewSuggestionPatchReq {
+    1: string id (api.path="id")
+    2: optional string finding_indexes (api.query="finding_indexes")
+}
+
+struct SuggestionPatchCheck {
+    1: string review_id (api.body="review_id")
+    2: string patch (api.body="patch")
+    3: list<SuggestionPatchItem> items (api.body="items")
+    4: list<SuggestionPatchSkipped> skipped (api.body="skipped")
+    5: i64 generated_count (api.body="generated_count")
+    6: i64 skipped_count (api.body="skipped_count")
+    7: bool applicable (api.body="applicable")
+    8: optional string error (api.body="error")
+    9: optional string output (api.body="output")
+}
+
+struct CheckSuggestionPatchReq {
+    1: string id (api.path="id")
+    2: optional string finding_indexes (api.query="finding_indexes")
 }

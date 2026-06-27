@@ -55,3 +55,13 @@ func _getcontributortrendMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
+
+func _getprojectocrmetricsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getprojectocrtrendMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}

@@ -204,3 +204,41 @@ struct ContributorSummary {
 struct GetProjectContributorsResp {
     1: list<ContributorSummary> contributors (api.body="contributors")
 }
+
+struct ToolCallStat {
+    1: string tool (api.body="tool")
+    2: i64 count (api.body="count")
+}
+
+struct ProjectOCRMetrics {
+    1: i64 review_count (api.body="review_count")
+    2: i64 total_tokens (api.body="total_tokens")
+    3: i64 input_tokens (api.body="input_tokens")
+    4: i64 output_tokens (api.body="output_tokens")
+    5: i64 cache_read_tokens (api.body="cache_read_tokens")
+    6: i64 cache_write_tokens (api.body="cache_write_tokens")
+    7: i64 total_reviewed_files (api.body="total_reviewed_files")
+    8: double avg_tokens (api.body="avg_tokens")
+    9: double avg_score (api.body="avg_score")
+    10: double avg_findings_density (api.body="avg_findings_density")
+    11: map<string,i64> grade_distribution (api.body="grade_distribution")
+    12: list<ToolCallStat> tool_calls (api.body="tool_calls")
+}
+
+struct ProjectOCRTrendPoint {
+    1: string period (api.body="period")
+    2: i64 review_count (api.body="review_count")
+    3: i64 total_tokens (api.body="total_tokens")
+    4: double avg_tokens (api.body="avg_tokens")
+    5: double avg_elapsed_ms (api.body="avg_elapsed_ms")
+    6: double avg_score (api.body="avg_score")
+    7: double findings_density (api.body="findings_density")
+}
+
+struct GetProjectOCRMetricsResp {
+    1: ProjectOCRMetrics metrics (api.body="metrics")
+}
+
+struct GetProjectOCRTrendResp {
+    1: list<ProjectOCRTrendPoint> trend (api.body="trend")
+}

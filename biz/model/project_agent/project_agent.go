@@ -295,16 +295,21 @@ func (p *ProjectAgentConfig) GetProjectPriority() (v int64) {
 	return p.ProjectPriority
 }
 
+func (p *ProjectAgentConfig) GetIsDefault() (v bool) {
+	return p.IsDefault
+}
+
 var fieldIDToName_ProjectAgentConfig = map[int16]string{
-	1: "agent_id",
-	2: "name",
-	3: "display_name",
-	4: "description",
-	5: "background",
-	6: "enabled",
-	7: "priority",
-	8: "project_enabled",
-	9: "project_priority",
+	1:  "agent_id",
+	2:  "name",
+	3:  "display_name",
+	4:  "description",
+	5:  "background",
+	6:  "enabled",
+	7:  "priority",
+	8:  "project_enabled",
+	9:  "project_priority",
+	10: "is_default",
 }
 
 func (p *ProjectAgentConfig) Read(iprot thrift.TProtocol) (err error) {
@@ -393,6 +398,14 @@ func (p *ProjectAgentConfig) Read(iprot thrift.TProtocol) (err error) {
 		case 9:
 			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField9(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 10:
+			if fieldTypeId == thrift.BOOL {
+				if err = p.ReadField10(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -526,6 +539,17 @@ func (p *ProjectAgentConfig) ReadField9(iprot thrift.TProtocol) error {
 	p.ProjectPriority = _field
 	return nil
 }
+func (p *ProjectAgentConfig) ReadField10(iprot thrift.TProtocol) error {
+
+	var _field bool
+	if v, err := iprot.ReadBool(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.IsDefault = _field
+	return nil
+}
 
 func (p *ProjectAgentConfig) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -567,6 +591,10 @@ func (p *ProjectAgentConfig) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField9(oprot); err != nil {
 			fieldId = 9
+			goto WriteFieldError
+		}
+		if err = p.writeField10(oprot); err != nil {
+			fieldId = 10
 			goto WriteFieldError
 		}
 	}
@@ -738,6 +766,23 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 9 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 9 end error: ", p), err)
+}
+
+func (p *ProjectAgentConfig) writeField10(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("is_default", thrift.BOOL, 10); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteBool(p.IsDefault); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 10 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 10 end error: ", p), err)
 }
 
 func (p *ProjectAgentConfig) String() string {

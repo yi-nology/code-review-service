@@ -29,6 +29,9 @@ func Register(r *server.Hertz) {
 				_id := _reviews.Group("/:id", _idMw()...)
 				_id.POST("/cancel", append(_cancelreviewMw(), review_service.CancelReview)...)
 				_id.POST("/rerun", append(_rerunreviewMw(), review_service.RerunReview)...)
+				_id.GET("/suggestion-patch", append(_previewsuggestionpatchMw(), review_service.PreviewSuggestionPatch)...)
+				_id.GET("/suggestion-patch/check", append(_checksuggestionpatchMw(), review_service.CheckSuggestionPatch)...)
+				_id.GET("/suggestion-patch.diff", append(_downloadsuggestionpatchMw(), review_service.DownloadSuggestionPatch)...)
 			}
 			_v1.POST("/reviews", append(_createreviewMw(), review_service.CreateReview)...)
 			_reviews0 := _v1.Group("/reviews", _reviews0Mw()...)

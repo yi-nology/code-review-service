@@ -7,10 +7,6 @@ import (
 	"net/http"
 	"strings"
 
-	publisherHandler "github.com/yi-nology/code-review-service/biz/handler/publisher_service"
-	reviewHandler "github.com/yi-nology/code-review-service/biz/handler/review_service"
-	settingsHandler "github.com/yi-nology/code-review-service/biz/handler/settings_service"
-	statsHandler "github.com/yi-nology/code-review-service/biz/handler/stats_service"
 	"github.com/yi-nology/code-review-service/biz/router"
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/middleware"
@@ -99,42 +95,11 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos
 	swagger.RegisterRoutes(h)
 
 	router.GeneratedRegister(h)
-	registerSuggestionPatchRoutes(h)
-	registerPublishStatusRoutes(h)
-	registerOCRAssetRoutes(h, viewerMgr)
+	registerViewerProxyRoute(h, viewerMgr)
 }
 
-func registerSuggestionPatchRoutes(h *server.Hertz) {
-	api := h.Group("/api/v1/reviews")
-	api.GET("/:id/suggestion-patch", reviewHandler.PreviewSuggestionPatch)
-	api.GET("/:id/suggestion-patch/check", reviewHandler.CheckSuggestionPatch)
-	api.GET("/:id/suggestion-patch.diff", reviewHandler.DownloadSuggestionPatch)
-}
-
-func registerPublishStatusRoutes(h *server.Hertz) {
-	api := h.Group("/api/v1/reviews")
-	api.GET("/:id/publish/status", publisherHandler.PublishStatus)
-	api.POST("/:id/publish/retry", publisherHandler.RetryPublish)
-}
-
-func registerOCRAssetRoutes(h *server.Hertz, viewerMgr *ocr.ViewerManager) {
-	api := h.Group("/api/v1/settings")
-	api.GET("/rules/packages", settingsHandler.ListRulePackages)
-	api.POST("/rules/packages", settingsHandler.UpsertRulePackage)
-	api.PUT("/rules/packages/:id", settingsHandler.UpsertRulePackage)
-	api.DELETE("/rules/packages/:id", settingsHandler.DeleteRulePackage)
-
-	api.GET("/ocr/tool-packages", settingsHandler.ListToolPackages)
-	api.POST("/ocr/tool-packages", settingsHandler.UpsertToolPackage)
-	api.PUT("/ocr/tool-packages/:id", settingsHandler.UpsertToolPackage)
-	api.DELETE("/ocr/tool-packages/:id", settingsHandler.DeleteToolPackage)
-	api.POST("/ocr/tool-packages/validate", settingsHandler.ValidateToolPackage)
-
-	api.GET("/ocr/viewer/proxy/*path", viewerProxyHandler(viewerMgr))
-
-	statsAPI := h.Group("/api/v1/stats")
-	statsAPI.GET("/projects/ocr", statsHandler.GetProjectOCRMetrics)
-	statsAPI.GET("/projects/ocr/trend", statsHandler.GetProjectOCRTrend)
+func registerViewerProxyRoute(h *server.Hertz, viewerMgr *ocr.ViewerManager) {
+	h.GET("/api/v1/settings/ocr/viewer/proxy/*path", viewerProxyHandler(viewerMgr))
 }
 
 func viewerProxyHandler(viewerMgr *ocr.ViewerManager) app.HandlerFunc {
