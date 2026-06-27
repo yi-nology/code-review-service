@@ -43,7 +43,7 @@
           <el-button size="small" plain :disabled="!patchPreview?.patch" :loading="patchDownloading" @click="$emit('download-patch', patchSelectionIndexes)">
             下载 .diff
           </el-button>
-          <el-button size="small" type="success" plain :disabled="!patchSelectionIndexes.length" :loading="patchApplying" @click="applyPatch">
+          <el-button size="small" type="success" plain :disabled="!canApplyPatch" :loading="patchApplying" @click="applyPatch">
             创建修复提交
           </el-button>
         </div>
@@ -55,6 +55,7 @@
           <el-tag v-if="patchCheck" :type="patchCheck.applicable ? 'success' : 'danger'" size="small">
             {{ patchCheck.applicable ? '可应用' : '不可应用' }}
           </el-tag>
+          <el-tag v-else-if="patchPreview?.patch" type="info" size="small">待检查</el-tag>
         </div>
         <div v-if="patchCheck && (!patchCheck.applicable || patchCheck.output)" class="patch-check-output">
           {{ patchCheck.error || 'git apply --check' }}<template v-if="patchCheck.output">：{{ patchCheck.output }}</template>
@@ -138,6 +139,7 @@ const patchLoading = ref(false)
 const patchChecking = ref(false)
 const patchDownloading = ref(false)
 const patchApplying = ref(false)
+const patchCheckKey = ref('')
 
 const patchableFindingIndexes = computed(() => {
   return props.findings
@@ -149,6 +151,11 @@ const patchableFindingIndexes = computed(() => {
 const patchSelectionIndexes = computed(() => {
   const allowed = new Set(patchableFindingIndexes.value)
   return selectedPatchIndexes.value.filter((index) => allowed.has(index))
+})
+
+const patchSelectionKey = computed(() => patchSelectionIndexes.value.join(','))
+const canApplyPatch = computed(() => {
+  return Boolean(patchSelectionIndexes.value.length && patchCheck.value?.applicable && patchCheckKey.value === patchSelectionKey.value)
 })
 
 function isPatchableFinding(finding: Finding) {
@@ -164,16 +171,23 @@ function togglePatchFinding(index: number, checked: boolean) {
     current.delete(index)
   }
   selectedPatchIndexes.value = Array.from(current).sort((a, b) => a - b)
+  resetPatchPreviewState()
 }
 
 function selectPatchableFindings() {
   selectedPatchIndexes.value = patchableFindingIndexes.value
+  resetPatchPreviewState()
 }
 
 function clearPatchSelection() {
   selectedPatchIndexes.value = []
+  resetPatchPreviewState()
+}
+
+function resetPatchPreviewState() {
   patchPreview.value = null
   patchCheck.value = null
+  patchCheckKey.value = ''
   patchApplyResult.value = null
 }
 
@@ -183,6 +197,7 @@ async function handlePreviewPatch() {
   try {
     patchPreview.value = await previewSuggestionPatch(props.reviewId, patchSelectionIndexes.value)
     patchCheck.value = null
+    patchCheckKey.value = ''
     patchApplyResult.value = null
   } finally {
     patchLoading.value = false
@@ -194,6 +209,7 @@ async function checkPatch() {
   patchChecking.value = true
   try {
     patchCheck.value = await checkSuggestionPatch(props.reviewId, patchSelectionIndexes.value)
+    patchCheckKey.value = patchSelectionKey.value
     if (patchCheck.value.applicable) {
       ElMessage.success('Patch 可应用')
     } else {
@@ -205,7 +221,10 @@ async function checkPatch() {
 }
 
 async function applyPatch() {
-  if (!patchSelectionIndexes.value.length) return
+  if (!canApplyPatch.value) {
+    ElMessage.warning('请先通过当前选择的 Patch 可应用检查')
+    return
+  }
   patchApplying.value = true
   try {
     patchApplyResult.value = await applySuggestionPatch(props.reviewId, {
@@ -239,9 +258,7 @@ async function copyPatch() {
 
 function resetPatchState() {
   selectedPatchIndexes.value = patchableFindingIndexes.value
-  patchPreview.value = null
-  patchCheck.value = null
-  patchApplyResult.value = null
+  resetPatchPreviewState()
 }
 
 defineExpose({ resetPatchState })
