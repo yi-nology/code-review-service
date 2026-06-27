@@ -8,6 +8,10 @@
           <p>配置代码审查使用的 AI 模型和参数</p>
         </div>
         <div class="header-actions">
+          <el-button @click="syncProviders" :loading="syncingProviders">
+            <el-icon><Connection /></el-icon>
+            同步 OCR Provider
+          </el-button>
           <el-button @click="fetchSettings" :loading="loading">
             <el-icon><Refresh /></el-icon>
             刷新
@@ -62,7 +66,7 @@
       <ModelSetupWizard
         v-if="showWizard"
         ref="wizardRef"
-        :presets="allPresets"
+        :presets="syncedPresets"
         :saving="saving"
         :testing-llm="testingLLM"
         :initial-config="form"
@@ -107,8 +111,8 @@ import ExecutionParamsTab from '@/components/model-settings/ExecutionParamsTab.v
 import ReviewFocusTab from '@/components/model-settings/ReviewFocusTab.vue'
 import ModelSetupWizard from '@/components/model-settings/ModelSetupWizard.vue'
 import { modelSettingsKey, type ModelSettingsContext } from '@/components/model-settings/context'
-import { getOCRSettings, updateOCRSettings, testLLM } from '@/api/config'
-import type { OCRSettings } from '@/types/config'
+import { getOCRSettings, listLLMProviders, updateOCRSettings, testLLM } from '@/api/config'
+import type { LLMProvider, OCRSettings } from '@/types/config'
 
 interface ModelOption {
   id: string
@@ -305,10 +309,12 @@ const allPresets: ProviderPreset[] = [
 const loading = ref(false)
 const saving = ref(false)
 const testingLLM = ref(false)
+const syncingProviders = ref(false)
 const showWizard = ref(false)
 const showAdvanced = ref(false)
 const activeTab = ref('execution')
 const wizardRef = ref<InstanceType<typeof ModelSetupWizard> | null>(null)
+const syncedPresets = ref<ProviderPreset[]>([...allPresets])
 
 const form = reactive<OCRSettings>({
   enabled: false,
@@ -341,7 +347,7 @@ const form = reactive<OCRSettings>({
 })
 
 function getPresetName(provider: string) {
-  const preset = allPresets.find((p) => p.id === provider || p.id.includes(provider))
+  const preset = syncedPresets.value.find((p) => p.id === provider || p.id.includes(provider))
   return preset?.display_name || provider
 }
 
@@ -455,6 +461,59 @@ async function fetchSettings() {
   }
 }
 
+async function syncProviders(silent = false) {
+  syncingProviders.value = true
+  try {
+    const providers = await listLLMProviders()
+    syncedPresets.value = mergeProviderPresets(allPresets, providers)
+    if (!silent) ElMessage.success(`已同步 ${providers.length} 个 OCR Provider`)
+  } catch (e: any) {
+    if (!silent) ElMessage.error(e.message || '同步 OCR Provider 失败')
+  } finally {
+    syncingProviders.value = false
+  }
+}
+
+function mergeProviderPresets(base: ProviderPreset[], providers: LLMProvider[]): ProviderPreset[] {
+  const next = base.map((item) => ({ ...item, models: [...item.models] }))
+  providers.forEach((provider) => {
+    const models = (provider.default_model || []).map((model) => ({
+      id: model,
+      display_name: model,
+      max_tokens: 4096,
+      supports_thinking: /reason|thinking|o\d|glm|qwen|claude|deepseek/i.test(model),
+    }))
+    const existing = next.find((item) => item.id === provider.name || item.id.includes(provider.name))
+    if (existing) {
+      if (provider.base_url) existing.base_url = provider.base_url
+      if (provider.protocol) {
+        existing.protocol = provider.protocol
+        existing.type = provider.protocol === 'anthropic' ? 'anthropic' : 'openai_compatible'
+      }
+      if (models.length) {
+        existing.models = models
+        existing.default_model = models[0].id
+      }
+      return
+    }
+    next.push({
+      id: provider.name,
+      display_name: provider.name,
+      category: 'ocr',
+      type: provider.protocol === 'anthropic' ? 'anthropic' : 'openai_compatible',
+      base_url: provider.base_url || '',
+      protocol: provider.protocol || 'openai',
+      supports_thinking: models.some((model) => model.supports_thinking),
+      models,
+      default_model: models[0]?.id || '',
+      icon: provider.name,
+      region: 'global',
+      requires_key: true,
+    })
+  })
+  return next
+}
+
 const ctx: ModelSettingsContext = {
   form,
   saving,
@@ -469,7 +528,10 @@ const ctx: ModelSettingsContext = {
 }
 provide(modelSettingsKey, ctx)
 
-onMounted(fetchSettings)
+onMounted(() => {
+  fetchSettings()
+  syncProviders(true)
+})
 </script>
 
 <style scoped>
