@@ -33,6 +33,38 @@ func DownloadSuggestionPatch(ctx context.Context, c *app.RequestContext) {
 	_, _ = c.WriteString(preview.Patch)
 }
 
+func CheckSuggestionPatch(ctx context.Context, c *app.RequestContext) {
+	id := strings.TrimSpace(c.Param("id"))
+	if id == "" {
+		common.Fail(c, common.BadRequest("review id 不能为空"))
+		return
+	}
+	record, found, err := handlerInst.reviewSvc.Get(ctx, id)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	if !found {
+		common.Fail(c, common.NotFound("review not found"))
+		return
+	}
+	indexes, err := parseFindingIndexes(c.Query("finding_indexes"), len(record.Response.Findings))
+	if err != nil {
+		common.Fail(c, common.BadRequest(err.Error()))
+		return
+	}
+	result, found, err := handlerInst.reviewSvc.CheckSuggestionPatch(ctx, id, indexes)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	if !found {
+		common.Fail(c, common.NotFound("review not found"))
+		return
+	}
+	common.Success(c, result)
+}
+
 func buildSuggestionPatchPreview(ctx context.Context, c *app.RequestContext) (review.SuggestionPatchPreview, bool) {
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {

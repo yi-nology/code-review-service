@@ -305,6 +305,9 @@
                     <el-button size="small" type="primary" plain :disabled="!patchSelectionIndexes.length" :loading="patchLoading" @click="handlePreviewPatch">
                       生成预览
                     </el-button>
+                    <el-button size="small" plain :disabled="!patchPreview?.patch" :loading="patchChecking" @click="checkPatch">
+                      检查可应用
+                    </el-button>
                     <el-button size="small" plain :disabled="!patchPreview?.patch" @click="copyPatch">复制</el-button>
                     <el-button size="small" plain :disabled="!patchPreview?.patch" :loading="patchDownloading" @click="downloadPatch">
                       下载 .diff
@@ -315,6 +318,12 @@
                   <div class="patch-result-meta">
                     <el-tag type="success" size="small">生成 {{ patchPreview.generated_count }}</el-tag>
                     <el-tag v-if="patchPreview.skipped_count" type="warning" size="small">跳过 {{ patchPreview.skipped_count }}</el-tag>
+                    <el-tag v-if="patchCheck" :type="patchCheck.applicable ? 'success' : 'danger'" size="small">
+                      {{ patchCheck.applicable ? '可应用' : '不可应用' }}
+                    </el-tag>
+                  </div>
+                  <div v-if="patchCheck && (!patchCheck.applicable || patchCheck.output)" class="patch-check-output">
+                    {{ patchCheck.error || 'git apply --check' }}<template v-if="patchCheck.output">：{{ patchCheck.output }}</template>
                   </div>
                   <div v-if="patchPreview.skipped?.length" class="patch-skipped">
                     <span v-for="item in patchPreview.skipped" :key="`${item.index}-${item.reason}`">
@@ -480,13 +489,13 @@ import { ArrowLeft, ArrowRight, SuccessFilled, CircleCloseFilled, InfoFilled, Re
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ProgressTracker from '@/components/ProgressTracker.vue'
 import PublishPanel from '@/components/PublishPanel.vue'
-import { getReview, cancelReview, rerunReview, previewSuggestionPatch, downloadSuggestionPatch } from '@/api/review'
+import { getReview, cancelReview, rerunReview, previewSuggestionPatch, downloadSuggestionPatch, checkSuggestionPatch } from '@/api/review'
 import { getViewerStatus, startViewer } from '@/api/config'
 import { sessionApi, type ReviewSession } from '@/api/session'
 import { getProviderLabel } from '@/utils/url-parser'
 import { getStatusLabel, getStatusType, getSeverityType, getPhaseLabel, getSessionStatusType, getSessionStatusLabel } from '@/utils/status'
 import { formatDateTime } from '@/utils/format'
-import type { Finding, ReviewDetail, SuggestionPatchPreview } from '@/types/review'
+import type { Finding, ReviewDetail, SuggestionPatchCheck, SuggestionPatchPreview } from '@/types/review'
 import type { ViewerStatus } from '@/types/config'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
@@ -503,8 +512,10 @@ const viewerLoading = ref(false)
 const reviewViewerOpen = ref(false)
 const selectedPatchIndexes = ref<number[]>([])
 const patchPreview = ref<SuggestionPatchPreview | null>(null)
+const patchCheck = ref<SuggestionPatchCheck | null>(null)
 const patchLoading = ref(false)
 const patchDownloading = ref(false)
+const patchChecking = ref(false)
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 let fetchInFlight = false
 const descriptionColumns = computed(() => viewportWidth.value < 720 ? 1 : 2)
@@ -584,6 +595,7 @@ async function fetchDetail(background = false) {
     detail.value = await getReview(route.params.id as string)
     selectedPatchIndexes.value = patchableFindingIndexes.value
     patchPreview.value = null
+    patchCheck.value = null
     await fetchSessions()
   } finally {
     fetchInFlight = false
@@ -614,6 +626,7 @@ function selectPatchableFindings() {
 function clearPatchSelection() {
   selectedPatchIndexes.value = []
   patchPreview.value = null
+  patchCheck.value = null
 }
 
 async function handlePreviewPatch() {
@@ -621,8 +634,24 @@ async function handlePreviewPatch() {
   patchLoading.value = true
   try {
     patchPreview.value = await previewSuggestionPatch(detail.value.review_id, patchSelectionIndexes.value)
+    patchCheck.value = null
   } finally {
     patchLoading.value = false
+  }
+}
+
+async function checkPatch() {
+  if (!detail.value || patchSelectionIndexes.value.length === 0) return
+  patchChecking.value = true
+  try {
+    patchCheck.value = await checkSuggestionPatch(detail.value.review_id, patchSelectionIndexes.value)
+    if (patchCheck.value.applicable) {
+      ElMessage.success('Patch 可应用')
+    } else {
+      ElMessage.warning(patchCheck.value.error || 'Patch 当前不可应用')
+    }
+  } finally {
+    patchChecking.value = false
   }
 }
 
@@ -1043,6 +1072,19 @@ code {
   margin-top: 8px;
   color: #92400e;
   font-size: 12px;
+}
+
+.patch-check-output {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .patch-preview {

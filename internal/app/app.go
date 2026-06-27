@@ -15,6 +15,7 @@ type ReviewService interface {
 	List(context.Context, review.ListOptions) (review.ListResult, error)
 	Preview(context.Context, review.Request) ([]string, error)
 	Scan(context.Context, review.ScanRequest) (*review.ScanResult, error)
+	CheckSuggestionPatch(context.Context, string, []int) (*review.SuggestionPatchCheck, bool, error)
 	Requeue(context.Context, string) (review.Response, error)
 	Cancel(context.Context, string) (review.Response, error)
 }

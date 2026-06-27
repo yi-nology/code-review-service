@@ -101,6 +101,12 @@ export interface SuggestionPatchPreview {
   skipped_count: number
 }
 
+export interface SuggestionPatchCheck extends SuggestionPatchPreview {
+  applicable: boolean
+  error?: string
+  output?: string
+}
+
 export interface Report {
   ocr: OCRMetadata
   scope: ScopeMetadata

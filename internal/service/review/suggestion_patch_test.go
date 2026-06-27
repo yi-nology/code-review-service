@@ -1,6 +1,9 @@
 package review
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -89,5 +92,36 @@ func TestBuildSuggestionPatchSelectedIndexes(t *testing.T) {
 	}
 	if strings.Contains(result.Patch, "a.go") || !strings.Contains(result.Patch, "b.go") {
 		t.Fatalf("unexpected selected patch:\n%s", result.Patch)
+	}
+}
+
+func TestRunGitApplyCheck(t *testing.T) {
+	dir := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+	}
+	run("init")
+	if err := os.WriteFile(filepath.Join(dir, "a.go"), []byte("package main\n\nfunc main() {\n\told := call()\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	okPatch := "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -4 +4 @@\n-\told := call()\n+\tnew := call(ctx)\n"
+	output, err := runGitApplyCheck(t.Context(), dir, okPatch)
+	if err != nil {
+		t.Fatalf("runGitApplyCheck() error = %v output=%q", err, output)
+	}
+
+	badPatch := "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -4 +4 @@\n-\tmissing := call()\n+\tnew := call(ctx)\n"
+	output, err = runGitApplyCheck(t.Context(), dir, badPatch)
+	if err == nil {
+		t.Fatal("expected invalid patch to fail")
+	}
+	if output == "" {
+		t.Fatal("expected git apply output for invalid patch")
 	}
 }

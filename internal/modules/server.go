@@ -105,6 +105,7 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos
 func registerSuggestionPatchRoutes(h *server.Hertz) {
 	api := h.Group("/api/v1/reviews")
 	api.GET("/:id/suggestion-patch", reviewHandler.PreviewSuggestionPatch)
+	api.GET("/:id/suggestion-patch/check", reviewHandler.CheckSuggestionPatch)
 	api.GET("/:id/suggestion-patch.diff", reviewHandler.DownloadSuggestionPatch)
 }
 

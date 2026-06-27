@@ -1,7 +1,7 @@
 import request from './request'
 import type {
   ReviewDetail, ListResult, ListOptions, CreateReviewOptions,
-  ScanRepositoryOptions, ScanRepositoryResult, SuggestionPatchPreview,
+  ScanRepositoryOptions, ScanRepositoryResult, SuggestionPatchCheck, SuggestionPatchPreview,
 } from '@/types/review'
 
 export async function getReviews(params: ListOptions): Promise<ListResult> {
@@ -84,6 +84,13 @@ function findingIndexesParam(indexes?: number[]) {
 export async function previewSuggestionPatch(reviewId: string, indexes?: number[]): Promise<SuggestionPatchPreview> {
   return request.get(`/reviews/${reviewId}/suggestion-patch`, {
     params: { finding_indexes: findingIndexesParam(indexes) },
+  }) as any
+}
+
+export async function checkSuggestionPatch(reviewId: string, indexes?: number[]): Promise<SuggestionPatchCheck> {
+  return request.get(`/reviews/${reviewId}/suggestion-patch/check`, {
+    params: { finding_indexes: findingIndexesParam(indexes) },
+    timeout: 180000,
   }) as any
 }
 

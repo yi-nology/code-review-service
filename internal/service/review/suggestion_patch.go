@@ -1,9 +1,14 @@
 package review
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"sort"
 	"strings"
+	"time"
 )
 
 type SuggestionPatchItem struct {
@@ -28,6 +33,13 @@ type SuggestionPatchPreview struct {
 	Skipped        []SuggestionPatchSkipped `json:"skipped"`
 	GeneratedCount int                      `json:"generated_count"`
 	SkippedCount   int                      `json:"skipped_count"`
+}
+
+type SuggestionPatchCheck struct {
+	SuggestionPatchPreview
+	Applicable bool   `json:"applicable"`
+	Error      string `json:"error,omitempty"`
+	Output     string `json:"output,omitempty"`
 }
 
 type patchHunk struct {
@@ -194,4 +206,63 @@ func formatRange(start, count int) string {
 		return fmt.Sprintf("%d", start)
 	}
 	return fmt.Sprintf("%d,%d", start, count)
+}
+
+func (s *Service) CheckSuggestionPatch(ctx context.Context, reviewID string, indexes []int) (*SuggestionPatchCheck, bool, error) {
+	record, found, err := s.Get(ctx, reviewID)
+	if err != nil || !found {
+		return nil, found, err
+	}
+	preview := BuildSuggestionPatch(record.ID, record.Response.Findings, indexes)
+	result := &SuggestionPatchCheck{SuggestionPatchPreview: preview}
+	if strings.TrimSpace(preview.Patch) == "" {
+		result.Applicable = false
+		result.Error = "no patch generated"
+		return result, true, nil
+	}
+	if s.Providers == nil {
+		result.Applicable = false
+		result.Error = "providers not configured"
+		return result, true, nil
+	}
+	provider, ok := s.Providers.Get(record.Request.Provider)
+	if !ok {
+		result.Applicable = false
+		result.Error = fmt.Sprintf("unsupported provider %q", record.Request.Provider)
+		return result, true, nil
+	}
+	checkCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	workspace, err := provider.Prepare(checkCtx, record.Request)
+	if err != nil {
+		result.Applicable = false
+		result.Error = err.Error()
+		return result, true, nil
+	}
+	if workspace.Dir != "" {
+		defer func() { _ = os.RemoveAll(workspace.Dir) }()
+	}
+	output, err := runGitApplyCheck(checkCtx, workspace.Dir, preview.Patch)
+	result.Output = output
+	result.Applicable = err == nil
+	if err != nil {
+		result.Error = err.Error()
+	}
+	return result, true, nil
+}
+
+func runGitApplyCheck(ctx context.Context, dir, patch string) (string, error) {
+	if strings.TrimSpace(dir) == "" {
+		return "", fmt.Errorf("workspace dir is empty")
+	}
+	cmd := exec.CommandContext(ctx, "git", "apply", "--check", "--unidiff-zero", "--whitespace=nowarn", "-")
+	cmd.Dir = dir
+	cmd.Stdin = strings.NewReader(patch)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	if err := cmd.Run(); err != nil {
+		return strings.TrimSpace(out.String()), fmt.Errorf("git apply --check failed")
+	}
+	return strings.TrimSpace(out.String()), nil
 }
