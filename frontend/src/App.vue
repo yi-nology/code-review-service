@@ -55,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { ref } from 'vue'
 import { ArrowRight, CircleCheckFilled, Finished, Key } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import axios from 'axios'
@@ -66,13 +66,6 @@ const auth = useAuthStore()
 const token = ref('')
 const error = ref('')
 const logging = ref(false)
-
-function handleAuthExpired() {
-  auth.clearToken()
-  if (router.currentRoute.value.path !== '/') {
-    router.replace('/')
-  }
-}
 
 async function handleLogin() {
   const value = token.value.trim()
@@ -105,14 +98,6 @@ async function handleLogin() {
     logging.value = false
   }
 }
-
-onMounted(() => {
-  window.addEventListener('review-auth-expired', handleAuthExpired)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('review-auth-expired', handleAuthExpired)
-})
 </script>
 
 <style scoped>

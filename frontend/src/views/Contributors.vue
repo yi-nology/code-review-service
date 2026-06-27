@@ -58,7 +58,7 @@
             <h2>质量排行榜</h2>
             <p>点击查看开发者质量详情</p>
           </div>
-          <el-button circle plain aria-label="刷新" @click="fetchContributors">
+          <el-button circle plain aria-label="刷新" @click="refresh">
             <el-icon><Refresh /></el-icon>
           </el-button>
         </div>
@@ -153,7 +153,7 @@
             :total="pagination.total"
             :page-sizes="[20, 50, 100]"
             layout="sizes, prev, pager, next"
-            @current-change="fetchContributors"
+            @current-change="handlePageChange"
             @size-change="handlePageSizeChange"
           />
         </div>
@@ -163,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ArrowRight,
@@ -179,13 +179,29 @@ import type { ContributorSummary } from '@/types/stats'
 import { getInitials, formatDateRelative } from '@/utils/format'
 import { getScoreColor } from '@/utils/colors'
 import { PROVIDER_OPTIONS } from '@/utils/url-parser'
+import { useListPage } from '@/composables/useListPage'
 
 const router = useRouter()
-const loading = ref(false)
-const contributors = ref<ContributorSummary[]>([])
-const filters = reactive({ provider: '', repo: '', sort: 'avg_score' })
-const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
-const hasFilters = computed(() => !!(filters.provider || filters.repo))
+
+const {
+  loading,
+  items: contributors,
+  pagination,
+  filters,
+  hasFilters,
+  handlePageChange,
+  handlePageSizeChange,
+  applyFilters,
+  resetFilters,
+  refresh,
+} = useListPage<ContributorSummary, { provider: string; repo: string; sort: string }>({
+  fetchFn: async (params) => {
+    const result = await getContributors(params)
+    return { items: result.contributors || [], total: result.total }
+  },
+  defaultFilters: { provider: '', repo: '', sort: 'avg_score' },
+  defaultPageSize: 20,
+})
 
 const summaryStats = computed(() => {
   const list = contributors.value
@@ -200,38 +216,6 @@ const summaryStats = computed(() => {
     totalReviews,
   }
 })
-
-async function fetchContributors() {
-  loading.value = true
-  try {
-    const result = await getContributors({
-      ...filters,
-      page: pagination.page,
-      page_size: pagination.pageSize,
-    })
-    contributors.value = result.contributors || []
-    pagination.total = result.total
-  } finally {
-    loading.value = false
-  }
-}
-
-function applyFilters() {
-  pagination.page = 1
-  fetchContributors()
-}
-
-function resetFilters() {
-  filters.provider = ''
-  filters.repo = ''
-  filters.sort = 'avg_score'
-  applyFilters()
-}
-
-function handlePageSizeChange() {
-  pagination.page = 1
-  fetchContributors()
-}
 
 function goToDetail(row: ContributorSummary) {
   router.push(`/contributors/${encodeURIComponent(row.author)}`)
@@ -249,8 +233,6 @@ function getScoreClass(score: number) {
   if (score >= 60) return 'score-mid'
   return 'score-low'
 }
-
-onMounted(fetchContributors)
 </script>
 
 <style scoped>

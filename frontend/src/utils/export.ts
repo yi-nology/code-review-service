@@ -1,37 +1,8 @@
-// Report export utilities
+import type { ExportOptions, ExportReport, ExportFinding } from '@/types/export'
 
-export interface ExportOptions {
-  format: 'markdown' | 'json' | 'html'
-  includeDetails: boolean
-  includeFindings: boolean
-  includeSummary: boolean
-}
+export type { ExportOptions, ExportReport as ReviewReport, ExportFinding as Finding }
 
-export interface ReviewReport {
-  reviewId: string
-  provider: string
-  repo: string
-  status: string
-  summary: string
-  score: number
-  grade: string
-  findings: Finding[]
-  createdAt: string
-  updatedAt: string
-}
-
-export interface Finding {
-  severity: string
-  category: string
-  path: string
-  line: number
-  title: string
-  body: string
-  suggestion?: string
-}
-
-// Export report as Markdown
-export function exportAsMarkdown(report: ReviewReport, options: ExportOptions): string {
+export function exportAsMarkdown(report: ExportReport, options: ExportOptions): string {
   const lines: string[] = []
 
   // Header
@@ -123,8 +94,7 @@ export function exportAsMarkdown(report: ReviewReport, options: ExportOptions): 
   return lines.join('\n')
 }
 
-// Export report as JSON
-export function exportAsJSON(report: ReviewReport, options: ExportOptions): string {
+export function exportAsJSON(report: ExportReport, options: ExportOptions): string {
   const data: any = {
     reviewId: report.reviewId,
     provider: report.provider,
@@ -154,8 +124,7 @@ export function exportAsJSON(report: ReviewReport, options: ExportOptions): stri
   return JSON.stringify(data, null, 2)
 }
 
-// Export report as HTML
-export function exportAsHTML(report: ReviewReport, options: ExportOptions): string {
+export function exportAsHTML(report: ExportReport, options: ExportOptions): string {
   const markdown = exportAsMarkdown(report, options)
   
   // Simple markdown to HTML conversion
@@ -207,8 +176,7 @@ export function downloadFile(content: string, filename: string, mimeType: string
   URL.revokeObjectURL(url)
 }
 
-// Export report
-export function exportReport(report: ReviewReport, options: ExportOptions): void {
+export function exportReport(report: ExportReport, options: ExportOptions): void {
   const timestamp = new Date().toISOString().slice(0, 10)
   const baseFilename = `code-review-${report.reviewId}-${timestamp}`
 
@@ -231,7 +199,6 @@ export function exportReport(report: ReviewReport, options: ExportOptions): void
   }
 }
 
-// Batch export
-export function batchExport(reports: ReviewReport[], options: ExportOptions): void {
+export function batchExport(reports: ExportReport[], options: ExportOptions): void {
   reports.forEach(report => exportReport(report, options))
 }

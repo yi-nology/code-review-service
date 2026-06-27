@@ -287,29 +287,7 @@ import {
 import StepIndicator from './wizard/StepIndicator.vue'
 import ProviderCard from './wizard/ProviderCard.vue'
 import ConfigSummary from './wizard/ConfigSummary.vue'
-import type { OCRSettings } from '@/types/config'
-
-interface ModelOption {
-  id: string
-  display_name: string
-  max_tokens: number
-  supports_thinking: boolean
-}
-
-interface ProviderPreset {
-  id: string
-  display_name: string
-  category: string
-  type: string
-  base_url: string
-  protocol: string
-  supports_thinking: boolean
-  models: ModelOption[]
-  default_model: string
-  icon: string
-  region: string
-  requires_key: boolean
-}
+import type { OCRSettings, ProviderPreset } from '@/types/config'
 
 const props = defineProps<{
   presets: ProviderPreset[]

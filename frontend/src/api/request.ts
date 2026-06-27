@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus/es/components/message/index'
+import { useAuthStore } from '@/stores/auth'
 
 function getErrorMessage(error: any): string {
   if (error.code === 'ECONNABORTED') return '请求超时，请稍后重试'
@@ -9,8 +10,8 @@ function getErrorMessage(error: any): string {
 }
 
 function expireAuth() {
-  localStorage.removeItem('token')
-  window.dispatchEvent(new Event('review-auth-expired'))
+  const auth = useAuthStore()
+  auth.clearToken()
 }
 
 const request = axios.create({
@@ -20,9 +21,9 @@ const request = axios.create({
 
 request.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+    const auth = useAuthStore()
+    if (auth.token) {
+      config.headers.Authorization = `Bearer ${auth.token}`
     }
     return config
   },

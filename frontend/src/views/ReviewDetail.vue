@@ -284,85 +284,13 @@
             </el-card>
 
             <!-- 问题报告 -->
-            <el-card class="findings-card" v-if="detail.findings?.length">
-              <template #header>
-                <div class="card-header">
-                  <span>问题报告</span>
-                  <div class="finding-header-actions">
-                    <el-tag>{{ detail.findings.length }} 个问题</el-tag>
-                    <el-button size="small" plain @click="selectPatchableFindings">全选可生成</el-button>
-                  </div>
-                </div>
-              </template>
-              <div class="suggestion-patch-panel">
-                <div class="patch-summary">
-                  <div>
-                    <strong>修复 Patch</strong>
-                    <span>已选 {{ selectedPatchIndexes.length }} / 可生成 {{ patchableFindingIndexes.length }}</span>
-                  </div>
-                  <div class="patch-actions">
-                    <el-button size="small" @click="clearPatchSelection">清空</el-button>
-                    <el-button size="small" type="primary" plain :disabled="!patchSelectionIndexes.length" :loading="patchLoading" @click="handlePreviewPatch">
-                      生成预览
-                    </el-button>
-                    <el-button size="small" plain :disabled="!patchPreview?.patch" :loading="patchChecking" @click="checkPatch">
-                      检查可应用
-                    </el-button>
-                    <el-button size="small" plain :disabled="!patchPreview?.patch" @click="copyPatch">复制</el-button>
-                    <el-button size="small" plain :disabled="!patchPreview?.patch" :loading="patchDownloading" @click="downloadPatch">
-                      下载 .diff
-                    </el-button>
-                  </div>
-                </div>
-                <div v-if="patchPreview" class="patch-result">
-                  <div class="patch-result-meta">
-                    <el-tag type="success" size="small">生成 {{ patchPreview.generated_count }}</el-tag>
-                    <el-tag v-if="patchPreview.skipped_count" type="warning" size="small">跳过 {{ patchPreview.skipped_count }}</el-tag>
-                    <el-tag v-if="patchCheck" :type="patchCheck.applicable ? 'success' : 'danger'" size="small">
-                      {{ patchCheck.applicable ? '可应用' : '不可应用' }}
-                    </el-tag>
-                  </div>
-                  <div v-if="patchCheck && (!patchCheck.applicable || patchCheck.output)" class="patch-check-output">
-                    {{ patchCheck.error || 'git apply --check' }}<template v-if="patchCheck.output">：{{ patchCheck.output }}</template>
-                  </div>
-                  <div v-if="patchPreview.skipped?.length" class="patch-skipped">
-                    <span v-for="item in patchPreview.skipped" :key="`${item.index}-${item.reason}`">
-                      #{{ item.index + 1 }} {{ item.path || item.title || '未命名问题' }}：{{ item.reason }}
-                    </span>
-                  </div>
-                  <pre v-if="patchPreview.patch" class="patch-preview">{{ patchPreview.patch }}</pre>
-                  <el-empty v-else description="当前选择没有可生成的 Patch" :image-size="48" />
-                </div>
-              </div>
-              <div class="finding-list">
-                <div v-for="(finding, index) in detail.findings" :key="index" class="finding-item">
-                  <div class="finding-header">
-                    <el-checkbox
-                      class="finding-patch-checkbox"
-                      :model-value="selectedPatchIndexes.includes(index)"
-                      :disabled="!isPatchableFinding(finding)"
-                      @change="(checked: boolean | string | number) => togglePatchFinding(index, Boolean(checked))"
-                    />
-                    <el-tag :type="getSeverityType(finding.severity)" size="small">
-                      {{ finding.severity.toUpperCase() }}
-                    </el-tag>
-                    <span class="finding-title">{{ finding.title }}</span>
-                    <span class="finding-path" v-if="finding.path">
-                      {{ finding.path }}{{ finding.line ? `:${finding.line}` : '' }}
-                    </span>
-                  </div>
-                  <div class="finding-body" v-if="finding.body">{{ finding.body }}</div>
-                  <div class="finding-code" v-if="finding.existing_code">
-                    <div class="code-label">现有代码</div>
-                    <pre>{{ finding.existing_code }}</pre>
-                  </div>
-                  <div class="finding-code" v-if="finding.suggestion_code">
-                    <div class="code-label">建议代码</div>
-                    <pre>{{ finding.suggestion_code }}</pre>
-                  </div>
-                </div>
-              </div>
-            </el-card>
+            <ReviewFindingsPanel
+              ref="findingsPanelRef"
+              v-if="detail.findings?.length"
+              :review-id="detail.review_id"
+              :findings="detail.findings"
+              @download-patch="handleDownloadPatch"
+            />
 
             <!-- 发布到代码平台 -->
             <PublishPanel
@@ -370,108 +298,32 @@
               :review-id="detail.review_id"
             />
 
-            <!-- Debug 区域 - OCR 原始输入 -->
-            <el-card class="debug-card" v-if="debugMode && detail.raw_ocr_input">
-              <template #header>
-                <div class="card-header">
-                  <span>
-                    <el-tag type="warning" size="small" style="margin-right: 8px;">DEBUG</el-tag>
-                    OCR 原始输入
-                  </span>
-                  <el-button size="small" @click="showOcrInput = !showOcrInput">
-                    {{ showOcrInput ? '收起' : '展开' }}
-                  </el-button>
-                </div>
-              </template>
-              <el-collapse v-model="ocrInputActive">
-                <el-collapse-item title="查看完整 JSON" name="input">
-                  <pre class="debug-json">{{ formatJson(detail.raw_ocr_input) }}</pre>
-                </el-collapse-item>
-              </el-collapse>
-            </el-card>
-
-            <!-- Debug 区域 - OCR 原始输出 -->
-            <el-card class="debug-card" v-if="debugMode && detail.raw_ocr">
-              <template #header>
-                <div class="card-header">
-                  <span>
-                    <el-tag type="warning" size="small" style="margin-right: 8px;">DEBUG</el-tag>
-                    OCR 原始输出
-                  </span>
-                  <el-button size="small" @click="showOcrOutput = !showOcrOutput">
-                    {{ showOcrOutput ? '收起' : '展开' }}
-                  </el-button>
-                </div>
-              </template>
-              <el-collapse v-model="ocrOutputActive">
-                <el-collapse-item title="查看完整 JSON" name="output">
-                  <pre class="debug-json">{{ formatJson(detail.raw_ocr) }}</pre>
-                </el-collapse-item>
-              </el-collapse>
-            </el-card>
+            <!-- Debug 区域 -->
+            <ReviewDebugPanel
+              :debug-mode="debugMode"
+              :raw-ocr-input="detail.raw_ocr_input"
+              :raw-ocr="detail.raw_ocr"
+            />
           </el-col>
 
           <el-col :xs="24" :lg="8">
-            <el-card class="gate-card">
-              <template #header>质量门禁</template>
-              <div class="gate-status" :class="detail.gate?.status">
-                <div class="gate-icon">
-                  <el-icon v-if="detail.gate?.passed" :size="48"><SuccessFilled /></el-icon>
-                  <el-icon v-else-if="isGateFailed(detail)" :size="48"><CircleCloseFilled /></el-icon>
-                  <el-icon v-else :size="48"><InfoFilled /></el-icon>
-                </div>
-                <div class="gate-text">
-                  {{ detail.gate?.passed ? '门禁通过' : isGateFailed(detail) ? '执行失败' : '待定' }}
-                </div>
-                <div class="gate-reason" v-if="detail.gate?.reason">{{ detail.gate.reason }}</div>
-              </div>
-            </el-card>
+            <ReviewGateCard
+              :gate-status="detail.gate?.status"
+              :gate-passed="detail.gate?.passed"
+              :review-status="detail.status"
+              :reason="detail.gate?.reason"
+            />
 
-            <el-card class="history-card" v-if="detail.history?.length">
-              <template #header>执行历史</template>
-              <el-timeline>
-                <el-timeline-item
-                  v-for="(event, index) in detail.history"
-                  :key="index"
-                  :timestamp="formatTime(event.created_at)"
-                  :type="getEventType(event.status)"
-                >
-                  <h4>{{ event.message }}</h4>
-                  <p v-if="event.details">{{ formatDetails(event.details) }}</p>
-                </el-timeline-item>
-              </el-timeline>
-            </el-card>
+            <ReviewHistoryCard
+              v-if="detail.history?.length"
+              :history="detail.history"
+            />
 
-            <el-card class="sessions-card" v-if="sessions.length > 0">
-              <template #header>
-                <div class="card-header">
-                  <span>审查会话</span>
-                  <el-tag size="small">{{ sessions.length }} 轮</el-tag>
-                </div>
-              </template>
-              <div class="session-list">
-                <div
-                  v-for="sess in sessions"
-                  :key="sess.session_id"
-                  class="session-item"
-                  @click="goToSession(sess)"
-                >
-                  <div class="session-info">
-                    <div class="session-header">
-                      <span class="session-round">第 {{ sess.round }} 轮</span>
-                      <el-tag :type="getSessionStatusType(sess.status)" size="small">
-                        {{ getSessionStatusLabel(sess.status) }}
-                      </el-tag>
-                    </div>
-                    <div class="session-phase">
-                      {{ getPhaseLabel(sess.phase) }}
-                    </div>
-                    <el-progress :percentage="sess.progress" :stroke-width="4" :show-text="false" />
-                  </div>
-                  <el-icon><ArrowRight /></el-icon>
-                </div>
-              </div>
-            </el-card>
+            <ReviewSessionsCard
+              v-if="sessions.length > 0"
+              :sessions="sessions"
+              @go-to-session="goToSession"
+            />
           </el-col>
         </el-row>
       </template>
@@ -489,13 +341,18 @@ import { ArrowLeft, ArrowRight, SuccessFilled, CircleCloseFilled, InfoFilled, Re
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ProgressTracker from '@/components/ProgressTracker.vue'
 import PublishPanel from '@/components/PublishPanel.vue'
-import { getReview, cancelReview, rerunReview, previewSuggestionPatch, downloadSuggestionPatch, checkSuggestionPatch } from '@/api/review'
+import ReviewFindingsPanel from '@/components/review-detail/ReviewFindingsPanel.vue'
+import ReviewDebugPanel from '@/components/review-detail/ReviewDebugPanel.vue'
+import ReviewGateCard from '@/components/review-detail/ReviewGateCard.vue'
+import ReviewHistoryCard from '@/components/review-detail/ReviewHistoryCard.vue'
+import ReviewSessionsCard from '@/components/review-detail/ReviewSessionsCard.vue'
+import { getReview, cancelReview, rerunReview, downloadSuggestionPatch } from '@/api/review'
 import { getViewerStatus, startViewer } from '@/api/config'
 import { sessionApi, type ReviewSession } from '@/api/session'
 import { getProviderLabel } from '@/utils/url-parser'
-import { getStatusLabel, getStatusType, getSeverityType, getPhaseLabel, getSessionStatusType, getSessionStatusLabel } from '@/utils/status'
+import { getStatusLabel, getStatusType } from '@/utils/status'
 import { formatDateTime } from '@/utils/format'
-import type { Finding, ReviewDetail, SuggestionPatchCheck, SuggestionPatchPreview } from '@/types/review'
+import type { ReviewDetail as ReviewDetailType } from '@/types/review'
 import type { ViewerStatus } from '@/types/config'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
@@ -503,19 +360,14 @@ import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 const router = useRouter()
 const route = useRoute()
 const loading = ref(false)
-const detail = ref<ReviewDetail | null>(null)
+const detail = ref<ReviewDetailType | null>(null)
 const sessions = ref<ReviewSession[]>([])
 const acting = ref(false)
 const viewportWidth = ref(window.innerWidth)
 const viewerStatus = ref<ViewerStatus | null>(null)
 const viewerLoading = ref(false)
 const reviewViewerOpen = ref(false)
-const selectedPatchIndexes = ref<number[]>([])
-const patchPreview = ref<SuggestionPatchPreview | null>(null)
-const patchCheck = ref<SuggestionPatchCheck | null>(null)
-const patchLoading = ref(false)
-const patchDownloading = ref(false)
-const patchChecking = ref(false)
+const findingsPanelRef = ref<InstanceType<typeof ReviewFindingsPanel> | null>(null)
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 let fetchInFlight = false
 const descriptionColumns = computed(() => viewportWidth.value < 720 ? 1 : 2)
@@ -526,64 +378,38 @@ const toolCallRows = computed(() => {
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count)
 })
-const patchableFindingIndexes = computed(() => {
-  return (detail.value?.findings || [])
-    .map((finding, index) => ({ finding, index }))
-    .filter(({ finding }) => isPatchableFinding(finding))
-    .map(({ index }) => index)
-})
-const patchSelectionIndexes = computed(() => {
-  const allowed = new Set(patchableFindingIndexes.value)
-  return selectedPatchIndexes.value.filter((index) => allowed.has(index))
-})
 const showProgressTracker = computed(() => Boolean(detail.value && (
   ['queued', 'running', 'failed', 'success', 'completed'].includes(detail.value.status) ||
   sessions.value.length > 0 ||
   (detail.value.history?.length || 0) > 0
-)))
+ )))
 
 // Debug mode
 const debugMode = ref(localStorage.getItem('review-debug-mode') === 'true')
-const showOcrInput = ref(false)
-const showOcrOutput = ref(false)
-const ocrInputActive = ref<string[]>([])
-const ocrOutputActive = ref<string[]>([])
 
 function toggleDebugMode() {
   debugMode.value = !debugMode.value
   localStorage.setItem('review-debug-mode', String(debugMode.value))
 }
 
-function formatJson(data: any): string {
-  if (!data) return ''
-  try {
-    if (typeof data === 'string') {
-      return JSON.stringify(JSON.parse(data), null, 2)
-    }
-    return JSON.stringify(data, null, 2)
-  } catch {
-    return String(data)
-  }
-}
-
 function updateViewportWidth() {
   viewportWidth.value = window.innerWidth
 }
 
-function getSummaryLabel(review: ReviewDetail) {
+function getSummaryLabel(review: ReviewDetailType) {
   if (review.gate?.passed) return '审查通过'
   if (review.status === 'failed') return '执行失败'
   if (review.gate?.status === 'failed') return '需要修复'
   return '等待结果'
 }
 
-function getSummaryClass(review: ReviewDetail) {
+function getSummaryClass(review: ReviewDetailType) {
   if (review.gate?.passed) return 'passed'
   if (review.status === 'failed' || review.gate?.status === 'failed') return 'failed'
   return 'pending'
 }
 
-function isGateFailed(review: ReviewDetail) {
+function isGateFailed(review: ReviewDetailType) {
   return review.status === 'failed' || Boolean(review.gate?.status && ['failed', 'error'].includes(review.gate.status))
 }
 
@@ -593,9 +419,7 @@ async function fetchDetail(background = false) {
   if (!background) loading.value = true
   try {
     detail.value = await getReview(route.params.id as string)
-    selectedPatchIndexes.value = patchableFindingIndexes.value
-    patchPreview.value = null
-    patchCheck.value = null
+    findingsPanelRef.value?.resetPatchState()
     await fetchSessions()
   } finally {
     fetchInFlight = false
@@ -604,83 +428,17 @@ async function fetchDetail(background = false) {
   }
 }
 
-function isPatchableFinding(finding: Finding) {
-  const line = finding.start_line || finding.line || 0
-  return Boolean(finding.path?.trim() && finding.existing_code?.trim() && finding.suggestion_code?.trim() && line > 0)
-}
-
-function togglePatchFinding(index: number, checked: boolean) {
-  const current = new Set(selectedPatchIndexes.value)
-  if (checked) {
-    current.add(index)
-  } else {
-    current.delete(index)
-  }
-  selectedPatchIndexes.value = Array.from(current).sort((a, b) => a - b)
-}
-
-function selectPatchableFindings() {
-  selectedPatchIndexes.value = patchableFindingIndexes.value
-}
-
-function clearPatchSelection() {
-  selectedPatchIndexes.value = []
-  patchPreview.value = null
-  patchCheck.value = null
-}
-
-async function handlePreviewPatch() {
-  if (!detail.value || patchSelectionIndexes.value.length === 0) return
-  patchLoading.value = true
-  try {
-    patchPreview.value = await previewSuggestionPatch(detail.value.review_id, patchSelectionIndexes.value)
-    patchCheck.value = null
-  } finally {
-    patchLoading.value = false
-  }
-}
-
-async function checkPatch() {
-  if (!detail.value || patchSelectionIndexes.value.length === 0) return
-  patchChecking.value = true
-  try {
-    patchCheck.value = await checkSuggestionPatch(detail.value.review_id, patchSelectionIndexes.value)
-    if (patchCheck.value.applicable) {
-      ElMessage.success('Patch 可应用')
-    } else {
-      ElMessage.warning(patchCheck.value.error || 'Patch 当前不可应用')
-    }
-  } finally {
-    patchChecking.value = false
-  }
-}
-
-async function copyPatch() {
-  if (!patchPreview.value?.patch) return
-  try {
-    await navigator.clipboard.writeText(patchPreview.value.patch)
-    ElMessage.success('Patch 已复制')
-  } catch {
-    ElMessage.error('复制失败，请手动复制预览内容')
-  }
-}
-
-async function downloadPatch() {
-  if (!detail.value || patchSelectionIndexes.value.length === 0) return
-  patchDownloading.value = true
-  try {
-    const blob = await downloadSuggestionPatch(detail.value.review_id, patchSelectionIndexes.value)
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${detail.value.review_id}-suggestion.patch`
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
-  } finally {
-    patchDownloading.value = false
-  }
+async function handleDownloadPatch(indexes: number[]) {
+  if (!detail.value || !indexes.length) return
+  const blob = await downloadSuggestionPatch(detail.value.review_id, indexes)
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${detail.value.review_id}-suggestion.patch`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
 }
 
 async function fetchSessions() {
@@ -756,23 +514,8 @@ async function toggleReviewViewer() {
   }
 }
 
-function getEventType(status: string) {
-  const map: Record<string, string> = {
-    completed: 'success',
-    running: 'warning',
-    failed: 'danger',
-  }
-  return map[status] || 'info'
-}
-
 function formatTime(time: string) {
   return formatDateTime(time)
-}
-
-function formatDetails(details: Record<string, any>) {
-  return Object.entries(details)
-    .map(([key, value]) => `${key}: ${value}`)
-    .join(', ')
 }
 
 onMounted(() => {

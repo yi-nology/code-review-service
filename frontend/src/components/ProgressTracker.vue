@@ -68,7 +68,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { CircleCheckFilled, Loading, Clock } from '@element-plus/icons-vue'
-import { progressApi, type ReviewSession, type ReviewProgress, type ProgressEvent } from '@/api/session'
+import { progressApi } from '@/api/session'
+import type { ReviewSession, ReviewProgress, ProgressEvent, ReviewHistoryEvent } from '@/types/session'
+import { REVIEW_PHASES } from '@/constants/phases'
 
 interface Agent {
   name: string
@@ -91,13 +93,6 @@ interface Error {
   message: string
 }
 
-interface ReviewHistoryEvent {
-  stage: string
-  status: string
-  message: string
-  created_at: string
-}
-
 const props = defineProps<{
   reviewId: string
   reviewStatus?: string
@@ -105,64 +100,9 @@ const props = defineProps<{
   history?: ReviewHistoryEvent[]
 }>()
 
-const phases = ref<Phase[]>([
-  {
-    name: 'context',
-    title: '上下文发现',
-    description: '加载配置并发现项目标准',
-    status: 'pending',
-    progress: 0,
-  },
-  {
-    name: 'change_context',
-    title: '变更分析',
-    description: '分析 git diff 并理解变更',
-    status: 'pending',
-    progress: 0,
-  },
-  {
-    name: 'analysis',
-    title: '技术负责人分析',
-    description: '总结变更并识别风险',
-    status: 'pending',
-    progress: 0,
-  },
-  {
-    name: 'reviews',
-    title: '并行审查',
-    description: '运行多个审查代理并行工作',
-    status: 'pending',
-    progress: 0,
-  },
-  {
-    name: 'aggregation',
-    title: '聚合',
-    description: '合并多个代理的发现',
-    status: 'pending',
-    progress: 0,
-  },
-  {
-    name: 'discourse',
-    title: '讨论',
-    description: '代理辩论并验证发现',
-    status: 'pending',
-    progress: 0,
-  },
-  {
-    name: 'synthesis',
-    title: '综合',
-    description: '生成最终优先级排序的审查',
-    status: 'pending',
-    progress: 0,
-  },
-  {
-    name: 'complete',
-    title: '完成',
-    description: '审查完成',
-    status: 'pending',
-    progress: 0,
-  },
-])
+const phases = ref<Phase[]>(
+  REVIEW_PHASES.map(p => ({ ...p, status: 'pending' as const, progress: 0 }))
+)
 
 const error = ref<Error | null>(null)
 let ws: WebSocket | null = null

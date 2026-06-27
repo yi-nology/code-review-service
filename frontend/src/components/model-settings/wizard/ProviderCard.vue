@@ -26,28 +26,7 @@
 
 <script setup lang="ts">
 import { Check } from '@element-plus/icons-vue'
-
-interface ModelOption {
-  id: string
-  display_name: string
-  max_tokens: number
-  supports_thinking: boolean
-}
-
-interface ProviderPreset {
-  id: string
-  display_name: string
-  category: string
-  type: string
-  base_url: string
-  protocol: string
-  supports_thinking: boolean
-  models: ModelOption[]
-  default_model: string
-  icon: string
-  region: string
-  requires_key: boolean
-}
+import type { ProviderPreset } from '@/types/config'
 
 defineProps<{
   provider: ProviderPreset

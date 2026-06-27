@@ -46,7 +46,7 @@
             <h2>审查记录</h2>
             <p>点击记录查看完整报告，运行中任务会自动刷新。</p>
           </div>
-          <el-button circle plain aria-label="刷新列表" @click="refreshReviews">
+          <el-button circle plain aria-label="刷新列表" @click="refresh">
             <el-icon><Refresh /></el-icon>
           </el-button>
         </div>
@@ -250,7 +250,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Aim,
@@ -275,59 +275,42 @@ import { formatDateShort, formatClock, getProviderInitial, shortId } from '@/uti
 import type { Review, ListStats } from '@/types/review'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
+import { useListPage } from '@/composables/useListPage'
 
 const router = useRouter()
-const loading = ref(false)
 const showCreateDialog = ref(false)
-const reviews = ref<Review[]>([])
-const stats = ref<ListStats>({ total: 0, running: 0, gate_failed: 0, findings: 0, total_tokens: 0 })
 const actingId = ref('')
 
-const filters = reactive({ repo: '', provider: '', status: '' })
-const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
-const hasFilters = computed(() => !!(filters.repo || filters.provider || filters.status))
+const {
+  loading,
+  items: reviews,
+  extraData,
+  pagination,
+  filters,
+  hasFilters,
+  handlePageChange,
+  handlePageSizeChange,
+  applyFilters,
+  resetFilters,
+  refresh,
+  refreshBackground,
+} = useListPage<Review, { repo: string; provider: string; status: string }>({
+  fetchFn: async (params) => {
+    const result = await getReviews(params)
+    return { items: result.items, total: result.total, stats: result.stats }
+  },
+  defaultFilters: { repo: '', provider: '', status: '' },
+  shouldPoll: (result) => {
+    const stats = (result as { stats?: ListStats }).stats
+    return (stats?.running ?? 0) > 0
+  },
+  pollInterval: 10000,
+})
 
-let listPollTimer: ReturnType<typeof setTimeout> | null = null
-let fetchInFlight = false
+const stats = computed<ListStats>(() => (extraData.value as { stats?: ListStats }).stats ?? { total: 0, running: 0, gate_failed: 0, findings: 0, total_tokens: 0 })
 
 function openCreateDialog() {
   showCreateDialog.value = true
-}
-
-async function fetchReviews(background = false) {
-  if (fetchInFlight) return
-  fetchInFlight = true
-  if (!background) loading.value = true
-  try {
-    const result = await getReviews({
-      ...filters,
-      page: pagination.page,
-      page_size: pagination.pageSize,
-    })
-    reviews.value = result.items
-    pagination.total = result.total
-    stats.value = result.stats
-
-  } finally {
-    fetchInFlight = false
-    if (!background) loading.value = false
-    scheduleListPolling()
-  }
-}
-
-function scheduleListPolling() {
-  if (listPollTimer) {
-    clearTimeout(listPollTimer)
-    listPollTimer = null
-  }
-  if (stats.value.running <= 0) return
-  listPollTimer = setTimeout(() => {
-    if (document.visibilityState === 'visible') {
-      fetchReviews(true)
-    } else {
-      scheduleListPolling()
-    }
-  }, 10000)
 }
 
 function goToDetail(row: Review) {
@@ -348,7 +331,7 @@ async function handleCancel(row: Review) {
   try {
     await cancelReview(row.review_id)
     ElMessage.success('审查任务已取消')
-    await fetchReviews(true)
+    refreshBackground()
   } catch {
     ElMessage.error('取消失败，任务可能已完成或状态不允许')
   } finally {
@@ -361,7 +344,7 @@ async function handleRerun(row: Review) {
   try {
     await rerunReview(row.review_id)
     ElMessage.success('已重新加入审查队列')
-    await fetchReviews(true)
+    refreshBackground()
   } catch {
     ElMessage.error('重新审查失败，请稍后重试')
   } finally {
@@ -379,43 +362,9 @@ function getGateClass(row: Review) {
   return row.gate?.passed ? 'passed' : 'failed'
 }
 
-function applyFilters() {
-  pagination.page = 1
-  fetchReviews()
-}
-
-function resetFilters() {
-  filters.repo = ''
-  filters.provider = ''
-  filters.status = ''
-  applyFilters()
-}
-
-function handlePageSizeChange() {
-  pagination.page = 1
-  fetchReviews()
-}
-
-function handlePageChange() {
-  fetchReviews()
-}
-
-function refreshReviews() {
-  fetchReviews()
-}
-
 function handleReviewCreated() {
-  fetchReviews()
+  refresh()
 }
-
-onMounted(fetchReviews)
-
-onBeforeUnmount(() => {
-  if (listPollTimer) {
-    clearTimeout(listPollTimer)
-    listPollTimer = null
-  }
-})
 </script>
 
 <style scoped>

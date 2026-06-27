@@ -112,29 +112,7 @@ import ReviewFocusTab from '@/components/model-settings/ReviewFocusTab.vue'
 import ModelSetupWizard from '@/components/model-settings/ModelSetupWizard.vue'
 import { modelSettingsKey, type ModelSettingsContext } from '@/components/model-settings/context'
 import { getOCRSettings, listLLMProviders, updateOCRSettings, testLLM } from '@/api/config'
-import type { LLMProvider, OCRSettings } from '@/types/config'
-
-interface ModelOption {
-  id: string
-  display_name: string
-  max_tokens: number
-  supports_thinking: boolean
-}
-
-interface ProviderPreset {
-  id: string
-  display_name: string
-  category: string
-  type: string
-  base_url: string
-  protocol: string
-  supports_thinking: boolean
-  models: ModelOption[]
-  default_model: string
-  icon: string
-  region: string
-  requires_key: boolean
-}
+import type { LLMProvider, OCRSettings, ProviderPreset } from '@/types/config'
 
 const allPresets: ProviderPreset[] = [
   {
