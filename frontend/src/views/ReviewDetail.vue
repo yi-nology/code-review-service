@@ -186,8 +186,10 @@
                   <span>{{ detail.repo }}</span>
                   <code>{{ detail.review_id }}</code>
                   <code v-if="detail.head_sha">{{ detail.head_sha }}</code>
+                  <el-tag v-if="reviewViewerRepoSlug" size="small" type="success">已定位 workspace</el-tag>
+                  <el-tag v-else size="small" type="info">Viewer 总览</el-tag>
                 </div>
-                <iframe title="OCR Viewer" src="/api/v1/settings/ocr/viewer/proxy/" />
+                <iframe title="OCR Viewer" :src="reviewViewerSrc" />
               </div>
             </el-card>
 
@@ -398,6 +400,15 @@ const findingDensityLabel = computed(() => {
   const density = detail.value?.report?.score?.findings_density
   if (density === undefined || density === null) return '-'
   return `${density.toFixed(2)} / 百行`
+})
+const reviewViewerRepoSlug = computed(() => {
+  const workspaceDir = String(detail.value?.raw_ocr_input?.workspace?.dir || '').trim()
+  if (!workspaceDir) return ''
+  return workspaceDir.replace(/^[/\\]+/, '').replace(/[/\\]+/g, '-')
+})
+const reviewViewerSrc = computed(() => {
+  if (!reviewViewerRepoSlug.value) return '/api/v1/settings/ocr/viewer/proxy/'
+  return `/api/v1/settings/ocr/viewer/proxy/r/${encodeURIComponent(reviewViewerRepoSlug.value)}`
 })
 const showProgressTracker = computed(() => Boolean(detail.value && (
   ['queued', 'running', 'failed', 'success', 'completed'].includes(detail.value.status) ||
