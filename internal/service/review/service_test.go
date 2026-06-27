@@ -102,6 +102,10 @@ func (m *mockReviewRepo) AggregateStats(_ context.Context, _ models.ListOptions)
 	return &models.AggregateStats{}, nil
 }
 
+func (m *mockReviewRepo) ProjectOCRMetrics(_ context.Context, _ models.ProjectStatsOptions) (*models.ProjectOCRMetrics, error) {
+	return &models.ProjectOCRMetrics{}, nil
+}
+
 func (m *mockReviewRepo) ClaimQueued(ctx context.Context, limit int) ([]models.Review, error) {
 	m.mu.Lock()
 	fn := m.claimFn

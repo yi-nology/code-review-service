@@ -68,7 +68,7 @@ func InitSettingsHandler(
 }
 
 func InitStatsHandler(repos *repository.RepoContainer) {
-	stats_service.InitHandler(statsSvc.NewService(repos.ContributorStats))
+	stats_service.InitHandler(statsSvc.NewService(repos.ContributorStats, repos.Review))
 }
 
 func InitSessionHandler(sessionSvc *session.SessionService) {

@@ -89,3 +89,23 @@ type ProjectListResult struct {
 	Page     int              `json:"page"`
 	PageSize int              `json:"page_size"`
 }
+
+type ProjectOCRMetrics struct {
+	ReviewCount        int64            `json:"review_count"`
+	TotalTokens        int64            `json:"total_tokens"`
+	InputTokens        int64            `json:"input_tokens"`
+	OutputTokens       int64            `json:"output_tokens"`
+	CacheReadTokens    int64            `json:"cache_read_tokens"`
+	CacheWriteTokens   int64            `json:"cache_write_tokens"`
+	TotalReviewedFiles int64            `json:"total_reviewed_files"`
+	AvgTokens          float64          `json:"avg_tokens"`
+	AvgScore           float64          `json:"avg_score"`
+	AvgFindingsDensity float64          `json:"avg_findings_density"`
+	GradeDistribution  map[string]int64 `json:"grade_distribution"`
+	ToolCalls          []ToolCallStat   `json:"tool_calls"`
+}
+
+type ToolCallStat struct {
+	Tool  string `json:"tool"`
+	Count int64  `json:"count"`
+}

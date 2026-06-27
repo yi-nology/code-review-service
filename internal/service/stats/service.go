@@ -10,11 +10,16 @@ import (
 )
 
 type Service struct {
-	repo repository.ContributorStatsRepository
+	repo       repository.ContributorStatsRepository
+	reviewRepo repository.ReviewRepository
 }
 
-func NewService(repo repository.ContributorStatsRepository) *Service {
-	return &Service{repo: repo}
+func NewService(repo repository.ContributorStatsRepository, reviewRepo ...repository.ReviewRepository) *Service {
+	s := &Service{repo: repo}
+	if len(reviewRepo) > 0 {
+		s.reviewRepo = reviewRepo[0]
+	}
+	return s
 }
 
 func parseTime(s string) time.Time {
@@ -173,6 +178,38 @@ func (s *Service) GetProjectContributors(ctx context.Context, provider, repo, fr
 		return nil, err
 	}
 	return slicex.Map(contributors, toContributorSummary), nil
+}
+
+func (s *Service) GetProjectOCRMetrics(ctx context.Context, provider, repo, from, to string) (*ProjectOCRMetrics, error) {
+	if s.reviewRepo == nil {
+		return &ProjectOCRMetrics{}, nil
+	}
+	metrics, err := s.reviewRepo.ProjectOCRMetrics(ctx, models.ProjectStatsOptions{
+		Provider: provider,
+		Repo:     repo,
+		From:     parseTime(from),
+		To:       parseTime(to),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if metrics == nil {
+		return &ProjectOCRMetrics{}, nil
+	}
+	return &ProjectOCRMetrics{
+		ReviewCount:        metrics.ReviewCount,
+		TotalTokens:        metrics.TotalTokens,
+		InputTokens:        metrics.InputTokens,
+		OutputTokens:       metrics.OutputTokens,
+		CacheReadTokens:    metrics.CacheReadTokens,
+		CacheWriteTokens:   metrics.CacheWriteTokens,
+		TotalReviewedFiles: metrics.TotalReviewedFiles,
+		AvgTokens:          metrics.AvgTokens,
+		AvgScore:           metrics.AvgScore,
+		AvgFindingsDensity: metrics.AvgFindingsDensity,
+		GradeDistribution:  metrics.GradeDistribution,
+		ToolCalls:          slicex.Map(metrics.ToolCalls, func(t models.ToolCallStat) ToolCallStat { return ToolCallStat(t) }),
+	}, nil
 }
 
 func toContributorSummary(s models.ContributorSummary) ContributorSummary {

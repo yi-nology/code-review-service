@@ -10,6 +10,7 @@ import type {
   ProjectDetail,
   ProjectListOptions,
   ProjectListResult,
+  ProjectOCRMetrics,
   ProjectReportParams,
   ProjectTrendPoint,
 } from '@/types/stats'
@@ -58,4 +59,9 @@ export async function getProjectFiles(params: ProjectReportParams): Promise<File
 export async function getProjectContributors(params: ProjectReportParams & { limit?: number }): Promise<ContributorSummary[]> {
   const data: any = await request.get('/stats/projects/contributors', { params })
   return data?.contributors ?? data ?? []
+}
+
+export async function getProjectOCRMetrics(params: Partial<ProjectReportParams>): Promise<ProjectOCRMetrics> {
+  const data: any = await request.get('/stats/projects/ocr', { params })
+  return data?.metrics ?? data
 }

@@ -95,6 +95,21 @@ export interface ProjectListResult {
   page_size: number
 }
 
+export interface ProjectOCRMetrics {
+  review_count: number
+  total_tokens: number
+  input_tokens: number
+  output_tokens: number
+  cache_read_tokens: number
+  cache_write_tokens: number
+  total_reviewed_files: number
+  avg_tokens: number
+  avg_score: number
+  avg_findings_density: number
+  grade_distribution: Record<string, number>
+  tool_calls: Array<{ tool: string; count: number }>
+}
+
 export interface ProjectListOptions {
   provider?: string
   repo?: string

@@ -20,3 +20,23 @@ type AggregateStats struct {
 	CacheReadTokens  int64
 	CacheWriteTokens int64
 }
+
+type ProjectOCRMetrics struct {
+	ReviewCount        int64
+	TotalTokens        int64
+	InputTokens        int64
+	OutputTokens       int64
+	CacheReadTokens    int64
+	CacheWriteTokens   int64
+	TotalReviewedFiles int64
+	AvgTokens          float64
+	AvgScore           float64
+	AvgFindingsDensity float64
+	GradeDistribution  map[string]int64
+	ToolCalls          []ToolCallStat
+}
+
+type ToolCallStat struct {
+	Tool  string `json:"tool"`
+	Count int64  `json:"count"`
+}

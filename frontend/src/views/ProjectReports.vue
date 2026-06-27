@@ -52,6 +52,29 @@
         </el-col>
       </el-row>
 
+      <section class="ocr-observability" v-loading="metricsLoading">
+        <div class="obs-card">
+          <span>OCR Token 总量</span>
+          <strong>{{ formatNumber(ocrMetrics?.total_tokens) }}</strong>
+          <small>均值 {{ formatNumber(Math.round(ocrMetrics?.avg_tokens || 0)) }} / 次</small>
+        </div>
+        <div class="obs-card">
+          <span>扫描文件</span>
+          <strong>{{ formatNumber(ocrMetrics?.total_reviewed_files) }}</strong>
+          <small>{{ ocrMetrics?.review_count || 0 }} 次成功审查</small>
+        </div>
+        <div class="obs-card">
+          <span>问题密度</span>
+          <strong>{{ (ocrMetrics?.avg_findings_density || 0).toFixed(2) }}</strong>
+          <small>平均 findings / KLOC</small>
+        </div>
+        <div class="obs-card tools">
+          <span>工具调用</span>
+          <strong>{{ formatNumber(totalToolCalls) }}</strong>
+          <small>{{ topToolLabel }}</small>
+        </div>
+      </section>
+
       <el-card class="reports-card">
         <div class="toolbar">
           <div>
@@ -190,15 +213,17 @@ import {
   WarningFilled,
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import { getProjects } from '@/api/stats'
-import type { ProjectSummary } from '@/types/stats'
+import { getProjectOCRMetrics, getProjects } from '@/api/stats'
+import type { ProjectOCRMetrics, ProjectSummary } from '@/types/stats'
 import { formatDateRelative, getProviderInitial } from '@/utils/format'
 import { getScoreColor } from '@/utils/colors'
 import { PROVIDER_OPTIONS } from '@/utils/url-parser'
 
 const router = useRouter()
 const loading = ref(false)
+const metricsLoading = ref(false)
 const projects = ref<ProjectSummary[]>([])
+const ocrMetrics = ref<ProjectOCRMetrics | null>(null)
 const filters = reactive({ provider: '', repo: '', sort: 'avg_score' })
 const dateRange = ref<[Date, Date] | []>([])
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
@@ -217,20 +242,32 @@ const summaryStats = computed(() => {
     criticalCount,
   }
 })
+const totalToolCalls = computed(() => (ocrMetrics.value?.tool_calls || []).reduce((sum, item) => sum + item.count, 0))
+const topToolLabel = computed(() => {
+  const first = ocrMetrics.value?.tool_calls?.[0]
+  return first ? `最多：${first.tool} ${first.count} 次` : '暂无工具调用数据'
+})
 
 async function fetchProjects() {
   loading.value = true
+  metricsLoading.value = true
   try {
-    const result = await getProjects({
+    const params = {
       ...filters,
       ...dateParams(),
       page: pagination.page,
       page_size: pagination.pageSize,
-    })
+    }
+    const [result, metrics] = await Promise.all([
+      getProjects(params),
+      getProjectOCRMetrics({ provider: filters.provider || undefined, repo: filters.repo || undefined, ...dateParams() }),
+    ])
     projects.value = result.projects || []
     pagination.total = result.total
+    ocrMetrics.value = metrics
   } finally {
     loading.value = false
+    metricsLoading.value = false
   }
 }
 
@@ -293,6 +330,10 @@ function providerLabel(provider: string) {
   return labels[provider] || provider
 }
 
+function formatNumber(value?: number) {
+  return value ? value.toLocaleString() : '0'
+}
+
 onMounted(fetchProjects)
 </script>
 
@@ -328,6 +369,40 @@ onMounted(fetchProjects)
 
 .stats-row {
   margin-bottom: 20px;
+}
+
+.ocr-observability {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.obs-card {
+  min-height: 94px;
+  padding: 16px 18px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+}
+
+.obs-card span,
+.obs-card small {
+  display: block;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.obs-card strong {
+  display: block;
+  margin: 8px 0 4px;
+  color: var(--app-text);
+  font-size: 25px;
+  line-height: 1.15;
+}
+
+.obs-card.tools strong {
+  color: var(--app-primary);
 }
 
 .stats-row .el-col {
@@ -589,6 +664,18 @@ onMounted(fetchProjects)
     align-items: flex-start;
     flex-direction: column;
     gap: 12px;
+  }
+}
+
+@media (max-width: 1040px) {
+  .ocr-observability {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .ocr-observability {
+    grid-template-columns: 1fr;
   }
 }
 </style>
