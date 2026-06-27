@@ -157,7 +157,21 @@
                   {{ detail.report.scope?.reviewed_files ?? '-' }} / {{ detail.report.scope?.changed_files ?? '-' }} 文件
                 </el-descriptions-item>
                 <el-descriptions-item label="排除文件">{{ detail.report.scope?.excluded_files ?? '-' }}</el-descriptions-item>
+                <el-descriptions-item label="工具调用">{{ detail.report.ocr.tool_calls?.total ?? '-' }}</el-descriptions-item>
               </el-descriptions>
+              <el-alert
+                v-if="detail.report.ocr.project_summary"
+                class="ocr-project-summary"
+                type="info"
+                :closable="false"
+                :title="detail.report.ocr.project_summary"
+              />
+              <div v-if="toolCallRows.length" class="tool-call-grid">
+                <div v-for="row in toolCallRows" :key="row.name" class="tool-call-item">
+                  <span>{{ row.name }}</span>
+                  <strong>{{ row.count }}</strong>
+                </div>
+              </div>
             </el-card>
 
             <!-- 质量评估 -->
@@ -433,6 +447,12 @@ let pollTimer: ReturnType<typeof setTimeout> | null = null
 let fetchInFlight = false
 const descriptionColumns = computed(() => viewportWidth.value < 720 ? 1 : 2)
 const ocrDescriptionColumns = computed(() => viewportWidth.value < 720 ? 1 : 3)
+const toolCallRows = computed(() => {
+  const byTool = detail.value?.report?.ocr?.tool_calls?.by_tool || {}
+  return Object.entries(byTool)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+})
 const showProgressTracker = computed(() => Boolean(detail.value && (
   ['queued', 'running', 'failed', 'success', 'completed'].includes(detail.value.status) ||
   sessions.value.length > 0 ||
@@ -782,6 +802,32 @@ code {
 :deep(.el-descriptions__content) {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.ocr-project-summary {
+  margin-top: 14px;
+}
+
+.tool-call-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tool-call-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.tool-call-item strong {
+  color: #0f172a;
 }
 
 .score-block {

@@ -321,6 +321,7 @@ const form = reactive<OCRSettings>({
   use_anthropic: false,
   auth_token: '',
   auth_header: 'Authorization',
+  extra_headers: '',
   language: 'Chinese',
   concurrency: 2,
   max_git_procs: 4,

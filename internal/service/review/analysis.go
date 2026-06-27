@@ -62,12 +62,13 @@ func analysisFromRawOCR(raw json.RawMessage, result Result) Analysis {
 		return Analysis{}
 	}
 	var payload struct {
+		ProjectSummary string `json:"project_summary"`
 		Comments []struct {
 			Content        string `json:"content"`
 			SuggestionCode string `json:"suggestion_code"`
 		} `json:"comments"`
 	}
-	if json.Unmarshal(raw, &payload) != nil || len(payload.Comments) == 0 {
+	if json.Unmarshal(raw, &payload) != nil {
 		return Analysis{}
 	}
 	analysis := Analysis{
@@ -76,6 +77,12 @@ func analysisFromRawOCR(raw json.RawMessage, result Result) Analysis {
 			result.OCR.FilesReviewed,
 			len(payload.Comments),
 		),
+	}
+	if strings.TrimSpace(payload.ProjectSummary) != "" {
+		analysis.Overview = strings.TrimSpace(payload.ProjectSummary)
+	}
+	if len(payload.Comments) == 0 {
+		return analysis
 	}
 	for _, comment := range payload.Comments {
 		content := strings.TrimSpace(comment.Content)

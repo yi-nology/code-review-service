@@ -58,6 +58,16 @@
       <div class="form-tip">可选。必须是 JSON 对象字符串，会透传给 OCR_LLM_EXTRA_BODY。</div>
     </el-form-item>
 
+    <el-form-item label="额外请求头">
+      <el-input
+        v-model="form.extra_headers"
+        type="textarea"
+        :rows="2"
+        placeholder="X-Org-ID=org-123,X-Trace-ID=review-service"
+      />
+      <div class="form-tip">可选。逗号分隔的 key=value，会透传给 OCR_LLM_EXTRA_HEADERS。</div>
+    </el-form-item>
+
     <el-divider content-position="left">遥测 (Telemetry)</el-divider>
 
     <el-form-item label="启用遥测">

@@ -14,8 +14,8 @@ import (
 
 	"github.com/oekit/pkg/ptrx"
 
-	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/oekit/logx"
+	"github.com/cloudwego/hertz/pkg/app"
 	"gorm.io/datatypes"
 )
 
@@ -126,6 +126,9 @@ func validateOCRSettings(s *models.OCRSettings) error {
 	if len(s.ExtraBody) > 0 && !json.Valid(s.ExtraBody) {
 		return fmt.Errorf("额外请求体必须是合法 JSON")
 	}
+	if strings.ContainsAny(s.ExtraHeaders, "\r\n") {
+		return fmt.Errorf("额外请求头不能包含换行")
+	}
 	return nil
 }
 
@@ -137,7 +140,8 @@ func dbOCRSettingsToAPI(s *models.OCRSettings) *modelSettings.OCRSettings {
 	return &modelSettings.OCRSettings{
 		Enabled: s.Enabled, Provider: common.StrPtr(s.Provider),
 		URL: common.StrPtr(s.URL), AuthToken: common.StrPtr(s.AuthToken), AuthHeader: common.StrPtr(s.AuthHeader),
-		Model: common.StrPtr(s.ModelName), UseAnthropic: ptrx.Of(s.UseAnthropic), ExtraBody: common.StrPtr(extraBody),
+		ExtraHeaders: common.StrPtr(s.ExtraHeaders),
+		Model:        common.StrPtr(s.ModelName), UseAnthropic: ptrx.Of(s.UseAnthropic), ExtraBody: common.StrPtr(extraBody),
 		Language: common.StrPtr(s.Language), Concurrency: ptrx.Of(int64(s.Concurrency)),
 		MaxGitProcs: ptrx.Of(int64(s.MaxGitProcs)), TimeoutMinutes: ptrx.Of(int64(s.TimeoutMinutes)),
 		MaxTools: ptrx.Of(int64(s.MaxTools)), Background: common.StrPtr(s.Background),
@@ -148,6 +152,8 @@ func dbOCRSettingsToAPI(s *models.OCRSettings) *modelSettings.OCRSettings {
 		TelemetryOtlpEndpoint: common.StrPtr(s.TelemetryOTLPEndpoint), TelemetryContentLogging: ptrx.Of(s.TelemetryContentLogging),
 		ReasoningMode:   common.StrPtr(s.ReasoningMode),
 		ReasoningBudget: ptrx.Of(int64(s.ReasoningBudget)),
+		ContextWindow:   ptrx.Of(s.ContextWindow),
+		MaxOutputTokens: ptrx.Of(s.MaxOutputTokens),
 	}
 }
 
@@ -164,6 +170,7 @@ func apiOCRSettingsToDB(s *modelSettings.OCRSettings) *models.OCRSettings {
 	db.URL = ptrx.Deref(s.URL, "")
 	db.AuthToken = ptrx.Deref(s.AuthToken, "")
 	db.AuthHeader = ptrx.Deref(s.AuthHeader, "")
+	db.ExtraHeaders = ptrx.Deref(s.ExtraHeaders, "")
 	db.ModelName = ptrx.Deref(s.Model, "")
 	db.UseAnthropic = ptrx.Deref(s.UseAnthropic, false)
 	db.Language = ptrx.Deref(s.Language, "")
@@ -179,6 +186,8 @@ func apiOCRSettingsToDB(s *modelSettings.OCRSettings) *models.OCRSettings {
 	db.TelemetryContentLogging = ptrx.Deref(s.TelemetryContentLogging, false)
 	db.ReasoningMode = ptrx.Deref(s.ReasoningMode, "")
 	db.ReasoningBudget = int(ptrx.Deref(s.ReasoningBudget, 0))
+	db.ContextWindow = ptrx.Deref(s.ContextWindow, 0)
+	db.MaxOutputTokens = ptrx.Deref(s.MaxOutputTokens, 0)
 	if s.IsSetExtraBody() && s.ExtraBody != nil && *s.ExtraBody != "" {
 		db.ExtraBody = datatypes.JSON(*s.ExtraBody)
 	}

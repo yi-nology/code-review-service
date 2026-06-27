@@ -72,6 +72,7 @@ func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings, overrid
 		Model:           firstNonBlank(overrides.Model, s.ModelName),
 		AuthToken:       s.AuthToken,
 		AuthHeader:      s.AuthHeader,
+		ExtraHeaders:    s.ExtraHeaders,
 		UseAnthropic:    overrides.UseAnthropic || s.UseAnthropic,
 		ExtraBody: ResolveExtraBody(
 			firstNonBlank(overrides.ExtraBody, string(s.ExtraBody)),

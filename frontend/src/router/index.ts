@@ -14,6 +14,11 @@ const router = createRouter({
       component: () => import('@/views/Reviews.vue'),
     },
     {
+      path: '/scan',
+      name: 'RepositoryScan',
+      component: () => import('@/views/RepositoryScan.vue'),
+    },
+    {
       path: '/reviews/:id',
       name: 'ReviewDetail',
       component: () => import('@/views/ReviewDetail.vue'),

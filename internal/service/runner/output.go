@@ -74,15 +74,23 @@ func ParseOpenCodeReviewOutput(output []byte, defaultSeverity string) (review.Re
 		result.OCR.CacheWriteTokens = parsed.Summary.CacheWriteTokens
 		result.OCR.Elapsed = parsed.Summary.Elapsed
 	}
+	if parsed.ToolCalls != nil {
+		result.OCR.ToolCalls = parsed.ToolCalls
+	}
+	if strings.TrimSpace(parsed.ProjectSummary) != "" {
+		result.OCR.ProjectSummary = strings.TrimSpace(parsed.ProjectSummary)
+	}
 	return result, nil
 }
 
 type openCodeReviewOutput struct {
-	Status   string                  `json:"status"`
-	Message  string                  `json:"message"`
-	Summary  *openCodeReviewSummary  `json:"summary"`
-	Comments []openCodeReviewComment `json:"comments"`
-	Warnings []json.RawMessage       `json:"warnings"`
+	Status         string                    `json:"status"`
+	Message        string                    `json:"message"`
+	Summary        *openCodeReviewSummary    `json:"summary"`
+	ToolCalls      *review.ToolCallsMetadata `json:"tool_calls"`
+	Comments       []openCodeReviewComment   `json:"comments"`
+	Warnings       []json.RawMessage         `json:"warnings"`
+	ProjectSummary string                    `json:"project_summary"`
 }
 
 type openCodeReviewSummary struct {

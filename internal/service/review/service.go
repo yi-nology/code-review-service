@@ -67,6 +67,7 @@ type ServiceConfig struct {
 	Providers       Providers
 	Runner          Runner
 	PreviewRunner   PreviewRunner
+	ScanRunner      ScanRunner
 	ProgressManager *progress.ProgressManager
 	Executor        Executor
 }
@@ -81,6 +82,7 @@ type Service struct {
 	Providers       Providers
 	runner          Runner
 	PreviewRunner   PreviewRunner
+	ScanRunner      ScanRunner
 	progressManager *progress.ProgressManager
 	Executor        Executor
 	inFlight        sync.WaitGroup
@@ -98,6 +100,7 @@ func NewService(cfg ServiceConfig) *Service {
 		Providers:       cfg.Providers,
 		runner:          cfg.Runner,
 		PreviewRunner:   cfg.PreviewRunner,
+		ScanRunner:      cfg.ScanRunner,
 		progressManager: cfg.ProgressManager,
 		Executor:        cfg.Executor,
 	}
@@ -436,6 +439,94 @@ func (s *Service) Preview(ctx context.Context, req Request) ([]string, error) {
 		return nil, err
 	}
 	return result.Files, nil
+}
+
+func (s *Service) Scan(ctx context.Context, req ScanRequest) (*ScanResult, error) {
+	providerName := strings.TrimSpace(req.Provider)
+	repo := strings.TrimSpace(req.Repo)
+	head := strings.TrimSpace(req.HeadSHA)
+	if providerName == "" {
+		return nil, fmt.Errorf("provider is required")
+	}
+	if repo == "" {
+		return nil, fmt.Errorf("repo is required")
+	}
+	if head == "" {
+		return nil, fmt.Errorf("head_sha is required")
+	}
+	if s.ScanRunner == nil {
+		return nil, fmt.Errorf("scan feature not configured")
+	}
+
+	p, ok := s.Providers.Get(providerName)
+	if !ok {
+		logx.Errorf("Scan: provider not found: requested=%q", providerName)
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedProvider, providerName)
+	}
+
+	workspace, err := p.Prepare(ctx, Request{
+		Provider: providerName,
+		Repo:     repo,
+		BaseSHA:  head,
+		HeadSHA:  head,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if workspace.Dir != "" {
+		defer func() { _ = os.RemoveAll(workspace.Dir) }()
+	}
+
+	projectPolicy := models.ProjectPolicy{FailOn: "critical"}
+	if s.projectRepo != nil {
+		policyRecord, err := s.projectRepo.GetByProviderRepo(ctx, providerName, repo)
+		if err == nil && policyRecord != nil {
+			projectPolicy = *policyRecord
+		}
+	}
+	workspace.OCR = scanPolicyOCROverrides(projectPolicy)
+	if strings.TrimSpace(req.Background) != "" {
+		workspace.OCR.Background = req.Background
+	}
+
+	if s.globalRulesRepo != nil {
+		rulePath, cleanup, ruleErr := s.resolveRuleFile(ctx, projectPolicy)
+		if ruleErr != nil {
+			logx.Warn("failed to resolve rule file", "error", ruleErr)
+		} else if rulePath != "" {
+			workspace.RulePath = rulePath
+			if cleanup != nil {
+				defer cleanup()
+			}
+		}
+	}
+
+	return s.ScanRunner.Scan(ctx, workspace, req)
+}
+
+func scanPolicyOCROverrides(p models.ProjectPolicy) OCROverrides {
+	return OCROverrides{
+		Enabled:                 p.OCREnabled,
+		Concurrency:             p.OCRConcurrency,
+		TimeoutMinutes:          p.OCRTimeoutMinutes,
+		MaxTools:                p.OCRMaxTools,
+		DefaultSeverity:         p.OCRDefaultSeverity,
+		Background:              p.OCRBackground,
+		Audience:                p.OCRAudience,
+		Provider:                p.OCRProvider,
+		URL:                     p.OCRURL,
+		Model:                   p.OCRModel,
+		MaxGitProcs:             p.OCRMaxGitProcs,
+		UseAnthropic:            p.OCRUseAnthropic,
+		ExtraBody:               p.OCRExtraBody,
+		Language:                p.OCRLanguage,
+		Binary:                  p.OCRBinary,
+		ToolsPath:               p.OCRToolsPath,
+		TelemetryEnabled:        p.OCRTelemetryEnabled,
+		TelemetryExporter:       p.OCRTelemetryExporter,
+		TelemetryOTLPEndpoint:   p.OCRTelemetryOTLPEndpoint,
+		TelemetryContentLogging: p.OCRTelemetryContentLogging,
+	}
 }
 
 func (s *Service) Requeue(ctx context.Context, reviewID string) (Response, error) {

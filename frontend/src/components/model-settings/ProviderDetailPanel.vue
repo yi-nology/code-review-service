@@ -52,6 +52,16 @@
             <el-input v-model="form.auth_header" placeholder="Authorization" />
           </el-form-item>
 
+          <el-form-item label="额外请求头">
+            <el-input
+              v-model="form.extra_headers"
+              type="textarea"
+              :rows="2"
+              placeholder='X-Org-ID=org-123,X-Trace-ID=review-service'
+            />
+            <div class="form-hint">可选。逗号分隔的 key=value，会透传给 OCR_LLM_EXTRA_HEADERS。</div>
+          </el-form-item>
+
           <el-form-item label="输出语言">
             <el-select v-model="form.language">
               <el-option label="中文" value="Chinese" />

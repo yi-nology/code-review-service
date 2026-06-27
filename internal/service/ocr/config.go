@@ -53,6 +53,7 @@ func (r *ConfigResolver) buildConfig(s *models.OCRSettings, overrides review.OCR
 		Model:           firstNonBlank(overrides.Model, s.ModelName),
 		AuthToken:       s.AuthToken,
 		AuthHeader:      s.AuthHeader,
+		ExtraHeaders:    s.ExtraHeaders,
 		UseAnthropic:    overrides.UseAnthropic || s.UseAnthropic,
 		ExtraBody:       firstNonBlank(overrides.ExtraBody, string(s.ExtraBody)),
 		Language:        firstNonBlank(overrides.Language, s.Language),

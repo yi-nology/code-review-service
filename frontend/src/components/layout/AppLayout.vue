@@ -20,6 +20,10 @@
           <el-icon><DocumentChecked /></el-icon>
           <span>审查记录</span>
         </router-link>
+        <router-link to="/scan" class="nav-item">
+          <el-icon><Search /></el-icon>
+          <span>代码库扫描</span>
+        </router-link>
         <router-link to="/contributors" class="nav-item">
           <el-icon><DataAnalysis /></el-icon>
           <span>开发者质量</span>
@@ -124,6 +128,7 @@ import {
   List,
   Menu,
   Notebook,
+  Search,
   SwitchButton,
   User,
 } from '@element-plus/icons-vue'

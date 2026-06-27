@@ -15,6 +15,7 @@ type OCRSettings struct {
 	URL             string         `gorm:"type:text" json:"url"`
 	AuthToken       string         `gorm:"type:text" json:"auth_token,omitempty"`
 	AuthHeader      string         `gorm:"type:text" json:"auth_header,omitempty"`
+	ExtraHeaders    string         `gorm:"type:text" json:"extra_headers,omitempty"`
 	ModelName       string         `gorm:"type:text;column:model" json:"model"`
 	UseAnthropic    bool           `gorm:"not null;default:false" json:"use_anthropic"`
 	ExtraBody       datatypes.JSON `gorm:"type:jsonb" json:"extra_body,omitempty"`
@@ -29,12 +30,12 @@ type OCRSettings struct {
 	MaxTools                int    `gorm:"not null;default:0" json:"max_tools"`
 	Background              string `gorm:"type:text" json:"background,omitempty"`
 	ToolsPath               string `gorm:"type:text" json:"tools_path,omitempty"`
-	TelemetryEnabled        bool           `gorm:"not null;default:false" json:"telemetry_enabled"`
-	TelemetryExporter       string         `gorm:"type:text" json:"telemetry_exporter,omitempty"`
-	TelemetryOTLPEndpoint   string         `gorm:"type:text;column:telemetry_otlp_endpoint" json:"telemetry_otlp_endpoint,omitempty"`
-	TelemetryContentLogging bool           `gorm:"not null;default:false" json:"telemetry_content_logging"`
-	ContextWindow           int64          `gorm:"not null;default:0" json:"context_window"`
-	MaxOutputTokens         int64          `gorm:"not null;default:0" json:"max_output_tokens"`
+	TelemetryEnabled        bool   `gorm:"not null;default:false" json:"telemetry_enabled"`
+	TelemetryExporter       string `gorm:"type:text" json:"telemetry_exporter,omitempty"`
+	TelemetryOTLPEndpoint   string `gorm:"type:text;column:telemetry_otlp_endpoint" json:"telemetry_otlp_endpoint,omitempty"`
+	TelemetryContentLogging bool   `gorm:"not null;default:false" json:"telemetry_content_logging"`
+	ContextWindow           int64  `gorm:"not null;default:0" json:"context_window"`
+	MaxOutputTokens         int64  `gorm:"not null;default:0" json:"max_output_tokens"`
 }
 
 func (OCRSettings) TableName() string {

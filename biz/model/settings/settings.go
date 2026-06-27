@@ -1151,6 +1151,7 @@ type OCRSettings struct {
 	URL                     *string `thrift:"url,3,optional" form:"url" json:"url,omitempty"`
 	AuthToken               *string `thrift:"auth_token,4,optional" form:"auth_token" json:"auth_token,omitempty"`
 	AuthHeader              *string `thrift:"auth_header,5,optional" form:"auth_header" json:"auth_header,omitempty"`
+	ExtraHeaders            *string `thrift:"extra_headers,27,optional" form:"extra_headers" json:"extra_headers,omitempty"`
 	Model                   *string `thrift:"model,6,optional" form:"model" json:"model,omitempty"`
 	UseAnthropic            *bool   `thrift:"use_anthropic,7,optional" form:"use_anthropic" json:"use_anthropic,omitempty"`
 	ExtraBody               *string `thrift:"extra_body,8,optional" form:"extra_body" json:"extra_body,omitempty"`
@@ -1219,6 +1220,15 @@ func (p *OCRSettings) GetAuthHeader() (v string) {
 		return OCRSettings_AuthHeader_DEFAULT
 	}
 	return *p.AuthHeader
+}
+
+var OCRSettings_ExtraHeaders_DEFAULT string
+
+func (p *OCRSettings) GetExtraHeaders() (v string) {
+	if !p.IsSetExtraHeaders() {
+		return OCRSettings_ExtraHeaders_DEFAULT
+	}
+	return *p.ExtraHeaders
 }
 
 var OCRSettings_Model_DEFAULT string
@@ -1453,6 +1463,10 @@ func (p *OCRSettings) IsSetAuthToken() bool {
 
 func (p *OCRSettings) IsSetAuthHeader() bool {
 	return p.AuthHeader != nil
+}
+
+func (p *OCRSettings) IsSetExtraHeaders() bool {
+	return p.ExtraHeaders != nil
 }
 
 func (p *OCRSettings) IsSetModel() bool {

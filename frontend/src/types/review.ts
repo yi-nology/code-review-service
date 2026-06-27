@@ -98,6 +98,11 @@ export interface OCRMetadata {
   cache_read_tokens?: number
   cache_write_tokens?: number
   elapsed?: string
+  tool_calls?: {
+    total: number
+    by_tool?: Record<string, number>
+  }
+  project_summary?: string
 }
 
 export interface ScopeMetadata {
@@ -174,6 +179,35 @@ export interface CreateReviewOptions {
   wait?: boolean
   requirements?: string[]
   ephemeral_reviewers?: EphemeralReviewer[]
+}
+
+export interface ScanRepositoryOptions {
+  provider: string
+  repo: string
+  project_id?: string
+  head_sha: string
+  paths?: string[]
+  exclude?: string[]
+  background?: string
+  max_tokens_budget?: number
+  batch?: 'none' | 'by-language' | 'by-directory' | ''
+  no_plan?: boolean
+  no_dedup?: boolean
+  no_summary?: boolean
+  preview?: boolean
+}
+
+export interface ScanRepositoryResult {
+  preview_files?: string[]
+  result?: {
+    summary: string
+    ocr: OCRMetadata
+    warnings?: OCRWarning[]
+    findings: Finding[]
+  }
+  report?: Report
+  analysis?: Analysis
+  warnings?: OCRWarning[]
 }
 
 export interface EphemeralReviewer {

@@ -30,6 +30,7 @@ type OpenCodeReviewConfig struct {
 	Model                   string
 	AuthToken               string
 	AuthHeader              string
+	ExtraHeaders            string
 	UseAnthropic            bool
 	ExtraBody               string
 	Language                string
@@ -103,6 +104,9 @@ func AppendLLMEnv(env []string, cfg OpenCodeReviewConfig) []string {
 	}
 	if cfg.AuthHeader != "" {
 		env = append(env, "OCR_LLM_AUTH_HEADER="+cfg.AuthHeader)
+	}
+	if cfg.ExtraHeaders != "" {
+		env = append(env, "OCR_LLM_EXTRA_HEADERS="+cfg.ExtraHeaders)
 	}
 	if cfg.UseAnthropic {
 		env = append(env, "OCR_USE_ANTHROPIC=true")

@@ -33,16 +33,23 @@ type ScopeMetadata struct {
 }
 
 type OCRMetadata struct {
-	Engine           string `json:"engine,omitempty"`
-	Status           string `json:"status,omitempty"`
-	FilesReviewed    int64  `json:"files_reviewed,omitempty"`
-	Comments         int64  `json:"comments,omitempty"`
-	TotalTokens      int64  `json:"total_tokens,omitempty"`
-	InputTokens      int64  `json:"input_tokens,omitempty"`
-	OutputTokens     int64  `json:"output_tokens,omitempty"`
-	CacheReadTokens  int64  `json:"cache_read_tokens,omitempty"`
-	CacheWriteTokens int64  `json:"cache_write_tokens,omitempty"`
-	Elapsed          string `json:"elapsed,omitempty"`
+	Engine           string             `json:"engine,omitempty"`
+	Status           string             `json:"status,omitempty"`
+	FilesReviewed    int64              `json:"files_reviewed,omitempty"`
+	Comments         int64              `json:"comments,omitempty"`
+	TotalTokens      int64              `json:"total_tokens,omitempty"`
+	InputTokens      int64              `json:"input_tokens,omitempty"`
+	OutputTokens     int64              `json:"output_tokens,omitempty"`
+	CacheReadTokens  int64              `json:"cache_read_tokens,omitempty"`
+	CacheWriteTokens int64              `json:"cache_write_tokens,omitempty"`
+	Elapsed          string             `json:"elapsed,omitempty"`
+	ToolCalls        *ToolCallsMetadata `json:"tool_calls,omitempty"`
+	ProjectSummary   string             `json:"project_summary,omitempty"`
+}
+
+type ToolCallsMetadata struct {
+	Total  int64            `json:"total"`
+	ByTool map[string]int64 `json:"by_tool,omitempty"`
 }
 
 type OCRWarning struct {
@@ -116,6 +123,30 @@ type WorkspaceInfo struct {
 
 type PreviewResult struct {
 	Files []string `json:"files"`
+}
+
+type ScanRequest struct {
+	Provider        string   `json:"provider"`
+	Repo            string   `json:"repo"`
+	ProjectID       string   `json:"project_id,omitempty"`
+	HeadSHA         string   `json:"head_sha"`
+	Paths           []string `json:"paths,omitempty"`
+	Exclude         []string `json:"exclude,omitempty"`
+	Background      string   `json:"background,omitempty"`
+	MaxTokensBudget int      `json:"max_tokens_budget,omitempty"`
+	Batch           string   `json:"batch,omitempty"`
+	NoPlan          bool     `json:"no_plan,omitempty"`
+	NoDedup         bool     `json:"no_dedup,omitempty"`
+	NoSummary       bool     `json:"no_summary,omitempty"`
+	Preview         bool     `json:"preview,omitempty"`
+}
+
+type ScanResult struct {
+	PreviewFiles []string     `json:"preview_files,omitempty"`
+	Result       *Result      `json:"result,omitempty"`
+	Report       *Report      `json:"report,omitempty"`
+	Analysis     *Analysis    `json:"analysis,omitempty"`
+	Warnings     []OCRWarning `json:"warnings,omitempty"`
 }
 
 type LLMTestResult struct {

@@ -1,6 +1,7 @@
 import request from './request'
 import type {
   ReviewDetail, ListResult, ListOptions, CreateReviewOptions,
+  ScanRepositoryOptions, ScanRepositoryResult,
 } from '@/types/review'
 
 export async function getReviews(params: ListOptions): Promise<ListResult> {
@@ -36,6 +37,10 @@ export async function previewReview(opts: {
 }): Promise<string[]> {
   const res: any = await request.post('/reviews/preview', opts, { timeout: 60000 })
   return res?.files ?? []
+}
+
+export async function scanRepository(data: ScanRepositoryOptions): Promise<ScanRepositoryResult> {
+  return request.post('/reviews/scan', data, { timeout: data.preview ? 120000 : 900000 }) as any
 }
 
 export async function cancelReview(id: string): Promise<ReviewDetail> {

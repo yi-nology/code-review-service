@@ -194,3 +194,35 @@ func TestParseOpenCodeReviewOutputWithSuggestion(t *testing.T) {
 		t.Fatalf("expected existing code, got %q", result.Findings[0].ExistingCode)
 	}
 }
+
+func TestParseOpenCodeReviewOutputWithToolCallsAndProjectSummary(t *testing.T) {
+	input := []byte(`{
+		"status": "success",
+		"comments": [],
+		"tool_calls": {
+			"total": 7,
+			"by_tool": {
+				"file_read": 4,
+				"code_search": 3
+			}
+		},
+		"project_summary": "项目整体风险较低。"
+	}`)
+
+	result, err := runner.ParseOpenCodeReviewOutput(input, "major")
+	if err != nil {
+		t.Fatalf("ParseOpenCodeReviewOutput returned error: %v", err)
+	}
+	if result.OCR.ToolCalls == nil {
+		t.Fatal("expected tool calls metadata")
+	}
+	if result.OCR.ToolCalls.Total != 7 {
+		t.Fatalf("expected 7 tool calls, got %d", result.OCR.ToolCalls.Total)
+	}
+	if result.OCR.ToolCalls.ByTool["file_read"] != 4 {
+		t.Fatalf("expected file_read count 4, got %d", result.OCR.ToolCalls.ByTool["file_read"])
+	}
+	if result.OCR.ProjectSummary != "项目整体风险较低。" {
+		t.Fatalf("expected project summary, got %q", result.OCR.ProjectSummary)
+	}
+}

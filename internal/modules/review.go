@@ -100,6 +100,7 @@ func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 		Providers:       deps.GitProviders,
 		Runner:          deps.OcrRunner,
 		PreviewRunner:   deps.OcrRunner,
+		ScanRunner:      deps.OcrRunner,
 		ProgressManager: deps.ProgressManager,
 		Executor:        deps.ExecutorSvc,
 	})

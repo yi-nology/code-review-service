@@ -28,6 +28,10 @@ type PreviewRunner interface {
 	Preview(ctx context.Context, workspace Workspace) (*PreviewResult, error)
 }
 
+type ScanRunner interface {
+	Scan(ctx context.Context, workspace Workspace, req ScanRequest) (*ScanResult, error)
+}
+
 type LLMTester interface {
 	TestLLM(ctx context.Context) (*LLMTestResult, error)
 }

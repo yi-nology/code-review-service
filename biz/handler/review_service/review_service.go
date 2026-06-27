@@ -172,6 +172,76 @@ func PreviewReview(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelReview.PreviewResp{Files: files})
 }
 
+type scanRepositoryReq struct {
+	Provider        string   `json:"provider"`
+	Repo            string   `json:"repo"`
+	ProjectID       string   `json:"project_id,omitempty"`
+	HeadSHA         string   `json:"head_sha"`
+	Paths           []string `json:"paths,omitempty"`
+	Exclude         []string `json:"exclude,omitempty"`
+	Background      string   `json:"background,omitempty"`
+	MaxTokensBudget int      `json:"max_tokens_budget,omitempty"`
+	Batch           string   `json:"batch,omitempty"`
+	NoPlan          bool     `json:"no_plan,omitempty"`
+	NoDedup         bool     `json:"no_dedup,omitempty"`
+	NoSummary       bool     `json:"no_summary,omitempty"`
+	Preview         bool     `json:"preview,omitempty"`
+}
+
+func ScanRepository(ctx context.Context, c *app.RequestContext) {
+	req, ok := common.Bind[scanRepositoryReq](c)
+	if !ok {
+		return
+	}
+	if strings.TrimSpace(req.Provider) == "" || strings.TrimSpace(req.Repo) == "" || strings.TrimSpace(req.HeadSHA) == "" {
+		common.Fail(c, common.BadRequest("provider、repo、head_sha 不能为空"))
+		return
+	}
+	batch := strings.TrimSpace(req.Batch)
+	switch batch {
+	case "", "none", "by-language", "by-directory":
+	default:
+		common.Fail(c, common.BadRequest("batch 仅支持 none、by-language、by-directory"))
+		return
+	}
+	if req.MaxTokensBudget < 0 {
+		common.Fail(c, common.BadRequest("max_tokens_budget 不能为负数"))
+		return
+	}
+
+	result, err := handlerInst.reviewSvc.Scan(ctx, review.ScanRequest{
+		Provider:        strings.TrimSpace(req.Provider),
+		Repo:            strings.TrimSpace(req.Repo),
+		ProjectID:       strings.TrimSpace(req.ProjectID),
+		HeadSHA:         strings.TrimSpace(req.HeadSHA),
+		Paths:           cleanStringSlice(req.Paths),
+		Exclude:         cleanStringSlice(req.Exclude),
+		Background:      strings.TrimSpace(req.Background),
+		MaxTokensBudget: req.MaxTokensBudget,
+		Batch:           batch,
+		NoPlan:          req.NoPlan,
+		NoDedup:         req.NoDedup,
+		NoSummary:       req.NoSummary,
+		Preview:         req.Preview,
+	})
+	if err != nil {
+		common.Fail(c, mapReviewError(err))
+		return
+	}
+	common.Success(c, result)
+}
+
+func cleanStringSlice(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			out = append(out, value)
+		}
+	}
+	return out
+}
+
 func RerunReview(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelReview.ReviewActionReq](c)
 	if !ok {

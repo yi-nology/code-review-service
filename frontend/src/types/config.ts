@@ -7,6 +7,7 @@ export interface OCRSettings {
   url: string
   auth_token?: string
   auth_header?: string
+  extra_headers?: string
   model: string
   use_anthropic: boolean
   extra_body?: any
