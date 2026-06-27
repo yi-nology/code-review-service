@@ -119,6 +119,41 @@ export interface SuggestionPatchApplyResult extends SuggestionPatchPreview {
   error?: string
 }
 
+export interface ModelCompareCandidate {
+  label: string
+  provider?: string
+  url?: string
+  model: string
+  auth_token?: string
+  auth_header?: string
+  extra_headers?: string
+  extra_body?: string
+}
+
+export interface ModelCompareCandidateRun {
+  label: string
+  provider?: string
+  url?: string
+  model: string
+  success: boolean
+  score?: number
+  grade?: string
+  findings: number
+  warnings: number
+  total_tokens?: number
+  input_tokens?: number
+  output_tokens?: number
+  elapsed?: string
+  duration_ms: number
+  summary?: string
+  error?: string
+}
+
+export interface ModelCompareResult {
+  review_id: string
+  candidates: ModelCompareCandidateRun[]
+}
+
 export interface Report {
   ocr: OCRMetadata
   scope: ScopeMetadata

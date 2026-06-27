@@ -314,6 +314,11 @@
               :reason="detail.gate?.reason"
             />
 
+            <ModelComparePanel
+              v-if="detail.status === 'success'"
+              :review-id="detail.review_id"
+            />
+
             <ReviewHistoryCard
               v-if="detail.history?.length"
               :history="detail.history"
@@ -342,6 +347,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import ProgressTracker from '@/components/ProgressTracker.vue'
 import PublishPanel from '@/components/PublishPanel.vue'
 import ReviewFindingsPanel from '@/components/review-detail/ReviewFindingsPanel.vue'
+import ModelComparePanel from '@/components/review-detail/ModelComparePanel.vue'
 import ReviewDebugPanel from '@/components/review-detail/ReviewDebugPanel.vue'
 import ReviewGateCard from '@/components/review-detail/ReviewGateCard.vue'
 import ReviewHistoryCard from '@/components/review-detail/ReviewHistoryCard.vue'

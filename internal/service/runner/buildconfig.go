@@ -35,9 +35,9 @@ func BuildConfig(s *models.OCRSettings, overrides domain.OCROverrides, fallback 
 		DefaultSeverity: firstNonBlank(overrides.DefaultSeverity, s.DefaultSeverity, fallback.DefaultSeverity, string(domain.SeverityMajor)),
 		URL:             firstNonBlank(overrides.URL, s.URL),
 		Model:           firstNonBlank(overrides.Model, s.ModelName),
-		AuthToken:       s.AuthToken,
-		AuthHeader:      s.AuthHeader,
-		ExtraHeaders:    s.ExtraHeaders,
+		AuthToken:       firstNonBlank(overrides.AuthToken, s.AuthToken),
+		AuthHeader:      firstNonBlank(overrides.AuthHeader, s.AuthHeader),
+		ExtraHeaders:    firstNonBlank(overrides.ExtraHeaders, s.ExtraHeaders),
 		UseAnthropic:    overrides.UseAnthropic || s.UseAnthropic,
 		ExtraBody: ResolveExtraBody(
 			firstNonBlank(overrides.ExtraBody, string(s.ExtraBody)),

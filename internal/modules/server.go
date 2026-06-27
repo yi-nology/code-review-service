@@ -105,6 +105,7 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos
 
 func registerReviewExtraRoutes(h *server.Hertz) {
 	h.POST("/api/v1/reviews/:id/suggestion-patch/apply", reviewHandler.ApplySuggestionPatch)
+	h.POST("/api/v1/reviews/:id/model-compare", reviewHandler.CompareReviewModels)
 }
 
 func registerViewerProxyRoute(h *server.Hertz, viewerMgr *ocr.ViewerManager) {

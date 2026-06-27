@@ -92,6 +92,9 @@ type OCROverrides struct {
 	Provider                string
 	URL                     string
 	Model                   string
+	AuthToken               string
+	AuthHeader              string
+	ExtraHeaders            string
 	MaxGitProcs             int
 	UseAnthropic            bool
 	ExtraBody               string

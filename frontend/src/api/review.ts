@@ -1,7 +1,7 @@
 import request from './request'
 import type {
   ReviewDetail, ListResult, ListOptions, CreateReviewOptions,
-  PublishStatus, ScanRepositoryOptions, ScanRepositoryResult, SuggestionPatchApplyResult, SuggestionPatchCheck, SuggestionPatchPreview,
+  ModelCompareCandidate, ModelCompareResult, PublishStatus, ScanRepositoryOptions, ScanRepositoryResult, SuggestionPatchApplyResult, SuggestionPatchCheck, SuggestionPatchPreview,
 } from '@/types/review'
 
 export async function getReviews(params: ListOptions): Promise<ListResult> {
@@ -132,4 +132,8 @@ export async function applySuggestionPatch(reviewId: string, options: {
     description: options.description,
     remove_source_branch: options.remove_source_branch,
   }, { timeout: 300000 }) as any
+}
+
+export async function compareReviewModels(reviewId: string, candidates: ModelCompareCandidate[]): Promise<ModelCompareResult> {
+  return request.post(`/reviews/${reviewId}/model-compare`, { candidates }, { timeout: 900000 }) as any
 }

@@ -18,6 +18,7 @@ type ReviewService interface {
 	Scan(context.Context, domain.ScanRequest) (*domain.ScanResult, error)
 	CheckSuggestionPatch(context.Context, string, []int) (*review.SuggestionPatchCheck, bool, error)
 	ApplySuggestionPatch(context.Context, string, review.SuggestionPatchApplyOptions) (*review.SuggestionPatchApplyResult, bool, error)
+	CompareModels(context.Context, string, review.ModelCompareOptions) (*review.ModelCompareResult, bool, error)
 	Requeue(context.Context, string) (domain.Response, error)
 	Cancel(context.Context, string) (domain.Response, error)
 }
