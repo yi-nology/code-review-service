@@ -199,6 +199,21 @@ export interface OCRVersion {
   build_time?: string
 }
 
+export interface OCRUpdateInfo {
+  current_version: string
+  latest_version: string
+  update_available: boolean
+  release_notes?: string
+  release_url?: string
+}
+
+export interface OCRUpgradeStatus {
+  state: 'idle' | 'downloading' | 'verifying' | 'installing' | 'done' | 'failed'
+  message?: string
+  version?: string
+  progress?: number
+}
+
 export interface ViewerStatus {
   running: boolean
   addr?: string

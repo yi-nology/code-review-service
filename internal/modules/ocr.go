@@ -1,6 +1,7 @@
 package modules
 
 import (
+	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/runner"
@@ -15,6 +16,7 @@ var OCRModule = fx.Options(
 	fx.Provide(NewOCRRulesChecker),
 	fx.Provide(NewOCRVersioner),
 	fx.Provide(NewOCRViewerManager),
+	fx.Provide(NewOCRUpgrader),
 )
 
 func NewConfigResolver(repos *repository.RepoContainer, fallback *runner.OpenCodeReviewRunner) *ocr.ConfigResolver {
@@ -39,4 +41,8 @@ func NewOCRVersioner(repos *repository.RepoContainer, resolver *ocr.ConfigResolv
 
 func NewOCRViewerManager(repos *repository.RepoContainer, resolver *ocr.ConfigResolver) *ocr.ViewerManager {
 	return ocr.NewViewerManager(repos.OCRSettings, resolver)
+}
+
+func NewOCRUpgrader(repos *repository.RepoContainer, resolver *ocr.ConfigResolver, versioner *ocr.Versioner, cfg *config.Config) *ocr.Upgrader {
+	return ocr.NewUpgrader(repos.OCRSettings, resolver, versioner, cfg.OCR.UpgradeInstallDir, cfg.OCR.GitHubRepo)
 }

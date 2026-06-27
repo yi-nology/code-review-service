@@ -129,6 +129,7 @@ func registerOCRAssetRoutes(h *server.Hertz, viewerMgr *ocr.ViewerManager) {
 	api.PUT("/ocr/tool-packages/:id", settingsHandler.UpsertToolPackage)
 	api.DELETE("/ocr/tool-packages/:id", settingsHandler.DeleteToolPackage)
 	api.POST("/ocr/tool-packages/validate", settingsHandler.ValidateToolPackage)
+
 	api.GET("/ocr/viewer/proxy/*path", viewerProxyHandler(viewerMgr))
 
 	statsAPI := h.Group("/api/v1/stats")

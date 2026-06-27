@@ -240,25 +240,66 @@
     </template>
 
     <!-- OCR Version Dialog -->
-    <el-dialog v-model="showVersion" title="OCR 版本信息" width="400px">
+    <el-dialog v-model="showVersion" title="OCR 版本信息" width="500px" @close="stopUpgradePolling">
       <el-skeleton v-if="loadingVersion" :rows="3" animated />
-      <el-descriptions :column="1" border v-else-if="ocrVersion">
-        <el-descriptions-item label="版本">{{ ocrVersion.version }}</el-descriptions-item>
-        <el-descriptions-item label="Commit" v-if="ocrVersion.commit">{{ ocrVersion.commit }}</el-descriptions-item>
-        <el-descriptions-item label="构建时间" v-if="ocrVersion.build_time">{{ ocrVersion.build_time }}</el-descriptions-item>
-      </el-descriptions>
-      <el-empty v-else description="获取版本信息失败" :image-size="60" />
+      <template v-else>
+        <el-descriptions :column="1" border v-if="ocrVersion">
+          <el-descriptions-item label="当前版本">{{ ocrVersion.version }}</el-descriptions-item>
+          <el-descriptions-item label="Commit" v-if="ocrVersion.commit">{{ ocrVersion.commit }}</el-descriptions-item>
+          <el-descriptions-item label="构建时间" v-if="ocrVersion.build_time">{{ ocrVersion.build_time }}</el-descriptions-item>
+        </el-descriptions>
+
+        <!-- Update check -->
+        <div v-if="updateInfo" class="ocr-update-info">
+          <el-divider />
+          <el-descriptions :column="1" border>
+            <el-descriptions-item label="最新版本">
+              <span>{{ updateInfo.latest_version }}</span>
+              <el-tag v-if="updateInfo.update_available" type="warning" size="small" style="margin-left: 8px">有新版本</el-tag>
+              <el-tag v-else type="success" size="small" style="margin-left: 8px">已是最新</el-tag>
+            </el-descriptions-item>
+          </el-descriptions>
+        </div>
+
+        <!-- Upgrade progress -->
+        <div v-if="upgradeStatus && upgrading" class="ocr-upgrade-progress">
+          <el-divider />
+          <div style="margin-bottom: 8px">
+            <el-tag :type="upgradeStatus.state === 'failed' ? 'danger' : 'primary'" size="small">
+              {{ upgradeStatus.state }}
+            </el-tag>
+            <span style="margin-left: 8px; color: #909399">{{ upgradeStatus.message }}</span>
+          </div>
+          <el-progress :percentage="upgradeStatus.progress || 0" :status="upgradeStatus.state === 'failed' ? 'exception' : undefined" />
+        </div>
+
+        <!-- Actions -->
+        <div v-if="!upgrading" class="ocr-version-actions">
+          <el-button :loading="checkingUpdate" :icon="Refresh" size="small" @click="handleCheckUpdate">
+            检查更新
+          </el-button>
+          <el-button
+            v-if="updateInfo?.update_available"
+            type="primary"
+            :icon="Download"
+            size="small"
+            @click="handleStartUpgrade"
+          >
+            升级到 {{ updateInfo.latest_version }}
+          </el-button>
+        </div>
+      </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
-import { Connection, Setting } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ref, watch, computed, onUnmounted } from 'vue'
+import { Connection, Setting, Download, Refresh } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useModelSettings } from './context'
-import { getOCRVersion, createCustomProvider, updateCustomProvider, deleteCustomProvider } from '@/api/config'
-import type { LLMProvider, CustomProvider, OCRVersion } from '@/types/config'
+import { getOCRVersion, createCustomProvider, updateCustomProvider, deleteCustomProvider, checkOCRUpdate, startOCRUpgrade, getOCRUpgradeStatus } from '@/api/config'
+import type { LLMProvider, CustomProvider, OCRVersion, OCRUpdateInfo, OCRUpgradeStatus } from '@/types/config'
 
 const props = defineProps<{
   provider: LLMProvider | CustomProvider | null
@@ -275,6 +316,12 @@ const { form, saving, testingLLM, save, testLLM } = useModelSettings()
 const ocrVersion = ref<OCRVersion | null>(null)
 const showVersion = ref(false)
 const loadingVersion = ref(false)
+
+const updateInfo = ref<OCRUpdateInfo | null>(null)
+const checkingUpdate = ref(false)
+const upgradeStatus = ref<OCRUpgradeStatus | null>(null)
+const upgrading = ref(false)
+let upgradeTimer: ReturnType<typeof setInterval> | null = null
 
 const builtinProvider = computed(() => (props.type === 'builtin' ? props.provider as LLMProvider : null))
 const customProvider = computed(() => (props.type === 'custom' ? props.provider as CustomProvider : null))
@@ -362,6 +409,76 @@ async function fetchVersion() {
     loadingVersion.value = false
   }
 }
+
+async function handleCheckUpdate() {
+  checkingUpdate.value = true
+  updateInfo.value = null
+  try {
+    updateInfo.value = await checkOCRUpdate()
+    if (!updateInfo.value.update_available) {
+      ElMessage.success('已是最新版本')
+    }
+  } catch (e: any) {
+    ElMessage.error('检查更新失败: ' + (e?.message || e))
+  } finally {
+    checkingUpdate.value = false
+  }
+}
+
+async function handleStartUpgrade() {
+  const target = updateInfo.value?.latest_version
+  try {
+    await ElMessageBox.confirm(
+      `确认将 OCR 升级到 ${target || '最新版本'}？升级期间将无法进行新的代码评审。`,
+      '升级确认',
+      { confirmButtonText: '升级', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch {
+    return
+  }
+  upgrading.value = true
+  upgradeStatus.value = null
+  try {
+    upgradeStatus.value = await startOCRUpgrade(target)
+    startUpgradePolling()
+  } catch (e: any) {
+    upgrading.value = false
+    ElMessage.error('升级启动失败: ' + (e?.message || e))
+  }
+}
+
+function startUpgradePolling() {
+  stopUpgradePolling()
+  upgradeTimer = setInterval(async () => {
+    try {
+      upgradeStatus.value = await getOCRUpgradeStatus()
+      const state = upgradeStatus.value.state
+      if (state === 'done' || state === 'failed' || state === 'idle') {
+        stopUpgradePolling()
+        upgrading.value = false
+        if (state === 'done') {
+          ElMessage.success(upgradeStatus.value.message || '升级完成')
+          ocrVersion.value = await getOCRVersion()
+          updateInfo.value = null
+        } else if (state === 'failed') {
+          ElMessage.error(upgradeStatus.value.message || '升级失败')
+        }
+      }
+    } catch {
+      stopUpgradePolling()
+      upgrading.value = false
+    }
+  }, 2000)
+}
+
+function stopUpgradePolling() {
+  if (upgradeTimer) {
+    clearInterval(upgradeTimer)
+    upgradeTimer = null
+  }
+}
+
+onUnmounted(stopUpgradePolling)
 
 async function handleSaveCustom() {
   if (!cpForm.value.name.trim()) {
@@ -466,5 +583,12 @@ async function handleDeleteCustom() {
   margin-left: 8px;
   font-size: 12px;
   color: var(--app-muted);
+}
+
+.ocr-version-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }
 </style>

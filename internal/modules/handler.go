@@ -48,6 +48,7 @@ func InitSettingsHandler(
 	rulesChecker *ocr.RulesChecker,
 	versioner *ocr.Versioner,
 	viewerMgr *ocr.ViewerManager,
+	upgrader *ocr.Upgrader,
 ) {
 	settings_service.InitHandler(
 		repos.OCRSettings,
@@ -64,6 +65,7 @@ func InitSettingsHandler(
 		rulesChecker,
 		versioner,
 		viewerMgr,
+		upgrader,
 	)
 }
 

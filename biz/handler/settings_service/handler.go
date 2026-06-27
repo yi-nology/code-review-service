@@ -23,6 +23,7 @@ type SettingsHandler struct {
 	rulesChecker   review.RulesChecker
 	ocrVersioner   review.OCRVersioner
 	viewerMgr      review.ViewerManager
+	ocrUpgrader    review.OCRUpgrader
 }
 
 func InitHandler(
@@ -40,6 +41,7 @@ func InitHandler(
 	rulesChecker review.RulesChecker,
 	ocrVersioner review.OCRVersioner,
 	viewerMgr review.ViewerManager,
+	ocrUpgrader review.OCRUpgrader,
 ) {
 	handlerInst = &SettingsHandler{
 		ocrRepo:        ocrRepo,
@@ -56,5 +58,6 @@ func InitHandler(
 		rulesChecker:   rulesChecker,
 		ocrVersioner:   ocrVersioner,
 		viewerMgr:      viewerMgr,
+		ocrUpgrader:    ocrUpgrader,
 	}
 }

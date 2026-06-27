@@ -52,6 +52,10 @@ type OCRConfig struct {
 	ConfigFile      string `yaml:"config_file"`
 	ContextWindow   int    `yaml:"context_window"`
 	MaxOutputTokens int    `yaml:"max_output_tokens"`
+	// UpgradeInstallDir 是 ocr 在线升级时，当原二进制路径无写权限的回退安装目录。
+	UpgradeInstallDir string `yaml:"upgrade_install_dir"`
+	// GitHubRepo 指定 ocr 二进制的 GitHub 仓库（owner/repo），默认 alibaba/open-code-review。
+	GitHubRepo string `yaml:"github_repo"`
 }
 
 type PolicyConfig struct {

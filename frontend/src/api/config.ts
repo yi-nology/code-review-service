@@ -3,7 +3,8 @@ import type {
   OCRSettings, ProjectPolicy, ProjectPolicyList, GitPlatform, GitPlatformList,
   GitTestResult, GlobalRules, TestLLMResult, PlatformRepo, PlatformBranch,
   PlatformPullRequest, ReviewerAgent, LLMProvider, CustomProvider,
-  RulesCheckResult, OCRVersion, ViewerStatus, OCRRulePackage, OCRToolPackage
+  RulesCheckResult, OCRVersion, ViewerStatus, OCRRulePackage, OCRToolPackage,
+  OCRUpdateInfo, OCRUpgradeStatus
 } from '@/types/config'
 
 function parseIgnorePaths(raw: any): string[] {
@@ -121,6 +122,20 @@ export async function rulesCheck(path: string): Promise<RulesCheckResult> {
 
 export async function getOCRVersion(): Promise<OCRVersion> {
   return request.get('/settings/ocr/version') as any
+}
+
+// ==================== OCR Upgrade ====================
+
+export async function checkOCRUpdate(): Promise<OCRUpdateInfo> {
+  return request.get('/settings/ocr/upgrade/info') as any
+}
+
+export async function startOCRUpgrade(version?: string): Promise<OCRUpgradeStatus> {
+  return request.post('/settings/ocr/upgrade', { version }) as any
+}
+
+export async function getOCRUpgradeStatus(): Promise<OCRUpgradeStatus> {
+  return request.get('/settings/ocr/upgrade/status') as any
 }
 
 // ==================== Viewer ====================

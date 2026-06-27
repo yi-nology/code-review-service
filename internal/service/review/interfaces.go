@@ -53,3 +53,9 @@ type ViewerManager interface {
 	StartViewer(ctx context.Context, addr string) (*ViewerStatus, error)
 	StopViewer(ctx context.Context) (*ViewerStatus, error)
 }
+
+type OCRUpgrader interface {
+	CheckUpdate(ctx context.Context) (*OCRUpdateInfo, error)
+	Upgrade(ctx context.Context, targetVersion string) (*OCRUpgradeStatus, error)
+	UpgradeStatus(ctx context.Context) (*OCRUpgradeStatus, error)
+}

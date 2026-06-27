@@ -41,6 +41,9 @@ func Register(r *server.Hertz) {
 				_ocr.GET("/viewer", append(_viewerstatusMw(), settings_service.ViewerStatus)...)
 				_ocr.POST("/viewer/start", append(_startviewerMw(), settings_service.StartViewer)...)
 				_ocr.POST("/viewer/stop", append(_stopviewerMw(), settings_service.StopViewer)...)
+				_ocr.GET("/upgrade/info", append(_checkocrupdateMw(), settings_service.CheckOCRUpdate)...)
+				_ocr.POST("/upgrade", append(_startocrupgradeMw(), settings_service.StartOCRUpgrade)...)
+				_ocr.GET("/upgrade/status", append(_ocrupgradestatusMw(), settings_service.OCRUpgradeStatus)...)
 				_settings.PUT("/ocr", append(_updateocrsettingsMw(), settings_service.UpdateOCRSettings)...)
 				_settings.DELETE("/platforms", append(_deleteplatformMw(), settings_service.DeletePlatform)...)
 				_platforms := _settings.Group("/platforms", _platformsMw()...)
@@ -54,6 +57,10 @@ func Register(r *server.Hertz) {
 					_rules := _settings.Group("/rules", _rulesMw()...)
 					_rules.GET("/global", append(_getglobalrulesMw(), settings_service.GetGlobalRules)...)
 					_rules.PUT("/global", append(_updateglobalrulesMw(), settings_service.UpdateGlobalRules)...)
+					_rules.GET("/packages", append(_listrulepackagesMw(), settings_service.ListRulePackages)...)
+					_rules.POST("/packages", append(_upsertrulepackageMw(), settings_service.UpsertRulePackage)...)
+					_rules.PUT("/packages/:id", append(_updaterulepackageMw(), settings_service.UpdateRulePackage)...)
+					_rules.DELETE("/packages/:id", append(_deleterulepackageMw(), settings_service.DeleteRulePackage)...)
 				}
 			}
 		}

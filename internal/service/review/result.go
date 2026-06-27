@@ -180,3 +180,35 @@ type ViewerStatus struct {
 	Addr    string `json:"addr,omitempty"`
 	Message string `json:"message,omitempty"`
 }
+
+// UpgradeState 表示 ocr 二进制升级流程的状态机。
+//
+// 状态流转：idle → checking → downloading → verifying → installing → done / failed。
+type UpgradeState string
+
+const (
+	UpgradeIdle        UpgradeState = "idle"
+	UpgradeChecking    UpgradeState = "checking"
+	UpgradeDownloading UpgradeState = "downloading"
+	UpgradeVerifying   UpgradeState = "verifying"
+	UpgradeInstalling  UpgradeState = "installing"
+	UpgradeDone        UpgradeState = "done"
+	UpgradeFailed      UpgradeState = "failed"
+)
+
+// OCRUpdateInfo 是检查更新接口的返回，对比当前版本与 GitHub 最新 Release。
+type OCRUpdateInfo struct {
+	CurrentVersion  string `json:"current_version"`
+	LatestVersion   string `json:"latest_version"`
+	UpdateAvailable bool   `json:"update_available"`
+	ReleaseNotes    string `json:"release_notes,omitempty"`
+	ReleaseURL      string `json:"release_url,omitempty"`
+}
+
+// OCRUpgradeStatus 是升级状态轮询接口的返回。
+type OCRUpgradeStatus struct {
+	State    UpgradeState `json:"state"`
+	Message  string       `json:"message,omitempty"`
+	Version  string       `json:"version,omitempty"`
+	Progress int          `json:"progress,omitempty"`
+}

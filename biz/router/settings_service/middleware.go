@@ -94,6 +94,18 @@ func _stopviewerMw() []app.HandlerFunc {
 	return nil
 }
 
+func _checkocrupdateMw() []app.HandlerFunc {
+	return nil
+}
+
+func _startocrupgradeMw() []app.HandlerFunc {
+	return nil
+}
+
+func _ocrupgradestatusMw() []app.HandlerFunc {
+	return nil
+}
+
 func _updateocrsettingsMw() []app.HandlerFunc {
 	return nil
 }
