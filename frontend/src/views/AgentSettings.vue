@@ -256,70 +256,9 @@ import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { listReviewerAgents, createReviewerAgent, updateReviewerAgent, deleteReviewerAgent } from '@/api/config'
 import type { ReviewerAgent } from '@/types/config'
+import { AGENT_PRESETS, type AgentPreset } from '@/constants/agents'
 
-type AgentPreset = {
-  name: string
-  display_name: string
-  description: string
-  background: string
-  tags: string[]
-  priority: number
-}
-
-const presets: AgentPreset[] = [
-  {
-    name: 'security',
-    display_name: '安全审查员',
-    description: '关注权限、输入校验、敏感数据与常见漏洞',
-    background: `重点关注安全问题：
-- SQL 注入、XSS、CSRF、SSRF 等常见漏洞
-- 认证与授权机制是否存在绕过
-- 输入验证、输出编码与数据净化
-- 密码、Token、密钥等敏感数据处理
-- 越权访问和不安全默认配置`,
-    tags: ['always', 'security', 'auth', 'risk'],
-    priority: 10,
-  },
-  {
-    name: 'backend',
-    display_name: '后端审查员',
-    description: '关注 API、数据库、事务、错误处理和并发安全',
-    background: `重点关注后端代码质量：
-- API 设计一致性和错误语义
-- 数据库查询性能、索引和 N+1 问题
-- 事务边界、并发安全和资源释放
-- 日志、监控和可观测性
-- 边界条件与失败路径处理`,
-    tags: ['stack:go', 'stack:python', 'stack:java', 'backend', 'api', 'database'],
-    priority: 20,
-  },
-  {
-    name: 'frontend',
-    display_name: '前端审查员',
-    description: '关注组件设计、交互状态、响应式和可维护性',
-    background: `重点关注前端代码质量：
-- Vue/React 组件职责划分和可维护性
-- 表单校验、加载态、空状态和错误反馈
-- 响应式布局、可访问性和用户体验
-- 状态管理、接口调用和缓存策略
-- 前端性能和代码分割`,
-    tags: ['stack:node', 'stack:frontend', 'frontend', 'ux', 'vue'],
-    priority: 30,
-  },
-  {
-    name: 'performance',
-    display_name: '性能审查员',
-    description: '关注性能瓶颈、缓存、内存和扩展性',
-    background: `重点关注性能问题：
-- 算法复杂度和热点路径
-- 内存使用、泄漏风险和资源释放
-- 缓存策略、批处理和异步执行
-- 数据库索引与慢查询风险
-- 高并发场景下的扩展性`,
-    tags: ['always', 'performance', 'scalability'],
-    priority: 40,
-  },
-]
+const presets = AGENT_PRESETS
 
 const loading = ref(true)
 const submitting = ref(false)
