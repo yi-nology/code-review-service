@@ -63,19 +63,57 @@ func (mockWritebackAdapter) Capabilities(context.Context, ChangeRequest) (Capabi
 	return Capabilities{BatchReview: true, MultiLineComments: true, Suggestions: true}, nil
 }
 
-func (m mockWritebackAdapter) Publish(context.Context, Review) (Result, error) {
+func (m mockWritebackAdapter) Publish(_ context.Context, review Review) (Result, error) {
 	if m.result.ReviewID != "" || len(m.result.Comments) > 0 {
 		return m.result, nil
 	}
-	return Result{
-		ReviewID: "platform-review-123",
-		Comments: []CommentResult{{
-			Key:        "finding-key",
+	return defaultWritebackResult(review), nil
+}
+
+type capturingWritebackAdapter struct {
+	review Review
+}
+
+func (capturingWritebackAdapter) Capabilities(context.Context, ChangeRequest) (Capabilities, error) {
+	return Capabilities{BatchReview: true, MultiLineComments: true, Suggestions: true}, nil
+}
+
+func (m *capturingWritebackAdapter) Publish(_ context.Context, review Review) (Result, error) {
+	m.review = review
+	return defaultWritebackResult(review), nil
+}
+
+func defaultWritebackResult(review Review) Result {
+	result := Result{
+		ReviewID:   "platform-review-123",
+		SummaryID:  "summary-1",
+		SummaryURL: "https://example.test/summary-1",
+	}
+	for i, comment := range review.Comments {
+		result.Comments = append(result.Comments, CommentResult{
+			Key:        comment.Key,
 			ExternalID: "comment-1",
 			URL:        "https://example.test/comment-1",
 			Inline:     true,
-		}},
-	}, nil
+		})
+		if i > 0 {
+			result.Comments[i].ExternalID = "comment-extra"
+		}
+	}
+	return result
+}
+
+func findWritebackItem(items []models.WritebackItem, key, kind string) (models.WritebackItem, bool) {
+	for _, item := range items {
+		if item.FindingKey == key && item.Kind == kind {
+			return item, true
+		}
+	}
+	return models.WritebackItem{}, false
+}
+
+func testFindingKey() string {
+	return FindingKey("", "a.go", SideNew, 1, "body")
 }
 
 func TestPublishStoresServiceReviewID(t *testing.T) {
@@ -105,14 +143,22 @@ func TestPublishStoresServiceReviewID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
-	if len(repo.items) != 1 {
-		t.Fatalf("stored items = %d, want 1", len(repo.items))
+	if len(repo.items) != 2 {
+		t.Fatalf("stored items = %d, want 2", len(repo.items))
 	}
-	if repo.items[0].ReviewID != "review-service-1" {
-		t.Fatalf("stored review_id = %q, want service review id", repo.items[0].ReviewID)
+	inline, ok := findWritebackItem(repo.items, testFindingKey(), "inline")
+	if !ok {
+		t.Fatalf("inline item not stored: %+v", repo.items)
 	}
-	if repo.items[0].Attempts != 1 {
-		t.Fatalf("attempts = %d, want 1", repo.items[0].Attempts)
+	if inline.ReviewID != "review-service-1" {
+		t.Fatalf("stored review_id = %q, want service review id", inline.ReviewID)
+	}
+	if inline.Attempts != 1 {
+		t.Fatalf("attempts = %d, want 1", inline.Attempts)
+	}
+	summary, ok := findWritebackItem(repo.items, summaryFindingKey, "summary")
+	if !ok || summary.ProviderExternalID != "summary-1" {
+		t.Fatalf("summary item = %+v, ok=%v", summary, ok)
 	}
 }
 
@@ -141,18 +187,22 @@ func TestPublishFallsBackToProviderReviewID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
-	if len(repo.items) != 1 {
-		t.Fatalf("stored items = %d, want 1", len(repo.items))
+	if len(repo.items) != 2 {
+		t.Fatalf("stored items = %d, want 2", len(repo.items))
 	}
-	if repo.items[0].ReviewID != "platform-review-123" {
-		t.Fatalf("stored review_id = %q, want provider fallback", repo.items[0].ReviewID)
+	inline, ok := findWritebackItem(repo.items, testFindingKey(), "inline")
+	if !ok {
+		t.Fatalf("inline item not stored: %+v", repo.items)
+	}
+	if inline.ReviewID != "platform-review-123" {
+		t.Fatalf("stored review_id = %q, want provider fallback", inline.ReviewID)
 	}
 }
 
 func TestPublishUpdatesExistingWritebackItemOnRetry(t *testing.T) {
 	repo := &mockWritebackItemRepo{items: []models.WritebackItem{{
 		ReviewID:   "review-service-1",
-		FindingKey: "finding-key",
+		FindingKey: testFindingKey(),
 		Kind:       "inline",
 		Status:     "failed",
 		Attempts:   1,
@@ -179,12 +229,89 @@ func TestPublishUpdatesExistingWritebackItemOnRetry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Publish() error = %v", err)
 	}
-	if len(repo.items) != 1 {
-		t.Fatalf("stored items = %d, want 1", len(repo.items))
+	if len(repo.items) != 2 {
+		t.Fatalf("stored items = %d, want 2", len(repo.items))
 	}
-	item := repo.items[0]
+	item, ok := findWritebackItem(repo.items, testFindingKey(), "inline")
+	if !ok {
+		t.Fatalf("inline item not stored: %+v", repo.items)
+	}
 	if item.Status != "published" || item.Attempts != 2 || item.LastError != "" {
 		t.Fatalf("item after retry = %+v", item)
+	}
+}
+
+func TestPublishSkipsAlreadyPublishedInlineComment(t *testing.T) {
+	repo := &mockWritebackItemRepo{items: []models.WritebackItem{{
+		ReviewID:   "review-service-1",
+		FindingKey: testFindingKey(),
+		Kind:       "inline",
+		Status:     "published",
+		Attempts:   1,
+	}}}
+	adapter := &capturingWritebackAdapter{}
+	orch := NewOrchestrator(OrchestratorConfig{
+		Adapters: map[string]Adapter{"github": adapter},
+		ItemRepo: repo,
+	})
+
+	_, err := orch.Publish(t.Context(), domain.Request{
+		ReviewID:      "review-service-1",
+		Provider:      "github",
+		Repo:          "org/repo",
+		PullRequestID: "12",
+		HeadSHA:       "abc123",
+	}, domain.Result{Summary: "summary", Findings: []domain.Finding{{
+		Severity: domain.SeverityMajor,
+		Path:     "a.go",
+		Line:     1,
+		Title:    "replace old",
+		Body:     "body",
+	}}}, "")
+	if err != nil {
+		t.Fatalf("Publish() error = %v", err)
+	}
+	if len(adapter.review.Comments) != 0 {
+		t.Fatalf("published comments = %d, want 0", len(adapter.review.Comments))
+	}
+	item, ok := findWritebackItem(repo.items, testFindingKey(), "inline")
+	if !ok || item.Attempts != 1 {
+		t.Fatalf("inline item changed unexpectedly: %+v ok=%v", item, ok)
+	}
+}
+
+func TestPublishSkipsWhenSummaryAndInlineAlreadyPublished(t *testing.T) {
+	repo := &mockWritebackItemRepo{items: []models.WritebackItem{
+		{ReviewID: "review-service-1", FindingKey: summaryFindingKey, Kind: "summary", Status: "published", Attempts: 1},
+		{ReviewID: "review-service-1", FindingKey: testFindingKey(), Kind: "inline", Status: "published", Attempts: 1},
+	}}
+	adapter := &capturingWritebackAdapter{}
+	orch := NewOrchestrator(OrchestratorConfig{
+		Adapters: map[string]Adapter{"github": adapter},
+		ItemRepo: repo,
+	})
+
+	result, err := orch.Publish(t.Context(), domain.Request{
+		ReviewID:      "review-service-1",
+		Provider:      "github",
+		Repo:          "org/repo",
+		PullRequestID: "12",
+		HeadSHA:       "abc123",
+	}, domain.Result{Summary: "summary", Findings: []domain.Finding{{
+		Severity: domain.SeverityMajor,
+		Path:     "a.go",
+		Line:     1,
+		Title:    "replace old",
+		Body:     "body",
+	}}}, "")
+	if err != nil {
+		t.Fatalf("Publish() error = %v", err)
+	}
+	if result == nil || !result.Skipped {
+		t.Fatalf("result = %+v, want skipped", result)
+	}
+	if adapter.review.Summary != "" || len(adapter.review.Comments) != 0 {
+		t.Fatalf("adapter should not publish, got review %+v", adapter.review)
 	}
 }
 

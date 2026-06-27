@@ -29,6 +29,8 @@ type Orchestrator struct {
 	summaryOnly bool
 }
 
+const summaryFindingKey = "__summary__"
+
 func NewOrchestrator(cfg OrchestratorConfig) *Orchestrator {
 	if cfg.MaxComments <= 0 {
 		cfg.MaxComments = 20
@@ -60,6 +62,18 @@ func (o *Orchestrator) Publish(ctx context.Context, req domain.Request, result d
 		BaseSHA:    req.BaseSHA,
 		HeadSHA:    req.HeadSHA,
 	}
+	serviceReviewID := strings.TrimSpace(req.ReviewID)
+	existingItems := map[string]models.WritebackItem{}
+	if serviceReviewID != "" && o.itemRepo != nil {
+		items, err := o.itemRepo.ListByReview(ctx, serviceReviewID)
+		if err != nil {
+			logx.Warn("writeback: failed to load existing item records", "review_id", serviceReviewID, "error", err)
+		} else {
+			for _, item := range items {
+				existingItems[writebackItemKey(item.FindingKey, item.Kind)] = item
+			}
+		}
+	}
 
 	caps, err := adapter.Capabilities(ctx, cr)
 	if err != nil {
@@ -67,6 +81,9 @@ func (o *Orchestrator) Publish(ctx context.Context, req domain.Request, result d
 	}
 
 	summaryBody := FormatSummaryBody(result.Summary, result.Findings, o.maxComments)
+	if isPublishedWritebackItem(existingItems[writebackItemKey(summaryFindingKey, "summary")]) {
+		summaryBody = ""
+	}
 
 	var diffIndex *DiffIndex
 	if !o.summaryOnly && diff != "" {
@@ -95,6 +112,9 @@ func (o *Orchestrator) Publish(ctx context.Context, req domain.Request, result d
 			if !caps.MultiLineComments && vc.Range.End > vc.Range.Start+1 {
 				continue
 			}
+			if isPublishedWritebackItem(existingItems[writebackItemKey(vc.Key, "inline")]) {
+				continue
+			}
 
 			body := FormatInlineComment(
 				findSeverity(result.Findings, i),
@@ -113,6 +133,11 @@ func (o *Orchestrator) Publish(ctx context.Context, req domain.Request, result d
 				Suggestion: vc.Suggestion,
 			})
 		}
+	}
+
+	if strings.TrimSpace(summaryBody) == "" && len(comments) == 0 {
+		logx.Info("writeback skipped (already published)")
+		return &domain.WritebackResult{Skipped: true}, nil
 	}
 
 	revEvent := EventComment
@@ -137,12 +162,29 @@ func (o *Orchestrator) Publish(ctx context.Context, req domain.Request, result d
 		return &domain.WritebackResult{Skipped: true}, nil
 	}
 
-	serviceReviewID := strings.TrimSpace(req.ReviewID)
 	if serviceReviewID == "" {
 		serviceReviewID = wbResult.ReviewID
 	}
 
 	published, failed := 0, 0
+	if serviceReviewID != "" && o.itemRepo != nil && strings.TrimSpace(summaryBody) != "" {
+		if err := o.itemRepo.Create(ctx, &models.WritebackItem{
+			ReviewID:   serviceReviewID,
+			FindingKey: summaryFindingKey,
+			Kind:       "summary",
+			Status:     "pending",
+		}); err != nil {
+			logx.Warn("writeback: failed to create summary item record", "error", err)
+		}
+		if err := o.itemRepo.IncrementAttempts(ctx, serviceReviewID, summaryFindingKey, "summary"); err != nil {
+			logx.Warn("writeback: failed to increment summary attempts", "error", err)
+		}
+		if err := o.itemRepo.UpdateStatus(ctx, serviceReviewID, summaryFindingKey, "summary", "published", wbResult.SummaryID, wbResult.SummaryURL, ""); err != nil {
+			logx.Warn("writeback: failed to update summary item status", "error", err)
+		} else {
+			published++
+		}
+	}
 	for _, cr := range wbResult.Comments {
 		status := "published"
 		if !cr.Inline {
@@ -153,6 +195,9 @@ func (o *Orchestrator) Publish(ctx context.Context, req domain.Request, result d
 			failed++
 		} else {
 			published++
+		}
+		if o.itemRepo == nil {
+			continue
 		}
 		if err := o.itemRepo.Create(ctx, &models.WritebackItem{
 			ReviewID:   serviceReviewID,
@@ -179,6 +224,14 @@ func (o *Orchestrator) Publish(ctx context.Context, req domain.Request, result d
 		"failed", failed,
 	)
 	return &domain.WritebackResult{Published: published, Failed: failed}, nil
+}
+
+func writebackItemKey(findingKey, kind string) string {
+	return kind + "\x00" + findingKey
+}
+
+func isPublishedWritebackItem(item models.WritebackItem) bool {
+	return item.Status == "published" || item.Status == "downgraded"
 }
 
 func (o *Orchestrator) Status(ctx context.Context, reviewID string) (*PublishStatus, error) {
