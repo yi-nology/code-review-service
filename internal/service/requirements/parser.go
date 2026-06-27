@@ -1,8 +1,6 @@
 package requirements
 
 import (
-	"bufio"
-	"os"
 	"strings"
 	"time"
 
@@ -22,27 +20,6 @@ func (p *Parser) Parse(inline []string) (*Requirements, error) {
 		Context:   make(map[string]string),
 		CreatedAt: time.Now(),
 	}, nil
-}
-
-func (p *Parser) ParseFromFile(filePath string) (*Requirements, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = file.Close() }()
-
-	var lines []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line != "" && !strings.HasPrefix(line, "#") {
-			lines = append(lines, line)
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-	return p.Parse(lines)
 }
 
 func (p *Parser) ParseRequirements(text string) []Requirement {

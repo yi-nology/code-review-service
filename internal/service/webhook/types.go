@@ -1,7 +1,5 @@
 package webhook
 
-import "time"
-
 type ChangeEvent struct {
 	Provider       string
 	InstallationID string
@@ -18,7 +16,6 @@ type ChangeEvent struct {
 	Author         string
 	AuthorName     string
 	AuthorAvatar   string
-	ReceivedAt     time.Time
 }
 
 type Normalizer interface {

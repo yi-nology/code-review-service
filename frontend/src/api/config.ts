@@ -260,6 +260,7 @@ export async function createReviewerAgent(data: {
   description?: string
   background: string
   enabled?: boolean
+  is_default?: boolean
   priority?: number
   tags?: string[]
 }): Promise<ReviewerAgent> {
@@ -272,6 +273,7 @@ export async function updateReviewerAgent(id: number, data: {
   description?: string
   background?: string
   enabled?: boolean
+  is_default?: boolean
   priority?: number
   tags?: string[]
 }): Promise<ReviewerAgent> {

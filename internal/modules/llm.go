@@ -22,7 +22,7 @@ func NewLLMProviderWithMetrics(repos *repository.RepoContainer) (*llm.Metrics, *
 	return m, mp
 }
 
-// AsLLMProvider 把 MetricsProvider 暴露为 llm.Provider 供 discussion/tech-lead/translator 注入。
+// AsLLMProvider 把 MetricsProvider 暴露为 llm.Provider 供 discussion/tech-lead 注入。
 func AsLLMProvider(mp *llm.MetricsProvider) llm.Provider {
 	return mp
 }

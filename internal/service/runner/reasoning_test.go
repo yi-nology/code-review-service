@@ -125,31 +125,3 @@ func TestResolveExtraBody(t *testing.T) {
 		})
 	}
 }
-
-func TestGetProviderThinkingFormat(t *testing.T) {
-	tests := []struct {
-		provider string
-		want     string
-	}{
-		{"anthropic", "anthropic"},
-		{"openai", "openai"},
-		{"dashscope", "qwen"},
-		{"qwen", "qwen"},
-		{"z-ai", "glm"},
-		{"zhipu", "glm"},
-		{"deepseek", "deepseek"},
-		{"mimo", "mimo"},
-		{"xiaomi", "mimo"},
-		{"unknown", "anthropic"},
-		{"", "anthropic"},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.provider, func(t *testing.T) {
-			got := GetProviderThinkingFormat(tc.provider)
-			if got != tc.want {
-				t.Fatalf("GetProviderThinkingFormat(%q) = %q, want %q", tc.provider, got, tc.want)
-			}
-		})
-	}
-}

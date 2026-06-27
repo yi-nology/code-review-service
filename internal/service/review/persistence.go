@@ -3,9 +3,11 @@ package review
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	"gorm.io/datatypes"
@@ -13,7 +15,7 @@ import (
 
 func (s *Service) updateWithRawOCR(ctx context.Context, id string, req Request, response Response, rawOCR json.RawMessage) error {
 	review, err := s.reviewRepo.GetByReviewID(ctx, id)
-	if err != nil {
+	if err != nil && !errors.Is(err, repository.ErrNotFound) {
 		return err
 	}
 	if review == nil {

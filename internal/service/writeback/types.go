@@ -23,7 +23,6 @@ type ChangeRequest struct {
 	Repository string
 	Number     int
 	BaseSHA    string
-	StartSHA   string
 	HeadSHA    string
 }
 

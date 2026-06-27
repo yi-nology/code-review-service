@@ -8,7 +8,6 @@ import (
 	progressRouter "github.com/yi-nology/code-review-service/biz/router/progress_service"
 	projectAgentRouter "github.com/yi-nology/code-review-service/biz/router/project_agent_service"
 	publisherRouter "github.com/yi-nology/code-review-service/biz/router/publisher_service"
-	reviewMapRouter "github.com/yi-nology/code-review-service/biz/router/review_map_service"
 	reviewRouter "github.com/yi-nology/code-review-service/biz/router/review_service"
 	sessionRouter "github.com/yi-nology/code-review-service/biz/router/session_service"
 	settingsRouter "github.com/yi-nology/code-review-service/biz/router/settings_service"
@@ -23,7 +22,6 @@ func GeneratedRegister(r *server.Hertz) {
 	statsRouter.Register(r)
 	sessionRouter.Register(r)
 	progressRouter.Register(r)
-	reviewMapRouter.Register(r)
 	publisherRouter.Register(r)
 	projectAgentRouter.Register(r)
 }

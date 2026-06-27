@@ -11,8 +11,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
 
-	"github.com/oekit/pkg/ptrx"
-
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/oekit/logx"
 )
@@ -25,17 +23,15 @@ type reviewGetter interface {
 }
 
 type PublisherHandler struct {
-	writeback  *writeback.Orchestrator
-	translator *writeback.Translator
-	reviewSvc  reviewGetter
+	writeback   *writeback.Orchestrator
+	reviewSvc   reviewGetter
 	providerSvc *provider.GitProviderService
 }
 
-// InitHandler 注入 writeback 编排器、拟人化翻译器、评审服务、Git 平台服务。
-func InitHandler(writeback *writeback.Orchestrator, translator *writeback.Translator, reviewSvc reviewGetter, providerSvc *provider.GitProviderService) {
+// InitHandler 注入 writeback 编排器、评审服务、Git 平台服务。
+func InitHandler(writeback *writeback.Orchestrator, reviewSvc reviewGetter, providerSvc *provider.GitProviderService) {
 	handlerInst = &PublisherHandler{
 		writeback:   writeback,
-		translator:  translator,
 		reviewSvc:   reviewSvc,
 		providerSvc: providerSvc,
 	}
@@ -59,16 +55,6 @@ func PublishReview(ctx context.Context, c *app.RequestContext) {
 		Findings: findings,
 	}
 
-	// human 模式：用 LLM 把多 agent findings 改写为第一人称自然语言
-	if strings.EqualFold(ptrx.Deref(req.Mode, ""), "human") && handlerInst.translator != nil {
-		translated, terr := handlerInst.translator.TranslateToHumanVoice(ctx, findings, record.Response.Summary)
-		if terr != nil {
-			logx.Warnf("human translation failed, falling back to team mode: %v", terr)
-		} else {
-			result.Summary = translated.Markdown
-		}
-	}
-
 	// 获取 diff 用于行内评论定位（summary_only 或 diff 为空时 orchestrator 降级为 summary-only）
 	diff := ""
 	summaryOnly := req.SummaryOnly != nil && *req.SummaryOnly
@@ -84,7 +70,7 @@ func PublishReview(ctx context.Context, c *app.RequestContext) {
 		}
 	}
 
-	if err := handlerInst.writeback.Publish(ctx, record.Request, result, diff); err != nil {
+	if _, err := handlerInst.writeback.Publish(ctx, record.Request, result, diff); err != nil {
 		common.Fail(c, err)
 		return
 	}
@@ -109,14 +95,6 @@ func PreviewComment(ctx context.Context, c *app.RequestContext) {
 
 	findings := record.Response.Findings
 	summary := record.Response.Summary
-
-	// human 模式：预览拟人化改写结果（LLM 不可用时自动降级为模板格式）
-	if strings.EqualFold(ptrx.Deref(req.Mode, ""), "human") && handlerInst.translator != nil {
-		translated, _ := handlerInst.translator.TranslateToHumanVoice(ctx, findings, summary)
-		if translated.Markdown != "" {
-			summary = translated.Markdown
-		}
-	}
 
 	common.Success(c, &modelPublisher.PreviewCommentResp{
 		ReviewID: req.ID,

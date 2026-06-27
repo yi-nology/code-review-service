@@ -27,22 +27,8 @@ type ReviewWorkflow struct {
 type WorkflowConfig struct {
 	EnableDiscussion   bool
 	EnableRequirements bool
-	EnableReviewMap    bool
 	DiscussionRounds   int
 	ContextWindow      int // 上下文窗口大小（tokens），0=模型默认
-	MaxOutputTokens    int // 最大输出 tokens，0=模型默认
-}
-
-// DefaultWorkflowConfig returns default workflow configuration
-func DefaultWorkflowConfig() WorkflowConfig {
-	return WorkflowConfig{
-		EnableDiscussion:   true,
-		EnableRequirements: true,
-		EnableReviewMap:    true,
-		DiscussionRounds:   1,
-		ContextWindow:      0,
-		MaxOutputTokens:    0,
-	}
 }
 
 // GetMaxDiffChars 根据上下文窗口大小计算合适的 diff 截断字符数
@@ -61,14 +47,6 @@ func (c *WorkflowConfig) GetMaxDiffChars() int {
 		limit = 500000
 	}
 	return limit
-}
-
-// GetMaxOutputTokensForStep 根据配置返回特定步骤的最大输出 tokens
-func (c *WorkflowConfig) GetMaxOutputTokensForStep(defaultTokens int) int {
-	if c.MaxOutputTokens > 0 {
-		return c.MaxOutputTokens
-	}
-	return defaultTokens
 }
 
 // NewReviewWorkflow creates a new review workflow
@@ -133,7 +111,6 @@ func (w *ReviewWorkflow) RunReview(ctx context.Context, request ReviewRequest) (
 	}
 	result.Discussion = rs.DiscussionResult
 	result.Requirements = rs.Requirements
-	result.ReviewMap = rs.ReviewMap
 	result.TechLeadAnalysis = rs.TechLeadAnalysis
 	if rs.FinalReport != nil {
 		result.FinalReport = *rs.FinalReport
@@ -186,7 +163,6 @@ func (w *ReviewWorkflow) buildPipeline() *workflow.PipeFlow {
 	pipe.Add(&synthesisStep{
 		sessionService:     w.sessionService,
 		enableRequirements: w.config.EnableRequirements,
-		enableReviewMap:    w.config.EnableReviewMap,
 		llmProvider:        w.llmProvider,
 	})
 

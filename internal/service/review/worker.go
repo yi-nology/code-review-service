@@ -84,10 +84,6 @@ func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval,
 	})
 }
 
-func (s *Service) WaitInFlight() {
-	s.inFlight.Wait()
-}
-
 func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Duration) {
 	timer := time.NewTimer(0)
 	defer timer.Stop()

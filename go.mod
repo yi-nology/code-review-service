@@ -3,14 +3,14 @@ module github.com/yi-nology/code-review-service
 go 1.26
 
 require (
-	github.com/yi-nology/ekit v0.8.0
+	github.com/yi-nology/ekit v0.9.1
 	github.com/apache/thrift v0.23.0
 	github.com/cloudwego/hertz v0.10.4
 	github.com/hertz-contrib/swagger v0.1.1
 	github.com/hertz-contrib/websocket v0.2.0
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/swaggo/files v1.0.1
-	github.com/yi-nology/git-platform-sdk v0.20.0
+	github.com/yi-nology/git-platform-sdk v0.25.0
 	go.uber.org/fx v1.24.0
 	golang.org/x/time v0.14.0
 	gorm.io/datatypes v1.2.5
@@ -65,6 +65,7 @@ require (
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
+	github.com/felixge/fgprof v0.9.3 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-fed/httpsig v1.1.0 // indirect
@@ -97,12 +98,23 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-github/v69 v69.2.0 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
+	github.com/google/pprof v0.0.0-20230901174712-0191c66da455 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/gorilla/context v1.1.1 // indirect
+	github.com/gorilla/securecookie v1.1.1 // indirect
+	github.com/gorilla/sessions v1.2.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.1 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/hashicorp/go-version v1.9.0 // indirect
+	github.com/hertz-contrib/cors v0.1.0 // indirect
+	github.com/hertz-contrib/csrf v0.1.1 // indirect
+	github.com/hertz-contrib/etag v0.1.0 // indirect
+	github.com/hertz-contrib/gzip v0.0.4 // indirect
 	github.com/hertz-contrib/obs-opentelemetry/provider v0.3.0 // indirect
+	github.com/hertz-contrib/pprof v0.1.2 // indirect
+	github.com/hertz-contrib/requestid v1.1.0 // indirect
+	github.com/hertz-contrib/sessions v1.0.1 // indirect
 	github.com/icholy/digest v1.1.0 // indirect
 	github.com/imroc/req/v3 v3.57.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -142,7 +154,7 @@ require (
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
-	github.com/yi-nology/gitcode_api v0.2.0 // indirect
+	github.com/yi-nology/gitcode_api v0.3.0 // indirect
 	gitlab.com/gitlab-org/api/client-go v1.46.0 // indirect
 	go.mongodb.org/mongo-driver v1.17.6 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
@@ -186,11 +198,3 @@ require (
 )
 
 replace github.com/apache/thrift => github.com/apache/thrift v0.13.0
-
-// Local development replace directives.
-// Run `make setup-local-deps` to verify paths.
-// For production/Docker builds, these paths are resolved via Dockerfile sed or GOPROXY.
-
-replace github.com/yi-nology/ekit => ../ekit
-
-replace github.com/yi-nology/git-platform-sdk => /opt/project/wechat_project/git-platform-sdk

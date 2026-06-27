@@ -3,7 +3,6 @@ include "settings.thrift"
 include "stats.thrift"
 include "session.thrift"
 include "progress.thrift"
-include "review_map.thrift"
 include "publisher.thrift"
 include "project_agent.thrift"
 include "webhook.thrift"
@@ -58,14 +57,6 @@ service progressService {
     progress.HandleProgressWSResp HandleProgressWS(1: progress.HandleProgressWSReq req) (api.get="/api/v1/reviews/:id/progress")
     progress.GetProgressResp GetProgress(1: progress.GetProgressReq req) (api.get="/api/v1/reviews/:id/progress/status")
     progress.GetActiveReviewsResp GetActiveReviews(1: progress.GetActiveReviewsReq req) (api.get="/api/v1/progress/active")
-}
-
-service reviewMapService {
-    review_map.GenerateMapResp GenerateMap(1: review_map.GenerateMapReq req) (api.post="/api/v1/reviews/:id/maps")
-    review_map.GetMapsResp GetMaps(1: review_map.GetMapsReq req) (api.get="/api/v1/reviews/:id/maps")
-    review_map.GetMapResp GetMap(1: review_map.GetMapReq req) (api.get="/api/v1/reviews/:id/maps/:mapId")
-    review_map.PreviewMapResp PreviewMap(1: review_map.PreviewMapReq req) (api.post="/api/v1/reviews/:id/maps/preview")
-    review_map.GetSessionMapResp GetSessionMap(1: review_map.GetSessionMapReq req) (api.get="/api/v1/reviews/:id/sessions/:sessionId/map")
 }
 
 service publisherService {

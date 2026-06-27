@@ -11,6 +11,12 @@
     </div>
 
     <div v-else>
+      <div class="hint-bar">
+        <el-text type="info" size="small">
+          配置后仅运行此处启用的审查员（完全覆盖默认规则）。未配置时，系统将按仓库技术栈自动推断。
+        </el-text>
+      </div>
+
       <div class="agent-list">
         <div
           v-for="agent in agents"
@@ -24,6 +30,13 @@
                 @change="handleToggle(agent)"
               />
               <span class="agent-name">{{ agent.display_name }}</span>
+              <el-tag
+                v-if="agent.is_default"
+                type="success"
+                size="small"
+              >
+                默认
+              </el-tag>
               <el-tag
                 v-if="!agent.enabled"
                 type="info"
@@ -93,6 +106,7 @@ interface Agent {
   priority: number
   project_enabled: boolean
   project_priority: number
+  is_default: boolean
 }
 
 const props = defineProps<{
@@ -176,6 +190,14 @@ onMounted(() => {
 <style scoped>
 .project-agent-config {
   padding: 4px 0;
+}
+
+.hint-bar {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  line-height: 1.5;
 }
 
 .loading {

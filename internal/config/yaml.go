@@ -79,7 +79,6 @@ type AgentsConfig struct {
 	DefaultTeam    []AgentTeamMember  `yaml:"default_team"`
 	Discussion     DiscussionConfig   `yaml:"discussion"`
 	Requirements   RequirementsConfig `yaml:"requirements"`
-	ReviewMap      ReviewMapConfig    `yaml:"review_map"`
 }
 
 type AgentTeamMember struct {
@@ -100,9 +99,4 @@ type DiscussionConfig struct {
 
 type RequirementsConfig struct {
 	Enabled bool `yaml:"enabled"`
-}
-
-type ReviewMapConfig struct {
-	Enabled  bool `yaml:"enabled"`
-	MinFiles int  `yaml:"min_files"`
 }

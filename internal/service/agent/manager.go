@@ -7,17 +7,25 @@ import (
 	"time"
 
 	"github.com/oekit/concurrency/async"
-	"github.com/oekit/pkg/slicex"
 	"github.com/oekit/logx"
+	"github.com/oekit/pkg/slicex"
 )
 
 // AgentManager manages multiple review agents
 type AgentManager struct {
-	agents     []reviewAgent
-	aggregator ResultAggregator
-	config     ManagerConfig
-	factory    reviewRunnerFactory // 用于构造 ephemeral agent 的 runner（阶段 5）
-	mu         sync.RWMutex
+	agents          []reviewAgent
+	aggregator      ResultAggregator
+	config          ManagerConfig
+	factory         reviewRunnerFactory  // 用于构造 ephemeral agent 的 runner（阶段 5）
+	projectResolver ProjectAgentResolver // 解析项目级 agent 覆盖（per-project 白名单）
+	mu              sync.RWMutex
+}
+
+// ProjectAgentResolver 解析某项目配置的有效审查员集（persona → 项目优先级）。
+// 返回 nil/空 map 表示该项目未配置任何 project_agents，调用方应走全局缺省逻辑
+// （技术栈自动推断 → is_default 兜底 → 全部 enabled 兜底）。
+type ProjectAgentResolver interface {
+	ResolveProjectAgents(ctx context.Context, provider, repo string) (map[string]int, error)
 }
 
 // SetFactory 注入 runner 工厂，使 AgentManager 具备构造临时（ephemeral）agent 的能力。
@@ -25,6 +33,13 @@ func (m *AgentManager) SetFactory(factory reviewRunnerFactory) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.factory = factory
+}
+
+// SetProjectResolver 注入项目级 agent 解析器，使 AgentManager 能按项目裁剪审查员集。
+func (m *AgentManager) SetProjectResolver(r ProjectAgentResolver) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.projectResolver = r
 }
 
 // UpdateTimeouts 根据用户配置的 OCR 超时同步 agent 框架超时。
@@ -75,13 +90,6 @@ func (m *AgentManager) RegisterAgent(agent reviewAgent) {
 	logx.Infof("registered agent: %s (priority: %d)", agent.Name(), agent.Priority())
 }
 
-// RegisterAgents registers multiple review agents
-func (m *AgentManager) RegisterAgents(agents []reviewAgent) {
-	for _, agent := range agents {
-		m.RegisterAgent(agent)
-	}
-}
-
 // GetAgents returns all registered agents
 func (m *AgentManager) GetAgents() []reviewAgent {
 	m.mu.RLock()
@@ -89,18 +97,6 @@ func (m *AgentManager) GetAgents() []reviewAgent {
 	agents := make([]reviewAgent, len(m.agents))
 	copy(agents, m.agents)
 	return agents
-}
-
-// GetAgent returns an agent by name
-func (m *AgentManager) GetAgent(name string) (reviewAgent, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	for _, agent := range m.agents {
-		if agent.Name() == name {
-			return agent, nil
-		}
-	}
-	return nil, fmt.Errorf("agent not found: %s", name)
 }
 
 // getFilteredAgents returns agents matching the filter
@@ -116,65 +112,7 @@ func (m *AgentManager) getFilteredAgents(filter func(reviewAgent) bool) []review
 	return agents
 }
 
-// RunAgents runs all registered agents in parallel
-func (m *AgentManager) RunAgents(ctx context.Context, workspace Workspace) (AggregatedResult, error) {
-	return m.RunAgentsWithCallback(ctx, workspace, nil)
-}
-
-// RunAgentsWithFilter runs agents matching the filter in parallel
-func (m *AgentManager) RunAgentsWithFilter(ctx context.Context, workspace Workspace, filter func(reviewAgent) bool) (AggregatedResult, error) {
-	agents := m.getFilteredAgents(filter)
-	if len(agents) == 0 {
-		return AggregatedResult{}, fmt.Errorf("no agents available for review")
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, m.config.TotalTimeout)
-	defer cancel()
-
-	logx.Infof("starting review with %d agents", len(agents))
-	startTime := time.Now()
-
-	agentResults, agentErrors := m.runParallel(ctx, agents, workspace, nil)
-
-	if len(agentErrors) > 0 {
-		logx.Warnf("%d agents failed:", len(agentErrors))
-		for _, err := range agentErrors {
-			logx.Warnf("  - %v", err)
-		}
-	}
-
-	if len(agentResults) == 0 {
-		return AggregatedResult{}, fmt.Errorf("all agents failed: %v", agentErrors)
-	}
-
-	aggregated := m.aggregator.Aggregate(agentResults)
-	aggregated.Duration = time.Since(startTime)
-
-	logx.Infof("review completed in %v with %d findings (confidence: %.2f)",
-		aggregated.Duration, len(aggregated.Findings), aggregated.Confidence)
-
-	return aggregated, nil
-}
-
-// RunAgent runs a single agent by name
-func (m *AgentManager) RunAgent(ctx context.Context, agentName string, workspace Workspace) (AgentResult, error) {
-	agent, err := m.GetAgent(agentName)
-	if err != nil {
-		return AgentResult{}, err
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, m.config.AgentTimeout)
-	defer cancel()
-
-	startTime := time.Now()
-	result, err := agent.Review(ctx, workspace)
-	if err != nil {
-		return AgentResult{}, fmt.Errorf("agent %s failed: %w", agentName, err)
-	}
-
-	result.Duration = time.Since(startTime)
-	return result, nil
-}
+// RunAgentsForProject 按项目裁剪后运行审查员，实现三层优先级：
 
 // AgentStatus represents the status of an agent
 type AgentStatus struct {
@@ -186,41 +124,127 @@ type AgentStatus struct {
 	Error    string        `json:"error,omitempty"`
 }
 
-// RunAgentsWithCallback runs agents with progress callbacks
-func (m *AgentManager) RunAgentsWithCallback(ctx context.Context, workspace Workspace, callback func(status AgentStatus)) (AggregatedResult, error) {
-	return m.RunAgentsWithEphemeral(ctx, workspace, nil, callback)
+// RunAgentsForProject 按项目裁剪后运行审查员，实现三层优先级：
+//  1. 项目配了 project_agents → 完全白名单覆盖（应用 project_priority）
+//  2. 未配置 → 按工作区技术栈自动推断（always + stack:* 匹配）
+//  3. 推断无匹配 → is_default=true 兜底；仍无 → 全部 enabled 兜底（防空跑）
+//
+// ephemeral 审查员始终追加。provider/repo 为空时等同于「未配置」，直接走层 2-4。
+func (m *AgentManager) RunAgentsForProject(ctx context.Context, workspace Workspace, provider, repo string, ephemeral []EphemeralSpec, callback func(status AgentStatus)) (AggregatedResult, error) {
+	agents := m.resolveAgentsForProject(ctx, workspace, provider, repo)
+	return m.runAgents(ctx, agents, ephemeral, workspace, callback)
 }
 
-// RunAgentsWithEphemeral 运行已注册 agent + 临时（ephemeral）agent（阶段 5）。
-// ephemeral agent 仅存在于本次调用，不入库、不持久化。
-func (m *AgentManager) RunAgentsWithEphemeral(ctx context.Context, workspace Workspace, ephemeral []EphemeralSpec, callback func(status AgentStatus)) (AggregatedResult, error) {
-	agents := m.getFilteredAgents(nil)
-	if len(agents) == 0 && len(ephemeral) == 0 {
-		return AggregatedResult{}, fmt.Errorf("no agents available for review")
-	}
-
-	// 构造 ephemeral agent（需要 factory）
-	if len(ephemeral) > 0 {
+// resolveAgentsForProject 实现三层优先级解析，返回本次应运行的 agent 实例集。
+func (m *AgentManager) resolveAgentsForProject(ctx context.Context, workspace Workspace, provider, repo string) []reviewAgent {
+	// 层 1：项目级白名单（完全覆盖）
+	if provider != "" && repo != "" {
 		m.mu.RLock()
-		factory := m.factory
+		resolver := m.projectResolver
 		m.mu.RUnlock()
-		if factory == nil {
-			logx.Warnf("ephemeral reviewers requested but no runner factory configured; skipping %d ephemeral", len(ephemeral))
-		} else {
-			for _, spec := range ephemeral {
-				name := spec.Name
-				if name == "" {
-					name = "ephemeral"
-				}
-				runner := factory.CreateRunner(spec.Background, "")
-				agents = append(agents, newOCRAgent(runner, ocrAgentConfig{
-					Name:     name,
-					Persona:  name,
-					Priority: 100, // 临时 agent 优先级较低
-					Focus:    []string{"ad-hoc"},
-				}))
+		if resolver != nil {
+			projMap, err := resolver.ResolveProjectAgents(ctx, provider, repo)
+			if err != nil {
+				logx.Warnf("resolve project agents for %s/%s failed, fallback to auto-select: %v", provider, repo, err)
+			} else if len(projMap) > 0 {
+				selected := m.selectForProject(projMap)
+				logx.Infof("project %s/%s override: running %d agents", provider, repo, len(selected))
+				return selected
 			}
 		}
+	}
+
+	// 层 2：技术栈自动推断
+	stacks := ProbeStacks(workspace.Dir)
+	if selected := m.selectByStack(stacks); len(selected) > 0 {
+		logx.Infof("auto-selected %d agents by stacks %v (no project config)", len(selected), stacks)
+		return selected
+	}
+
+	// 层 3：is_default 兜底
+	defaults := m.getFilteredAgents(func(a reviewAgent) bool { return a.IsDefault() })
+	if len(defaults) > 0 {
+		logx.Infof("no stack match for %v; falling back to %d default agents", stacks, len(defaults))
+		return defaults
+	}
+
+	// 层 4：全部 enabled 兜底（避免无 agent 可跑导致评审失败）
+	registered := m.GetAgents()
+	logx.Infof("no stack match and no defaults; running all %d registered agents", len(registered))
+	return registered
+}
+
+// selectForProject 按 persona 白名单选中 agent，并用项目优先级覆盖全局优先级。
+// 同一 persona 的冗余实例（路径 A4，如 security、security-2）会一并选中。
+func (m *AgentManager) selectForProject(projMap map[string]int) []reviewAgent {
+	all := m.GetAgents()
+	selected := make([]reviewAgent, 0, len(all))
+	for _, a := range all {
+		prio, ok := projMap[a.Persona()]
+		if !ok {
+			continue
+		}
+		if prio == a.Priority() {
+			selected = append(selected, a)
+		} else {
+			selected = append(selected, priorityOverrideAgent{reviewAgent: a, priority: prio})
+		}
+	}
+	return selected
+}
+
+// selectByStack 按 always + stack:* 标签匹配技术栈。stacks 为空时返回 nil。
+func (m *AgentManager) selectByStack(stacks []string) []reviewAgent {
+	if len(stacks) == 0 {
+		return nil
+	}
+	return m.getFilteredAgents(func(a reviewAgent) bool {
+		return tagMatchesStacks(a.Focus(), stacks)
+	})
+}
+
+// priorityOverrideAgent 嵌入一个 agent 并覆盖其 Priority()（项目优先级覆盖全局）。
+type priorityOverrideAgent struct {
+	reviewAgent
+	priority int
+}
+
+func (a priorityOverrideAgent) Priority() int { return a.priority }
+
+// buildEphemeralAgents 构造 ephemeral agent 实例列表（不入库）。factory 未注入时跳过并告警。
+func (m *AgentManager) buildEphemeralAgents(ephemeral []EphemeralSpec) []reviewAgent {
+	if len(ephemeral) == 0 {
+		return nil
+	}
+	m.mu.RLock()
+	factory := m.factory
+	m.mu.RUnlock()
+	if factory == nil {
+		logx.Warnf("ephemeral reviewers requested but no runner factory configured; skipping %d ephemeral", len(ephemeral))
+		return nil
+	}
+	agents := make([]reviewAgent, 0, len(ephemeral))
+	for _, spec := range ephemeral {
+		name := spec.Name
+		if name == "" {
+			name = "ephemeral"
+		}
+		runner := factory.CreateRunner(spec.Background, "")
+		agents = append(agents, newOCRAgent(runner, ocrAgentConfig{
+			Name:     name,
+			Persona:  name,
+			Priority: 100, // 临时 agent 优先级较低
+			Focus:    []string{"ad-hoc"},
+		}))
+	}
+	return agents
+}
+
+// runAgents 是执行 agent 的公共流程：拼接 ephemeral → 并行运行 → 聚合。
+func (m *AgentManager) runAgents(ctx context.Context, agents []reviewAgent, ephemeral []EphemeralSpec, workspace Workspace, callback func(AgentStatus)) (AggregatedResult, error) {
+	agents = append(append([]reviewAgent{}, agents...), m.buildEphemeralAgents(ephemeral)...)
+	if len(agents) == 0 {
+		return AggregatedResult{}, fmt.Errorf("no agents available for review")
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, m.config.TotalTimeout)

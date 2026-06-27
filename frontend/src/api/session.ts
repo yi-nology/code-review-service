@@ -160,46 +160,6 @@ export interface PhaseInfo {
   duration_ms: number | null
 }
 
-// Review Map types
-export interface ReviewMap {
-  id: string
-  session_id: string
-  title: string
-  description: string
-  sections: Section[]
-  dependencies: Dependency[]
-  summary: string
-  file_count: number
-  section_count: number
-  created_at: string
-}
-
-export interface Section {
-  id: string
-  title: string
-  description: string
-  files: File[]
-  findings: string[]
-  progress: number
-  priority: string
-}
-
-export interface File {
-  path: string
-  language: string
-  lines_added: number
-  lines_removed: number
-  findings: string[]
-  reviewed: boolean
-}
-
-export interface Dependency {
-  from: string
-  to: string
-  type: string
-  strength: string
-}
-
 // Persona types removed: backend has no /personas endpoints; agents cover this.
 
 // Session API

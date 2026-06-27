@@ -15,7 +15,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
-	"github.com/yi-nology/code-review-service/internal/service/reviewmap"
 	"github.com/yi-nology/code-review-service/internal/service/runner"
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
 
@@ -27,7 +26,6 @@ type Service struct {
 	reviewRepo      repository.ReviewRepository
 	projectRepo     repository.ProjectPolicyRepository
 	globalRulesRepo repository.GlobalRulesRepository
-	reviewMapRepo   repository.ReviewMapRepository
 	runner          review.Runner
 	writeback       review.WritebackPublisher
 	policy          *policy.Engine
@@ -41,7 +39,6 @@ type Config struct {
 	ReviewRepo      repository.ReviewRepository
 	ProjectRepo     repository.ProjectPolicyRepository
 	GlobalRulesRepo repository.GlobalRulesRepository
-	ReviewMapRepo   repository.ReviewMapRepository
 	Runner          review.Runner
 	Writeback       review.WritebackPublisher
 	Policy          *policy.Engine
@@ -56,7 +53,6 @@ func NewService(cfg Config) *Service {
 		reviewRepo:      cfg.ReviewRepo,
 		projectRepo:     cfg.ProjectRepo,
 		globalRulesRepo: cfg.GlobalRulesRepo,
-		reviewMapRepo:   cfg.ReviewMapRepo,
 		runner:          cfg.Runner,
 		writeback:       cfg.Writeback,
 		policy:          cfg.Policy,
@@ -205,32 +201,12 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 	s.appendHistory(ctx, id, "workflow", "completed", fmt.Sprintf("multi-agent review completed with %d findings", len(result.AgentResults)), nil)
 
 	var findings []review.Finding
-	for _, f := range result.FinalReport.Blockers {
-		findings = append(findings, review.Finding{
-			Severity: review.SeverityCritical,
-			Path:     f.Path,
-			Line:     f.Line,
-			Title:    f.Title,
-			Body:     f.Body,
-		})
-	}
-	for _, f := range result.FinalReport.ShouldFix {
-		findings = append(findings, review.Finding{
-			Severity: review.SeverityMajor,
-			Path:     f.Path,
-			Line:     f.Line,
-			Title:    f.Title,
-			Body:     f.Body,
-		})
-	}
-	for _, f := range result.FinalReport.Suggestions {
-		findings = append(findings, review.Finding{
-			Severity: review.SeverityMinor,
-			Path:     f.Path,
-			Line:     f.Line,
-			Title:    f.Title,
-			Body:     f.Body,
-		})
+	for _, bucket := range [][]agent.Finding{
+		result.FinalReport.Blockers,
+		result.FinalReport.ShouldFix,
+		result.FinalReport.Suggestions,
+	} {
+		findings = append(findings, toReviewFindings(bucket)...)
 	}
 
 	scope := workspace.Scope
@@ -262,10 +238,8 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 		},
 	}
 	report := review.BuildReport(&dummyResult)
-	// workflow 路径：评分/完成状态/门禁直接采用 workflow FinalReport，与「最终报告」同步。
-	// 原实现用 BuildReport 基于 findings 重算，导致与 workflow 实际评分/结论不一致（用户反馈不同步）。
-	report.Score.Value = result.FinalReport.Score
-	report.Score.Grade = review.ScoreGrade(result.FinalReport.Score)
+	// workflow 路径：评分由 scoring.Compute 统一计算（BuildReport 和 generateFinalReport
+	// 共用同一函数），两条路径分数天然一致，无需再覆盖。
 	report.Complete = true
 	report.Generated = true
 
@@ -299,12 +273,7 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 		return review.Response{}, err
 	}
 
-	s.publishWriteback(ctx, req, workspace, review.Result{Summary: resp.Summary, Findings: findings})
-
-	// workflow 路径也生成代码审查地图（原仅 executeWithRunner 生成，多 agent 评审地图为空）
-	if s.reviewMapRepo != nil && workspace.Diff != "" {
-		s.generateAndSaveReviewMap(ctx, id, req, workspace, dummyResult)
-	}
+	s.publishWriteback(ctx, id, req, workspace, review.Result{Summary: resp.Summary, Findings: findings})
 
 	return resp, nil
 }
@@ -353,21 +322,17 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req review.R
 		Gate:     review.CompletedGate(gate.Passed, gate.Reason),
 	}
 
-	s.publishWriteback(ctx, req, workspace, review.Result{Summary: result.Summary, Findings: result.Findings})
+	s.publishWriteback(ctx, id, req, workspace, review.Result{Summary: result.Summary, Findings: result.Findings})
 
 	if err := s.updateWithRawOCR(ctx, id, req, resp, result.RawOCR); err != nil {
 		return review.Response{}, err
-	}
-
-	if s.reviewMapRepo != nil && workspace.Diff != "" {
-		s.generateAndSaveReviewMap(ctx, id, req, workspace, result)
 	}
 
 	return resp, nil
 }
 
 // publishWriteback 在审查完成后将结果回写到代码平台（runner 和 workflow 路径共用）。
-func (s *Service) publishWriteback(ctx context.Context, req review.Request, workspace review.Workspace, result review.Result) {
+func (s *Service) publishWriteback(ctx context.Context, id string, req review.Request, workspace review.Workspace, result review.Result) {
 	if s.writeback == nil {
 		return
 	}
@@ -382,12 +347,25 @@ func (s *Service) publishWriteback(ctx context.Context, req review.Request, work
 		return
 	}
 
+	s.appendHistory(ctx, id, "writeback", "running", "publishing review comments to git platform", nil)
+
 	writebackReq := req
 	if workspace.OriginalHeadSHA != "" {
 		writebackReq.HeadSHA = workspace.OriginalHeadSHA
 	}
-	if err := s.writeback.PublishWithDiff(ctx, writebackReq, result, workspace.Diff); err != nil {
+	wbResult, err := s.writeback.PublishWithDiff(ctx, writebackReq, result, workspace.Diff)
+	if err != nil {
 		logx.Warn("writeback publish failed", "error", err)
+		s.appendHistory(ctx, id, "writeback", "failed", fmt.Sprintf("writeback failed: %v", err), nil)
+		return
+	}
+
+	if wbResult.Skipped {
+		s.appendHistory(ctx, id, "writeback", "completed", "writeback skipped (stale or empty)", nil)
+	} else {
+		s.appendHistory(ctx, id, "writeback", "completed",
+			fmt.Sprintf("comments published to git platform (published=%d, failed=%d)", wbResult.Published, wbResult.Failed),
+			map[string]any{"published": wbResult.Published, "failed": wbResult.Failed})
 	}
 }
 
@@ -432,56 +410,28 @@ func classifyReviewErrorType(err error) string {
 	return ""
 }
 
-func (s *Service) generateAndSaveReviewMap(ctx context.Context, id string, req review.Request, workspace review.Workspace, result review.Result) {
-	var findings []reviewmap.Finding
-	for i, f := range result.Findings {
-		findings = append(findings, reviewmap.Finding{
-			ID:         fmt.Sprintf("finding-%d", i),
-			Severity:   string(f.Severity),
-			Category:   f.Category,
-			Path:       f.Path,
-			Line:       f.Line,
-			EndLine:    f.EndLine,
-			Title:      f.Title,
-			Body:       f.Body,
-			Suggestion: f.SuggestionCode,
-			Confidence: 0.8,
-			Agents:     []string{"default"},
-		})
-	}
-
-	generator := reviewmap.NewGenerator()
-	reviewMap, err := generator.Generate(id, workspace.Diff, findings)
-	if err != nil {
-		logx.Warn("failed to generate review map", "review_id", id, "error", err)
-		return
-	}
-
-	dbMap := &models.ReviewMap{
-		MapID:          reviewMap.ID,
-		ReviewID:       id,
-		SessionID:      id,
-		Title:          reviewMap.Title,
-		Description:    reviewMap.Description,
-		Sections:       review.MustMarshal(reviewMap.Sections),
-		Dependencies:   review.MustMarshal(reviewMap.Dependencies),
-		Summary:        reviewMap.Summary,
-		FileCount:      reviewMap.FileCount,
-		SectionCount:   reviewMap.SectionCount,
-		MermaidDiagram: reviewMap.ToMermaid(),
-	}
-
-	if err := s.reviewMapRepo.Create(ctx, dbMap); err != nil {
-		logx.Warn("failed to save review map", "review_id", id, "error", err)
-		return
-	}
-
-	logx.Info("review map generated and saved", "review_id", id, "map_id", reviewMap.ID, "sections", reviewMap.SectionCount, "files", reviewMap.FileCount)
-}
-
 func toPolicyFindings(findings []review.Finding) []policy.Finding {
 	return slicex.Map(findings, func(f review.Finding) policy.Finding {
 		return policy.Finding{Severity: string(f.Severity), Path: f.Path}
+	})
+}
+
+// toReviewFindings 把 workflow 路径的 agent.Finding 映射为 review.Finding，
+// 保留原始 severity（而非按 bucket 硬编码），避免 info 问题被误判为 minor。
+func toReviewFindings(fs []agent.Finding) []review.Finding {
+	if len(fs) == 0 {
+		return nil
+	}
+	return slicex.Map(fs, func(f agent.Finding) review.Finding {
+		return review.Finding{
+			Severity: review.NormalizeSeverity(f.Severity),
+			Path:     f.Path,
+			Line:     f.Line,
+			EndLine:  f.EndLine,
+			Title:    f.Title,
+			Body:     f.Body,
+			Thinking: f.Thinking,
+		}
 	})
 }
 

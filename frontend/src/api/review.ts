@@ -48,34 +48,7 @@ export async function rerunReview(id: string): Promise<ReviewDetail> {
   return res?.review ?? res
 }
 
-export async function getSessionMap(reviewId: string, sessionId: string): Promise<any> {
-  return request.get(`/reviews/${reviewId}/sessions/${sessionId}/map`) as any
-}
-
-export async function getReviewMaps(reviewId: string): Promise<any> {
-  return request.get(`/reviews/${reviewId}/maps`) as any
-}
-
-export async function getReviewMap(reviewId: string, mapId: string): Promise<any> {
-  return request.get(`/reviews/${reviewId}/maps/${mapId}`) as any
-}
-
-export async function generateReviewMap(reviewId: string, sessionId: string, diff?: string): Promise<any> {
-  const body: Record<string, string> = { session_id: sessionId }
-  if (diff) body.diff = diff
-  const res: any = await request.post(`/reviews/${reviewId}/maps`, body, { timeout: 300000 })
-  return res?.map ?? res
-}
-
-export async function updateFileReviewed(reviewId: string, mapId: string, filePath: string, reviewed: boolean): Promise<void> {
-  return request.put(`/reviews/${reviewId}/maps/${mapId}/files/${encodeURIComponent(filePath)}/reviewed`, { reviewed }) as any
-}
-
-export async function updateSectionProgress(reviewId: string, mapId: string, sectionId: string, reviewed: boolean): Promise<void> {
-  return request.put(`/reviews/${reviewId}/maps/${mapId}/sections/${sectionId}/progress`, { reviewed }) as any
-}
-
-export async function previewComment(reviewId: string, mode: 'team' | 'human' = 'team'): Promise<{
+export async function previewComment(reviewId: string, mode?: 'team'): Promise<{
   review_id: string
   summary: string
   findings: string
@@ -85,7 +58,7 @@ export async function previewComment(reviewId: string, mode: 'team' | 'human' = 
   return res
 }
 
-export async function publishReview(reviewId: string, mode: 'team' | 'human' = 'team', summaryOnly = false): Promise<{
+export async function publishReview(reviewId: string, mode?: 'team', summaryOnly = false): Promise<{
   message: string
   review_id: string
 }> {

@@ -164,6 +164,10 @@ func (a *MockAgent) Priority() int {
 	return a.priority
 }
 
+func (a *MockAgent) IsDefault() bool {
+	return false
+}
+
 func (a *MockAgent) Review(ctx context.Context, workspace agent.Workspace) (agent.AgentResult, error) {
 	return agent.AgentResult{
 		AgentName: a.name,
@@ -204,7 +208,11 @@ func TestReviewWorkflow(t *testing.T) {
 		sessionService,
 		progressManager,
 		llm.NewNoopProvider(),
-		DefaultWorkflowConfig(),
+		WorkflowConfig{
+			EnableDiscussion:   true,
+			EnableRequirements: true,
+			DiscussionRounds:   1,
+		},
 	)
 
 	// Create review request
@@ -250,4 +258,82 @@ func TestReviewWorkflow(t *testing.T) {
 	t.Logf("Review completed with score: %d", result.FinalReport.Score)
 	t.Logf("Verdict: %s", result.FinalReport.Verdict)
 	t.Logf("Findings: %d", len(result.AgentResults[0].Findings)+len(result.AgentResults[1].Findings))
+}
+
+// TestGenerateFinalReportSeverityCounts 验证 generateFinalReport 按「真实 severity」计数，
+// 而非按 bucket 粗分。这是保证 workflow 路径分数与 executor 的 BuildReport 一致的前提：
+// info 问题不能被误计为 minor。
+func TestGenerateFinalReportSeverityCounts(t *testing.T) {
+	findings := []agent.Finding{
+		{ID: "1", Severity: "critical", Title: "c", Body: "b"},
+		{ID: "2", Severity: "major", Title: "c", Body: "b"},
+		{ID: "3", Severity: "minor", Title: "c", Body: "b"},
+		{ID: "4", Severity: "info", Title: "c", Body: "b"},
+		{ID: "5", Severity: "info", Title: "c", Body: "b"},
+	}
+	aggregated := agent.AggregatedResult{Findings: findings}
+
+	report := generateFinalReport(aggregated, nil, nil, 100)
+
+	// 5 findings: 1 critical + 1 major + 1 minor + 2 info
+	// rawDeduction = 25 + 12 + 5 + 2*1 = 44, multiplier=1.0 → score = 56
+	if report.Score != 56 {
+		t.Fatalf("expected score 56 (1*25+1*12+1*5+2*1=44 deducted), got %d", report.Score)
+	}
+
+	// verdict: 1 blocker → REQUEST_CHANGES
+	if report.Verdict != "REQUEST_CHANGES" {
+		t.Fatalf("expected REQUEST_CHANGES (1 blocker), got %s", report.Verdict)
+	}
+
+	// buckets: info findings go into suggestions, but score must count them as info
+	if len(report.Suggestions) != 3 { // 1 minor + 2 info
+		t.Fatalf("expected 3 suggestions, got %d", len(report.Suggestions))
+	}
+}
+
+// TestGenerateFinalReportInfoNotMinor 验证 info 和 minor 的扣分不同。
+// 如果 info 被误计为 minor，分数会比正确值低。
+func TestGenerateFinalReportInfoNotMinor(t *testing.T) {
+	// 4 info findings: correct score = 100 - round(4*1*1.0) = 96
+	infoOnly := agent.AggregatedResult{
+		Findings: []agent.Finding{
+			{ID: "1", Severity: "info", Title: "i", Body: "b"},
+			{ID: "2", Severity: "info", Title: "i", Body: "b"},
+			{ID: "3", Severity: "info", Title: "i", Body: "b"},
+			{ID: "4", Severity: "info", Title: "i", Body: "b"},
+		},
+	}
+	report := generateFinalReport(infoOnly, nil, nil, 100)
+	if report.Score != 96 {
+		t.Fatalf("expected 96 (4 info × 1pt = 4 deducted), got %d — info may be counted as minor (5pt)", report.Score)
+	}
+}
+
+// TestGenerateFinalReportCaseInsensitiveSeverity 验证大小写/空白容错。
+// "Critical" 不应掉入 suggestions，而应正确归为 blocker。
+func TestGenerateFinalReportCaseInsensitiveSeverity(t *testing.T) {
+	aggregated := agent.AggregatedResult{
+		Findings: []agent.Finding{
+			{ID: "1", Severity: "Critical", Title: "c", Body: "b"}, // 大写
+			{ID: "2", Severity: " MAJOR ", Title: "m", Body: "b"},  // 带空白
+			{ID: "3", Severity: "", Title: "u", Body: "b"},          // 空值 → major
+		},
+	}
+	report := generateFinalReport(aggregated, nil, nil, 100)
+
+	// 1 critical (blocker) + 2 major (shouldFix)
+	if len(report.Blockers) != 1 {
+		t.Fatalf("expected 1 blocker (Critical normalized), got %d", len(report.Blockers))
+	}
+	if len(report.ShouldFix) != 2 { // " MAJOR " + "" → both major
+		t.Fatalf("expected 2 shouldFix, got %d", len(report.ShouldFix))
+	}
+	if len(report.Suggestions) != 0 {
+		t.Fatalf("expected 0 suggestions, got %d", len(report.Suggestions))
+	}
+	// score: round((25 + 2*12) * 1.0) = 49 → value = 100-49 = 51
+	if report.Score != 51 {
+		t.Fatalf("expected 51 (25+24=49 deducted), got %d", report.Score)
+	}
 }

@@ -348,34 +348,38 @@ function openWizard() {
 }
 
 async function handleSaveConfig() {
-  if (!wizardRef.value) return
-
-  const editForm = wizardRef.value.getEditForm()
-
-  if (!editForm.url || !editForm.model) {
-    ElMessage.warning('请填写接口地址和模型')
-    return
-  }
-
   saving.value = true
   try {
-    const settings: OCRSettings = {
-      ...form,
-      enabled: true,
-      provider: wizardRef.value.selectedPreset?.id || 'custom',
-      url: editForm.url,
-      model: editForm.model,
-      auth_token: editForm.auth_token || form.auth_token,
-      use_anthropic: editForm.use_anthropic,
-      reasoning_mode: editForm.reasoning_mode,
-      reasoning_budget: editForm.reasoning_budget,
-      language: editForm.language,
-      audience: editForm.audience,
-      default_severity: editForm.default_severity,
-      concurrency: editForm.concurrency,
-      max_git_procs: editForm.max_git_procs,
-      timeout_minutes: editForm.timeout_minutes,
-      background: editForm.background,
+    let settings: OCRSettings
+
+    if (showWizard.value && wizardRef.value) {
+      const editForm = wizardRef.value.getEditForm()
+
+      if (!editForm.url || !editForm.model) {
+        ElMessage.warning('请填写接口地址和模型')
+        return
+      }
+
+      settings = {
+        ...form,
+        enabled: true,
+        provider: wizardRef.value.selectedPreset?.id || 'custom',
+        url: editForm.url,
+        model: editForm.model,
+        auth_token: editForm.auth_token || form.auth_token,
+        use_anthropic: editForm.use_anthropic,
+        reasoning_mode: editForm.reasoning_mode,
+        reasoning_budget: editForm.reasoning_budget,
+        language: editForm.language,
+        audience: editForm.audience,
+        default_severity: editForm.default_severity,
+        concurrency: editForm.concurrency,
+        max_git_procs: editForm.max_git_procs,
+        timeout_minutes: editForm.timeout_minutes,
+        background: editForm.background,
+      }
+    } else {
+      settings = { ...form, enabled: true }
     }
 
     await updateOCRSettings(settings)

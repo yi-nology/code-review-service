@@ -11924,6 +11924,7 @@ type ReviewerAgentInfo struct {
 	Tags        *string `thrift:"tags,8,optional" form:"tags" json:"tags,omitempty"`
 	RuleFile    *string `thrift:"rule_file,9,optional" form:"rule_file" json:"rule_file,omitempty"`
 	Redundancy  int64   `thrift:"redundancy,10" form:"redundancy" json:"redundancy"`
+	IsDefault   bool    `thrift:"is_default,11" form:"is_default" json:"is_default"`
 }
 
 func NewReviewerAgentInfo() *ReviewerAgentInfo {
@@ -12681,6 +12682,7 @@ type CreateReviewerAgentReq struct {
 	Tags        []string `thrift:"tags,7,optional,list<string>" form:"tags" json:"tags,omitempty"`
 	RuleFile    *string  `thrift:"rule_file,8,optional" form:"rule_file" json:"rule_file,omitempty"`
 	Redundancy  *int64   `thrift:"redundancy,9,optional" form:"redundancy" json:"redundancy,omitempty"`
+	IsDefault   *bool    `thrift:"is_default,10,optional" form:"is_default" json:"is_default,omitempty"`
 }
 
 func NewCreateReviewerAgentReq() *CreateReviewerAgentReq {
@@ -13421,6 +13423,7 @@ type UpdateReviewerAgentReq struct {
 	Tags        []string `thrift:"tags,7,optional,list<string>" form:"tags" json:"tags,omitempty"`
 	RuleFile    *string  `thrift:"rule_file,8,optional" form:"rule_file" json:"rule_file,omitempty"`
 	Redundancy  *int64   `thrift:"redundancy,9,optional" form:"redundancy" json:"redundancy,omitempty"`
+	IsDefault   *bool    `thrift:"is_default,10,optional" form:"is_default" json:"is_default,omitempty"`
 }
 
 func NewUpdateReviewerAgentReq() *UpdateReviewerAgentReq {

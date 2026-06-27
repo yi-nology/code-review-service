@@ -17,7 +17,6 @@ import (
 var ProviderModule = fx.Options(
 	fx.Provide(NewGitProviderService),
 	fx.Provide(NewGitProviderProviders),
-	fx.Provide(NewGitProviderAdapter),
 )
 
 func NewGitProviderService(lc fx.Lifecycle, cfg *config.Config, repos *repository.RepoContainer) (*gitProvider.GitProviderService, error) {
@@ -87,8 +86,4 @@ func NewGitProviderService(lc fx.Lifecycle, cfg *config.Config, repos *repositor
 
 func NewGitProviderProviders(svc *gitProvider.GitProviderService, cfg *config.Config) *gitProvider.GitProviderProviders {
 	return gitProvider.NewGitProviderProviders(svc, int64(cfg.Review.MaxDiffBytes))
-}
-
-func NewGitProviderAdapter(svc *gitProvider.GitProviderService) *gitProvider.GitProviderAdapter {
-	return gitProvider.NewGitProviderAdapter(svc)
 }

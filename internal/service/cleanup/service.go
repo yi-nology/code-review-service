@@ -24,14 +24,6 @@ type WorkspaceCleaner struct {
 
 type Option func(*WorkspaceCleaner)
 
-func WithPattern(pattern string) Option {
-	return func(c *WorkspaceCleaner) {
-		if pattern != "" {
-			c.pattern = pattern
-		}
-	}
-}
-
 func WithInterval(interval time.Duration) Option {
 	return func(c *WorkspaceCleaner) {
 		if interval > 0 {

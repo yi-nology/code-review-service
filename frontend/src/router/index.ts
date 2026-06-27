@@ -19,11 +19,6 @@ const router = createRouter({
       component: () => import('@/views/ReviewDetail.vue'),
     },
     {
-      path: '/reviews/:reviewId/maps/:mapId',
-      name: 'ReviewMapDetail',
-      component: () => import('@/views/ReviewMapDetail.vue'),
-    },
-    {
       path: '/reviews/:reviewId/sessions/:sessionId',
       name: 'SessionDetail',
       component: () => import('@/views/SessionDetail.vue'),

@@ -4,7 +4,6 @@ import (
 	"github.com/yi-nology/code-review-service/biz/handler/progress_service"
 	"github.com/yi-nology/code-review-service/biz/handler/project_agent_service"
 	"github.com/yi-nology/code-review-service/biz/handler/publisher_service"
-	"github.com/yi-nology/code-review-service/biz/handler/review_map_service"
 	"github.com/yi-nology/code-review-service/biz/handler/review_service"
 	"github.com/yi-nology/code-review-service/biz/handler/session_service"
 	"github.com/yi-nology/code-review-service/biz/handler/settings_service"
@@ -29,7 +28,6 @@ var HandlerModule = fx.Options(
 	fx.Invoke(InitStatsHandler),
 	fx.Invoke(InitSessionHandler),
 	fx.Invoke(InitProgressHandler),
-	fx.Invoke(InitReviewMapHandler),
 	fx.Invoke(InitPublisherHandler),
 	fx.Invoke(InitProjectAgentHandler),
 )
@@ -79,12 +77,8 @@ func InitProgressHandler(progressMgr *progress.ProgressManager) {
 	progress_service.InitHandler(progressMgr)
 }
 
-func InitReviewMapHandler(sessionSvc *session.SessionService, repos *repository.RepoContainer) {
-	review_map_service.InitHandler(sessionSvc, repos.ReviewMap)
-}
-
-func InitPublisherHandler(writebackOrch *writeback.Orchestrator, translator *writeback.Translator, reviewSvc *svcReview.Service, providerSvc *gitProvider.GitProviderService) {
-	publisher_service.InitHandler(writebackOrch, translator, reviewSvc, providerSvc)
+func InitPublisherHandler(writebackOrch *writeback.Orchestrator, reviewSvc *svcReview.Service, providerSvc *gitProvider.GitProviderService) {
+	publisher_service.InitHandler(writebackOrch, reviewSvc, providerSvc)
 }
 
 func InitProjectAgentHandler(repos *repository.RepoContainer) {

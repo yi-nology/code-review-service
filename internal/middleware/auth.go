@@ -17,15 +17,15 @@ var DefaultSkipPaths = []string{
 // BearerTokenAuth 返回 Bearer Token 认证中间件。
 // 委托给 ekit 的 mw.BearerTokenAuth。
 func BearerTokenAuth(token string) app.HandlerFunc {
-	return mw.BearerTokenAuth(mw.BearerTokenConfig{
-		Token:     token,
-		SkipPaths: DefaultSkipPaths,
-		SkipFunc: func(path string) bool {
+	return mw.BearerTokenAuth(
+		mw.WithBearerToken(token),
+		mw.WithAuthSkipPaths(DefaultSkipPaths...),
+		mw.WithAuthSkipFunc(func(path string) bool {
 			return strings.HasPrefix(path, "/swagger") ||
 				strings.HasPrefix(path, "/openapi.yaml") ||
 				strings.HasPrefix(path, "/api/v1/webhooks")
-		},
-	})
+		}),
+	)
 }
 
 // SecurityHeaders 返回安全响应头中间件。

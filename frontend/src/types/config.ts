@@ -125,16 +125,19 @@ export interface PlatformPullRequest {
 }
 
 export interface ReviewerAgent {
-  ID: number
+  id: number
   name: string
   display_name: string
   description: string
   background: string
   enabled: boolean
   priority: number
+  is_default: boolean
   tags: string[] | null
-  CreatedAt: string
-  UpdatedAt: string
+  rule_file?: string
+  redundancy?: number
+  created_at?: string
+  updated_at?: string
 }
 
 export interface LLMProvider {

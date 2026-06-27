@@ -249,6 +249,7 @@ type ProjectAgentConfig struct {
 	Priority        int64  `thrift:"priority,7" form:"priority" json:"priority"`
 	ProjectEnabled  bool   `thrift:"project_enabled,8" form:"project_enabled" json:"project_enabled"`
 	ProjectPriority int64  `thrift:"project_priority,9" form:"project_priority" json:"project_priority"`
+	IsDefault       bool   `thrift:"is_default,10" form:"is_default" json:"is_default"`
 }
 
 func NewProjectAgentConfig() *ProjectAgentConfig {

@@ -113,30 +113,6 @@ func (p *ReviewProgress) Complete() {
 	}
 }
 
-func (p *ReviewProgress) GetOverallProgress() float64 {
-	if len(p.Phases) == 0 {
-		return 0
-	}
-	total := 0.0
-	for _, phase := range p.Phases {
-		total += phase.Progress
-	}
-	return total / float64(len(p.Phases))
-}
-
-func (p *ReviewProgress) GetPhaseInfo(phase Phase) *PhaseInfo {
-	for _, phaseInfo := range p.Phases {
-		if phaseInfo.Name == string(phase) {
-			return &phaseInfo
-		}
-	}
-	return nil
-}
-
 func (p *ReviewProgress) IsActive() bool {
 	return p.Status != "completed" && p.Status != "failed" && p.Status != "cancelled"
-}
-
-func (p *ReviewProgress) GetDuration() time.Duration {
-	return time.Since(p.StartTime)
 }

@@ -50,11 +50,12 @@ type ocrAgent struct {
 
 // ocrAgentConfig contains OCR agent configuration
 type ocrAgentConfig struct {
-	Name     string
-	Persona  string
-	Priority int
-	Focus    []string
-	Timeout  time.Duration
+	Name      string
+	Persona   string
+	Priority  int
+	Focus     []string
+	Timeout   time.Duration
+	IsDefault bool
 }
 
 // newOCRAgent creates a new OCR agent
@@ -86,6 +87,11 @@ func (a *ocrAgent) Focus() []string {
 // Priority returns the agent priority
 func (a *ocrAgent) Priority() int {
 	return a.config.Priority
+}
+
+// IsDefault 返回该审查员是否属于缺省集（用于技术栈推断无匹配时的兜底）
+func (a *ocrAgent) IsDefault() bool {
+	return a.config.IsDefault
 }
 
 // Review performs the code review using OCR
@@ -123,13 +129,13 @@ func (a *ocrAgent) Review(ctx context.Context, workspace Workspace) (AgentResult
 	}
 
 	return AgentResult{
-		AgentName:   a.config.Name,
-		Persona:     a.Persona(),
-		Findings:    findings,
-		Summary:     result.Summary,
-		Confidence:  0.8,
-		Duration:    duration,
-		TokensUsed:  result.TotalTokens,
+		AgentName:  a.config.Name,
+		Persona:    a.Persona(),
+		Findings:   findings,
+		Summary:    result.Summary,
+		Confidence: 0.8,
+		Duration:   duration,
+		TokensUsed: result.TotalTokens,
 	}, nil
 }
 

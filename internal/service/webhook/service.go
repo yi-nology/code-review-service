@@ -118,7 +118,6 @@ func (s *Service) HandleWebhook(ctx context.Context, provider, installationID st
 	}
 
 	event.InstallationID = installationID
-	event.ReceivedAt = time.Now().UTC()
 
 	return &HandleResult{ChangeEvent: event}, nil
 }

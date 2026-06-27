@@ -65,7 +65,6 @@ func NewExecutorService(deps ExecutorDeps) *executor.Service {
 		ReviewRepo:      deps.Repos.Review,
 		ProjectRepo:     deps.Repos.ProjectPolicy,
 		GlobalRulesRepo: deps.Repos.GlobalRules,
-		ReviewMapRepo:   deps.Repos.ReviewMap,
 		Runner:          deps.OcrRunner,
 		Writeback:       deps.WritebackPub,
 		Policy:          deps.PolicyEngine,
@@ -84,7 +83,6 @@ type ReviewServiceDeps struct {
 	SessionRepo     repository.SessionRepository
 	GitProviderSvc  *gitProvider.GitProviderService
 	GitProviders    *gitProvider.GitProviderProviders
-	GitProviderAdp  *gitProvider.GitProviderAdapter
 	OcrRunner       *runner.DynamicOpenCodeReviewRunner
 	ProgressManager *progress.ProgressManager
 	PolicyEngine    *policy.Engine
@@ -97,11 +95,9 @@ func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 		OCRSettingsRepo: deps.Repos.OCRSettings,
 		ProjectRepo:     deps.Repos.ProjectPolicy,
 		GlobalRulesRepo: deps.Repos.GlobalRules,
-		ReviewMapRepo:   deps.Repos.ReviewMap,
 		SessionRepo:     deps.SessionRepo,
 		Policy:          deps.PolicyEngine,
 		Providers:       deps.GitProviders,
-		GitProvider:     deps.GitProviderAdp,
 		Runner:          deps.OcrRunner,
 		PreviewRunner:   deps.OcrRunner,
 		ProgressManager: deps.ProgressManager,

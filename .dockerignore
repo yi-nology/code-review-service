@@ -1,4 +1,9 @@
 .git
 .env
 .env.*
-review-service
+node_modules
+frontend/node_modules
+*.md
+deploy/
+docs/
+tmp/

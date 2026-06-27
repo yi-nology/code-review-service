@@ -189,24 +189,3 @@ func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Wor
 
 	return ParseOpenCodeReviewOutput(stdout.Bytes(), r.config.DefaultSeverity)
 }
-
-type DeterministicRunner struct{}
-
-func NewDeterministicRunner() *DeterministicRunner {
-	return &DeterministicRunner{}
-}
-
-func (r *DeterministicRunner) Run(_ context.Context, workspace review.Workspace) (review.Result, error) {
-	summary := fmt.Sprintf("review completed for %s at %s", workspace.Repo, shortSHA(workspace.HeadSHA))
-	if workspace.Diff != "" {
-		summary = fmt.Sprintf("%s (%d diff bytes)", summary, len(workspace.Diff))
-	}
-	return review.Result{Summary: summary, Findings: []review.Finding{}}, nil
-}
-
-func shortSHA(sha string) string {
-	if len(sha) <= 8 {
-		return sha
-	}
-	return sha[:8]
-}

@@ -37,14 +37,7 @@ The review-service has been successfully enhanced with multi-agent code review c
 ### 5. Requirements-Aware Review
 - **Requirements Parser & Evaluator** (`internal/service/requirements/types.go`)
 
-### 6. Code Review Maps (NEW)
-- **Review Map Model** (`internal/repository/postgres/models/review_map.go`)
-- **Review Map Repository** (`internal/repository/postgres/review_map.go`)
-- **Review Map Generator** (`internal/service/reviewmap/types.go`)
-- **Review Map Handler** (`biz/handler/review_service/review_map.go`)
-- **Auto-generation in review flow** (`internal/service/review/executor.go`)
-
-### 7. Project Agent Configuration (NEW)
+### 6. Project Agent Configuration (NEW)
 - **Project Agent Model** (`internal/repository/postgres/models/project_agent.go`)
 - **Project Agent Repository** (`internal/repository/postgres/project_agent.go`)
 - **Project Agent Handler** (`biz/handler/review_service/project_agent.go`)

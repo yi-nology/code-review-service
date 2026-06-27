@@ -18,8 +18,8 @@ type Review struct {
 	AuthorAvatar       string  `gorm:"type:text" json:"author_avatar,omitempty"`
 	Sender             string  `gorm:"type:text" json:"sender,omitempty"`
 
-	PullRequestID   string `gorm:"type:text;index:idx_reviews_pr" json:"pull_request_id,omitempty"`
-	MergeRequestIID string `gorm:"type:text;index:idx_reviews_mr" json:"merge_request_iid,omitempty"`
+	PullRequestID   string `gorm:"column:pull_request_id;type:text;index:idx_reviews_pr" json:"pull_request_id,omitempty"`
+	MergeRequestIID string `gorm:"column:merge_request_iid;type:text;index:idx_reviews_mr" json:"merge_request_iid,omitempty"`
 	BaseSHA         string `gorm:"type:text" json:"base_sha,omitempty"`
 	HeadSHA         string `gorm:"type:text" json:"head_sha,omitempty"`
 

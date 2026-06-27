@@ -9,8 +9,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/oekit/pkg/slicex"
 
-	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/oekit/logx"
+	"github.com/cloudwego/hertz/pkg/app"
 )
 
 var handlerInst *ProjectAgentHandler
@@ -66,6 +66,7 @@ func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
 			Priority:        int64(a.Priority),
 			ProjectEnabled:  false,
 			ProjectPriority: int64(a.Priority),
+			IsDefault:       a.IsDefault,
 		}
 		if pa, ok := enabledMap[a.ID]; ok {
 			agent.ProjectEnabled = pa.Enabled
@@ -160,6 +161,3 @@ func DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func GetProjectAgentConfig(ctx context.Context, provider, repo string) ([]models.ProjectAgent, error) {
-	return handlerInst.projectAgentRepo.GetEnabledByProject(ctx, provider, repo)
-}

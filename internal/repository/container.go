@@ -18,7 +18,6 @@ type RepoContainer struct {
 	ContributorStats ContributorStatsRepository
 	ReviewerAgent    ReviewerAgentRepository
 	ProjectAgent     ProjectAgentRepository
-	ReviewMap        ReviewMapRepository
 	CustomProvider   CustomProviderRepository
 }
 
@@ -35,7 +34,6 @@ func NewRepoContainer(db *gormDB.DB) *RepoContainer {
 		ContributorStats: postgres.NewContributorStatsRepo(db),
 		ReviewerAgent:    postgres.NewReviewerAgentRepo(db),
 		ProjectAgent:     postgres.NewProjectAgentRepo(db),
-		ReviewMap:        postgres.NewReviewMapRepo(db),
 		CustomProvider:   postgres.NewCustomProviderRepo(db),
 	}
 }

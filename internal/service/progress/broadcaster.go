@@ -38,10 +38,6 @@ func (b *broadcaster) Unregister(room string, conn *websocket.Conn) {
 	b.bc.Unregister(room, &wsConnAdapter{conn: conn})
 }
 
-func (b *broadcaster) Broadcast(room string, message []byte) {
-	b.bc.Broadcast(room, message)
-}
-
 func (b *broadcaster) BroadcastEvent(room string, event progressEvent) {
 	event.Timestamp = time.Now()
 	data, err := json.Marshal(event)
@@ -50,14 +46,6 @@ func (b *broadcaster) BroadcastEvent(room string, event progressEvent) {
 		return
 	}
 	b.bc.Broadcast(room, data)
-}
-
-func (b *broadcaster) GetRoomCount(room string) int {
-	return b.bc.GetRoomCount(room)
-}
-
-func (b *broadcaster) GetTotalConnections() int {
-	return b.bc.GetTotalConnections()
 }
 
 func (b *broadcaster) Close() {
