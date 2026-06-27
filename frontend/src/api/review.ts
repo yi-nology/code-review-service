@@ -1,7 +1,7 @@
 import request from './request'
 import type {
   ReviewDetail, ListResult, ListOptions, CreateReviewOptions,
-  PublishStatus, ScanRepositoryOptions, ScanRepositoryResult, SuggestionPatchCheck, SuggestionPatchPreview,
+  PublishStatus, ScanRepositoryOptions, ScanRepositoryResult, SuggestionPatchApplyResult, SuggestionPatchCheck, SuggestionPatchPreview,
 } from '@/types/review'
 
 export async function getReviews(params: ListOptions): Promise<ListResult> {
@@ -110,4 +110,12 @@ export async function downloadSuggestionPatch(reviewId: string, indexes?: number
     params: { finding_indexes: findingIndexesParam(indexes) },
     responseType: 'blob',
   }) as any
+}
+
+export async function applySuggestionPatch(reviewId: string, indexes?: number[], branch?: string, push = false): Promise<SuggestionPatchApplyResult> {
+  return request.post(`/reviews/${reviewId}/suggestion-patch/apply`, {
+    finding_indexes: indexes || [],
+    branch,
+    push,
+  }, { timeout: 300000 }) as any
 }

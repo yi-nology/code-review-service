@@ -16,6 +16,13 @@
           <span>已选 {{ selectedPatchIndexes.length }} / 可生成 {{ patchableFindingIndexes.length }}</span>
         </div>
         <div class="patch-actions">
+          <el-input
+            v-model="patchBranch"
+            class="patch-branch-input"
+            size="small"
+            placeholder="修复分支名"
+            clearable
+          />
           <el-button size="small" @click="clearPatchSelection">清空</el-button>
           <el-button size="small" type="primary" plain :disabled="!patchSelectionIndexes.length" :loading="patchLoading" @click="handlePreviewPatch">
             生成预览
@@ -26,6 +33,9 @@
           <el-button size="small" plain :disabled="!patchPreview?.patch" @click="copyPatch">复制</el-button>
           <el-button size="small" plain :disabled="!patchPreview?.patch" :loading="patchDownloading" @click="$emit('download-patch', patchSelectionIndexes)">
             下载 .diff
+          </el-button>
+          <el-button size="small" type="success" plain :disabled="!patchSelectionIndexes.length" :loading="patchApplying" @click="applyPatch">
+            创建修复提交
           </el-button>
         </div>
       </div>
@@ -39,6 +49,15 @@
         </div>
         <div v-if="patchCheck && (!patchCheck.applicable || patchCheck.output)" class="patch-check-output">
           {{ patchCheck.error || 'git apply --check' }}<template v-if="patchCheck.output">：{{ patchCheck.output }}</template>
+        </div>
+        <div v-if="patchApplyResult" class="patch-apply-result" :class="{ failed: !patchApplyResult.applied }">
+          <template v-if="patchApplyResult.applied">
+            已创建 {{ patchApplyResult.branch }} · {{ patchApplyResult.commit_sha || '本地提交' }}
+            <span v-if="patchApplyResult.workspace">工作区：{{ patchApplyResult.workspace }}</span>
+          </template>
+          <template v-else>
+            创建失败：{{ patchApplyResult.error || 'Patch 无法应用' }}
+          </template>
         </div>
         <div v-if="patchPreview.skipped?.length" class="patch-skipped">
           <span v-for="item in patchPreview.skipped" :key="`${item.index}-${item.reason}`">
@@ -83,8 +102,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { getSeverityType } from '@/utils/status'
-import { previewSuggestionPatch, checkSuggestionPatch } from '@/api/review'
-import type { Finding, SuggestionPatchCheck, SuggestionPatchPreview } from '@/types/review'
+import { previewSuggestionPatch, checkSuggestionPatch, applySuggestionPatch } from '@/api/review'
+import type { Finding, SuggestionPatchApplyResult, SuggestionPatchCheck, SuggestionPatchPreview } from '@/types/review'
 import { ElMessage } from 'element-plus/es/components/message/index'
 
 const props = defineProps<{
@@ -99,9 +118,12 @@ const emit = defineEmits<{
 const selectedPatchIndexes = ref<number[]>([])
 const patchPreview = ref<SuggestionPatchPreview | null>(null)
 const patchCheck = ref<SuggestionPatchCheck | null>(null)
+const patchApplyResult = ref<SuggestionPatchApplyResult | null>(null)
+const patchBranch = ref('')
 const patchLoading = ref(false)
 const patchChecking = ref(false)
 const patchDownloading = ref(false)
+const patchApplying = ref(false)
 
 const patchableFindingIndexes = computed(() => {
   return props.findings
@@ -138,6 +160,7 @@ function clearPatchSelection() {
   selectedPatchIndexes.value = []
   patchPreview.value = null
   patchCheck.value = null
+  patchApplyResult.value = null
 }
 
 async function handlePreviewPatch() {
@@ -146,6 +169,7 @@ async function handlePreviewPatch() {
   try {
     patchPreview.value = await previewSuggestionPatch(props.reviewId, patchSelectionIndexes.value)
     patchCheck.value = null
+    patchApplyResult.value = null
   } finally {
     patchLoading.value = false
   }
@@ -166,6 +190,23 @@ async function checkPatch() {
   }
 }
 
+async function applyPatch() {
+  if (!patchSelectionIndexes.value.length) return
+  patchApplying.value = true
+  try {
+    patchApplyResult.value = await applySuggestionPatch(props.reviewId, patchSelectionIndexes.value, patchBranch.value || undefined)
+    if (patchApplyResult.value.applied) {
+      patchPreview.value = patchApplyResult.value
+      patchCheck.value = null
+      ElMessage.success('修复提交已创建')
+    } else {
+      ElMessage.warning(patchApplyResult.value.error || 'Patch 当前不可应用')
+    }
+  } finally {
+    patchApplying.value = false
+  }
+}
+
 async function copyPatch() {
   if (!patchPreview.value?.patch) return
   try {
@@ -180,6 +221,7 @@ function resetPatchState() {
   selectedPatchIndexes.value = patchableFindingIndexes.value
   patchPreview.value = null
   patchCheck.value = null
+  patchApplyResult.value = null
 }
 
 defineExpose({ resetPatchState })
@@ -224,6 +266,10 @@ defineExpose({ resetPatchState })
   flex-wrap: wrap;
 }
 
+.patch-branch-input {
+  width: 190px;
+}
+
 .patch-result {
   margin-top: 12px;
 }
@@ -240,6 +286,24 @@ defineExpose({ resetPatchState })
   background: #fef0cd;
   border-radius: 6px;
   font-size: 12px;
+}
+
+.patch-apply-result {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 8px 0;
+  padding: 8px;
+  color: #14745a;
+  background: #e9f8f1;
+  border-radius: 6px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.patch-apply-result.failed {
+  color: #b4233c;
+  background: #fff0f2;
 }
 
 .patch-skipped {

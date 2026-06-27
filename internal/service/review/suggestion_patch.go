@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -42,6 +43,23 @@ type SuggestionPatchCheck struct {
 	Applicable bool   `json:"applicable"`
 	Error      string `json:"error,omitempty"`
 	Output     string `json:"output,omitempty"`
+}
+
+type SuggestionPatchApplyOptions struct {
+	Indexes []int
+	Branch  string
+	Push    bool
+}
+
+type SuggestionPatchApplyResult struct {
+	SuggestionPatchPreview
+	Applied   bool   `json:"applied"`
+	Pushed    bool   `json:"pushed"`
+	Branch    string `json:"branch"`
+	CommitSHA string `json:"commit_sha,omitempty"`
+	Workspace string `json:"workspace,omitempty"`
+	Output    string `json:"output,omitempty"`
+	Error     string `json:"error,omitempty"`
 }
 
 type patchHunk struct {
@@ -253,6 +271,59 @@ func (s *Service) CheckSuggestionPatch(ctx context.Context, reviewID string, ind
 	return result, true, nil
 }
 
+func (s *Service) ApplySuggestionPatch(ctx context.Context, reviewID string, opts SuggestionPatchApplyOptions) (*SuggestionPatchApplyResult, bool, error) {
+	record, found, err := s.Get(ctx, reviewID)
+	if err != nil || !found {
+		return nil, found, err
+	}
+	preview := BuildSuggestionPatch(record.ID, record.Response.Findings, opts.Indexes)
+	result := &SuggestionPatchApplyResult{SuggestionPatchPreview: preview}
+	if strings.TrimSpace(preview.Patch) == "" {
+		result.Error = "no patch generated"
+		return result, true, nil
+	}
+	if s.Providers == nil {
+		result.Error = "providers not configured"
+		return result, true, nil
+	}
+	provider, ok := s.Providers.Get(record.Request.Provider)
+	if !ok {
+		result.Error = fmt.Sprintf("unsupported provider %q", record.Request.Provider)
+		return result, true, nil
+	}
+
+	applyCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	workspace, err := provider.Prepare(applyCtx, record.Request)
+	if err != nil {
+		result.Error = err.Error()
+		return result, true, nil
+	}
+	keepWorkspace := false
+	if workspace.Dir != "" {
+		defer func() {
+			if !keepWorkspace {
+				_ = os.RemoveAll(workspace.Dir)
+			}
+		}()
+	}
+
+	branch := normalizeSuggestionPatchBranch(opts.Branch, record.ID)
+	output, commitSHA, err := applyPatchCommit(applyCtx, workspace.Dir, branch, preview.Patch, opts.Push)
+	result.Branch = branch
+	result.CommitSHA = commitSHA
+	result.Workspace = workspace.Dir
+	result.Output = output
+	result.Applied = err == nil
+	result.Pushed = err == nil && opts.Push
+	if err != nil {
+		result.Error = err.Error()
+		return result, true, nil
+	}
+	keepWorkspace = true
+	return result, true, nil
+}
+
 func runGitApplyCheck(ctx context.Context, dir, patch string) (string, error) {
 	if strings.TrimSpace(dir) == "" {
 		return "", fmt.Errorf("workspace dir is empty")
@@ -267,4 +338,81 @@ func runGitApplyCheck(ctx context.Context, dir, patch string) (string, error) {
 		return strings.TrimSpace(out.String()), fmt.Errorf("git apply --check failed")
 	}
 	return strings.TrimSpace(out.String()), nil
+}
+
+func applyPatchCommit(ctx context.Context, dir, branch, patch string, push bool) (string, string, error) {
+	if strings.TrimSpace(dir) == "" {
+		return "", "", fmt.Errorf("workspace dir is empty")
+	}
+	var combined strings.Builder
+	run := func(args ...string) (string, error) {
+		out, err := runGitCommand(ctx, dir, nil, args...)
+		if strings.TrimSpace(out) != "" {
+			combined.WriteString(out)
+			combined.WriteByte('\n')
+		}
+		return out, err
+	}
+	if _, err := run("checkout", "-B", branch); err != nil {
+		return strings.TrimSpace(combined.String()), "", fmt.Errorf("create repair branch: %w", err)
+	}
+	if _, err := runGitCommand(ctx, dir, strings.NewReader(patch), "apply", "--unidiff-zero", "--whitespace=nowarn", "-"); err != nil {
+		return strings.TrimSpace(combined.String()), "", fmt.Errorf("git apply failed: %w", err)
+	}
+	if _, err := run("add", "-A"); err != nil {
+		return strings.TrimSpace(combined.String()), "", fmt.Errorf("git add failed: %w", err)
+	}
+	if _, err := run("diff", "--cached", "--quiet"); err == nil {
+		return strings.TrimSpace(combined.String()), "", fmt.Errorf("patch produced no staged changes")
+	}
+	if _, err := run("-c", "user.name=Review Service", "-c", "user.email=review-service@localhost", "commit", "-m", "Apply review suggestions"); err != nil {
+		return strings.TrimSpace(combined.String()), "", fmt.Errorf("git commit failed: %w", err)
+	}
+	commitSHA, err := run("rev-parse", "HEAD")
+	if err != nil {
+		return strings.TrimSpace(combined.String()), "", fmt.Errorf("resolve repair commit: %w", err)
+	}
+	commitSHA = strings.TrimSpace(commitSHA)
+	if push {
+		if _, err := run("push", "-u", "origin", branch); err != nil {
+			return strings.TrimSpace(combined.String()), commitSHA, fmt.Errorf("git push failed: %w", err)
+		}
+	}
+	return strings.TrimSpace(combined.String()), commitSHA, nil
+}
+
+func runGitCommand(ctx context.Context, dir string, stdin *strings.Reader, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = dir
+	if stdin != nil {
+		cmd.Stdin = stdin
+	}
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	if err := cmd.Run(); err != nil {
+		return strings.TrimSpace(out.String()), err
+	}
+	return strings.TrimSpace(out.String()), nil
+}
+
+var invalidBranchChars = regexp.MustCompile(`[^A-Za-z0-9._/-]+`)
+
+func normalizeSuggestionPatchBranch(raw, reviewID string) string {
+	branch := strings.TrimSpace(raw)
+	if branch == "" {
+		id := strings.TrimSpace(reviewID)
+		if len(id) > 12 {
+			id = id[:12]
+		}
+		branch = "review-service/fix-" + id
+	}
+	branch = strings.Trim(branch, "/.")
+	branch = invalidBranchChars.ReplaceAllString(branch, "-")
+	branch = strings.ReplaceAll(branch, "..", ".")
+	branch = strings.Trim(branch, "/.")
+	if branch == "" {
+		return "review-service/fix"
+	}
+	return branch
 }

@@ -107,6 +107,16 @@ export interface SuggestionPatchCheck extends SuggestionPatchPreview {
   output?: string
 }
 
+export interface SuggestionPatchApplyResult extends SuggestionPatchPreview {
+  applied: boolean
+  pushed: boolean
+  branch: string
+  commit_sha?: string
+  workspace?: string
+  output?: string
+  error?: string
+}
+
 export interface Report {
   ocr: OCRMetadata
   scope: ScopeMetadata

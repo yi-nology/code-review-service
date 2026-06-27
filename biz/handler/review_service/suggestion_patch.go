@@ -65,6 +65,51 @@ func CheckSuggestionPatch(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, result)
 }
 
+type applySuggestionPatchReq struct {
+	FindingIndexes []int  `json:"finding_indexes"`
+	Branch         string `json:"branch"`
+	Push           bool   `json:"push"`
+}
+
+func ApplySuggestionPatch(ctx context.Context, c *app.RequestContext) {
+	id := strings.TrimSpace(c.Param("id"))
+	if id == "" {
+		common.Fail(c, common.BadRequest("review id 不能为空"))
+		return
+	}
+	req, ok := common.Bind[applySuggestionPatchReq](c)
+	if !ok {
+		return
+	}
+	record, found, err := handlerInst.reviewSvc.Get(ctx, id)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	if !found {
+		common.Fail(c, common.NotFound("review not found"))
+		return
+	}
+	if err := validateFindingIndexes(req.FindingIndexes, len(record.Response.Findings)); err != nil {
+		common.Fail(c, common.BadRequest(err.Error()))
+		return
+	}
+	result, found, err := handlerInst.reviewSvc.ApplySuggestionPatch(ctx, id, review.SuggestionPatchApplyOptions{
+		Indexes: req.FindingIndexes,
+		Branch:  req.Branch,
+		Push:    req.Push,
+	})
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	if !found {
+		common.Fail(c, common.NotFound("review not found"))
+		return
+	}
+	common.Success(c, result)
+}
+
 func buildSuggestionPatchPreview(ctx context.Context, c *app.RequestContext) (review.SuggestionPatchPreview, bool) {
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {
@@ -86,6 +131,20 @@ func buildSuggestionPatchPreview(ctx context.Context, c *app.RequestContext) (re
 		return review.SuggestionPatchPreview{}, false
 	}
 	return review.BuildSuggestionPatch(record.ID, record.Response.Findings, indexes), true
+}
+
+func validateFindingIndexes(indexes []int, total int) error {
+	seen := map[int]struct{}{}
+	for _, idx := range indexes {
+		if idx < 0 || idx >= total {
+			return fmt.Errorf("finding index %d out of range", idx)
+		}
+		if _, ok := seen[idx]; ok {
+			return fmt.Errorf("finding index %d duplicated", idx)
+		}
+		seen[idx] = struct{}{}
+	}
+	return nil
 }
 
 func parseFindingIndexes(raw string, total int) ([]int, error) {

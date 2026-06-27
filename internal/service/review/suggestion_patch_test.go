@@ -127,3 +127,42 @@ func TestRunGitApplyCheck(t *testing.T) {
 		t.Fatal("expected git apply output for invalid patch")
 	}
 }
+
+func TestApplyPatchCommitCreatesRepairBranch(t *testing.T) {
+	dir := t.TempDir()
+	run := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v failed: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	run("init")
+	if err := os.WriteFile(filepath.Join(dir, "a.go"), []byte("package main\n\nfunc main() {\n\told := call()\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "a.go")
+	run("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "initial")
+
+	patch := "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -4 +4 @@\n-\told := call()\n+\tnew := call(ctx)\n"
+	output, commitSHA, err := applyPatchCommit(t.Context(), dir, "review-service/fix-r1", patch, false)
+	if err != nil {
+		t.Fatalf("applyPatchCommit() error = %v output=%q", err, output)
+	}
+	if commitSHA == "" {
+		t.Fatal("commit SHA is empty")
+	}
+	if got := run("rev-parse", "--abbrev-ref", "HEAD"); got != "review-service/fix-r1" {
+		t.Fatalf("branch = %q", got)
+	}
+	content, err := os.ReadFile(filepath.Join(dir, "a.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(content), "\tnew := call(ctx)") {
+		t.Fatalf("patch not applied:\n%s", content)
+	}
+}

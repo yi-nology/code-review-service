@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	reviewHandler "github.com/yi-nology/code-review-service/biz/handler/review_service"
 	"github.com/yi-nology/code-review-service/biz/router"
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/middleware"
@@ -98,7 +99,12 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos
 	swagger.RegisterRoutes(h)
 
 	router.GeneratedRegister(h)
+	registerReviewExtraRoutes(h)
 	registerViewerProxyRoute(h, viewerMgr)
+}
+
+func registerReviewExtraRoutes(h *server.Hertz) {
+	h.POST("/api/v1/reviews/:id/suggestion-patch/apply", reviewHandler.ApplySuggestionPatch)
 }
 
 func registerViewerProxyRoute(h *server.Hertz, viewerMgr *ocr.ViewerManager) {
