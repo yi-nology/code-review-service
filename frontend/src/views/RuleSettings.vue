@@ -12,6 +12,9 @@
             <el-icon><Refresh /></el-icon>
             刷新
           </el-button>
+          <el-button plain @click="openNewRulePackage">
+            新建规则包
+          </el-button>
           <el-button type="primary" @click="saveGlobalRules" :loading="globalSaving" :disabled="hasBlockingIssues">
             保存规则
           </el-button>
@@ -60,17 +63,22 @@
               </div>
             </template>
             <div v-if="rulePackages.length" class="package-list">
-              <button
+              <div
                 v-for="pkg in rulePackages"
                 :key="pkg.id || pkg.name"
                 class="package-item"
-                type="button"
-                @click="applyRulePackage(pkg)"
               >
-                <span>{{ pkg.name }}</span>
-                <small>{{ pkg.description || (pkg.rules.length + ' 条规则') }}</small>
-                <em>{{ pkg.built_in ? '内置' : '自定义' }} · {{ pkg.enabled ? '启用' : '停用' }}</em>
-              </button>
+                <button type="button" class="package-main" @click="applyRulePackage(pkg)">
+                  <span>{{ pkg.name }}</span>
+                  <small>{{ pkg.description || (pkg.rules.length + ' 条规则') }}</small>
+                  <em>{{ pkg.built_in ? '内置' : '自定义' }} · {{ pkg.enabled ? '启用' : '停用' }}</em>
+                </button>
+                <div class="package-actions">
+                  <el-switch size="small" :model-value="pkg.enabled" @change="toggleRulePackage(pkg)" />
+                  <el-button size="small" text @click="editRulePackage(pkg)">{{ pkg.built_in ? '复制' : '编辑' }}</el-button>
+                  <el-button v-if="!pkg.built_in" size="small" text type="danger" @click="removeRulePackage(pkg)">删除</el-button>
+                </div>
+              </div>
             </div>
             <el-divider v-if="rulePackages.length" />
             <div class="card-header compact">
@@ -138,6 +146,48 @@
           </el-card>
         </aside>
       </div>
+
+      <el-dialog v-model="rulePackageDialog" :title="rulePackageDialogTitle" width="760px">
+        <el-form label-position="top">
+          <div class="dialog-grid">
+            <el-form-item label="名称">
+              <el-input v-model="rulePackageForm.name" placeholder="Java 后端规则包" />
+            </el-form-item>
+            <el-form-item label="启用">
+              <el-switch v-model="rulePackageForm.enabled" />
+            </el-form-item>
+          </div>
+          <el-form-item label="描述">
+            <el-input v-model="rulePackageForm.description" type="textarea" :rows="2" placeholder="这个规则包适合什么项目、解决什么问题" />
+          </el-form-item>
+          <div class="dialog-grid two">
+            <el-form-item label="语言">
+              <el-input v-model="rulePackageForm.languagesText" placeholder="java, go, vue" />
+            </el-form-item>
+            <el-form-item label="标签">
+              <el-input v-model="rulePackageForm.tagsText" placeholder="backend, security" />
+            </el-form-item>
+          </div>
+          <div class="dialog-grid two">
+            <el-form-item label="Include">
+              <el-input v-model="rulePackageForm.includesText" type="textarea" :rows="2" placeholder="每行一个 glob，例如 **/*.go" />
+            </el-form-item>
+            <el-form-item label="Exclude">
+              <el-input v-model="rulePackageForm.excludesText" type="textarea" :rows="2" placeholder="每行一个 glob，例如 **/generated/**" />
+            </el-form-item>
+          </div>
+          <el-form-item label="项目绑定">
+            <el-input v-model="rulePackageForm.projectRefsText" type="textarea" :rows="2" placeholder="每行一个 provider/repo 或 owner/repo；留空表示全部项目" />
+          </el-form-item>
+          <el-form-item label="规则列表">
+            <RuleEditor v-model="rulePackageForm.rules" empty-description="这个规则包还没有规则" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="rulePackageDialog = false">取消</el-button>
+          <el-button type="primary" :loading="rulePackageSaving" @click="saveRulePackageForm">保存规则包</el-button>
+        </template>
+      </el-dialog>
     </div>
   </AppLayout>
 </template>
@@ -145,10 +195,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
+import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 import { CircleCheckFilled, Refresh } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import RuleEditor from '@/components/RuleEditor.vue'
-import { getGlobalRules, updateGlobalRules, rulesCheck, listRulePackages } from '@/api/config'
+import { getGlobalRules, updateGlobalRules, rulesCheck, listRulePackages, saveRulePackage, deleteRulePackage } from '@/api/config'
 import type { OCRRulePackage, ReviewRule, RulesCheckResult } from '@/types/config'
 
 type RuleTemplate = ReviewRule & { name: string }
@@ -186,6 +237,9 @@ const rulePackages = ref<OCRRulePackage[]>([])
 const originalJson = ref('[]')
 const globalLoading = ref(false)
 const globalSaving = ref(false)
+const rulePackageDialog = ref(false)
+const rulePackageSaving = ref(false)
+const editingRulePackageID = ref<number | undefined>()
 const checkPath = ref('')
 const checkResult = ref<RulesCheckResult | null>(null)
 const checking = ref(false)
@@ -226,6 +280,18 @@ const validationIssues = computed(() => {
 })
 
 const hasBlockingIssues = computed(() => validationIssues.value.length > 0)
+const rulePackageDialogTitle = computed(() => editingRulePackageID.value ? '编辑规则包' : '新建规则包')
+const rulePackageForm = ref({
+  name: '',
+  description: '',
+  enabled: true,
+  languagesText: '',
+  tagsText: '',
+  includesText: '',
+  excludesText: '',
+  projectRefsText: '',
+  rules: [] as ReviewRule[],
+})
 
 function normalizePath(path: string) {
   const value = path.trim()
@@ -271,9 +337,127 @@ function applyRulePackage(pkg: OCRRulePackage) {
     ElMessage.warning('这个规则包当前未启用')
     return
   }
-  const rules = (pkg.rules || []).map((rule) => ({ path: normalizePath(rule.path || ''), rule: rule.rule || '' }))
-  globalRules.value.push(...rules)
-  ElMessage.success(`已加入规则包：${pkg.name}`)
+  const existing = new Set(normalizedRules.value.map((rule) => `${rule.path}::${rule.rule}`))
+  const next = (pkg.rules || [])
+    .map((rule) => ({ path: normalizePath(rule.path || ''), rule: rule.rule || '' }))
+    .filter((rule) => {
+      const key = `${rule.path}::${rule.rule}`
+      if (existing.has(key)) return false
+      existing.add(key)
+      return true
+    })
+  if (!next.length) {
+    ElMessage.info('规则包中的规则已经全部存在')
+    return
+  }
+  globalRules.value.push(...next)
+  ElMessage.success(`已加入 ${next.length} 条规则：${pkg.name}`)
+}
+
+function openNewRulePackage() {
+  editingRulePackageID.value = undefined
+  rulePackageForm.value = {
+    name: '',
+    description: '',
+    enabled: true,
+    languagesText: '',
+    tagsText: '',
+    includesText: '',
+    excludesText: '',
+    projectRefsText: '',
+    rules: [{ path: '**/*', rule: '' }],
+  }
+  rulePackageDialog.value = true
+}
+
+function editRulePackage(pkg: OCRRulePackage) {
+  editingRulePackageID.value = pkg.built_in ? undefined : pkg.id
+  rulePackageForm.value = {
+    name: pkg.built_in ? `${pkg.name} 副本` : pkg.name,
+    description: pkg.description || '',
+    enabled: pkg.enabled,
+    languagesText: (pkg.languages || []).join(', '),
+    tagsText: (pkg.tags || []).join(', '),
+    includesText: (pkg.includes || []).join('\n'),
+    excludesText: (pkg.excludes || []).join('\n'),
+    projectRefsText: (pkg.project_refs || []).join('\n'),
+    rules: (pkg.rules || []).map((rule) => ({ ...rule })),
+  }
+  rulePackageDialog.value = true
+}
+
+async function toggleRulePackage(pkg: OCRRulePackage) {
+  try {
+    await saveRulePackage({ ...pkg, enabled: !pkg.enabled })
+    await fetchGlobalRules()
+  } catch (e: any) {
+    ElMessage.error(e.message || '更新规则包失败')
+  }
+}
+
+async function removeRulePackage(pkg: OCRRulePackage) {
+  if (!pkg.id || pkg.built_in) return
+  try {
+    await ElMessageBox.confirm(`确定删除规则包「${pkg.name}」？`, '删除规则包', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  try {
+    await deleteRulePackage(pkg.id)
+    await fetchGlobalRules()
+    ElMessage.success('规则包已删除')
+  } catch (e: any) {
+    ElMessage.error(e.message || '删除规则包失败')
+  }
+}
+
+async function saveRulePackageForm() {
+  const form = rulePackageForm.value
+  const rules = form.rules
+    .map((rule) => ({ path: normalizePath(rule.path || ''), rule: (rule.rule || '').trim() }))
+    .filter((rule) => rule.path || rule.rule)
+  if (!form.name.trim()) {
+    ElMessage.warning('请填写规则包名称')
+    return
+  }
+  if (!rules.length || rules.some((rule) => !rule.path || !rule.rule)) {
+    ElMessage.warning('规则包至少需要一条完整规则')
+    return
+  }
+  rulePackageSaving.value = true
+  try {
+    await saveRulePackage({
+      id: editingRulePackageID.value,
+      name: form.name.trim(),
+      description: form.description.trim(),
+      enabled: form.enabled,
+      languages: splitInline(form.languagesText),
+      tags: splitInline(form.tagsText),
+      includes: splitLines(form.includesText),
+      excludes: splitLines(form.excludesText),
+      project_refs: splitLines(form.projectRefsText),
+      rules,
+    })
+    rulePackageDialog.value = false
+    await fetchGlobalRules()
+    ElMessage.success('规则包已保存')
+  } catch (e: any) {
+    ElMessage.error(e.message || '保存规则包失败')
+  } finally {
+    rulePackageSaving.value = false
+  }
+}
+
+function splitInline(value: string) {
+  return value.split(/[,，\n]/).map((item) => item.trim()).filter(Boolean)
+}
+
+function splitLines(value: string) {
+  return value.split('\n').map((item) => item.trim()).filter(Boolean)
 }
 
 async function handleRulesCheck() {
@@ -431,12 +615,22 @@ onMounted(fetchGlobalRules)
 }
 
 .package-item {
-  width: 100%;
-  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 10px 10px 12px;
   border: 1px solid #e6ebf2;
   border-radius: 8px;
   background: #f8fafc;
   color: var(--app-text);
+}
+
+.package-main {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
   text-align: left;
   cursor: pointer;
 }
@@ -470,6 +664,21 @@ onMounted(fetchGlobalRules)
   font-style: normal;
 }
 
+.package-actions {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.dialog-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: 12px;
+}
+
+.dialog-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 
 .template-item:hover {
   border-color: #cfd3ff;
@@ -546,6 +755,17 @@ onMounted(fetchGlobalRules)
 
   .summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .package-item,
+  .dialog-grid,
+  .dialog-grid.two {
+    grid-template-columns: 1fr;
+  }
+
+  .package-actions {
+    display: flex;
+    justify-content: flex-start;
   }
 
 }

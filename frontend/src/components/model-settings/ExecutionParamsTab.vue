@@ -58,6 +58,7 @@
           />
         </el-select>
         <el-button @click="refreshToolPackages" :loading="toolPackageLoading">刷新</el-button>
+        <el-button plain @click="openToolDrawer">管理</el-button>
         <el-button type="primary" plain @click="handleValidateTools" :loading="validatingTools">校验</el-button>
       </div>
       <el-input
@@ -156,14 +157,79 @@
     <el-form-item>
       <el-button type="primary" @click="save" :loading="saving">保存配置</el-button>
     </el-form-item>
+
+    <el-drawer v-model="toolDrawer" title="工具包管理" size="720px">
+      <div class="tool-drawer">
+        <section class="tool-list">
+          <div class="tool-list-head">
+            <strong>托管工具包</strong>
+            <el-button size="small" type="primary" @click="newToolPackage">新建</el-button>
+          </div>
+          <div v-for="pkg in toolPackages" :key="pkg.id || pkg.name" class="tool-package-card">
+            <div>
+              <strong>{{ pkg.name }}</strong>
+              <small>{{ pkg.description || '暂无描述' }}</small>
+              <em>{{ pkg.built_in ? '内置' : '自定义' }} · {{ pkg.scan_type || 'all' }} · {{ pkg.enabled ? '启用' : '停用' }}</em>
+            </div>
+            <div class="tool-package-actions">
+              <el-switch size="small" :model-value="pkg.enabled" @change="toggleToolPackage(pkg)" />
+              <el-button size="small" text @click="editToolPackage(pkg)">{{ pkg.built_in ? '复制' : '编辑' }}</el-button>
+              <el-button v-if="!pkg.built_in" size="small" text type="danger" @click="removeToolPackage(pkg)">删除</el-button>
+            </div>
+          </div>
+        </section>
+
+        <section class="tool-editor">
+          <div class="tool-list-head">
+            <strong>{{ toolDraft.id ? '编辑工具包' : '新建工具包' }}</strong>
+            <span>{{ toolDraft.builtInSource ? '来自内置包副本' : '自定义' }}</span>
+          </div>
+          <el-form label-position="top">
+            <div class="tool-editor-grid">
+              <el-form-item label="名称">
+                <el-input v-model="toolDraft.name" />
+              </el-form-item>
+              <el-form-item label="适用类型">
+                <el-select v-model="toolDraft.scan_type">
+                  <el-option label="全部" value="all" />
+                  <el-option label="Diff Review" value="diff" />
+                  <el-option label="全量 Scan" value="scan" />
+                </el-select>
+              </el-form-item>
+            </div>
+            <el-form-item label="描述">
+              <el-input v-model="toolDraft.description" type="textarea" :rows="2" />
+            </el-form-item>
+            <el-form-item label="项目绑定">
+              <el-input v-model="toolDraft.projectRefsText" type="textarea" :rows="2" placeholder="每行一个 provider/repo；留空表示全部项目" />
+            </el-form-item>
+            <el-form-item label="内置工具">
+              <div class="tool-switch-grid">
+                <el-checkbox v-for="tool in builtinTools" :key="tool.name" v-model="toolDraft.selectedTools[tool.name]" @change="syncToolDraftJSON">
+                  {{ tool.label }}
+                </el-checkbox>
+              </div>
+            </el-form-item>
+            <el-form-item label="工具配置 JSON">
+              <el-input v-model="toolDraft.configText" type="textarea" :rows="9" @blur="syncToolDraftSelection" />
+            </el-form-item>
+            <div class="tool-editor-actions">
+              <el-button @click="validateToolDraft" :loading="validatingDraft">校验</el-button>
+              <el-button type="primary" @click="saveToolDraft" :loading="savingToolPackage">保存工具包</el-button>
+            </div>
+          </el-form>
+        </section>
+      </div>
+    </el-drawer>
   </el-form>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
+import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 import { useModelSettings } from './context'
-import { getViewerStatus, listToolPackages, startViewer, stopViewer, validateToolPackage } from '@/api/config'
+import { deleteToolPackage, getViewerStatus, listToolPackages, saveToolPackage, startViewer, stopViewer, validateToolPackage } from '@/api/config'
 import type { OCRToolPackage, ViewerStatus } from '@/types/config'
 
 const { form, saving, extraBodyText, save, syncExtraBody } = useModelSettings()
@@ -175,6 +241,29 @@ const toolPackages = ref<OCRToolPackage[]>([])
 const selectedToolPackage = ref<number | string | undefined>()
 const toolPackageLoading = ref(false)
 const validatingTools = ref(false)
+const toolDrawer = ref(false)
+const savingToolPackage = ref(false)
+const validatingDraft = ref(false)
+
+const builtinTools = [
+  { name: 'file_read', label: 'file_read' },
+  { name: 'file_read_diff', label: 'file_read_diff' },
+  { name: 'code_search', label: 'code_search' },
+  { name: 'file_find', label: 'file_find' },
+  { name: 'code_comment', label: 'code_comment' },
+]
+
+const toolDraft = ref({
+  id: undefined as number | undefined,
+  name: '',
+  description: '',
+  scan_type: 'all' as 'all' | 'diff' | 'scan',
+  enabled: true,
+  projectRefsText: '',
+  configText: '',
+  builtInSource: false,
+  selectedTools: {} as Record<string, boolean>,
+})
 
 async function refreshViewerStatus() {
   viewerLoading.value = true
@@ -218,6 +307,12 @@ async function refreshToolPackages() {
   }
 }
 
+async function openToolDrawer() {
+  toolDrawer.value = true
+  await refreshToolPackages()
+  if (!toolDraft.value.name) newToolPackage()
+}
+
 function applyToolPackage(value?: number | string) {
   const pkg = toolPackages.value.find((item) => (item.id || item.name) === value)
   if (!pkg) return
@@ -237,6 +332,160 @@ async function handleValidateTools() {
   } finally {
     validatingTools.value = false
   }
+}
+
+function newToolPackage() {
+  toolDraft.value = {
+    id: undefined,
+    name: '',
+    description: '',
+    scan_type: 'all',
+    enabled: true,
+    projectRefsText: '',
+    configText: JSON.stringify(makeToolConfig(['file_read', 'code_search', 'file_find', 'code_comment']), null, 2),
+    builtInSource: false,
+    selectedTools: { file_read: true, code_search: true, file_find: true, code_comment: true },
+  }
+}
+
+function editToolPackage(pkg: OCRToolPackage) {
+  const configText = JSON.stringify(pkg.config || [], null, 2)
+  toolDraft.value = {
+    id: pkg.built_in ? undefined : pkg.id,
+    name: pkg.built_in ? `${pkg.name} 副本` : pkg.name,
+    description: pkg.description || '',
+    scan_type: pkg.scan_type || 'all',
+    enabled: pkg.enabled,
+    projectRefsText: (pkg.project_refs || []).join('\n'),
+    configText,
+    builtInSource: Boolean(pkg.built_in),
+    selectedTools: inferSelectedTools(pkg.config),
+  }
+}
+
+async function toggleToolPackage(pkg: OCRToolPackage) {
+  try {
+    await saveToolPackage({ ...pkg, enabled: !pkg.enabled })
+    await refreshToolPackages()
+  } catch (e: any) {
+    ElMessage.error(e.message || '更新工具包失败')
+  }
+}
+
+async function removeToolPackage(pkg: OCRToolPackage) {
+  if (!pkg.id || pkg.built_in) return
+  try {
+    await ElMessageBox.confirm(`确定删除工具包「${pkg.name}」？`, '删除工具包', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  try {
+    await deleteToolPackage(pkg.id)
+    await refreshToolPackages()
+    ElMessage.success('工具包已删除')
+  } catch (e: any) {
+    ElMessage.error(e.message || '删除工具包失败')
+  }
+}
+
+async function validateToolDraft() {
+  validatingDraft.value = true
+  try {
+    await validateToolPackage(toolDraft.value.configText)
+    ElMessage.success('工具包配置校验通过')
+  } catch (e: any) {
+    ElMessage.error(e.message || '工具包配置校验失败')
+  } finally {
+    validatingDraft.value = false
+  }
+}
+
+async function saveToolDraft() {
+  const draft = toolDraft.value
+  if (!draft.name.trim()) {
+    ElMessage.warning('请填写工具包名称')
+    return
+  }
+  let config: any
+  try {
+    config = JSON.parse(draft.configText)
+  } catch {
+    ElMessage.error('工具配置 JSON 不合法')
+    return
+  }
+  savingToolPackage.value = true
+  try {
+    await validateToolPackage(config)
+    await saveToolPackage({
+      id: draft.id,
+      name: draft.name.trim(),
+      description: draft.description.trim(),
+      scan_type: draft.scan_type,
+      enabled: draft.enabled,
+      project_refs: splitLines(draft.projectRefsText),
+      config,
+    })
+    await refreshToolPackages()
+    ElMessage.success('工具包已保存')
+  } catch (e: any) {
+    ElMessage.error(e.message || '保存工具包失败')
+  } finally {
+    savingToolPackage.value = false
+  }
+}
+
+function syncToolDraftJSON() {
+  const names = Object.entries(toolDraft.value.selectedTools).filter(([, enabled]) => enabled).map(([name]) => name)
+  toolDraft.value.configText = JSON.stringify(makeToolConfig(names), null, 2)
+}
+
+function syncToolDraftSelection() {
+  try {
+    toolDraft.value.selectedTools = inferSelectedTools(JSON.parse(toolDraft.value.configText))
+  } catch {
+    // JSON 校验按钮负责提示，这里只避免编辑时打断输入。
+  }
+}
+
+function inferSelectedTools(config: any) {
+  const selected: Record<string, boolean> = {}
+  const list = Array.isArray(config) ? config : Array.isArray(config?.tools) ? config.tools : []
+  list.forEach((item: any) => {
+    if (item?.name) selected[item.name] = true
+  })
+  return selected
+}
+
+function makeToolConfig(names: string[]) {
+  return names.map((name) => ({
+    name,
+    main_task: true,
+    plan_task: name !== 'code_comment',
+    definition: {
+      name,
+      description: toolDescription(name),
+      parameters: { type: 'object', properties: {} },
+    },
+  }))
+}
+
+function toolDescription(name: string) {
+  const map: Record<string, string> = {
+    file_read: 'Read repository files',
+    file_read_diff: 'Read diff hunks',
+    code_search: 'Search code by keyword',
+    file_find: 'Find files by pattern',
+    code_comment: 'Create code review comments',
+  }
+  return map[name] || name
+}
+
+function splitLines(value: string) {
+  return value.split('\n').map((item) => item.trim()).filter(Boolean)
 }
 
 onMounted(() => {
@@ -304,10 +553,97 @@ const commandPreview = computed(() => {
 
 .tool-package-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: 8px;
   width: 100%;
   margin-bottom: 8px;
+}
+
+.tool-drawer {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.85fr) minmax(0, 1.4fr);
+  gap: 16px;
+}
+
+.tool-list,
+.tool-editor {
+  min-width: 0;
+}
+
+.tool-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: #303133;
+}
+
+.tool-list-head span {
+  color: #909399;
+  font-size: 12px;
+}
+
+.tool-package-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.tool-package-card strong,
+.tool-package-card small,
+.tool-package-card em {
+  display: block;
+  min-width: 0;
+}
+
+.tool-package-card small {
+  margin-top: 4px;
+  color: #606266;
+  font-size: 12px;
+}
+
+.tool-package-card em {
+  margin-top: 6px;
+  color: #909399;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.tool-package-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.tool-editor {
+  padding-left: 16px;
+  border-left: 1px solid #ebeef5;
+}
+
+.tool-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 12px;
+}
+
+.tool-switch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.tool-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .viewer-frame {
@@ -336,6 +672,20 @@ const commandPreview = computed(() => {
 
   .viewer-frame {
     margin-left: 0;
+  }
+
+  .tool-drawer {
+    grid-template-columns: 1fr;
+  }
+
+  .tool-editor {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .tool-editor-grid,
+  .tool-switch-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

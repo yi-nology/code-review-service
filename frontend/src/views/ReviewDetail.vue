@@ -138,9 +138,14 @@
               <template #header>
                 <div class="card-header">
                   <span>代码 Review 执行信息</span>
-                  <el-tag :type="detail.report.ocr.status === 'success' ? 'success' : detail.report.ocr.status === 'skipped' ? 'warning' : 'info'" size="small">
-                    {{ detail.report.ocr.status || '未知' }}
-                  </el-tag>
+                  <div class="ocr-header-actions">
+                    <el-tag :type="detail.report.ocr.status === 'success' ? 'success' : detail.report.ocr.status === 'skipped' ? 'warning' : 'info'" size="small">
+                      {{ detail.report.ocr.status || '未知' }}
+                    </el-tag>
+                    <el-button size="small" plain :loading="viewerLoading" @click="toggleReviewViewer">
+                      {{ reviewViewerOpen ? '收起 Viewer' : '打开 OCR Viewer' }}
+                    </el-button>
+                  </div>
                 </div>
               </template>
               <el-descriptions :column="ocrDescriptionColumns" border size="small">
@@ -171,6 +176,14 @@
                   <span>{{ row.name }}</span>
                   <strong>{{ row.count }}</strong>
                 </div>
+              </div>
+              <div v-if="reviewViewerOpen" class="review-viewer-frame">
+                <div class="viewer-context">
+                  <span>{{ detail.repo }}</span>
+                  <code>{{ detail.review_id }}</code>
+                  <code v-if="detail.head_sha">{{ detail.head_sha }}</code>
+                </div>
+                <iframe title="OCR Viewer" src="/api/v1/settings/ocr/viewer/proxy/" />
               </div>
             </el-card>
 
@@ -428,11 +441,13 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import ProgressTracker from '@/components/ProgressTracker.vue'
 import PublishPanel from '@/components/PublishPanel.vue'
 import { getReview, cancelReview, rerunReview } from '@/api/review'
+import { getViewerStatus, startViewer } from '@/api/config'
 import { sessionApi, type ReviewSession } from '@/api/session'
 import { getProviderLabel } from '@/utils/url-parser'
 import { getStatusLabel, getStatusType, getSeverityType, getPhaseLabel, getSessionStatusType, getSessionStatusLabel } from '@/utils/status'
 import { formatDateTime } from '@/utils/format'
 import type { ReviewDetail } from '@/types/review'
+import type { ViewerStatus } from '@/types/config'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 
@@ -443,6 +458,9 @@ const detail = ref<ReviewDetail | null>(null)
 const sessions = ref<ReviewSession[]>([])
 const acting = ref(false)
 const viewportWidth = ref(window.innerWidth)
+const viewerStatus = ref<ViewerStatus | null>(null)
+const viewerLoading = ref(false)
+const reviewViewerOpen = ref(false)
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 let fetchInFlight = false
 const descriptionColumns = computed(() => viewportWidth.value < 720 ? 1 : 2)
@@ -564,6 +582,30 @@ async function handleRerun() {
     ElMessage.error('重新审查失败，请稍后重试')
   } finally {
     acting.value = false
+  }
+}
+
+async function toggleReviewViewer() {
+  if (reviewViewerOpen.value) {
+    reviewViewerOpen.value = false
+    return
+  }
+  viewerLoading.value = true
+  try {
+    let status = await getViewerStatus()
+    if (!status.running) {
+      status = await startViewer()
+    }
+    viewerStatus.value = status
+    if (!status.running) {
+      ElMessage.error(status.message || 'OCR Viewer 未运行')
+      return
+    }
+    reviewViewerOpen.value = true
+  } catch (error: any) {
+    ElMessage.error(error?.message || '启动 OCR Viewer 失败')
+  } finally {
+    viewerLoading.value = false
   }
 }
 
@@ -778,6 +820,12 @@ function schedulePolling() {
   font-weight: 700;
 }
 
+.ocr-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .card-caption {
   color: #9aa2b1;
   font-size: 11px;
@@ -828,6 +876,37 @@ code {
 
 .tool-call-item strong {
   color: #0f172a;
+}
+
+.review-viewer-frame {
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.viewer-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--app-border);
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+}
+
+.viewer-context span {
+  font-weight: 700;
+}
+
+.review-viewer-frame iframe {
+  display: block;
+  width: 100%;
+  height: 520px;
+  border: 0;
 }
 
 .score-block {
@@ -1132,6 +1211,15 @@ code {
   .finding-path {
     width: 100%;
     overflow-wrap: anywhere;
+  }
+
+  .ocr-header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .review-viewer-frame iframe {
+    height: 430px;
   }
 }
 

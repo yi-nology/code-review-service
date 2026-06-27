@@ -133,6 +133,105 @@ func TestValidateToolConfig(t *testing.T) {
 	}
 }
 
+func TestDTOToRulePackage(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   rulePackageDTO
+		wantErr bool
+	}{
+		{
+			name:    "empty name returns error",
+			input:   rulePackageDTO{Rules: []map[string]string{{"path": "**/*.go", "rule": "check errors"}}},
+			wantErr: true,
+		},
+		{
+			name:    "empty rules returns error",
+			input:   rulePackageDTO{Name: "Go 后端"},
+			wantErr: true,
+		},
+		{
+			name:    "missing path returns error",
+			input:   rulePackageDTO{Name: "Go 后端", Rules: []map[string]string{{"rule": "check errors"}}},
+			wantErr: true,
+		},
+		{
+			name: "valid package converts arrays",
+			input: rulePackageDTO{
+				Name:        "Go 后端",
+				Description: "Go service checks",
+				Languages:   []string{"go"},
+				Tags:        []string{"backend"},
+				Includes:    []string{"**/*.go"},
+				Excludes:    []string{"**/*_test.go"},
+				ProjectRefs: []string{"github/org/repo"},
+				Enabled:     true,
+				Rules:       []map[string]string{{"path": "**/*.go", "rule": "check errors"}},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := dtoToRulePackage(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("dtoToRulePackage() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil && got.Name != strings.TrimSpace(tt.input.Name) {
+				t.Fatalf("dtoToRulePackage() name = %q, want %q", got.Name, strings.TrimSpace(tt.input.Name))
+			}
+		})
+	}
+}
+
+func TestDTOToToolPackage(t *testing.T) {
+	validConfig := json.RawMessage(`[{"name":"code_search","definition":{"name":"code_search"}}]`)
+	tests := []struct {
+		name         string
+		input        toolPackageDTO
+		wantScanType string
+		wantErr      bool
+	}{
+		{
+			name:    "empty name returns error",
+			input:   toolPackageDTO{Config: validConfig},
+			wantErr: true,
+		},
+		{
+			name:    "invalid config returns error",
+			input:   toolPackageDTO{Name: "bad", Config: json.RawMessage(`{"name":"file_read"}`)},
+			wantErr: true,
+		},
+		{
+			name:    "invalid scan type returns error",
+			input:   toolPackageDTO{Name: "bad scan", ScanType: "quick", Config: validConfig},
+			wantErr: true,
+		},
+		{
+			name:         "empty scan type defaults all",
+			input:        toolPackageDTO{Name: "default scan", Config: validConfig, Enabled: true},
+			wantScanType: "all",
+			wantErr:      false,
+		},
+		{
+			name:         "valid scan type is preserved",
+			input:        toolPackageDTO{Name: "scan only", ScanType: "scan", Config: validConfig, ProjectRefs: []string{"github/org/repo"}},
+			wantScanType: "scan",
+			wantErr:      false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := dtoToToolPackage(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("dtoToToolPackage() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil && got.ScanType != tt.wantScanType {
+				t.Fatalf("dtoToToolPackage() scan type = %q, want %q", got.ScanType, tt.wantScanType)
+			}
+		})
+	}
+}
+
 func TestValidateProjectPolicy(t *testing.T) {
 	tests := []struct {
 		name    string
