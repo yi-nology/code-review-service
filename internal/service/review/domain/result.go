@@ -1,4 +1,4 @@
-package review
+package domain
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 )
 
 // Score / SeverityCounts / ScoreDeduction 通过类型别名委托给 scoring 包，
-// 消费方（handler、persistence 等）无需改 import 即可继续使用 review.Score 等名称。
+// 消费方无需改 import 即可继续使用 domain.Score 等名称。
 type (
 	Score          = scoring.Result
 	ScoreDeduction = scoring.Deduction

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/readiness"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/ocr"
 
@@ -14,7 +15,7 @@ import (
 
 // LLMProbeModule 周期探活 LLM endpoint（#8），主动发现故障而非等 /health 请求或评审失败。
 // 复用 health.go 的 llmEndpointCheck（轻量 TCP 拨号），失败时 logx.Errorf 告警。
-var LLMProbeModule = fx.Invoke(RegisterLLMProbe)
+var LLMProbeModule = fx.Options(fx.Invoke(RegisterLLMProbe))
 
 func RegisterLLMProbe(lc fx.Lifecycle, repos *repository.RepoContainer, resolver *ocr.ConfigResolver) {
 	lc.Append(fx.Hook{
@@ -22,7 +23,7 @@ func RegisterLLMProbe(lc fx.Lifecycle, repos *repository.RepoContainer, resolver
 			async.GoSafe(func() {
 				ticker := time.NewTicker(30 * time.Second)
 				defer ticker.Stop()
-				check := llmEndpointCheck(repos, resolver)
+				check := readiness.LLMEndpointCheck(repos, resolver)
 				for {
 					select {
 					case <-ctx.Done():
@@ -34,6 +35,10 @@ func RegisterLLMProbe(lc fx.Lifecycle, repos *repository.RepoContainer, resolver
 					}
 				}
 			})
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			logx.Info("llm endpoint probe stopped")
 			return nil
 		},
 	})

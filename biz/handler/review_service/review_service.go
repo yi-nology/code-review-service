@@ -12,6 +12,7 @@ import (
 	svcApp "github.com/yi-nology/code-review-service/internal/app"
 	"github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/oekit/pkg/convert"
 	"github.com/oekit/pkg/mathx"
@@ -153,7 +154,7 @@ func PreviewReview(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	svcReq := review.Request{
+	svcReq := domain.Request{
 		Provider:        req.Provider,
 		Repo:            req.Repo,
 		ProjectID:       ptrx.Deref(req.ProjectID, ""),
@@ -209,7 +210,7 @@ func ScanRepository(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	result, err := handlerInst.reviewSvc.Scan(ctx, review.ScanRequest{
+	result, err := handlerInst.reviewSvc.Scan(ctx, domain.ScanRequest{
 		Provider:        strings.TrimSpace(req.Provider),
 		Repo:            strings.TrimSpace(req.Repo),
 		ProjectID:       strings.TrimSpace(req.ProjectID),
@@ -413,16 +414,16 @@ func GetBranchSHA(ctx context.Context, c *app.RequestContext) {
 
 func mapReviewError(err error) error {
 	switch {
-	case errors.Is(err, review.ErrUnsupportedProvider):
+	case errors.Is(err, domain.ErrUnsupportedProvider):
 		return common.BizErr(422, err.Error())
-	case errors.Is(err, review.ErrIdempotencyConflict):
+	case errors.Is(err, domain.ErrIdempotencyConflict):
 		return common.BizErr(409, err.Error())
 	default:
 		return err
 	}
 }
 
-func fillAuthorInfo(ctx context.Context, req *review.Request) {
+func fillAuthorInfo(ctx context.Context, req *domain.Request) {
 	if req.Author != "" {
 		return
 	}
@@ -451,8 +452,8 @@ func fillAuthorInfo(ctx context.Context, req *review.Request) {
 	req.AuthorAvatar = cr.Author.AvatarURL
 }
 
-func toServiceRequest(req *modelReview.CreateReviewReq) review.Request {
-	svcReq := review.Request{
+func toServiceRequest(req *modelReview.CreateReviewReq) domain.Request {
+	svcReq := domain.Request{
 		Provider:        req.Provider,
 		Repo:            req.Repo,
 		ProjectID:       ptrx.Deref(req.ProjectID, ""),
@@ -465,19 +466,19 @@ func toServiceRequest(req *modelReview.CreateReviewReq) review.Request {
 		Requirements:    req.Requirements,
 	}
 	if len(req.EphemeralReviewers) > 0 {
-		svcReq.EphemeralReviewers = make([]review.EphemeralReviewer, len(req.EphemeralReviewers))
+		svcReq.EphemeralReviewers = make([]domain.EphemeralReviewer, len(req.EphemeralReviewers))
 		for i, e := range req.EphemeralReviewers {
-			svcReq.EphemeralReviewers[i] = review.EphemeralReviewer{Name: ptrx.Deref(e.Name, ""), Background: e.Background}
+			svcReq.EphemeralReviewers[i] = domain.EphemeralReviewer{Name: ptrx.Deref(e.Name, ""), Background: e.Background}
 		}
 	}
 	return svcReq
 }
 
-func convertGate(g review.Gate) *modelReview.Gate {
+func convertGate(g domain.Gate) *modelReview.Gate {
 	return &modelReview.Gate{Status: g.Status, Passed: g.Passed, Reason: common.StrPtr(g.Reason)}
 }
 
-func convertResponse(r review.Response) modelReview.ReviewResponse {
+func convertResponse(r domain.Response) modelReview.ReviewResponse {
 	return modelReview.ReviewResponse{
 		ReviewID: r.ReviewID, Status: r.Status, Summary: r.Summary,
 		Gate: convertGate(r.Gate), Report: convertReport(r.Report),
@@ -486,7 +487,7 @@ func convertResponse(r review.Response) modelReview.ReviewResponse {
 	}
 }
 
-func convertDetail(r review.Record) modelReview.ReviewDetail {
+func convertDetail(r domain.Record) modelReview.ReviewDetail {
 	return modelReview.ReviewDetail{
 		ReviewID: r.ID, Provider: r.Request.Provider, Repo: r.Request.Repo,
 		ProjectID: common.StrPtr(r.Request.ProjectID), PullRequestID: common.StrPtr(r.Request.PullRequestID),
@@ -504,7 +505,7 @@ func convertDetail(r review.Record) modelReview.ReviewDetail {
 	}
 }
 
-func convertReport(r review.Report) *modelReview.Report {
+func convertReport(r domain.Report) *modelReview.Report {
 	return &modelReview.Report{
 		Ocr: convertOCRMetadata(r.OCR), Scope: convertScopeMetadata(r.Scope),
 		Score: &modelReview.Score{
@@ -520,7 +521,7 @@ func convertReport(r review.Report) *modelReview.Report {
 	}
 }
 
-func convertOCRMetadata(o review.OCRMetadata) *modelReview.OCRMetadata {
+func convertOCRMetadata(o domain.OCRMetadata) *modelReview.OCRMetadata {
 	item := &modelReview.OCRMetadata{
 		Engine: common.StrPtr(o.Engine), Status: common.StrPtr(o.Status),
 		FilesReviewed: ptrx.Of(o.FilesReviewed), Comments: ptrx.Of(o.Comments),
@@ -540,34 +541,34 @@ func convertOCRMetadata(o review.OCRMetadata) *modelReview.OCRMetadata {
 	return item
 }
 
-func convertDeductions(ds []review.ScoreDeduction) []*modelReview.ScoreDeduction {
+func convertDeductions(ds []domain.ScoreDeduction) []*modelReview.ScoreDeduction {
 	if len(ds) == 0 {
 		return nil
 	}
-	return slicex.Map(ds, func(d review.ScoreDeduction) *modelReview.ScoreDeduction {
+	return slicex.Map(ds, func(d domain.ScoreDeduction) *modelReview.ScoreDeduction {
 		return &modelReview.ScoreDeduction{Reason: d.Reason, Points: int64(d.Points), Count: ptrx.Of(int64(d.Count))}
 	})
 }
 
-func convertScopeMetadata(s review.ScopeMetadata) *modelReview.ScopeMetadata {
+func convertScopeMetadata(s domain.ScopeMetadata) *modelReview.ScopeMetadata {
 	return &modelReview.ScopeMetadata{
 		ChangedFiles: int64(s.ChangedFiles), ReviewedFiles: int64(s.ReviewedFiles),
 		ExcludedFiles: int64(s.ExcludedFiles), IgnorePaths: s.IgnorePaths,
 	}
 }
 
-func convertAnalysis(a review.Analysis) *modelReview.Analysis {
+func convertAnalysis(a domain.Analysis) *modelReview.Analysis {
 	return &modelReview.Analysis{
 		Overview: common.StrPtr(a.Overview), RootCause: a.RootCause,
 		Risks: a.Risks, Recommendations: a.Recommendations,
 	}
 }
 
-func convertEvents(events []review.Event) []*modelReview.Event {
+func convertEvents(events []domain.Event) []*modelReview.Event {
 	if len(events) == 0 {
 		return nil
 	}
-	return slicex.Map(events, func(e review.Event) *modelReview.Event {
+	return slicex.Map(events, func(e domain.Event) *modelReview.Event {
 		details := make(map[string]string, len(e.Details))
 		for k, v := range e.Details {
 			details[k] = convert.AnyToStr(v)
@@ -579,13 +580,13 @@ func convertEvents(events []review.Event) []*modelReview.Event {
 	})
 }
 
-func convertFindings(findings []review.Finding) []*modelReview.Finding {
+func convertFindings(findings []domain.Finding) []*modelReview.Finding {
 	if len(findings) == 0 {
 		return nil
 	}
-	return slicex.Map(findings, func(f review.Finding) *modelReview.Finding {
+	return slicex.Map(findings, func(f domain.Finding) *modelReview.Finding {
 		return &modelReview.Finding{
-			Severity: string(f.Severity), Category: common.StrPtr(f.Category), Path: common.StrPtr(f.Path),
+			Severity: f.Severity, Category: common.StrPtr(f.Category), Path: common.StrPtr(f.Path),
 			Line: ptrx.Of(int64(f.Line)), StartLine: ptrx.Of(int64(f.StartLine)), EndLine: ptrx.Of(int64(f.EndLine)),
 			Title: f.Title, Body: f.Body, ExistingCode: common.StrPtr(f.ExistingCode),
 			SuggestionCode: common.StrPtr(f.SuggestionCode),

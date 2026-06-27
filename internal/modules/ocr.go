@@ -20,7 +20,7 @@ var OCRModule = fx.Options(
 )
 
 func NewConfigResolver(repos *repository.RepoContainer, fallback *runner.OpenCodeReviewRunner) *ocr.ConfigResolver {
-	return ocr.NewConfigResolver(repos.OCRSettings, fallback.Config())
+	return ocr.NewConfigResolver(repos.OCRSettings, fallback.Config(), repos.OCRToolPackage)
 }
 
 func NewOCRTester(repos *repository.RepoContainer, resolver *ocr.ConfigResolver) *ocr.Tester {

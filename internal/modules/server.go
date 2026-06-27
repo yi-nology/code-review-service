@@ -10,6 +10,7 @@ import (
 	"github.com/yi-nology/code-review-service/biz/router"
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/middleware"
+	"github.com/yi-nology/code-review-service/internal/readiness"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/ocr"
@@ -45,8 +46,9 @@ func RegisterGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 		h.Use(m)
 	}
 
-	h.Use(middleware.RateLimitMiddleware(100, 200))
-	logx.Infof("rate limiting middleware enabled (100 req/s, burst 200)")
+	rps, burst := cfg.GetRateLimit()
+	h.Use(middleware.RateLimitMiddleware(rps, burst))
+	logx.Infof("rate limiting middleware enabled (%d req/s, burst %d)", rps, burst)
 
 	if cfg.Auth.Token != "" {
 		h.Use(middleware.BearerTokenAuth(cfg.Auth.Token))
@@ -64,17 +66,17 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos
 		healthOpts = append(healthOpts, health.WithCheckers(health.DBChecker(sqlDB)))
 	}
 	healthOpts = append(healthOpts,
-		health.WithCheckers(health.NamedChecker("ocr-binary", ocrBinaryCheck(repos, resolver))),
-		health.WithCheckers(health.NamedChecker("llm-endpoint", llmEndpointCheck(repos, resolver))),
+		health.WithCheckers(health.NamedChecker("ocr-binary", readiness.OCRBinaryCheck(repos, resolver))),
+		health.WithCheckers(health.NamedChecker("llm-endpoint", readiness.LLMEndpointCheck(repos, resolver))),
 	)
 	health.RegisterBasicRoutes(h, healthOpts...)
 
 	// /healthz /readyz：k8s 探针常用路径（auth skip 白名单已含），复用就绪检查。
 	// 之前这些路径未注册导致 k8s probe 404。
 	probeHandler := health.NewHealthHandler(
-		health.NamedChecker("db", dbCheck(db)),
-		health.NamedChecker("ocr-binary", ocrBinaryCheck(repos, resolver)),
-		health.NamedChecker("llm-endpoint", llmEndpointCheck(repos, resolver)),
+		health.NamedChecker("db", readiness.DBCheck(db)),
+		health.NamedChecker("ocr-binary", readiness.OCRBinaryCheck(repos, resolver)),
+		health.NamedChecker("llm-endpoint", readiness.LLMEndpointCheck(repos, resolver)),
 	)
 	h.GET("/healthz", probeHandler)
 	h.GET("/readyz", probeHandler)

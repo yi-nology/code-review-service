@@ -3,7 +3,7 @@ package settings_service
 import (
 	svcApp "github.com/yi-nology/code-review-service/internal/app"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 var handlerInst *SettingsHandler
@@ -18,12 +18,12 @@ type SettingsHandler struct {
 	agentRepo      repository.ReviewerAgentRepository
 	customProvider repository.CustomProviderRepository
 	gitMgr         svcApp.GitProviderManager
-	llmTester      review.LLMTester
-	providerLister review.LLMProviderLister
-	rulesChecker   review.RulesChecker
-	ocrVersioner   review.OCRVersioner
-	viewerMgr      review.ViewerManager
-	ocrUpgrader    review.OCRUpgrader
+	llmTester      domain.LLMTester
+	providerLister domain.LLMProviderLister
+	rulesChecker   domain.RulesChecker
+	ocrVersioner   domain.OCRVersioner
+	viewerMgr      domain.ViewerManager
+	ocrUpgrader    domain.OCRUpgrader
 }
 
 func InitHandler(
@@ -36,12 +36,12 @@ func InitHandler(
 	agentRepo repository.ReviewerAgentRepository,
 	customProvider repository.CustomProviderRepository,
 	gitMgr svcApp.GitProviderManager,
-	llmTester review.LLMTester,
-	providerLister review.LLMProviderLister,
-	rulesChecker review.RulesChecker,
-	ocrVersioner review.OCRVersioner,
-	viewerMgr review.ViewerManager,
-	ocrUpgrader review.OCRUpgrader,
+	llmTester domain.LLMTester,
+	providerLister domain.LLMProviderLister,
+	rulesChecker domain.RulesChecker,
+	ocrVersioner domain.OCRVersioner,
+	viewerMgr domain.ViewerManager,
+	ocrUpgrader domain.OCRUpgrader,
 ) {
 	handlerInst = &SettingsHandler{
 		ocrRepo:        ocrRepo,

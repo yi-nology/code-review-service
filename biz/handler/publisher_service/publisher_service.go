@@ -7,7 +7,7 @@ import (
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelPublisher "github.com/yi-nology/code-review-service/biz/model/publisher"
 	"github.com/yi-nology/code-review-service/internal/service/provider"
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
 
@@ -19,7 +19,7 @@ var handlerInst *PublisherHandler //nolint:unused // initialized by InitHandler,
 
 // reviewGetter 是 publisher 需要的"按 ID 取评审"能力（最小接口，避免耦合具体实现）。
 type reviewGetter interface {
-	Get(ctx context.Context, reviewID string) (review.Record, bool, error)
+	Get(ctx context.Context, reviewID string) (domain.Record, bool, error)
 }
 
 type PublisherHandler struct {
@@ -97,7 +97,7 @@ func publishReview(ctx context.Context, id string, summaryOnly bool) error {
 	}
 
 	findings := record.Response.Findings
-	result := review.Result{
+	result := domain.Result{
 		Summary:  record.Response.Summary,
 		Findings: findings,
 	}
@@ -165,7 +165,7 @@ func UpdatePublishedComment(ctx context.Context, c *app.RequestContext) {
 }
 
 // formatFindingsPreview 把 findings 摘要为可读字符串供预览。
-func formatFindingsPreview(findings []review.Finding) string {
+func formatFindingsPreview(findings []domain.Finding) string {
 	if len(findings) == 0 {
 		return ""
 	}
@@ -178,7 +178,7 @@ func formatFindingsPreview(findings []review.Finding) string {
 		f := findings[i]
 		if f.Title != "" {
 			sb.WriteString("- [")
-			sb.WriteString(string(f.Severity))
+			sb.WriteString(f.Severity)
 			sb.WriteString("] ")
 			sb.WriteString(f.Path)
 			sb.WriteString(": ")

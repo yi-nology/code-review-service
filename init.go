@@ -21,6 +21,11 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 
 	fxApp := fx.New(
 		fx.Supply(cfg, h),
+		// 模块注册顺序的停机语义约束（fx 按注册逆序执行 OnStop）：
+		//   DatabaseModule 最先注册 → 其 OnStop 最后执行（关库）。
+		//   WorkerModule/LLMProbeModule 在其后注册 → 其 OnStop 先执行（drain in-flight / 停探活）。
+		// 这保证了 worker 能在 DB 关闭前完成对 in-flight review 的落库。
+		// 调整顺序时务必保持 WorkerModule 位于 DatabaseModule 之后。
 		modules.DatabaseModule,
 		modules.RepositoryModule,
 		modules.ProviderModule,

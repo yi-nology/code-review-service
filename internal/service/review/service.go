@@ -19,6 +19,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	mw "github.com/oekit/middleware"
 
@@ -51,7 +52,7 @@ const (
 )
 
 type Executor interface {
-	Execute(ctx context.Context, id string, req Request, provider Provider, progressReporter progress.ProgressReporter) (Response, error)
+	Execute(ctx context.Context, id string, req domain.Request, provider domain.Provider, progressReporter progress.ProgressReporter) (domain.Response, error)
 }
 
 type SessionRepo interface {
@@ -66,10 +67,10 @@ type ServiceConfig struct {
 	RulePackageRepo repository.OCRRulePackageRepository
 	SessionRepo     SessionRepo
 	Policy          *policy.Engine
-	Providers       Providers
-	Runner          Runner
-	PreviewRunner   PreviewRunner
-	ScanRunner      ScanRunner
+	Providers       domain.Providers
+	Runner          domain.Runner
+	PreviewRunner   domain.PreviewRunner
+	ScanRunner      domain.ScanRunner
 	ProgressManager *progress.ProgressManager
 	Executor        Executor
 }
@@ -82,10 +83,10 @@ type Service struct {
 	rulePackageRepo repository.OCRRulePackageRepository
 	sessionRepo     SessionRepo
 	policy          *policy.Engine
-	Providers       Providers
-	runner          Runner
-	PreviewRunner   PreviewRunner
-	ScanRunner      ScanRunner
+	Providers       domain.Providers
+	runner          domain.Runner
+	PreviewRunner   domain.PreviewRunner
+	ScanRunner      domain.ScanRunner
 	progressManager *progress.ProgressManager
 	Executor        Executor
 	inFlight        sync.WaitGroup
@@ -110,31 +111,31 @@ func NewService(cfg ServiceConfig) *Service {
 	}
 }
 
-func (s *Service) Create(ctx context.Context, req Request, idempotencyKey string) (Response, error) {
+func (s *Service) Create(ctx context.Context, req domain.Request, idempotencyKey string) (domain.Response, error) {
 	return s.createReview(ctx, req, idempotencyKey, false)
 }
 
-func (s *Service) CreateFromWebhook(ctx context.Context, req Request, idempotencyKey string) (Response, error) {
+func (s *Service) CreateFromWebhook(ctx context.Context, req domain.Request, idempotencyKey string) (domain.Response, error) {
 	return s.createReview(ctx, req, idempotencyKey, true)
 }
 
-func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey string, isWebhook bool) (Response, error) {
+func (s *Service) createReview(ctx context.Context, req domain.Request, idempotencyKey string, isWebhook bool) (domain.Response, error) {
 	if err := validate(req); err != nil {
-		return Response{}, err
+		return domain.Response{}, err
 	}
 	idempotencyKey = strings.TrimSpace(idempotencyKey)
 	if len(idempotencyKey) > idempotencyKeyMaxLength {
-		return Response{}, errIdempotencyKeyTooLong
+		return domain.Response{}, errIdempotencyKeyTooLong
 	}
 	fingerprint, err := requestFingerprint(req)
 	if err != nil {
-		return Response{}, err
+		return domain.Response{}, err
 	}
 
 	provider, ok := s.Providers.Get(req.Provider)
 	if !ok {
 		logx.Errorf("Create: provider not found: requested=%q", req.Provider)
-		return Response{}, fmt.Errorf("%w: %q", ErrUnsupportedProvider, req.Provider)
+		return domain.Response{}, fmt.Errorf("%w: %q", domain.ErrUnsupportedProvider, req.Provider)
 	}
 
 	if existing := s.findActiveReview(ctx, req); existing != nil {
@@ -142,12 +143,12 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 	}
 
 	id := newReviewID(time.Now().UTC())
-	queued := Response{
+	queued := domain.Response{
 		ReviewID: id,
 		Status:   StatusQueued,
 		Summary:  queuedSummary(isWebhook),
-		Gate:     PendingGate(),
-		History: []Event{{
+		Gate:     domain.PendingGate(),
+		History: []domain.Event{{
 			Stage:     stageQueued,
 			Status:    statusCompleted,
 			Message:   queuedMessage(isWebhook),
@@ -181,15 +182,15 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 		if idempotencyKey != "" && gormx.IsUniqueViolation(err) {
 			existing, getErr := s.reviewRepo.GetByidempotencyKey(ctx, idempotencyKey)
 			if getErr != nil && !errors.Is(getErr, repository.ErrNotFound) {
-				return Response{}, fmt.Errorf("idempotency recovery: %w", getErr)
+				return domain.Response{}, fmt.Errorf("idempotency recovery: %w", getErr)
 			}
 			if existing != nil {
 				if existing.RequestFingerprint != fingerprint {
-					return Response{}, ErrIdempotencyConflict
+					return domain.Response{}, domain.ErrIdempotencyConflict
 				}
-				var resp Response
+				var resp domain.Response
 				if err := json.Unmarshal(existing.Response, &resp); err != nil {
-					return Response{}, fmt.Errorf("decode existing review response: %w", err)
+					return domain.Response{}, fmt.Errorf("decode existing review response: %w", err)
 				}
 				return resp, nil
 			}
@@ -202,7 +203,7 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 				return *existing, nil
 			}
 		}
-		return Response{}, err
+		return domain.Response{}, err
 	}
 
 	if !req.Wait {
@@ -212,7 +213,7 @@ func (s *Service) createReview(ctx context.Context, req Request, idempotencyKey 
 	return s.Executor.Execute(ctx, id, req, provider, nil)
 }
 
-func (s *Service) findActiveReview(ctx context.Context, req Request) *Response {
+func (s *Service) findActiveReview(ctx context.Context, req domain.Request) *domain.Response {
 	hasPR := req.PullRequestID != "" || req.MergeRequestIID != ""
 	if !hasPR {
 		return nil
@@ -225,7 +226,7 @@ func (s *Service) findActiveReview(ctx context.Context, req Request) *Response {
 		logx.CtxErrorf(ctx, "failed to query active review by provider=%s repo=%s: %v", req.Provider, req.Repo, err)
 		return nil
 	}
-	var existingReq Request
+	var existingReq domain.Request
 	if err := json.Unmarshal(existing.Request, &existingReq); err != nil {
 		logx.CtxWarnf(ctx, "failed to decode active review request: %v", err)
 		return nil
@@ -233,7 +234,7 @@ func (s *Service) findActiveReview(ctx context.Context, req Request) *Response {
 	if existingReq.PullRequestID != req.PullRequestID || existingReq.MergeRequestIID != req.MergeRequestIID {
 		return nil
 	}
-	var resp Response
+	var resp domain.Response
 	if err := json.Unmarshal(existing.Response, &resp); err != nil {
 		logx.CtxWarnf(ctx, "failed to decode active review response: %v", err)
 		return nil
@@ -241,7 +242,7 @@ func (s *Service) findActiveReview(ctx context.Context, req Request) *Response {
 	return &resp
 }
 
-func requestFingerprint(req Request) (string, error) {
+func requestFingerprint(req domain.Request) (string, error) {
 	data, err := json.Marshal(req)
 	if err != nil {
 		return "", fmt.Errorf("encode review request: %w", err)
@@ -264,26 +265,26 @@ func queuedMessage(isWebhook bool) string {
 	return "review queued"
 }
 
-func (s *Service) Get(ctx context.Context, reviewID string) (Record, bool, error) {
+func (s *Service) Get(ctx context.Context, reviewID string) (domain.Record, bool, error) {
 	review, err := s.reviewRepo.GetByReviewID(ctx, reviewID)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			return Record{}, false, nil
+			return domain.Record{}, false, nil
 		}
-		return Record{}, false, err
+		return domain.Record{}, false, err
 	}
 
-	var req Request
+	var req domain.Request
 	if err := json.Unmarshal(review.Request, &req); err != nil {
-		return Record{}, false, fmt.Errorf("decode review request: %w", err)
+		return domain.Record{}, false, fmt.Errorf("decode review request: %w", err)
 	}
-	var resp Response
+	var resp domain.Response
 	if err := json.Unmarshal(review.Response, &resp); err != nil {
-		return Record{}, false, fmt.Errorf("decode review response: %w", err)
+		return domain.Record{}, false, fmt.Errorf("decode review response: %w", err)
 	}
 
 	if len(review.RawOCR) > 0 && resp.Status == "success" {
-		result := Result{
+		result := domain.Result{
 			OCR:      resp.Report.OCR,
 			Scope:    resp.Report.Scope,
 			Warnings: resp.Report.Warnings,
@@ -292,7 +293,7 @@ func (s *Service) Get(ctx context.Context, reviewID string) (Record, bool, error
 		resp.Analysis = BuildAnalysisFromRaw(json.RawMessage(review.RawOCR), result)
 	}
 
-	return Record{
+	return domain.Record{
 		ID:                 review.ReviewID,
 		IdempotencyKey:     ptrx.Deref(review.IdempotencyKey, ""),
 		RequestFingerprint: review.RequestFingerprint,
@@ -327,12 +328,12 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 
 	items := make([]ListItem, 0, len(result.List))
 	for _, review := range result.List {
-		var req Request
+		var req domain.Request
 		if err := json.Unmarshal(review.Request, &req); err != nil {
 			logx.CtxWarnf(ctx, "failed to decode review request in list, review_id=%s: %v", review.ReviewID, err)
 			continue
 		}
-		var resp Response
+		var resp domain.Response
 		if err := json.Unmarshal(review.Response, &resp); err != nil {
 			logx.CtxWarnf(ctx, "failed to decode review response in list, review_id=%s: %v", review.ReviewID, err)
 			continue
@@ -383,7 +384,7 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 	}, nil
 }
 
-func (s *Service) Preview(ctx context.Context, req Request) ([]string, error) {
+func (s *Service) Preview(ctx context.Context, req domain.Request) ([]string, error) {
 	if err := validate(req); err != nil {
 		return nil, err
 	}
@@ -391,7 +392,7 @@ func (s *Service) Preview(ctx context.Context, req Request) ([]string, error) {
 	p, ok := s.Providers.Get(req.Provider)
 	if !ok {
 		logx.Errorf("Preview: provider not found: requested=%q", req.Provider)
-		return nil, fmt.Errorf("%w: %s", ErrUnsupportedProvider, req.Provider)
+		return nil, fmt.Errorf("%w: %s", domain.ErrUnsupportedProvider, req.Provider)
 	}
 
 	workspace, err := p.Prepare(ctx, req)
@@ -417,14 +418,14 @@ func (s *Service) Preview(ctx context.Context, req Request) ([]string, error) {
 		}
 	}
 	if len(ignorePaths) > 0 {
-		workspace, err = applyProjectScope(ctx, workspace, ignorePaths)
+		workspace, err = ApplyProjectScope(ctx, workspace, ignorePaths)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if s.globalRulesRepo != nil {
-		rulePath, cleanup, ruleErr := s.resolveRuleFile(ctx, projectPolicy)
+		rulePath, cleanup, ruleErr := ResolveRuleFile(ctx, projectPolicy, s.rulePackageRepo, s.globalRulesRepo)
 		if ruleErr != nil {
 			logx.Warn("failed to resolve rule file", "error", ruleErr)
 		} else if rulePath != "" {
@@ -445,7 +446,7 @@ func (s *Service) Preview(ctx context.Context, req Request) ([]string, error) {
 	return result.Files, nil
 }
 
-func (s *Service) Scan(ctx context.Context, req ScanRequest) (*ScanResult, error) {
+func (s *Service) Scan(ctx context.Context, req domain.ScanRequest) (*domain.ScanResult, error) {
 	providerName := strings.TrimSpace(req.Provider)
 	repo := strings.TrimSpace(req.Repo)
 	head := strings.TrimSpace(req.HeadSHA)
@@ -465,10 +466,10 @@ func (s *Service) Scan(ctx context.Context, req ScanRequest) (*ScanResult, error
 	p, ok := s.Providers.Get(providerName)
 	if !ok {
 		logx.Errorf("Scan: provider not found: requested=%q", providerName)
-		return nil, fmt.Errorf("%w: %s", ErrUnsupportedProvider, providerName)
+		return nil, fmt.Errorf("%w: %s", domain.ErrUnsupportedProvider, providerName)
 	}
 
-	workspace, err := p.Prepare(ctx, Request{
+	workspace, err := p.Prepare(ctx, domain.Request{
 		Provider: providerName,
 		Repo:     repo,
 		BaseSHA:  head,
@@ -488,13 +489,13 @@ func (s *Service) Scan(ctx context.Context, req ScanRequest) (*ScanResult, error
 			projectPolicy = *policyRecord
 		}
 	}
-	workspace.OCR = scanPolicyOCROverrides(projectPolicy)
+	workspace.OCR = ProjectPolicyToOCROverrides(projectPolicy)
 	if strings.TrimSpace(req.Background) != "" {
 		workspace.OCR.Background = req.Background
 	}
 
 	if s.globalRulesRepo != nil {
-		rulePath, cleanup, ruleErr := s.resolveRuleFile(ctx, projectPolicy)
+		rulePath, cleanup, ruleErr := ResolveRuleFile(ctx, projectPolicy, s.rulePackageRepo, s.globalRulesRepo)
 		if ruleErr != nil {
 			logx.Warn("failed to resolve rule file", "error", ruleErr)
 		} else if rulePath != "" {
@@ -521,8 +522,10 @@ func (s *Service) Scan(ctx context.Context, req ScanRequest) (*ScanResult, error
 	return scanResult, nil
 }
 
-func scanPolicyOCROverrides(p models.ProjectPolicy) OCROverrides {
-	return OCROverrides{
+// ProjectPolicyToOCROverrides 将项目策略中的 OCR 配置项映射为 review.OCROverrides。
+// 作为 scan 路径与 executor 路径的单一实现，消除重复。
+func ProjectPolicyToOCROverrides(p models.ProjectPolicy) domain.OCROverrides {
+	return domain.OCROverrides{
 		Enabled:                 p.OCREnabled,
 		Concurrency:             p.OCRConcurrency,
 		TimeoutMinutes:          p.OCRTimeoutMinutes,
@@ -546,7 +549,7 @@ func scanPolicyOCROverrides(p models.ProjectPolicy) OCROverrides {
 	}
 }
 
-func (s *Service) persistScanResult(ctx context.Context, scanReq ScanRequest, projectPolicy models.ProjectPolicy, scanResult *ScanResult) (string, error) {
+func (s *Service) persistScanResult(ctx context.Context, scanReq domain.ScanRequest, projectPolicy models.ProjectPolicy, scanResult *domain.ScanResult) (string, error) {
 	result := scanResult.Result
 	if result == nil {
 		return "", fmt.Errorf("scan result is empty")
@@ -570,7 +573,7 @@ func (s *Service) persistScanResult(ctx context.Context, scanReq ScanRequest, pr
 	gate := gateEngine.Evaluate(scanPolicyFindings(result.Findings))
 
 	id := newReviewID(time.Now().UTC())
-	req := Request{
+	req := domain.Request{
 		Provider:     scanReq.Provider,
 		Repo:         scanReq.Repo,
 		ProjectID:    scanReq.ProjectID,
@@ -578,15 +581,15 @@ func (s *Service) persistScanResult(ctx context.Context, scanReq ScanRequest, pr
 		HeadSHA:      scanReq.HeadSHA,
 		CallbackMode: "scan",
 	}
-	resp := Response{
+	resp := domain.Response{
 		ReviewID: id,
 		Status:   statusSuccess,
 		Summary:  result.Summary,
-		Gate:     CompletedGate(gate.Passed, gate.Reason),
+		Gate:     domain.CompletedGate(gate.Passed, gate.Reason),
 		Report:   report,
 		Analysis: analysis,
 		Findings: result.Findings,
-		History: []Event{
+		History: []domain.Event{
 			{
 				Stage:     "repository",
 				Status:    statusCompleted,
@@ -634,15 +637,15 @@ func (s *Service) persistScanResult(ctx context.Context, scanReq ScanRequest, pr
 	return id, nil
 }
 
-func scanPolicyFindings(findings []Finding) []policy.Finding {
+func scanPolicyFindings(findings []domain.Finding) []policy.Finding {
 	out := make([]policy.Finding, 0, len(findings))
 	for _, finding := range findings {
-		out = append(out, policy.Finding{Severity: string(finding.Severity), Path: finding.Path})
+		out = append(out, policy.Finding{Severity: finding.Severity, Path: finding.Path})
 	}
 	return out
 }
 
-func (s *Service) Requeue(ctx context.Context, reviewID string) (Response, error) {
+func (s *Service) Requeue(ctx context.Context, reviewID string) (domain.Response, error) {
 	// Cancel any orphaned active sessions before re-queuing to avoid
 	// "already has an active session" conflicts on the next execution.
 	if s.sessionRepo != nil {
@@ -651,26 +654,26 @@ func (s *Service) Requeue(ctx context.Context, reviewID string) (Response, error
 		}
 	}
 
-	var resultResp Response
+	var resultResp domain.Response
 	err := s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *models.Review) error {
 		switch review.Status {
 		case StatusQueued, statusRunning:
 			return fmt.Errorf("%w: review is %s, only failed or completed reviews can be re-run", ErrInvalidState, review.Status)
 		}
 
-		var resp Response
+		var resp domain.Response
 		if err := json.Unmarshal(review.Response, &resp); err != nil {
 			return fmt.Errorf("decode response: %w", err)
 		}
 
 		resp.Status = StatusQueued
 		resp.Summary = "review re-queued"
-		resp.Gate = PendingGate()
+		resp.Gate = domain.PendingGate()
 		resp.Error = ""
 		resp.Findings = nil
-		resp.Report = Report{}
-		resp.Analysis = Analysis{}
-		resp.History = append(resp.History, Event{
+		resp.Report = domain.Report{}
+		resp.Analysis = domain.Analysis{}
+		resp.History = append(resp.History, domain.Event{
 			Stage:     stageQueued,
 			Status:    statusCompleted,
 			Message:   "review re-queued by user",
@@ -685,29 +688,29 @@ func (s *Service) Requeue(ctx context.Context, reviewID string) (Response, error
 	})
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			return Response{}, fmt.Errorf("%w: %s", ErrNotFound, reviewID)
+			return domain.Response{}, fmt.Errorf("%w: %s", ErrNotFound, reviewID)
 		}
-		return Response{}, err
+		return domain.Response{}, err
 	}
 	return resultResp, nil
 }
 
-func (s *Service) Cancel(ctx context.Context, reviewID string) (Response, error) {
-	var resultResp Response
+func (s *Service) Cancel(ctx context.Context, reviewID string) (domain.Response, error) {
+	var resultResp domain.Response
 	err := s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *models.Review) error {
 		if review.Status != StatusQueued {
 			return fmt.Errorf("%w: only queued reviews can be cancelled (current: %s)", ErrInvalidState, review.Status)
 		}
 
-		var resp Response
+		var resp domain.Response
 		if err := json.Unmarshal(review.Response, &resp); err != nil {
 			return fmt.Errorf("decode response: %w", err)
 		}
 
 		resp.Status = statusFailed
 		resp.Summary = "review cancelled by user"
-		resp.Gate = ErrorGate("review cancelled")
-		resp.History = append(resp.History, Event{
+		resp.Gate = domain.ErrorGate("review cancelled")
+		resp.History = append(resp.History, domain.Event{
 			Stage:     stageCancelled,
 			Status:    statusFailed,
 			Message:   "review cancelled by user",
@@ -722,14 +725,14 @@ func (s *Service) Cancel(ctx context.Context, reviewID string) (Response, error)
 	})
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			return Response{}, fmt.Errorf("%w: %s", ErrNotFound, reviewID)
+			return domain.Response{}, fmt.Errorf("%w: %s", ErrNotFound, reviewID)
 		}
-		return Response{}, err
+		return domain.Response{}, err
 	}
 	return resultResp, nil
 }
 
-func validate(req Request) error {
+func validate(req domain.Request) error {
 	if strings.TrimSpace(req.Provider) == "" {
 		return mw.NewBadRequestError("provider is required")
 	}

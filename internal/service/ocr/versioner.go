@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 type Versioner struct {
@@ -17,7 +17,7 @@ func NewVersioner(settings settingsSource, resolver *ConfigResolver) *Versioner 
 	return &Versioner{settings: settings, resolver: resolver}
 }
 
-func (v *Versioner) OCRVersion(ctx context.Context) (*review.OCRVersion, error) {
+func (v *Versioner) OCRVersion(ctx context.Context) (*domain.OCRVersion, error) {
 	s, err := v.settings.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("读取 OCR 配置失败: %w", err)
@@ -35,7 +35,7 @@ func (v *Versioner) OCRVersion(ctx context.Context) (*review.OCRVersion, error) 
 	}
 
 	output := strings.TrimSpace(cmdResult.stdout)
-	result := &review.OCRVersion{}
+	result := &domain.OCRVersion{}
 
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
@@ -66,4 +66,4 @@ func (v *Versioner) OCRVersion(ctx context.Context) (*review.OCRVersion, error) 
 	return result, nil
 }
 
-var _ review.OCRVersioner = (*Versioner)(nil)
+var _ domain.OCRVersioner = (*Versioner)(nil)

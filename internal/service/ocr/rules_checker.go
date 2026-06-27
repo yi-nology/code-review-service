@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 type RulesChecker struct {
@@ -19,7 +19,7 @@ func NewRulesChecker(settings settingsSource, globalRules globalRulesSource, res
 	return &RulesChecker{settings: settings, globalRules: globalRules, resolver: resolver}
 }
 
-func (rc *RulesChecker) RulesCheck(ctx context.Context, path string) (*review.RulesCheckResult, error) {
+func (rc *RulesChecker) RulesCheck(ctx context.Context, path string) (*domain.RulesCheckResult, error) {
 	s, err := rc.settings.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("读取 OCR 配置失败: %w", err)
@@ -47,18 +47,18 @@ func (rc *RulesChecker) RulesCheck(ctx context.Context, path string) (*review.Ru
 		if msg == "" {
 			msg = err.Error()
 		}
-		return &review.RulesCheckResult{Applicable: false, Message: msg}, nil
+		return &domain.RulesCheckResult{Applicable: false, Message: msg}, nil
 	}
 
 	output := strings.TrimSpace(result.stdout)
-	return &review.RulesCheckResult{
+	return &domain.RulesCheckResult{
 		Applicable: output != "",
 		Rule:       output,
 		Message:    "规则匹配成功",
 	}, nil
 }
 
-var _ review.RulesChecker = (*RulesChecker)(nil)
+var _ domain.RulesChecker = (*RulesChecker)(nil)
 
 func resolveGlobalRuleFile(ctx context.Context, globalRules globalRulesSource) (string, func(), error) {
 	if globalRules == nil {

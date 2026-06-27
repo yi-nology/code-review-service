@@ -4,13 +4,14 @@ import (
 	"testing"
 
 	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 func TestBuildReportPerfectScore(t *testing.T) {
-	result := &review.Result{
+	result := &domain.Result{
 		Summary:  "no issues found",
-		Findings: []review.Finding{},
-		OCR:      review.OCRMetadata{Engine: "test", Status: "success", FilesReviewed: 5},
+		Findings: []domain.Finding{},
+		OCR:      domain.OCRMetadata{Engine: "test", Status: "success", FilesReviewed: 5},
 	}
 
 	report := review.BuildReport(result)
@@ -36,14 +37,14 @@ func TestBuildReportPerfectScore(t *testing.T) {
 }
 
 func TestBuildReportCriticalDeduction(t *testing.T) {
-	result := &review.Result{
+	result := &domain.Result{
 		Summary: "found critical issues",
-		OCR:     review.OCRMetadata{Engine: "test", Status: "success", FilesReviewed: 3},
-		Findings: []review.Finding{
-			{Severity: review.SeverityCritical, Title: "SQL Injection", Body: "sql injection vulnerability detected"},
-			{Severity: review.SeverityMajor, Title: "Error Handling", Body: "unchecked error value"},
-			{Severity: review.SeverityMinor, Title: "Style", Body: "naming convention issue"},
-			{Severity: review.SeverityInfo, Title: "Suggestion", Body: "consider refactoring"},
+		OCR:     domain.OCRMetadata{Engine: "test", Status: "success", FilesReviewed: 3},
+		Findings: []domain.Finding{
+			{Severity: domain.SeverityCritical, Title: "SQL Injection", Body: "sql injection vulnerability detected"},
+			{Severity: domain.SeverityMajor, Title: "Error Handling", Body: "unchecked error value"},
+			{Severity: domain.SeverityMinor, Title: "Style", Body: "naming convention issue"},
+			{Severity: domain.SeverityInfo, Title: "Suggestion", Body: "consider refactoring"},
 		},
 	}
 
@@ -81,10 +82,10 @@ func TestBuildReportCriticalDeduction(t *testing.T) {
 }
 
 func TestBuildReportIncompleteRun(t *testing.T) {
-	result := &review.Result{
+	result := &domain.Result{
 		Summary:  "partial review",
-		OCR:      review.OCRMetadata{Engine: "test", Status: "timeout"},
-		Findings: []review.Finding{},
+		OCR:      domain.OCRMetadata{Engine: "test", Status: "timeout"},
+		Findings: []domain.Finding{},
 	}
 
 	report := review.BuildReport(result)
@@ -109,11 +110,11 @@ func TestBuildReportIncompleteRun(t *testing.T) {
 }
 
 func TestBuildReportWithWarnings(t *testing.T) {
-	result := &review.Result{
+	result := &domain.Result{
 		Summary:  "review with warnings",
-		OCR:      review.OCRMetadata{Engine: "test", Status: "success"},
-		Findings: []review.Finding{},
-		Warnings: []review.OCRWarning{
+		OCR:      domain.OCRMetadata{Engine: "test", Status: "success"},
+		Findings: []domain.Finding{},
+		Warnings: []domain.OCRWarning{
 			{Type: "config", Message: "missing config"},
 			{Type: "model", Message: "model warning"},
 			{Type: "runner_output", Message: "should be ignored"},
@@ -149,19 +150,19 @@ func TestBuildReportNilResult(t *testing.T) {
 }
 
 func TestBuildReportScoreClampsToZero(t *testing.T) {
-	findings := make([]review.Finding, 10)
+	findings := make([]domain.Finding, 10)
 	for i := range findings {
-		findings[i] = review.Finding{
-			Severity: review.SeverityCritical,
+		findings[i] = domain.Finding{
+			Severity: domain.SeverityCritical,
 			Title:    "Critical Issue",
 			Body:     "critical vulnerability",
 		}
 	}
-	result := &review.Result{
+	result := &domain.Result{
 		Summary:  "many issues",
-		OCR:      review.OCRMetadata{Engine: "test", Status: "timeout"},
+		OCR:      domain.OCRMetadata{Engine: "test", Status: "timeout"},
 		Findings: findings,
-		Warnings: []review.OCRWarning{
+		Warnings: []domain.OCRWarning{
 			{Type: "config", Message: "warning 1"},
 			{Type: "config", Message: "warning 2"},
 			{Type: "config", Message: "warning 3"},
@@ -199,18 +200,18 @@ func TestScoreGrade(t *testing.T) {
 		{0, "高风险"},
 	}
 	for _, tt := range tests {
-		findings := []review.Finding{}
+		findings := []domain.Finding{}
 		deduction := 100 - tt.score
 		if deduction > 0 {
-			findings = append(findings, review.Finding{
-				Severity: review.SeverityInfo,
+			findings = append(findings, domain.Finding{
+				Severity: domain.SeverityInfo,
 				Title:    "Issue",
 				Body:     "info issue",
 			})
 		}
-		result := &review.Result{
+		result := &domain.Result{
 			Summary:  "test",
-			OCR:      review.OCRMetadata{Engine: "test", Status: "success"},
+			OCR:      domain.OCRMetadata{Engine: "test", Status: "success"},
 			Findings: findings,
 		}
 
@@ -227,15 +228,15 @@ func TestScoreGrade(t *testing.T) {
 }
 
 func TestBuildReportClassifiesFindings(t *testing.T) {
-	result := &review.Result{
+	result := &domain.Result{
 		Summary: "classified findings",
-		OCR:     review.OCRMetadata{Engine: "test", Status: "success"},
-		Findings: []review.Finding{
-			{Severity: review.SeverityCritical, Title: "SQL Injection", Body: "sql injection vulnerability detected"},
-			{Severity: review.SeverityMajor, Title: "Performance", Body: "performance issue with slow query"},
-			{Severity: review.SeverityMinor, Title: "Test", Body: "missing test coverage"},
-			{Severity: review.SeverityInfo, Title: "Nil Check", Body: "nil pointer error handling"},
-			{Severity: review.SeverityInfo, Title: "Naming", Body: "variable naming convention"},
+		OCR:     domain.OCRMetadata{Engine: "test", Status: "success"},
+		Findings: []domain.Finding{
+			{Severity: domain.SeverityCritical, Title: "SQL Injection", Body: "sql injection vulnerability detected"},
+			{Severity: domain.SeverityMajor, Title: "Performance", Body: "performance issue with slow query"},
+			{Severity: domain.SeverityMinor, Title: "Test", Body: "missing test coverage"},
+			{Severity: domain.SeverityInfo, Title: "Nil Check", Body: "nil pointer error handling"},
+			{Severity: domain.SeverityInfo, Title: "Naming", Body: "variable naming convention"},
 		},
 	}
 
@@ -262,12 +263,12 @@ func TestBuildReportClassifiesFindings(t *testing.T) {
 }
 
 func TestBuildReportVolumeMultiplierLargePR(t *testing.T) {
-	result := &review.Result{
+	result := &domain.Result{
 		Summary: "large PR with one critical",
-		OCR:     review.OCRMetadata{Engine: "test", Status: "success"},
-		Scope:   review.ScopeMetadata{ChangedLines: 1000},
-		Findings: []review.Finding{
-			{Severity: review.SeverityCritical, Title: "Critical", Body: "critical vulnerability"},
+		OCR:     domain.OCRMetadata{Engine: "test", Status: "success"},
+		Scope:   domain.ScopeMetadata{ChangedLines: 1000},
+		Findings: []domain.Finding{
+			{Severity: domain.SeverityCritical, Title: "Critical", Body: "critical vulnerability"},
 		},
 	}
 
@@ -285,12 +286,12 @@ func TestBuildReportVolumeMultiplierLargePR(t *testing.T) {
 }
 
 func TestBuildReportVolumeMultiplierSmallPR(t *testing.T) {
-	result := &review.Result{
+	result := &domain.Result{
 		Summary: "small PR with one critical",
-		OCR:     review.OCRMetadata{Engine: "test", Status: "success"},
-		Scope:   review.ScopeMetadata{ChangedLines: 10},
-		Findings: []review.Finding{
-			{Severity: review.SeverityCritical, Title: "Critical", Body: "critical vulnerability"},
+		OCR:     domain.OCRMetadata{Engine: "test", Status: "success"},
+		Scope:   domain.ScopeMetadata{ChangedLines: 10},
+		Findings: []domain.Finding{
+			{Severity: domain.SeverityCritical, Title: "Critical", Body: "critical vulnerability"},
 		},
 	}
 
@@ -302,12 +303,12 @@ func TestBuildReportVolumeMultiplierSmallPR(t *testing.T) {
 }
 
 func TestBuildReportLargeCleanPRBonus(t *testing.T) {
-	result := &review.Result{
+	result := &domain.Result{
 		Summary: "large clean PR",
-		OCR:     review.OCRMetadata{Engine: "test", Status: "success", FilesReviewed: 20},
-		Scope:   review.ScopeMetadata{ChangedLines: 500},
-		Findings: []review.Finding{
-			{Severity: review.SeverityInfo, Title: "Suggestion", Body: "minor suggestion"},
+		OCR:     domain.OCRMetadata{Engine: "test", Status: "success", FilesReviewed: 20},
+		Scope:   domain.ScopeMetadata{ChangedLines: 500},
+		Findings: []domain.Finding{
+			{Severity: domain.SeverityInfo, Title: "Suggestion", Body: "minor suggestion"},
 		},
 	}
 
@@ -350,10 +351,10 @@ func TestCountDiffLinesEmpty(t *testing.T) {
 }
 
 func TestBuildReportSkippedStatus(t *testing.T) {
-	result := &review.Result{
+	result := &domain.Result{
 		Summary:  "skipped review",
-		OCR:      review.OCRMetadata{Engine: "test", Status: "skipped"},
-		Findings: []review.Finding{},
+		OCR:      domain.OCRMetadata{Engine: "test", Status: "skipped"},
+		Findings: []domain.Finding{},
 	}
 
 	report := review.BuildReport(result)
@@ -367,10 +368,10 @@ func TestBuildReportSkippedStatus(t *testing.T) {
 }
 
 func TestBuildReportCompletedWithErrorsStatus(t *testing.T) {
-	result := &review.Result{
+	result := &domain.Result{
 		Summary:  "review with errors",
-		OCR:      review.OCRMetadata{Engine: "test", Status: "completed_with_errors"},
-		Findings: []review.Finding{},
+		OCR:      domain.OCRMetadata{Engine: "test", Status: "completed_with_errors"},
+		Findings: []domain.Finding{},
 	}
 
 	report := review.BuildReport(result)
@@ -384,10 +385,10 @@ func TestBuildReportCompletedWithErrorsStatus(t *testing.T) {
 }
 
 func TestBuildReportEmptyStatusIncomplete(t *testing.T) {
-	result := &review.Result{
+	result := &domain.Result{
 		Summary:  "no OCR status",
-		OCR:      review.OCRMetadata{Engine: "test", Status: ""},
-		Findings: []review.Finding{},
+		OCR:      domain.OCRMetadata{Engine: "test", Status: ""},
+		Findings: []domain.Finding{},
 	}
 
 	report := review.BuildReport(result)
@@ -401,10 +402,10 @@ func TestBuildReportEmptyStatusIncomplete(t *testing.T) {
 }
 
 func TestBuildReportTimeoutStatusIncomplete(t *testing.T) {
-	result := &review.Result{
+	result := &domain.Result{
 		Summary:  "timeout",
-		OCR:      review.OCRMetadata{Engine: "test", Status: "timeout"},
-		Findings: []review.Finding{},
+		OCR:      domain.OCRMetadata{Engine: "test", Status: "timeout"},
+		Findings: []domain.Finding{},
 	}
 
 	report := review.BuildReport(result)

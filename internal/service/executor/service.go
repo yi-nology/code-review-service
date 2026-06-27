@@ -15,6 +15,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/runner"
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
 
@@ -26,8 +27,9 @@ type Service struct {
 	reviewRepo      repository.ReviewRepository
 	projectRepo     repository.ProjectPolicyRepository
 	globalRulesRepo repository.GlobalRulesRepository
-	runner          review.Runner
-	writeback       review.WritebackPublisher
+	rulePackageRepo repository.OCRRulePackageRepository
+	runner          domain.Runner
+	writeback       domain.WritebackPublisher
 	policy          *policy.Engine
 	progressMgr     *progress.ProgressManager
 	workflow        *workflow.ReviewWorkflow
@@ -39,8 +41,9 @@ type Config struct {
 	ReviewRepo      repository.ReviewRepository
 	ProjectRepo     repository.ProjectPolicyRepository
 	GlobalRulesRepo repository.GlobalRulesRepository
-	Runner          review.Runner
-	Writeback       review.WritebackPublisher
+	RulePackageRepo repository.OCRRulePackageRepository
+	Runner          domain.Runner
+	Writeback       domain.WritebackPublisher
 	Policy          *policy.Engine
 	ProgressMgr     *progress.ProgressManager
 	Workflow        *workflow.ReviewWorkflow
@@ -53,6 +56,7 @@ func NewService(cfg Config) *Service {
 		reviewRepo:      cfg.ReviewRepo,
 		projectRepo:     cfg.ProjectRepo,
 		globalRulesRepo: cfg.GlobalRulesRepo,
+		rulePackageRepo: cfg.RulePackageRepo,
 		runner:          cfg.Runner,
 		writeback:       cfg.Writeback,
 		policy:          cfg.Policy,
@@ -71,18 +75,18 @@ func (s *Service) shouldUseWorkflow() bool {
 	return len(agents) > 1
 }
 
-func (s *Service) Execute(ctx context.Context, id string, req review.Request, provider review.Provider, progressReporter progress.ProgressReporter) (review.Response, error) {
+func (s *Service) Execute(ctx context.Context, id string, req domain.Request, provider domain.Provider, progressReporter progress.ProgressReporter) (domain.Response, error) {
 	if err := s.updateStatus(ctx, id, "running"); err != nil {
-		return review.Response{}, err
+		return domain.Response{}, err
 	}
 
 	if progressReporter != nil {
 		ctx = progress.WithProgressReporter(ctx, progressReporter)
 	}
 
-	initialInput := review.OCRInput{
+	initialInput := domain.OCRInput{
 		Binary: "ocr",
-		Workspace: review.WorkspaceInfo{
+		Workspace: domain.WorkspaceInfo{
 			Provider: req.Provider,
 			Repo:     req.Repo,
 			BaseSHA:  req.BaseSHA,
@@ -97,7 +101,7 @@ func (s *Service) Execute(ctx context.Context, id string, req review.Request, pr
 	workspace, err := provider.Prepare(ctx, req)
 	if err != nil {
 		s.recordFailure(ctx, id, req, "repository", err)
-		return review.Response{}, err
+		return domain.Response{}, err
 	}
 	s.appendHistory(ctx, id, "repository", "completed", "repository and change scope prepared", map[string]any{
 		"base_sha": workspace.BaseSHA,
@@ -117,7 +121,7 @@ func (s *Service) Execute(ctx context.Context, id string, req review.Request, pr
 			projectPolicy = *p
 		}
 	}
-	workspace.OCR = projectPolicyOCROverrides(projectPolicy)
+	workspace.OCR = review.ProjectPolicyToOCROverrides(projectPolicy)
 
 	var ignorePaths []string
 	if len(projectPolicy.IgnorePaths) > 0 {
@@ -126,10 +130,10 @@ func (s *Service) Execute(ctx context.Context, id string, req review.Request, pr
 		}
 	}
 	if len(ignorePaths) > 0 {
-		workspace, err = applyProjectScope(ctx, workspace, ignorePaths)
+		workspace, err = review.ApplyProjectScope(ctx, workspace, ignorePaths)
 		if err != nil {
 			s.recordFailure(ctx, id, req, "scope", err)
-			return review.Response{}, err
+			return domain.Response{}, err
 		}
 		s.appendHistory(ctx, id, "scope", "completed", "project review policy applied", map[string]any{
 			"changed_files":  workspace.Scope.ChangedFiles,
@@ -139,7 +143,7 @@ func (s *Service) Execute(ctx context.Context, id string, req review.Request, pr
 	}
 
 	if s.globalRulesRepo != nil {
-		rulePath, cleanup, ruleErr := s.resolveRuleFile(ctx, projectPolicy)
+		rulePath, cleanup, ruleErr := review.ResolveRuleFile(ctx, projectPolicy, s.rulePackageRepo, s.globalRulesRepo)
 		if ruleErr != nil {
 			logx.Warn("failed to resolve rule file", "error", ruleErr)
 		} else if rulePath != "" {
@@ -170,7 +174,7 @@ func (s *Service) Execute(ctx context.Context, id string, req review.Request, pr
 	return s.executeWithRunner(ctx, id, req, workspace, projectPolicy)
 }
 
-func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review.Request, workspace review.Workspace, projectPolicy models.ProjectPolicy) (review.Response, error) {
+func (s *Service) executeWithWorkflow(ctx context.Context, id string, req domain.Request, workspace domain.Workspace, projectPolicy models.ProjectPolicy) (domain.Response, error) {
 	s.appendHistory(ctx, id, "workflow", "running", "multi-agent review workflow started", nil)
 
 	wfReq := workflow.ReviewRequest{
@@ -184,7 +188,7 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 		Round:        1,
 		Requirements: req.Requirements,
 	}
-	// 映射临时 reviewer：review.EphemeralReviewer → agent.EphemeralSpec（阶段 5）
+	// 映射临时 reviewer：domain.EphemeralReviewer → agent.EphemeralSpec（阶段 5）
 	if len(req.EphemeralReviewers) > 0 {
 		wfReq.EphemeralReviewers = make([]agent.EphemeralSpec, len(req.EphemeralReviewers))
 		for i, e := range req.EphemeralReviewers {
@@ -195,18 +199,19 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 	result, err := s.workflow.RunReview(ctx, wfReq)
 	if err != nil {
 		s.recordFailure(ctx, id, req, "workflow", err)
-		return review.Response{}, err
+		return domain.Response{}, err
 	}
 
 	s.appendHistory(ctx, id, "workflow", "completed", fmt.Sprintf("multi-agent review completed with %d findings", len(result.AgentResults)), nil)
 
-	var findings []review.Finding
+	var findings []domain.Finding
 	for _, bucket := range [][]agent.Finding{
 		result.FinalReport.Blockers,
 		result.FinalReport.ShouldFix,
 		result.FinalReport.Suggestions,
 	} {
-		findings = append(findings, toReviewFindings(bucket)...)
+		// agent.Finding 即 domain.Finding（types.Finding 别名），无需转换。
+		findings = append(findings, bucket...)
 	}
 
 	scope := workspace.Scope
@@ -224,11 +229,11 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 	for _, ar := range result.AgentResults {
 		workflowTokens += ar.TokensUsed
 	}
-	dummyResult := review.Result{
+	dummyResult := domain.Result{
 		Summary:  result.FinalReport.Summary,
 		Findings: findings,
 		Scope:    scope,
-		OCR: review.OCRMetadata{
+		OCR: domain.OCRMetadata{
 			Engine:        "workflow",
 			Status:        review.OCRStatusSuccess,
 			FilesReviewed: int64(scope.ChangedFiles),
@@ -243,10 +248,10 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 	report.Complete = true
 	report.Generated = true
 
-	analysis := review.Analysis{
+	analysis := domain.Analysis{
 		Overview: result.FinalReport.Summary,
 	}
-	// B2：把 Tech Lead 分析映射进 review.Analysis（前端已读该字段）
+	// B2：把 Tech Lead 分析映射进 domain.Analysis（前端已读该字段）
 	if result.TechLeadAnalysis != nil {
 		if result.TechLeadAnalysis.Summary != "" {
 			analysis.Overview = result.TechLeadAnalysis.Summary
@@ -257,9 +262,9 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 
 	// workflow FinalReport 已含门禁结论（GatePassed/GateReason，对应 Verdict 如 REQUEST_CHANGES），
 	// 直接采用以与最终报告同步；不再用 review-service policy 重算（会和 workflow 结论冲突）。
-	gate := review.CompletedGate(result.FinalReport.GatePassed, result.FinalReport.GateReason)
+	gate := domain.CompletedGate(result.FinalReport.GatePassed, result.FinalReport.GateReason)
 
-	resp := review.Response{
+	resp := domain.Response{
 		ReviewID: id,
 		Status:   "success",
 		Summary:  result.FinalReport.Summary,
@@ -270,15 +275,15 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req review
 	}
 
 	if err := s.updateWithRawOCR(ctx, id, req, resp, nil); err != nil {
-		return review.Response{}, err
+		return domain.Response{}, err
 	}
 
-	s.publishWriteback(ctx, id, req, workspace, review.Result{Summary: resp.Summary, Findings: findings})
+	s.publishWriteback(ctx, id, req, workspace, domain.Result{Summary: resp.Summary, Findings: findings})
 
 	return resp, nil
 }
 
-func (s *Service) executeWithRunner(ctx context.Context, id string, req review.Request, workspace review.Workspace, projectPolicy models.ProjectPolicy) (review.Response, error) {
+func (s *Service) executeWithRunner(ctx context.Context, id string, req domain.Request, workspace domain.Workspace, projectPolicy models.ProjectPolicy) (domain.Response, error) {
 	s.appendHistory(ctx, id, "ocr", "running", "code review model invoked", nil)
 	result, err := s.runner.Run(ctx, workspace)
 	if err != nil {
@@ -288,7 +293,7 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req review.R
 			s.llmMetrics.Failures.Add(1)
 		}
 		s.recordFailure(ctx, id, req, "ocr", err)
-		return review.Response{}, err
+		return domain.Response{}, err
 	}
 	if s.llmMetrics != nil {
 		s.llmMetrics.Calls.Add(1)
@@ -312,27 +317,27 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req review.R
 		gateEngine = policy.NewEngine(policy.Config{FailOn: projectPolicy.FailOn})
 	}
 	gate := gateEngine.Evaluate(toPolicyFindings(result.Findings))
-	resp := review.Response{
+	resp := domain.Response{
 		ReviewID: id,
 		Status:   "success",
 		Summary:  result.Summary,
 		Report:   report,
 		Analysis: analysis,
 		Findings: result.Findings,
-		Gate:     review.CompletedGate(gate.Passed, gate.Reason),
+		Gate:     domain.CompletedGate(gate.Passed, gate.Reason),
 	}
 
-	s.publishWriteback(ctx, id, req, workspace, review.Result{Summary: result.Summary, Findings: result.Findings})
+	s.publishWriteback(ctx, id, req, workspace, domain.Result{Summary: result.Summary, Findings: result.Findings})
 
 	if err := s.updateWithRawOCR(ctx, id, req, resp, result.RawOCR); err != nil {
-		return review.Response{}, err
+		return domain.Response{}, err
 	}
 
 	return resp, nil
 }
 
 // publishWriteback 在审查完成后将结果回写到代码平台（runner 和 workflow 路径共用）。
-func (s *Service) publishWriteback(ctx context.Context, id string, req review.Request, workspace review.Workspace, result review.Result) {
+func (s *Service) publishWriteback(ctx context.Context, id string, req domain.Request, workspace domain.Workspace, result domain.Result) {
 	if s.writeback == nil {
 		return
 	}
@@ -373,7 +378,7 @@ func (s *Service) publishWriteback(ctx context.Context, id string, req review.Re
 // recordFailure 记录评审失败：先追加一条 stage 级别的 failed history（带原始错误），
 // 再持久化最终 failed 状态。stage 标识失败发生在哪个环节（repository/scope/ocr/workflow），
 // 便于前端 timeline 与排障直接定位根因，而非只看到扁平的 "review execution failed"。
-func (s *Service) recordFailure(ctx context.Context, id string, req review.Request, stage string, runErr error) {
+func (s *Service) recordFailure(ctx context.Context, id string, req domain.Request, stage string, runErr error) {
 	details := map[string]any{
 		"error": runErr.Error(),
 		"stage": stage,
@@ -383,11 +388,11 @@ func (s *Service) recordFailure(ctx context.Context, id string, req review.Reque
 	}
 	s.appendHistory(ctx, id, stage, "failed", runErr.Error(), details)
 
-	response := review.Response{
+	response := domain.Response{
 		ReviewID: id,
 		Status:   "failed",
 		Summary:  "review failed",
-		Gate:     review.ErrorGate("review execution failed"),
+		Gate:     domain.ErrorGate("review execution failed"),
 		Error:    runErr.Error(),
 	}
 	if err := s.updateWithRawOCR(ctx, id, req, response, nil); err != nil {
@@ -411,58 +416,14 @@ func classifyReviewErrorType(err error) string {
 	return ""
 }
 
-func toPolicyFindings(findings []review.Finding) []policy.Finding {
-	return slicex.Map(findings, func(f review.Finding) policy.Finding {
-		return policy.Finding{Severity: string(f.Severity), Path: f.Path}
+func toPolicyFindings(findings []domain.Finding) []policy.Finding {
+	return slicex.Map(findings, func(f domain.Finding) policy.Finding {
+		return policy.Finding{Severity: f.Severity, Path: f.Path}
 	})
 }
 
-// toReviewFindings 把 workflow 路径的 agent.Finding 映射为 review.Finding，
-// 保留原始 severity（而非按 bucket 硬编码），避免 info 问题被误判为 minor。
-func toReviewFindings(fs []agent.Finding) []review.Finding {
-	if len(fs) == 0 {
-		return nil
-	}
-	return slicex.Map(fs, func(f agent.Finding) review.Finding {
-		return review.Finding{
-			Severity: review.NormalizeSeverity(f.Severity),
-			Path:     f.Path,
-			Line:     f.Line,
-			EndLine:  f.EndLine,
-			Title:    f.Title,
-			Body:     f.Body,
-			Thinking: f.Thinking,
-		}
-	})
-}
-
-func projectPolicyOCROverrides(p models.ProjectPolicy) review.OCROverrides {
-	return review.OCROverrides{
-		Enabled:                 p.OCREnabled,
-		Concurrency:             p.OCRConcurrency,
-		TimeoutMinutes:          p.OCRTimeoutMinutes,
-		MaxTools:                p.OCRMaxTools,
-		DefaultSeverity:         p.OCRDefaultSeverity,
-		Background:              p.OCRBackground,
-		Audience:                p.OCRAudience,
-		Provider:                p.OCRProvider,
-		URL:                     p.OCRURL,
-		Model:                   p.OCRModel,
-		MaxGitProcs:             p.OCRMaxGitProcs,
-		UseAnthropic:            p.OCRUseAnthropic,
-		ExtraBody:               p.OCRExtraBody,
-		Language:                p.OCRLanguage,
-		Binary:                  p.OCRBinary,
-		ToolsPath:               p.OCRToolsPath,
-		TelemetryEnabled:        p.OCRTelemetryEnabled,
-		TelemetryExporter:       p.OCRTelemetryExporter,
-		TelemetryOTLPEndpoint:   p.OCRTelemetryOTLPEndpoint,
-		TelemetryContentLogging: p.OCRTelemetryContentLogging,
-	}
-}
-
-func buildOCRInput(workspace review.Workspace, req review.Request) review.OCRInput {
-	return review.OCRInput{
+func buildOCRInput(workspace domain.Workspace, req domain.Request) domain.OCRInput {
+	return domain.OCRInput{
 		Binary: "ocr",
 		Args: []string{
 			"review",
@@ -471,7 +432,7 @@ func buildOCRInput(workspace review.Workspace, req review.Request) review.OCRInp
 			"--to", workspace.HeadSHA,
 			"--format", "json",
 		},
-		Workspace: review.WorkspaceInfo{
+		Workspace: domain.WorkspaceInfo{
 			Provider: req.Provider,
 			Repo:     req.Repo,
 			BaseSHA:  workspace.BaseSHA,

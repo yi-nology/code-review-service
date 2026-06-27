@@ -1,10 +1,16 @@
-package review
+// Package domain 定义评审领域的核心类型、接口与常量。
+//
+// 它是整个评审子系统的纯领域叶子包：仅依赖 scoring/types/repository（均为叶子），
+// 不依赖任何带行为的服务包。review.Service、executor、runner、provider、writeback、
+// workflow、handler 等消费方都应依赖本包的类型与接口，从而与 review.Service 解耦。
+package domain
 
 import (
 	"encoding/json"
 	"strings"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/oekit/pkg/ptrx"
 	"github.com/oekit/pkg/stringx"
 )
@@ -24,13 +30,13 @@ type Request struct {
 	AuthorName      string `json:"author_name,omitempty"`
 	AuthorAvatar    string `json:"author_avatar,omitempty"`
 	Sender          string `json:"sender,omitempty"`
-	// Requirements 是需求/spec/验收标准，透传给 workflow 做需求感知评审（阶段 4）。
+	// Requirements 是需求/spec/验收标准，透传给 workflow 做需求感知评审。
 	Requirements []string `json:"requirements,omitempty"`
-	// EphemeralReviewers 是本次评审临时加入的 reviewer 描述（阶段 5），不入库。
+	// EphemeralReviewers 是本次评审临时加入的 reviewer 描述，不入库。
 	EphemeralReviewers []EphemeralReviewer `json:"ephemeral_reviewers,omitempty"`
 }
 
-// EphemeralReviewer 描述一个临时的、不入库的 reviewer（阶段 5）。
+// EphemeralReviewer 描述一个临时的、不入库的 reviewer。
 // 在 executor 层映射为 agent.EphemeralSpec。
 type EphemeralReviewer struct {
 	Name       string `json:"name,omitempty"`
@@ -105,29 +111,19 @@ type Record struct {
 	UpdatedAt          time.Time       `json:"updated_at"`
 }
 
-type Severity string
-
+// 严重级别常量（无类型字符串常量，可用于任意 string 上下文）。
 const (
-	SeverityInfo     Severity = "info"
-	SeverityMinor    Severity = "minor"
-	SeverityMajor    Severity = "major"
-	SeverityCritical Severity = "critical"
+	SeverityInfo     = "info"
+	SeverityMinor    = "minor"
+	SeverityMajor    = "major"
+	SeverityCritical = "critical"
 )
 
-func NormalizeSeverity(value string) Severity {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case string(SeverityInfo):
-		return SeverityInfo
-	case string(SeverityMinor):
-		return SeverityMinor
-	case string(SeverityCritical):
-		return SeverityCritical
-	default:
-		return SeverityMajor
-	}
+func NormalizeSeverity(value string) string {
+	return types.NormalizeSeverity(value)
 }
 
-func InferSeverity(content, fallback string) Severity {
+func InferSeverity(content, fallback string) string {
 	lower := strings.ToLower(content)
 	switch {
 	case stringx.ContainsAny(lower, "critical") || stringx.ContainsAny(content, "严重问题", "致命"):
@@ -141,16 +137,5 @@ func InferSeverity(content, fallback string) Severity {
 	}
 }
 
-type Finding struct {
-	Severity       Severity `json:"severity"`
-	Category       string   `json:"category,omitempty"`
-	Path           string   `json:"path,omitempty"`
-	Line           int      `json:"line,omitempty"`
-	StartLine      int      `json:"start_line,omitempty"`
-	EndLine        int      `json:"end_line,omitempty"`
-	Title          string   `json:"title"`
-	Body           string   `json:"body"`
-	ExistingCode   string   `json:"existing_code,omitempty"`
-	SuggestionCode string   `json:"suggestion_code,omitempty"`
-	Thinking       string   `json:"thinking,omitempty"`
-}
+// Finding 是 types.Finding 的类型别名，作为整个代码库的单一 Finding 模型。
+type Finding = types.Finding

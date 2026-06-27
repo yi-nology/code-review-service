@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/service/llm"
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 type ProviderLister struct {
@@ -18,7 +18,7 @@ func NewProviderLister(settings settingsSource, resolver *ConfigResolver) *Provi
 	return &ProviderLister{settings: settings, resolver: resolver}
 }
 
-func (l *ProviderLister) ListLLMProviders(ctx context.Context) ([]review.LLMProvider, error) {
+func (l *ProviderLister) ListLLMProviders(ctx context.Context) ([]domain.LLMProvider, error) {
 	s, err := l.settings.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("读取 OCR 配置失败: %w", err)
@@ -36,7 +36,7 @@ func (l *ProviderLister) ListLLMProviders(ctx context.Context) ([]review.LLMProv
 	}
 
 	output := result.stdout
-	var providers []review.LLMProvider
+	var providers []domain.LLMProvider
 	lines := strings.Split(output, "\n")
 	inTable := false
 	for _, line := range lines {
@@ -51,7 +51,7 @@ func (l *ProviderLister) ListLLMProviders(ctx context.Context) ([]review.LLMProv
 		if inTable && line != "" && !strings.HasPrefix(line, "----") {
 			fields := strings.Fields(line)
 			if len(fields) >= 2 {
-				p := review.LLMProvider{
+				p := domain.LLMProvider{
 					Name:     fields[0],
 					Protocol: fields[1],
 				}
@@ -85,4 +85,4 @@ func getProviderPreset(name string) *llm.ProviderPreset {
 	return nil
 }
 
-var _ review.LLMProviderLister = (*ProviderLister)(nil)
+var _ domain.LLMProviderLister = (*ProviderLister)(nil)

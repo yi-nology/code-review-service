@@ -7,16 +7,24 @@ import (
 
 // Config 配置结构
 type Config struct {
-	Port     int             `yaml:"port"`
-	Auth     AuthConfig      `yaml:"auth"`
-	Database DatabaseConfig  `yaml:"database"`
-	Nacos    nacos.Bootstrap `yaml:"nacos"`
-	Tracing  tracing.Config  `yaml:"tracing"`
-	Review   ReviewConfig    `yaml:"review"`
-	OCR      OCRConfig       `yaml:"ocr"`
-	Policy   PolicyConfig    `yaml:"policy"`
-	Git      GitConfig       `yaml:"git"`
-	Agents   AgentsConfig    `yaml:"agents"`
+	Port      int             `yaml:"port"`
+	Auth      AuthConfig      `yaml:"auth"`
+	Database  DatabaseConfig  `yaml:"database"`
+	Nacos     nacos.Bootstrap `yaml:"nacos"`
+	Tracing   tracing.Config  `yaml:"tracing"`
+	Review    ReviewConfig    `yaml:"review"`
+	OCR       OCRConfig       `yaml:"ocr"`
+	Policy    PolicyConfig    `yaml:"policy"`
+	Git       GitConfig       `yaml:"git"`
+	Agents    AgentsConfig    `yaml:"agents"`
+	RateLimit RateLimitConfig `yaml:"rate_limit"`
+}
+
+// RateLimitConfig 控制全局 HTTP 限流（每秒请求数与突发桶大小）。
+// 未配置时使用 server.go 中的内置默认值（100 rps / burst 200）。
+type RateLimitConfig struct {
+	RPS   int `yaml:"rps"`
+	Burst int `yaml:"burst"`
 }
 
 type AuthConfig struct {

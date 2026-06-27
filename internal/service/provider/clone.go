@@ -8,8 +8,8 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/vcs"
 
-	"github.com/oekit/pkg/convert"
 	"github.com/oekit/logx"
+	"github.com/oekit/pkg/convert"
 )
 
 func cloneAndResolvePR(

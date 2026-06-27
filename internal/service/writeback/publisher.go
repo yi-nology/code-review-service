@@ -3,7 +3,7 @@ package writeback
 import (
 	"context"
 
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 type WritebackPublisherAdapter struct {
@@ -14,6 +14,6 @@ func NewWritebackPublisherAdapter(orchestrator *Orchestrator) *WritebackPublishe
 	return &WritebackPublisherAdapter{orchestrator: orchestrator}
 }
 
-func (a *WritebackPublisherAdapter) PublishWithDiff(ctx context.Context, req review.Request, result review.Result, diff string) (*review.WritebackResult, error) {
+func (a *WritebackPublisherAdapter) PublishWithDiff(ctx context.Context, req domain.Request, result domain.Result, diff string) (*domain.WritebackResult, error) {
 	return a.orchestrator.Publish(ctx, req, result, diff)
 }

@@ -127,6 +127,13 @@ func applyEnvOverrides(cfg *Config) {
 	if v := config.Get("OTEL_ENDPOINT"); v != "" {
 		cfg.Tracing.Endpoint = v
 	}
+
+	if v, ok := config.GetInt("RATE_LIMIT_RPS"); ok {
+		cfg.RateLimit.RPS = v
+	}
+	if v, ok := config.GetInt("RATE_LIMIT_BURST"); ok {
+		cfg.RateLimit.Burst = v
+	}
 }
 
 func (c *Config) GetWorkerPollInterval() time.Duration {
@@ -146,4 +153,21 @@ func (c *Config) GetTracingConfig() *tracing.Config {
 
 func (c *Config) GetDatabaseConfig() *DatabaseConfig {
 	return &c.Database
+}
+
+// GetRateLimit 返回限流参数，未配置时回退到默认值（100 rps / burst 200）。
+func (c *Config) GetRateLimit() (rps, burst int) {
+	const (
+		defaultRPS   = 100
+		defaultBurst = 200
+	)
+	rps = c.RateLimit.RPS
+	if rps <= 0 {
+		rps = defaultRPS
+	}
+	burst = c.RateLimit.Burst
+	if burst <= 0 {
+		burst = defaultBurst
+	}
+	return rps, burst
 }

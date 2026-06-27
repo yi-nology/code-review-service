@@ -13,7 +13,7 @@ import (
 
 // ConfigFileReader 读取 ~/.opencodereview/config.json 并同步到数据库
 type ConfigFileReader struct {
-	ocrRepo repository.OCRSettingsRepository
+	ocrRepo  repository.OCRSettingsRepository
 	filePath string
 }
 
@@ -21,15 +21,15 @@ func NewConfigFileReader(ocrRepo repository.OCRSettingsRepository) *ConfigFileRe
 	home, _ := os.UserHomeDir()
 	filePath := filepath.Join(home, ".opencodereview", "config.json")
 	return &ConfigFileReader{
-		ocrRepo: ocrRepo,
+		ocrRepo:  ocrRepo,
 		filePath: filePath,
 	}
 }
 
 type ocrConfigFile struct {
-	Provider string      `json:"provider,omitempty"`
+	Provider string        `json:"provider,omitempty"`
 	LLM      *ocrLLMConfig `json:"llm,omitempty"`
-	Language string      `json:"language,omitempty"`
+	Language string        `json:"language,omitempty"`
 }
 
 type ocrLLMConfig struct {

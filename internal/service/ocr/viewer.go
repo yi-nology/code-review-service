@@ -8,8 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/service/review"
-
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/concurrency/async"
 )
 
@@ -47,33 +46,33 @@ func (vm *ViewerManager) resolveBinary() string {
 	return vm.binary
 }
 
-func (vm *ViewerManager) Status() *review.ViewerStatus {
+func (vm *ViewerManager) Status() *domain.ViewerStatus {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 
 	if vm.process == nil {
-		return &review.ViewerStatus{Running: false, Message: "Viewer 未运行"}
+		return &domain.ViewerStatus{Running: false, Message: "Viewer 未运行"}
 	}
 
 	select {
 	case <-vm.done:
 		vm.process = nil
-		return &review.ViewerStatus{Running: false, Message: "Viewer 已停止"}
+		return &domain.ViewerStatus{Running: false, Message: "Viewer 已停止"}
 	default:
 	}
 
-	return &review.ViewerStatus{
+	return &domain.ViewerStatus{
 		Running: true,
 		Addr:    vm.addr,
 		Message: fmt.Sprintf("Viewer 运行中 (%s)", vm.addr),
 	}
 }
 
-func (vm *ViewerManager) ViewerStatus(ctx context.Context) (*review.ViewerStatus, error) {
+func (vm *ViewerManager) ViewerStatus(ctx context.Context) (*domain.ViewerStatus, error) {
 	return vm.Status(), nil
 }
 
-func (vm *ViewerManager) StartViewer(ctx context.Context, addr string) (*review.ViewerStatus, error) {
+func (vm *ViewerManager) StartViewer(ctx context.Context, addr string) (*domain.ViewerStatus, error) {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 
@@ -82,7 +81,7 @@ func (vm *ViewerManager) StartViewer(ctx context.Context, addr string) (*review.
 		case <-vm.done:
 			vm.process = nil
 		default:
-			return &review.ViewerStatus{
+			return &domain.ViewerStatus{
 				Running: true,
 				Addr:    vm.addr,
 				Message: "Viewer 已在运行",
@@ -115,25 +114,25 @@ func (vm *ViewerManager) StartViewer(ctx context.Context, addr string) (*review.
 		close(vm.done)
 	})
 
-	return &review.ViewerStatus{
+	return &domain.ViewerStatus{
 		Running: true,
 		Addr:    addr,
 		Message: fmt.Sprintf("Viewer 已启动 (%s)", addr),
 	}, nil
 }
 
-func (vm *ViewerManager) StopViewer(ctx context.Context) (*review.ViewerStatus, error) {
+func (vm *ViewerManager) StopViewer(ctx context.Context) (*domain.ViewerStatus, error) {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 
 	if vm.process == nil {
-		return &review.ViewerStatus{Running: false, Message: "Viewer 未运行"}, nil
+		return &domain.ViewerStatus{Running: false, Message: "Viewer 未运行"}, nil
 	}
 
 	select {
 	case <-vm.done:
 		vm.process = nil
-		return &review.ViewerStatus{Running: false, Message: "Viewer 已停止"}, nil
+		return &domain.ViewerStatus{Running: false, Message: "Viewer 已停止"}, nil
 	default:
 	}
 
@@ -151,11 +150,11 @@ func (vm *ViewerManager) StopViewer(ctx context.Context) (*review.ViewerStatus, 
 	vm.process = nil
 	vm.addr = ""
 
-	return &review.ViewerStatus{
+	return &domain.ViewerStatus{
 		Running: false,
 		Addr:    addr,
 		Message: "Viewer 已停止",
 	}, nil
 }
 
-var _ review.ViewerManager = (*ViewerManager)(nil)
+var _ domain.ViewerManager = (*ViewerManager)(nil)

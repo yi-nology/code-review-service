@@ -317,7 +317,7 @@ func TestGenerateFinalReportCaseInsensitiveSeverity(t *testing.T) {
 		Findings: []agent.Finding{
 			{ID: "1", Severity: "Critical", Title: "c", Body: "b"}, // 大写
 			{ID: "2", Severity: " MAJOR ", Title: "m", Body: "b"},  // 带空白
-			{ID: "3", Severity: "", Title: "u", Body: "b"},          // 空值 → major
+			{ID: "3", Severity: "", Title: "u", Body: "b"},         // 空值 → major
 		},
 	}
 	report := generateFinalReport(aggregated, nil, nil, 100)

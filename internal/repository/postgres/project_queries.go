@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
-	"github.com/oekit/pkg/mathx"
 	"github.com/oekit/logx"
+	"github.com/oekit/pkg/mathx"
 )
 
 func (r *ContributorStatsRepo) ListProjects(ctx context.Context, opts models.ProjectStatsOptions) (*models.ProjectListResult, error) {

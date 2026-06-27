@@ -6,35 +6,35 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/pkg/stringx"
 )
 
-func ParseOpenCodeReviewOutput(output []byte, defaultSeverity string) (review.Result, error) {
+func ParseOpenCodeReviewOutput(output []byte, defaultSeverity string) (domain.Result, error) {
 	output = bytes.TrimSpace(output)
 	if len(output) == 0 {
-		return review.Result{}, fmt.Errorf("open-code-review produced empty output")
+		return domain.Result{}, fmt.Errorf("open-code-review produced empty output")
 	}
 	jsonStart := bytes.IndexByte(output, '{')
 	if jsonStart < 0 {
-		return review.Result{}, fmt.Errorf("open-code-review output does not contain JSON")
+		return domain.Result{}, fmt.Errorf("open-code-review output does not contain JSON")
 	}
 	prefix := strings.TrimSpace(string(output[:jsonStart]))
 	payload := bytes.TrimSpace(output[jsonStart:])
 
 	var parsed openCodeReviewOutput
 	if err := json.Unmarshal(payload, &parsed); err != nil {
-		return review.Result{}, fmt.Errorf("parse open-code-review output: %w", err)
+		return domain.Result{}, fmt.Errorf("parse open-code-review output: %w", err)
 	}
 
-	findings := make([]review.Finding, 0, len(parsed.Comments))
+	findings := make([]domain.Finding, 0, len(parsed.Comments))
 	for _, comment := range parsed.Comments {
 		line := comment.StartLine
 		if line == 0 {
 			line = comment.EndLine
 		}
-		findings = append(findings, review.Finding{
-			Severity:       review.InferSeverity(comment.Content, defaultSeverity),
+		findings = append(findings, domain.Finding{
+			Severity:       domain.InferSeverity(comment.Content, defaultSeverity),
 			Path:           comment.Path,
 			Line:           line,
 			StartLine:      comment.StartLine,
@@ -48,9 +48,9 @@ func ParseOpenCodeReviewOutput(output []byte, defaultSeverity string) (review.Re
 	}
 
 	cleaned := sanitizeRawOCR(payload)
-	result := review.Result{
+	result := domain.Result{
 		Summary: summaryText(parsed, len(findings)),
-		OCR: review.OCRMetadata{
+		OCR: domain.OCRMetadata{
 			Engine: "open-code-review",
 			Status: parsed.Status,
 		},
@@ -59,7 +59,7 @@ func ParseOpenCodeReviewOutput(output []byte, defaultSeverity string) (review.Re
 		RawOCR:   append(json.RawMessage(nil), cleaned...),
 	}
 	if prefix != "" {
-		result.Warnings = append([]review.OCRWarning{{
+		result.Warnings = append([]domain.OCRWarning{{
 			Type:    "runner_output",
 			Message: prefix,
 		}}, result.Warnings...)
@@ -87,7 +87,7 @@ type openCodeReviewOutput struct {
 	Status         string                    `json:"status"`
 	Message        string                    `json:"message"`
 	Summary        *openCodeReviewSummary    `json:"summary"`
-	ToolCalls      *review.ToolCallsMetadata `json:"tool_calls"`
+	ToolCalls      *domain.ToolCallsMetadata `json:"tool_calls"`
 	Comments       []openCodeReviewComment   `json:"comments"`
 	Warnings       []json.RawMessage         `json:"warnings"`
 	ProjectSummary string                    `json:"project_summary"`
@@ -138,15 +138,15 @@ func summaryText(parsed openCodeReviewOutput, findings int) string {
 	return fmt.Sprintf("代码评审完成：发现 %d 个问题", findings)
 }
 
-func parseWarnings(rawWarnings []json.RawMessage) []review.OCRWarning {
-	warnings := make([]review.OCRWarning, 0, len(rawWarnings))
+func parseWarnings(rawWarnings []json.RawMessage) []domain.OCRWarning {
+	warnings := make([]domain.OCRWarning, 0, len(rawWarnings))
 	for _, raw := range rawWarnings {
 		var fields map[string]any
 		if err := json.Unmarshal(raw, &fields); err != nil {
-			warnings = append(warnings, review.OCRWarning{Message: string(raw)})
+			warnings = append(warnings, domain.OCRWarning{Message: string(raw)})
 			continue
 		}
-		warning := review.OCRWarning{
+		warning := domain.OCRWarning{
 			Type:    firstString(fields, "type", "code", "kind"),
 			Message: firstString(fields, "message", "error", "reason"),
 			Path:    firstString(fields, "path", "file"),

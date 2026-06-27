@@ -6,10 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 func TestBuildSuggestionPatchSingleFinding(t *testing.T) {
-	result := BuildSuggestionPatch("r1", []Finding{{
+	result := BuildSuggestionPatch("r1", []domain.Finding{{
 		Path:           "internal/app.go",
 		StartLine:      10,
 		Title:          "Use context",
@@ -27,7 +29,7 @@ func TestBuildSuggestionPatchSingleFinding(t *testing.T) {
 }
 
 func TestBuildSuggestionPatchMultipleFiles(t *testing.T) {
-	result := BuildSuggestionPatch("r1", []Finding{
+	result := BuildSuggestionPatch("r1", []domain.Finding{
 		{Path: "b.go", Line: 3, ExistingCode: "oldB", SuggestionCode: "newB"},
 		{Path: "a.go", Line: 1, ExistingCode: "oldA\noldA2", SuggestionCode: "newA"},
 	}, nil)
@@ -44,7 +46,7 @@ func TestBuildSuggestionPatchMultipleFiles(t *testing.T) {
 }
 
 func TestBuildSuggestionPatchSkipsInvalidFindings(t *testing.T) {
-	result := BuildSuggestionPatch("r1", []Finding{
+	result := BuildSuggestionPatch("r1", []domain.Finding{
 		{Path: "", Line: 1, ExistingCode: "old", SuggestionCode: "new"},
 		{Path: "a.go", Line: 1, ExistingCode: "", SuggestionCode: "new"},
 		{Path: "a.go", Line: 1, ExistingCode: "old", SuggestionCode: ""},
@@ -68,7 +70,7 @@ func TestBuildSuggestionPatchSkipsInvalidFindings(t *testing.T) {
 }
 
 func TestBuildSuggestionPatchSkipsOverlappingRanges(t *testing.T) {
-	result := BuildSuggestionPatch("r1", []Finding{
+	result := BuildSuggestionPatch("r1", []domain.Finding{
 		{Path: "a.go", Line: 10, ExistingCode: "old1\nold2", SuggestionCode: "new1"},
 		{Path: "a.go", Line: 11, ExistingCode: "old2", SuggestionCode: "new2"},
 	}, nil)
@@ -82,7 +84,7 @@ func TestBuildSuggestionPatchSkipsOverlappingRanges(t *testing.T) {
 }
 
 func TestBuildSuggestionPatchSelectedIndexes(t *testing.T) {
-	result := BuildSuggestionPatch("r1", []Finding{
+	result := BuildSuggestionPatch("r1", []domain.Finding{
 		{Path: "a.go", Line: 1, ExistingCode: "old1", SuggestionCode: "new1"},
 		{Path: "b.go", Line: 2, ExistingCode: "old2", SuggestionCode: "new2"},
 	}, []int{1})

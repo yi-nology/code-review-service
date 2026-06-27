@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/runner"
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
@@ -61,7 +61,7 @@ type Upgrader struct {
 	installDir string // 无写权限时的回退安装目录
 
 	mu       sync.Mutex
-	state    review.UpgradeState
+	state    domain.UpgradeState
 	message  string
 	version  string
 	progress int
@@ -85,17 +85,17 @@ func NewUpgrader(store settingsStore, resolver *ConfigResolver, versioner *Versi
 		apiBase:    defaultGitHubAPIBase,
 		dlBase:     defaultDownloadBase,
 		installDir: strings.TrimSpace(installDir),
-		state:      review.UpgradeIdle,
+		state:      domain.UpgradeIdle,
 	}
 }
 
-var _ review.OCRUpgrader = (*Upgrader)(nil)
+var _ domain.OCRUpgrader = (*Upgrader)(nil)
 
 // ---------------------------------------------------------------------------
 // CheckUpdate
 // ---------------------------------------------------------------------------
 
-func (u *Upgrader) CheckUpdate(ctx context.Context) (*review.OCRUpdateInfo, error) {
+func (u *Upgrader) CheckUpdate(ctx context.Context) (*domain.OCRUpdateInfo, error) {
 	current := ""
 	if u.versioner != nil {
 		if v, err := u.versioner.OCRVersion(ctx); err == nil && v != nil {
@@ -109,7 +109,7 @@ func (u *Upgrader) CheckUpdate(ctx context.Context) (*review.OCRUpdateInfo, erro
 	}
 
 	latest := strings.TrimPrefix(rel.TagName, "v")
-	return &review.OCRUpdateInfo{
+	return &domain.OCRUpdateInfo{
 		CurrentVersion:  current,
 		LatestVersion:   latest,
 		UpdateAvailable: isNewer(current, latest),
@@ -122,16 +122,16 @@ func (u *Upgrader) CheckUpdate(ctx context.Context) (*review.OCRUpdateInfo, erro
 // Upgrade（异步）
 // ---------------------------------------------------------------------------
 
-func (u *Upgrader) Upgrade(ctx context.Context, targetVersion string) (*review.OCRUpgradeStatus, error) {
+func (u *Upgrader) Upgrade(ctx context.Context, targetVersion string) (*domain.OCRUpgradeStatus, error) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
 	switch u.state {
-	case review.UpgradeDownloading, review.UpgradeVerifying, review.UpgradeInstalling, review.UpgradeChecking:
+	case domain.UpgradeDownloading, domain.UpgradeVerifying, domain.UpgradeInstalling, domain.UpgradeChecking:
 		return u.snapshot(), errors.New("已有升级任务正在进行中")
 	}
 
-	u.state = review.UpgradeDownloading
+	u.state = domain.UpgradeDownloading
 	u.message = "准备下载"
 	u.version = targetVersion
 	u.progress = 0
@@ -145,14 +145,14 @@ func (u *Upgrader) Upgrade(ctx context.Context, targetVersion string) (*review.O
 	return u.snapshot(), nil
 }
 
-func (u *Upgrader) UpgradeStatus(_ context.Context) (*review.OCRUpgradeStatus, error) {
+func (u *Upgrader) UpgradeStatus(_ context.Context) (*domain.OCRUpgradeStatus, error) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	return u.snapshot(), nil
 }
 
-func (u *Upgrader) snapshot() *review.OCRUpgradeStatus {
-	return &review.OCRUpgradeStatus{
+func (u *Upgrader) snapshot() *domain.OCRUpgradeStatus {
+	return &domain.OCRUpgradeStatus{
 		State:    u.state,
 		Message:  u.message,
 		Version:  u.version,
@@ -160,7 +160,7 @@ func (u *Upgrader) snapshot() *review.OCRUpgradeStatus {
 	}
 }
 
-func (u *Upgrader) setState(state review.UpgradeState, msg string) {
+func (u *Upgrader) setState(state domain.UpgradeState, msg string) {
 	u.mu.Lock()
 	u.state = state
 	u.message = msg
@@ -194,7 +194,7 @@ func (u *Upgrader) runUpgrade(ctx context.Context, targetVersion string) error {
 	version := strings.TrimPrefix(rel.TagName, "v")
 
 	// 1. 下载二进制
-	u.setState(review.UpgradeDownloading, "正在下载 "+version)
+	u.setState(domain.UpgradeDownloading, "正在下载 "+version)
 	tmpDir, err := os.MkdirTemp("", "ocr-upgrade-*")
 	if err != nil {
 		u.fail("创建临时目录失败: " + err.Error())
@@ -209,7 +209,7 @@ func (u *Upgrader) runUpgrade(ctx context.Context, targetVersion string) error {
 	}
 
 	// 2. 校验 SHA256
-	u.setState(review.UpgradeVerifying, "正在校验完整性")
+	u.setState(domain.UpgradeVerifying, "正在校验完整性")
 	checksumPath := filepath.Join(tmpDir, checksumFileName)
 	if err := u.downloadAsset(ctx, rel.TagName, checksumFileName, checksumPath); err != nil {
 		u.fail("下载校验文件失败: " + err.Error())
@@ -221,7 +221,7 @@ func (u *Upgrader) runUpgrade(ctx context.Context, targetVersion string) error {
 	}
 
 	// 3. 安装（原子替换或回退目录）
-	u.setState(review.UpgradeInstalling, "正在安装 "+version)
+	u.setState(domain.UpgradeInstalling, "正在安装 "+version)
 	installedPath, err := u.installBinary(binaryPath)
 	if err != nil {
 		u.fail("安装失败: " + err.Error())
@@ -229,7 +229,7 @@ func (u *Upgrader) runUpgrade(ctx context.Context, targetVersion string) error {
 	}
 
 	u.mu.Lock()
-	u.state = review.UpgradeDone
+	u.state = domain.UpgradeDone
 	u.message = fmt.Sprintf("已升级到 %s（%s）", version, installedPath)
 	u.version = version
 	u.progress = 100
@@ -240,7 +240,7 @@ func (u *Upgrader) runUpgrade(ctx context.Context, targetVersion string) error {
 
 func (u *Upgrader) fail(msg string) {
 	u.mu.Lock()
-	u.state = review.UpgradeFailed
+	u.state = domain.UpgradeFailed
 	u.message = msg
 	u.mu.Unlock()
 }

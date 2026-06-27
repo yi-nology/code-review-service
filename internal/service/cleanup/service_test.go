@@ -33,7 +33,7 @@ func TestWorkspaceCleaner_RemovesExpiredDirs(t *testing.T) {
 	_ = os.Chtimes(nonMatchingDir, oldNonMatch, oldNonMatch)
 
 	cleaner := NewWorkspaceCleaner(
-		1*time.Hour,
+		1 * time.Hour,
 	)
 	cleaner.baseDir = tmpDir
 

@@ -99,7 +99,7 @@ func TestResolveExtraBody(t *testing.T) {
 				if !ok {
 					t.Fatalf("missing thinking in %s", got)
 				}
-				
+
 				// 检查 thinking 结构（支持 type 或 enabled 字段）
 				if thinkingType, ok := thinking["type"]; ok {
 					// Anthropic 格式
@@ -115,7 +115,7 @@ func TestResolveExtraBody(t *testing.T) {
 				} else {
 					t.Fatalf("thinking missing 'type' or 'enabled' field in %s", got)
 				}
-				
+
 				if tc.wantBudget > 0 {
 					if int(thinking["budget_tokens"].(float64)) != tc.wantBudget {
 						t.Fatalf("budget_tokens = %v, want %d", thinking["budget_tokens"], tc.wantBudget)

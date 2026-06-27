@@ -2,18 +2,19 @@ package review_service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelWebhook "github.com/yi-nology/code-review-service/biz/model/webhook"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/webhook"
 
+	"github.com/oekit/logx"
 	"github.com/oekit/pkg/convert"
 	"github.com/cloudwego/hertz/pkg/app"
-	"github.com/oekit/logx"
 )
 
 type WebhookHandler struct {
@@ -23,7 +24,7 @@ type WebhookHandler struct {
 }
 
 type ReviewCreator interface {
-	CreateFromWebhook(ctx context.Context, req review.Request, idempotencyKey string) (review.Response, error)
+	CreateFromWebhook(ctx context.Context, req domain.Request, idempotencyKey string) (domain.Response, error)
 }
 
 // InitWebhookHandler creates and initializes the WebhookHandler with the given dependencies.
@@ -81,7 +82,7 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 
 	result, err := h.webhookSvc.HandleWebhook(ctx, req.Provider, req.Installation, rawBody, eventType, deliveryID, signature, platform.WebhookSecret)
 	if err != nil {
-		if strings.Contains(err.Error(), "signature verification failed") {
+		if errors.Is(err, webhook.ErrSignatureMismatch) {
 			common.Fail(c, common.BizErr(401, "signature verification failed"))
 			return
 		}
@@ -109,7 +110,7 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 		event.HeadSHA,
 	)
 
-	reviewReq := review.Request{
+	reviewReq := domain.Request{
 		Provider:        event.Provider,
 		Repo:            event.Repository,
 		ProjectID:       event.RepositoryID,

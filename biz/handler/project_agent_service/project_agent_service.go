@@ -160,4 +160,3 @@ func DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
 		Message: "project agent deleted",
 	})
 }
-

@@ -21,25 +21,12 @@ type reviewWorkspace struct {
 	Diff    string
 }
 
-// reviewResult represents a review result
+// reviewResult represents a review result.
+// Findings 直接复用 types.Finding（= domain.Finding），不再维护独立的 reviewFinding 适配类型。
 type reviewResult struct {
 	Summary     string
-	Findings    []reviewFinding
+	Findings    []Finding
 	TotalTokens int64
-}
-
-// reviewFinding represents a review finding
-type reviewFinding struct {
-	Severity       string
-	Path           string
-	Line           int
-	StartLine      int
-	EndLine        int
-	Title          string
-	Body           string
-	ExistingCode   string
-	SuggestionCode string
-	Thinking       string
 }
 
 // ocrAgent wraps the existing OpenCodeReviewRunner as a reviewAgent
@@ -110,22 +97,20 @@ func (a *ocrAgent) Review(ctx context.Context, workspace Workspace) (AgentResult
 	}
 	duration := time.Since(startTime)
 
+	// 富化 runner 产出的 findings：补充 ID/分类/置信度/归属 agent，
+	// 同时保留原始的 ExistingCode/SuggestionCode/StartLine 等字段（无字段丢失）。
 	findings := make([]Finding, len(result.Findings))
 	for i, f := range result.Findings {
-		findings[i] = Finding{
-			ID:         types.GenerateID(),
-			Severity:   f.Severity,
-			Category:   inferCategoryFromReview(f),
-			Path:       f.Path,
-			Line:       f.Line,
-			EndLine:    f.EndLine,
-			Title:      f.Title,
-			Body:       f.Body,
-			Suggestion: f.SuggestionCode,
-			Thinking:   f.Thinking,
-			Confidence: 0.8,
-			Agents:     []string{a.config.Name},
+		f.ID = types.GenerateID()
+		f.Category = inferCategoryFromReview(f)
+		if f.Confidence == 0 {
+			f.Confidence = 0.8
 		}
+		f.Agents = []string{a.config.Name}
+		if f.Suggestion == "" {
+			f.Suggestion = f.SuggestionCode
+		}
+		findings[i] = f
 	}
 
 	return AgentResult{
@@ -139,7 +124,7 @@ func (a *ocrAgent) Review(ctx context.Context, workspace Workspace) (AgentResult
 	}, nil
 }
 
-func inferCategoryFromReview(f reviewFinding) string {
+func inferCategoryFromReview(f Finding) string {
 	title := f.Title
 	body := f.Body
 	if types.ContainsAny(title, body, "security", "vulnerability", "injection", "xss", "csrf", "auth") {

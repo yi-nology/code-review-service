@@ -1,6 +1,7 @@
 package review
 
 import (
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/scoring"
 )
 
@@ -16,19 +17,19 @@ const (
 func isOCRComplete(status string) bool { return scoring.IsOCRComplete(status) }
 
 // BuildReport 基于审查结果组装最终报告，评分委托给 scoring.Compute。
-func BuildReport(result *Result) Report {
+func BuildReport(result *domain.Result) domain.Report {
 	if result == nil {
-		return Report{}
+		return domain.Report{}
 	}
-	counts := SeverityCounts{}
+	counts := domain.SeverityCounts{}
 	for index := range result.Findings {
 		result.Findings[index].Category = classifyFinding(result.Findings[index])
 		switch result.Findings[index].Severity {
-		case SeverityCritical:
+		case domain.SeverityCritical:
 			counts.Critical++
-		case SeverityMajor:
+		case domain.SeverityMajor:
 			counts.Major++
-		case SeverityMinor:
+		case domain.SeverityMinor:
 			counts.Minor++
 		default:
 			counts.Info++
@@ -44,7 +45,7 @@ func BuildReport(result *Result) Report {
 
 	complete := isOCRComplete(result.OCR.Status)
 
-	return Report{
+	return domain.Report{
 		OCR:      result.OCR,
 		Scope:    result.Scope,
 		Warnings: result.Warnings,

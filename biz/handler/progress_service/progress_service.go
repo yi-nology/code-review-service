@@ -2,13 +2,14 @@ package progress_service
 
 import (
 	"context"
+	"strings"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelProgress "github.com/yi-nology/code-review-service/biz/model/progress"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 
-	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/oekit/logx"
+	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/hertz-contrib/websocket"
 )
 
@@ -23,13 +24,27 @@ func InitHandler(progressManager *progress.ProgressManager) {
 	handlerInst = &ProgressWSHandler{
 		progressManager: progressManager,
 		upgrader: websocket.HertzUpgrader{
-			CheckOrigin: func(r *app.RequestContext) bool {
-				return true
-			},
+			// 仅允许同源连接，避免跨站 WebSocket 劫持（CSRF/CSWSH）。
+			// 反向代理部署时需保证转发了正确的 Host/Origin 头。
+			CheckOrigin:     sameOrigin,
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
 	}
+}
+
+// sameOrigin 校验请求 Origin 与当前 Host 同源。
+// Origin 缺失（部分非浏览器客户端）时放行，由 Bearer 认证保障安全。
+func sameOrigin(r *app.RequestContext) bool {
+	origin := string(r.GetHeader("Origin"))
+	if origin == "" {
+		return true
+	}
+	host := string(r.GetHeader("Host"))
+	return strings.HasPrefix(origin, "http://"+host) ||
+		strings.HasPrefix(origin, "https://"+host) ||
+		strings.HasPrefix(origin, "ws://"+host) ||
+		strings.HasPrefix(origin, "wss://"+host)
 }
 
 func HandleProgressWS(ctx context.Context, c *app.RequestContext) {

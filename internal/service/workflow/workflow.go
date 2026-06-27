@@ -9,8 +9,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/discussion"
 	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
-	"github.com/oekit/workflow"
 	"github.com/oekit/logx"
+	"github.com/oekit/workflow"
 )
 
 // ReviewWorkflow orchestrates the multi-agent review process

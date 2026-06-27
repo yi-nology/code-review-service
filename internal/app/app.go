@@ -5,19 +5,20 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/yi-nology/git-platform-sdk/provider"
 )
 
 type ReviewService interface {
-	Create(context.Context, review.Request, string) (review.Response, error)
-	Get(context.Context, string) (review.Record, bool, error)
+	Create(context.Context, domain.Request, string) (domain.Response, error)
+	Get(context.Context, string) (domain.Record, bool, error)
 	List(context.Context, review.ListOptions) (review.ListResult, error)
-	Preview(context.Context, review.Request) ([]string, error)
-	Scan(context.Context, review.ScanRequest) (*review.ScanResult, error)
+	Preview(context.Context, domain.Request) ([]string, error)
+	Scan(context.Context, domain.ScanRequest) (*domain.ScanResult, error)
 	CheckSuggestionPatch(context.Context, string, []int) (*review.SuggestionPatchCheck, bool, error)
-	Requeue(context.Context, string) (review.Response, error)
-	Cancel(context.Context, string) (review.Response, error)
+	Requeue(context.Context, string) (domain.Response, error)
+	Cancel(context.Context, string) (domain.Response, error)
 }
 
 type GitProviderManager interface {

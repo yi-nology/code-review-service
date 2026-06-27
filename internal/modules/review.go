@@ -65,6 +65,7 @@ func NewExecutorService(deps ExecutorDeps) *executor.Service {
 		ReviewRepo:      deps.Repos.Review,
 		ProjectRepo:     deps.Repos.ProjectPolicy,
 		GlobalRulesRepo: deps.Repos.GlobalRules,
+		RulePackageRepo: deps.Repos.OCRRulePackage,
 		Runner:          deps.OcrRunner,
 		Writeback:       deps.WritebackPub,
 		Policy:          deps.PolicyEngine,

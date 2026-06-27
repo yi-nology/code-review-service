@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	"github.com/oekit/logx"
@@ -21,7 +22,12 @@ type ruleFile struct {
 	Rules []ruleEntry `json:"rules"`
 }
 
-func (s *Service) resolveRuleFile(ctx context.Context, projectPolicy models.ProjectPolicy) (string, func(), error) {
+// ResolveRuleFile 合并项目规则、规则包（rule packages）与全局规则，
+// 写入临时文件并返回路径与清理函数。无规则时返回 ("", nil, nil)。
+//
+// 作为 review 与 executor 路径的单一实现（含 rule packages），消除重复，
+// 并修复此前 executor 路径丢失 rule packages 处理的问题。
+func ResolveRuleFile(ctx context.Context, projectPolicy models.ProjectPolicy, rulePackageRepo repository.OCRRulePackageRepository, globalRulesRepo repository.GlobalRulesRepository) (string, func(), error) {
 	var merged []ruleEntry
 
 	if len(projectPolicy.Rules) > 0 {
@@ -33,8 +39,8 @@ func (s *Service) resolveRuleFile(ctx context.Context, projectPolicy models.Proj
 		}
 	}
 
-	if s.rulePackageRepo != nil {
-		packages, err := s.rulePackageRepo.List(ctx)
+	if rulePackageRepo != nil {
+		packages, err := rulePackageRepo.List(ctx)
 		if err != nil {
 			logx.Warn("failed to load rule packages", "error", err)
 		} else {
@@ -53,15 +59,17 @@ func (s *Service) resolveRuleFile(ctx context.Context, projectPolicy models.Proj
 		}
 	}
 
-	globalRules, err := s.globalRulesRepo.Get(ctx)
-	if err != nil {
-		logx.Warn("failed to load global rules", "error", err)
-	} else if globalRules != nil && len(globalRules.Rules) > 0 {
-		var globalEntries []ruleEntry
-		if err := json.Unmarshal(globalRules.Rules, &globalEntries); err != nil {
-			logx.Warn("failed to decode global rules", "error", err)
-		} else {
-			merged = append(merged, globalEntries...)
+	if globalRulesRepo != nil {
+		globalRules, err := globalRulesRepo.Get(ctx)
+		if err != nil {
+			logx.Warn("failed to load global rules", "error", err)
+		} else if globalRules != nil && len(globalRules.Rules) > 0 {
+			var globalEntries []ruleEntry
+			if err := json.Unmarshal(globalRules.Rules, &globalEntries); err != nil {
+				logx.Warn("failed to decode global rules", "error", err)
+			} else {
+				merged = append(merged, globalEntries...)
+			}
 		}
 	}
 

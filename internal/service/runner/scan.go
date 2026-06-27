@@ -12,11 +12,12 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/pkg/convert"
 )
 
-func (r *DynamicOpenCodeReviewRunner) Scan(ctx context.Context, workspace review.Workspace, req review.ScanRequest) (*review.ScanResult, error) {
+func (r *DynamicOpenCodeReviewRunner) Scan(ctx context.Context, workspace domain.Workspace, req domain.ScanRequest) (*domain.ScanResult, error) {
 	s, err := r.settings.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("读取 OCR 配置失败: %w", err)
@@ -31,13 +32,13 @@ func (r *DynamicOpenCodeReviewRunner) Scan(ctx context.Context, workspace review
 
 	cfg := r.buildConfig(s, workspace.OCR)
 	if strings.TrimSpace(cfg.ToolsPath) == "" && strings.TrimSpace(cfg.ToolsConfig) == "" {
-		cfg.ToolsConfig = r.defaultToolConfig("scan")
+		cfg.ToolsConfig = DefaultToolConfig(r.toolPackages, "scan")
 	}
 	ocr := &OpenCodeReviewRunner{config: cfg}
 	return ocr.Scan(ctx, workspace, req)
 }
 
-func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace review.Workspace, req review.ScanRequest) (*review.ScanResult, error) {
+func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace domain.Workspace, req domain.ScanRequest) (*domain.ScanResult, error) {
 	if strings.TrimSpace(workspace.Dir) == "" {
 		return nil, fmt.Errorf("open-code-review scan requires a checked out workspace")
 	}
@@ -140,7 +141,7 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace review.Worksp
 
 	output := bytes.TrimSpace(stdout.Bytes())
 	if req.Preview {
-		return &review.ScanResult{PreviewFiles: parsePreviewFiles(output)}, nil
+		return &domain.ScanResult{PreviewFiles: parsePreviewFiles(output)}, nil
 	}
 
 	result, err := ParseOpenCodeReviewOutput(output, r.config.DefaultSeverity)
@@ -153,7 +154,7 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace review.Worksp
 	}
 	report := review.BuildReport(&result)
 	analysis := review.BuildAnalysis(result)
-	return &review.ScanResult{
+	return &domain.ScanResult{
 		Result:   &result,
 		Report:   &report,
 		Analysis: &analysis,
@@ -191,5 +192,5 @@ func parsePreviewFiles(output []byte) []string {
 	return files
 }
 
-var _ review.ScanRunner = (*OpenCodeReviewRunner)(nil)
-var _ review.ScanRunner = (*DynamicOpenCodeReviewRunner)(nil)
+var _ domain.ScanRunner = (*OpenCodeReviewRunner)(nil)
+var _ domain.ScanRunner = (*DynamicOpenCodeReviewRunner)(nil)

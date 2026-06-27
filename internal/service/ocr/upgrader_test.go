@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // ---------------------------------------------------------------------------
@@ -303,7 +303,7 @@ func newTestUpgrader(t *testing.T, srvURL string, installDir string) *Upgrader {
 		apiBase:    srvURL,
 		dlBase:     srvURL,
 		installDir: installDir,
-		state:      review.UpgradeIdle,
+		state:      domain.UpgradeIdle,
 	}
 	return u
 }
@@ -405,24 +405,24 @@ func TestUpgradeEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Upgrade() error: %v", err)
 	}
-	if status.State != review.UpgradeDownloading && status.State != review.UpgradeDone {
+	if status.State != domain.UpgradeDownloading && status.State != domain.UpgradeDone {
 		t.Fatalf("initial state = %q, want downloading or done", status.State)
 	}
 
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		s, _ := u.UpgradeStatus(context.Background())
-		if s.State == review.UpgradeDone {
+		if s.State == domain.UpgradeDone {
 			break
 		}
-		if s.State == review.UpgradeFailed {
+		if s.State == domain.UpgradeFailed {
 			t.Fatalf("upgrade failed: %s", s.Message)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 
 	s, _ := u.UpgradeStatus(context.Background())
-	if s.State != review.UpgradeDone {
+	if s.State != domain.UpgradeDone {
 		t.Fatalf("final state = %q, want done (msg: %s)", s.State, s.Message)
 	}
 
@@ -467,7 +467,7 @@ func TestUpgradeStatusIdle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpgradeStatus() error: %v", err)
 	}
-	if status.State != review.UpgradeIdle {
+	if status.State != domain.UpgradeIdle {
 		t.Fatalf("state = %q, want idle", status.State)
 	}
 }
@@ -501,13 +501,13 @@ func TestUpgradeChecksumFailure(t *testing.T) {
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		s, _ := u.UpgradeStatus(context.Background())
-		if s.State == review.UpgradeFailed {
+		if s.State == domain.UpgradeFailed {
 			if !strings.Contains(s.Message, "校验") && !strings.Contains(s.Message, "不匹配") {
 				t.Fatalf("failure message = %q, want contains '校验' or '不匹配'", s.Message)
 			}
 			return
 		}
-		if s.State == review.UpgradeDone {
+		if s.State == domain.UpgradeDone {
 			t.Fatal("upgrade should fail due to checksum mismatch")
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -517,12 +517,12 @@ func TestUpgradeChecksumFailure(t *testing.T) {
 
 func TestSnapshot(t *testing.T) {
 	u := &Upgrader{
-		state:   review.UpgradeDownloading,
+		state:   domain.UpgradeDownloading,
 		message: "downloading...",
 		version: "1.6.4",
 	}
 	s := u.snapshot()
-	if s.State != review.UpgradeDownloading {
+	if s.State != domain.UpgradeDownloading {
 		t.Fatalf("state = %q, want downloading", s.State)
 	}
 	if s.Message != "downloading..." {

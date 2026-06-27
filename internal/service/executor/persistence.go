@@ -10,6 +10,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/oekit/logx"
 	"gorm.io/datatypes"
@@ -17,11 +18,11 @@ import (
 
 func (s *Service) appendHistory(ctx context.Context, id, stage, status, message string, details map[string]any) {
 	err := s.reviewRepo.UpdateInTransaction(ctx, id, func(r *models.Review) error {
-		var resp review.Response
+		var resp domain.Response
 		if err := json.Unmarshal(r.Response, &resp); err != nil {
 			return fmt.Errorf("decode response: %w", err)
 		}
-		resp.History = append(resp.History, review.Event{
+		resp.History = append(resp.History, domain.Event{
 			Stage:     stage,
 			Status:    status,
 			Message:   message,
@@ -39,17 +40,17 @@ func (s *Service) appendHistory(ctx context.Context, id, stage, status, message 
 
 func (s *Service) updateStatus(ctx context.Context, id, status string) error {
 	return s.reviewRepo.UpdateInTransaction(ctx, id, func(r *models.Review) error {
-		var resp review.Response
+		var resp domain.Response
 		if err := json.Unmarshal(r.Response, &resp); err != nil {
 			return fmt.Errorf("decode review response: %w", err)
 		}
 		previousStatus := resp.Status
-		previousHistory := append([]review.Event(nil), resp.History...)
+		previousHistory := append([]domain.Event(nil), resp.History...)
 		resp.Status = status
 		resp.Summary = "review " + status
 		resp.History = previousHistory
 		if status != previousStatus {
-			resp.History = append(resp.History, review.Event{
+			resp.History = append(resp.History, domain.Event{
 				Stage:     status,
 				Status:    review.StatusEventState(status),
 				Message:   review.StatusEventMessage(status),
@@ -64,7 +65,7 @@ func (s *Service) updateStatus(ctx context.Context, id, status string) error {
 	})
 }
 
-func (s *Service) updateWithRawOCR(ctx context.Context, id string, req review.Request, response review.Response, rawOCR json.RawMessage) error {
+func (s *Service) updateWithRawOCR(ctx context.Context, id string, req domain.Request, response domain.Response, rawOCR json.RawMessage) error {
 	r, err := s.reviewRepo.GetByReviewID(ctx, id)
 	if err != nil && !errors.Is(err, repository.ErrNotFound) {
 		return err
@@ -79,17 +80,17 @@ func (s *Service) updateWithRawOCR(ctx context.Context, id string, req review.Re
 		}
 	}
 
-	var previousResponse review.Response
+	var previousResponse domain.Response
 	if err := json.Unmarshal(r.Response, &previousResponse); err != nil {
 		return fmt.Errorf("decode previous response: %w", err)
 	}
 	previousStatus := previousResponse.Status
-	previousHistory := append([]review.Event(nil), previousResponse.History...)
+	previousHistory := append([]domain.Event(nil), previousResponse.History...)
 	if len(response.History) == 0 {
 		response.History = previousHistory
 	}
 	if response.Status != "" && response.Status != previousStatus {
-		response.History = append(response.History, review.Event{
+		response.History = append(response.History, domain.Event{
 			Stage:     response.Status,
 			Status:    review.StatusEventState(response.Status),
 			Message:   review.StatusEventMessage(response.Status),
@@ -109,7 +110,7 @@ func (s *Service) updateWithRawOCR(ctx context.Context, id string, req review.Re
 	return s.reviewRepo.Save(ctx, r)
 }
 
-func (s *Service) updateRequestSHAs(ctx context.Context, id string, req review.Request) {
+func (s *Service) updateRequestSHAs(ctx context.Context, id string, req domain.Request) {
 	r, err := s.reviewRepo.GetByReviewID(ctx, id)
 	if err != nil {
 		return
@@ -121,7 +122,7 @@ func (s *Service) updateRequestSHAs(ctx context.Context, id string, req review.R
 	}
 }
 
-func (s *Service) updateWithOCRInput(ctx context.Context, id string, ocrInput review.OCRInput) error {
+func (s *Service) updateWithOCRInput(ctx context.Context, id string, ocrInput domain.OCRInput) error {
 	r, err := s.reviewRepo.GetByReviewID(ctx, id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {

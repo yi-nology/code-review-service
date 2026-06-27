@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/runner"
 )
 
@@ -50,7 +50,7 @@ type ocrRunnerAdapter struct {
 }
 
 func (a *ocrRunnerAdapter) Run(ctx context.Context, workspace reviewWorkspace) (reviewResult, error) {
-	reviewWs := review.Workspace{
+	reviewWs := domain.Workspace{
 		Dir:     workspace.Dir,
 		BaseSHA: workspace.BaseSHA,
 		HeadSHA: workspace.HeadSHA,
@@ -62,25 +62,10 @@ func (a *ocrRunnerAdapter) Run(ctx context.Context, workspace reviewWorkspace) (
 		return reviewResult{}, err
 	}
 
-	findings := make([]reviewFinding, len(result.Findings))
-	for i, f := range result.Findings {
-		findings[i] = reviewFinding{
-			Severity:       string(f.Severity),
-			Path:           f.Path,
-			Line:           f.Line,
-			StartLine:      f.StartLine,
-			EndLine:        f.EndLine,
-			Title:          f.Title,
-			Body:           f.Body,
-			ExistingCode:   f.ExistingCode,
-			SuggestionCode: f.SuggestionCode,
-			Thinking:       f.Thinking,
-		}
-	}
-
+	// domain.Finding = types.Finding = Finding，直接透传，无需逐字段转换。
 	return reviewResult{
 		Summary:     result.Summary,
-		Findings:    findings,
+		Findings:    result.Findings,
 		TotalTokens: result.OCR.TotalTokens,
 	}, nil
 }

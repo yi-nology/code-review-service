@@ -366,26 +366,30 @@ golangci-lint run ./...
 ├── frontend/             # Vue.js 前端
 ├── idl/                  # Thrift IDL 定义
 ├── internal/
-│   ├── config/           # 配置加载
-│   ├── errors/           # 统一错误类型
-│   ├── middleware/        # HTTP 中间件
+│   ├── app/              # 应用层接口（handler 依赖的服务接口）
+│   ├── config/           # 配置加载与校验
+│   ├── middleware/        # HTTP 中间件（认证 / 限流 / 安全头）
 │   ├── modules/          # uber/fx 依赖注入模块
-│   ├── repository/       # 数据访问层接口和实现
+│   ├── readiness/        # 健康就绪检查器（DB / OCR 二进制 / LLM endpoint）
+│   ├── repository/       # 数据访问层接口和实现（postgres）
+│   ├── vcs/              # Git 操作封装
 │   └── service/          # 业务逻辑层
 │       ├── agent/        # 多 Agent 管理
 │       ├── discussion/   # Agent 讨论编排
-│       ├── executor/     # 评审执行器
-│       ├── ocr/          # OCR 子组件
+│       ├── executor/     # 评审执行器（单 runner / 工作流分流）
+│       ├── llm/          # 进程内 LLM 客户端
+│       ├── ocr/          # OCR 二进制生命周期（升级 / 测试 / 视图）
 │       ├── policy/       # 质量门禁策略
-│       ├── progress/     # 进度追踪
+│       ├── progress/     # 进度追踪 + WebSocket 广播
 │       ├── provider/     # Git 平台适配
 │       ├── requirements/ # 需求解析
-│       ├── review/       # 评审核心逻辑
-│       ├── reviewmap/    # 评审地图生成
-│       ├── runner/       # OCR 运行器
+│       ├── review/       # 评审核心逻辑（Service / Worker / 报告构建）
+│       │   └── domain/   # 纯领域类型与接口（Request/Response/Result/Finding/...）
+│       ├── runner/       # OCR 运行器（子进程封装 + 配置合并）
+│       ├── scoring/      # 评分计算（纯函数）
 │       ├── session/      # 会话管理
 │       ├── stats/        # 统计分析
-│       ├── types/        # 共享类型
+│       ├── types/        # 共享领域类型（Finding / Severity 等）
 │       ├── webhook/      # Webhook 处理
 │       ├── workflow/     # 多阶段工作流
 │       └── writeback/    # 评论回写

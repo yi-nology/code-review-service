@@ -7,7 +7,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/types"
 
 	"github.com/oekit/logx"
@@ -42,7 +42,7 @@ func NewOrchestrator(cfg OrchestratorConfig) *Orchestrator {
 	}
 }
 
-func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result review.Result, diff string) (*review.WritebackResult, error) {
+func (o *Orchestrator) Publish(ctx context.Context, req domain.Request, result domain.Result, diff string) (*domain.WritebackResult, error) {
 	adapter, ok := o.adapters[req.Provider]
 	if !ok {
 		return nil, fmt.Errorf("no writeback adapter for provider %q", req.Provider)
@@ -134,7 +134,7 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 
 	if wbResult.ReviewID == "" && len(wbResult.Comments) == 0 {
 		logx.Info("writeback skipped (stale or empty)")
-		return &review.WritebackResult{Skipped: true}, nil
+		return &domain.WritebackResult{Skipped: true}, nil
 	}
 
 	serviceReviewID := strings.TrimSpace(req.ReviewID)
@@ -172,7 +172,7 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 		"published", published,
 		"failed", failed,
 	)
-	return &review.WritebackResult{Published: published, Failed: failed}, nil
+	return &domain.WritebackResult{Published: published, Failed: failed}, nil
 }
 
 func (o *Orchestrator) Status(ctx context.Context, reviewID string) (*PublishStatus, error) {
@@ -209,21 +209,21 @@ func (o *Orchestrator) Status(ctx context.Context, reviewID string) (*PublishSta
 	return status, nil
 }
 
-func findSeverity(findings []review.Finding, i int) review.Severity {
+func findSeverity(findings []domain.Finding, i int) string {
 	if i < len(findings) {
 		return findings[i].Severity
 	}
-	return review.SeverityInfo
+	return domain.SeverityInfo
 }
 
-func findTitle(findings []review.Finding, i int) string {
+func findTitle(findings []domain.Finding, i int) string {
 	if i < len(findings) {
 		return findings[i].Title
 	}
 	return ""
 }
 
-func findExistingCode(findings []review.Finding, i int) string {
+func findExistingCode(findings []domain.Finding, i int) string {
 	if i < len(findings) {
 		return findings[i].ExistingCode
 	}

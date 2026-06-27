@@ -14,6 +14,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	ekitGorm "github.com/oekit/gormx"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -184,41 +185,41 @@ func (m *mockProjectPolicyRepo) Delete(_ context.Context, _, _ string) error {
 }
 
 type testProviders struct {
-	providers map[string]review.Provider
+	providers map[string]domain.Provider
 }
 
 func newTestProviders(p ...testProvider) *testProviders {
-	m := make(map[string]review.Provider)
+	m := make(map[string]domain.Provider)
 	for _, prov := range p {
 		m[prov.name] = prov
 	}
 	return &testProviders{providers: m}
 }
 
-func (t *testProviders) Get(name string) (review.Provider, bool) {
+func (t *testProviders) Get(name string) (domain.Provider, bool) {
 	p, ok := t.providers[name]
 	return p, ok
 }
 
 type testProvider struct {
 	name    string
-	prepare func(ctx context.Context, req review.Request) (review.Workspace, error)
+	prepare func(ctx context.Context, req domain.Request) (domain.Workspace, error)
 }
 
-func (t testProvider) Prepare(ctx context.Context, req review.Request) (review.Workspace, error) {
+func (t testProvider) Prepare(ctx context.Context, req domain.Request) (domain.Workspace, error) {
 	if t.prepare != nil {
 		return t.prepare(ctx, req)
 	}
-	return review.Workspace{Repo: req.Repo, BaseSHA: req.BaseSHA, HeadSHA: req.HeadSHA}, nil
+	return domain.Workspace{Repo: req.Repo, BaseSHA: req.BaseSHA, HeadSHA: req.HeadSHA}, nil
 }
 
 type blockingRunner struct{}
 
-func (blockingRunner) Run(_ context.Context, w review.Workspace) (review.Result, error) {
-	return review.Result{
+func (blockingRunner) Run(_ context.Context, w domain.Workspace) (domain.Result, error) {
+	return domain.Result{
 		Summary:  "review completed",
-		Findings: []review.Finding{},
-		OCR:      review.OCRMetadata{Engine: "test", Status: "success", FilesReviewed: 1},
+		Findings: []domain.Finding{},
+		OCR:      domain.OCRMetadata{Engine: "test", Status: "success", FilesReviewed: 1},
 	}, nil
 }
 
@@ -226,20 +227,20 @@ type failingRunner struct {
 	err error
 }
 
-func (f failingRunner) Run(_ context.Context, _ review.Workspace) (review.Result, error) {
-	return review.Result{}, f.err
+func (f failingRunner) Run(_ context.Context, _ domain.Workspace) (domain.Result, error) {
+	return domain.Result{}, f.err
 }
 
 type staticRunner struct {
-	result review.Result
+	result domain.Result
 }
 
-func (s staticRunner) Run(_ context.Context, _ review.Workspace) (review.Result, error) {
+func (s staticRunner) Run(_ context.Context, _ domain.Workspace) (domain.Result, error) {
 	return s.result, nil
 }
 
 type mockExecutor struct {
-	runner review.Runner
+	runner domain.Runner
 	repo   reviewUpdater
 }
 
@@ -247,13 +248,13 @@ type reviewUpdater interface {
 	updateReviewStatus(id, status string)
 }
 
-func (e mockExecutor) Execute(ctx context.Context, id string, req review.Request, provider review.Provider, _ progress.ProgressReporter) (review.Response, error) {
+func (e mockExecutor) Execute(ctx context.Context, id string, req domain.Request, provider domain.Provider, _ progress.ProgressReporter) (domain.Response, error) {
 	workspace, err := provider.Prepare(ctx, req)
 	if err != nil {
 		if e.repo != nil {
 			e.repo.updateReviewStatus(id, "failed")
 		}
-		return review.Response{ReviewID: id, Status: "failed", Error: err.Error()}, err
+		return domain.Response{ReviewID: id, Status: "failed", Error: err.Error()}, err
 	}
 
 	result, err := e.runner.Run(ctx, workspace)
@@ -261,7 +262,7 @@ func (e mockExecutor) Execute(ctx context.Context, id string, req review.Request
 		if e.repo != nil {
 			e.repo.updateReviewStatus(id, "failed")
 		}
-		return review.Response{ReviewID: id, Status: "failed", Error: err.Error(), Gate: review.ErrorGate("review execution failed")}, err
+		return domain.Response{ReviewID: id, Status: "failed", Error: err.Error(), Gate: domain.ErrorGate("review execution failed")}, err
 	}
 
 	result.Scope = workspace.Scope
@@ -270,14 +271,14 @@ func (e mockExecutor) Execute(ctx context.Context, id string, req review.Request
 
 	gate := policy.NewEngine(policy.Config{FailOn: "critical"}).Evaluate(toPolicyFindings(result.Findings))
 
-	resp := review.Response{
+	resp := domain.Response{
 		ReviewID: id,
 		Status:   "success",
 		Summary:  result.Summary,
 		Report:   report,
 		Analysis: analysis,
 		Findings: result.Findings,
-		Gate:     review.CompletedGate(gate.Passed, gate.Reason),
+		Gate:     domain.CompletedGate(gate.Passed, gate.Reason),
 	}
 
 	if e.repo != nil {
@@ -308,19 +309,19 @@ func (m *mockReviewRepoWithActive) updateReviewStatus(id, status string) {
 	}
 }
 
-func toPolicyFindings(findings []review.Finding) []policy.Finding {
+func toPolicyFindings(findings []domain.Finding) []policy.Finding {
 	result := make([]policy.Finding, len(findings))
 	for i, f := range findings {
-		result[i] = policy.Finding{Severity: string(f.Severity), Path: f.Path}
+		result[i] = policy.Finding{Severity: f.Severity, Path: f.Path}
 	}
 	return result
 }
 
-func newTestService(repo *mockReviewRepo, runner review.Runner) *review.Service {
+func newTestService(repo *mockReviewRepo, runner domain.Runner) *review.Service {
 	return newTestServiceWithPolicy(repo, runner, policy.Config{FailOn: "critical"})
 }
 
-func newTestServiceWithPolicy(repo *mockReviewRepo, runner review.Runner, policyCfg policy.Config) *review.Service {
+func newTestServiceWithPolicy(repo *mockReviewRepo, runner domain.Runner, policyCfg policy.Config) *review.Service {
 	return review.NewService(review.ServiceConfig{
 		ReviewRepo:      repo,
 		OCRSettingsRepo: &mockOCRSettingsRepo{},
@@ -332,8 +333,8 @@ func newTestServiceWithPolicy(repo *mockReviewRepo, runner review.Runner, policy
 	})
 }
 
-func validRequest() review.Request {
-	return review.Request{
+func validRequest() domain.Request {
+	return domain.Request{
 		Provider: "github",
 		Repo:     "acme/app",
 		BaseSHA:  "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
@@ -442,12 +443,12 @@ func TestCreateAsyncStaysQueuedUntilWorkerClaimsIt(t *testing.T) {
 
 func TestCreateSyncReturnsFindings(t *testing.T) {
 	repo := &mockReviewRepo{}
-	result := review.Result{
+	result := domain.Result{
 		Summary: "found issues",
-		OCR:     review.OCRMetadata{Engine: "test", Status: "success", FilesReviewed: 2},
-		Findings: []review.Finding{
-			{Severity: review.SeverityCritical, Path: "main.go", Title: "SQL Injection", Body: "SQL injection vulnerability"},
-			{Severity: review.SeverityMajor, Path: "util.go", Title: "Error Handling", Body: "Unchecked error"},
+		OCR:     domain.OCRMetadata{Engine: "test", Status: "success", FilesReviewed: 2},
+		Findings: []domain.Finding{
+			{Severity: domain.SeverityCritical, Path: "main.go", Title: "SQL Injection", Body: "SQL injection vulnerability"},
+			{Severity: domain.SeverityMajor, Path: "util.go", Title: "Error Handling", Body: "Unchecked error"},
 		},
 	}
 	svc := newTestService(repo, staticRunner{result: result})
@@ -465,7 +466,7 @@ func TestCreateSyncReturnsFindings(t *testing.T) {
 	if resp.Report.Score.Value >= 100 {
 		t.Fatalf("expected score < 100 with critical findings, got %d", resp.Report.Score.Value)
 	}
-	if resp.Gate.Status != review.GateFailed {
+	if resp.Gate.Status != domain.GateFailed {
 		t.Fatalf("expected gate failed with critical findings, got %s", resp.Gate.Status)
 	}
 }
@@ -533,7 +534,7 @@ func TestCreateRejectsIdempotencyKeyReuseWithDifferentRequest(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for idempotency key reuse with different request")
 	}
-	if !errors.Is(err, review.ErrIdempotencyConflict) {
+	if !errors.Is(err, domain.ErrIdempotencyConflict) {
 		t.Fatalf("expected ErrIdempotencyConflict, got: %v", err)
 	}
 }
@@ -615,9 +616,9 @@ func TestCreateRequiresRepo(t *testing.T) {
 func TestRequeueFailedReview(t *testing.T) {
 	repo := &mockReviewRepo{}
 	svc := newTestService(repo, staticRunner{
-		result: review.Result{
+		result: domain.Result{
 			Summary:  "found issues",
-			Findings: []review.Finding{{Severity: review.SeverityCritical, Path: "main.go", Title: "bug"}},
+			Findings: []domain.Finding{{Severity: domain.SeverityCritical, Path: "main.go", Title: "bug"}},
 		},
 	})
 
@@ -637,7 +638,7 @@ func TestRequeueFailedReview(t *testing.T) {
 	if requeued.Status != "queued" {
 		t.Fatalf("expected queued after requeue, got %s", requeued.Status)
 	}
-	if requeued.Gate.Status != review.GatePending {
+	if requeued.Gate.Status != domain.GatePending {
 		t.Fatalf("expected gate pending after requeue, got %s", requeued.Gate.Status)
 	}
 	if len(requeued.Findings) != 0 {
@@ -729,7 +730,7 @@ func TestCancelQueuedReview(t *testing.T) {
 	if cancelled.Status != "failed" {
 		t.Fatalf("expected failed after cancel, got %s", cancelled.Status)
 	}
-	if cancelled.Gate.Status != review.GateError {
+	if cancelled.Gate.Status != domain.GateError {
 		t.Fatalf("expected gate error after cancel, got %s", cancelled.Gate.Status)
 	}
 	if cancelled.Summary != "review cancelled by user" {
@@ -772,7 +773,7 @@ func TestCancelRejectsRunningReview(t *testing.T) {
 func TestCancelRejectsCompletedReview(t *testing.T) {
 	repo := &mockReviewRepo{}
 	svc := newTestService(repo, staticRunner{
-		result: review.Result{Summary: "ok"},
+		result: domain.Result{Summary: "ok"},
 	})
 
 	req := validRequest()
@@ -862,12 +863,12 @@ type countingRunner struct {
 	count int
 }
 
-func (r *countingRunner) Run(_ context.Context, _ review.Workspace) (review.Result, error) {
+func (r *countingRunner) Run(_ context.Context, _ domain.Workspace) (domain.Result, error) {
 	r.count++
-	return review.Result{
+	return domain.Result{
 		Summary:  "ok",
-		Findings: []review.Finding{},
-		OCR:      review.OCRMetadata{Engine: "test", Status: "success"},
+		Findings: []domain.Finding{},
+		OCR:      domain.OCRMetadata{Engine: "test", Status: "success"},
 	}, nil
 }
 
@@ -894,7 +895,7 @@ func TestFindActiveReviewReturnsExisting(t *testing.T) {
 		Repo:     req.Repo,
 		Status:   "queued",
 		Request:  mustMarshalJSON(req),
-		Response: mustMarshalJSON(review.Response{
+		Response: mustMarshalJSON(domain.Response{
 			ReviewID: "existing-review",
 			Status:   "queued",
 			Summary:  "queued",

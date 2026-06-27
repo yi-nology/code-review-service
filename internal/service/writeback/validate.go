@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/types"
 )
 
@@ -13,7 +13,7 @@ type ValidatedComment struct {
 	ValidLocation bool
 }
 
-func ValidateFindings(findings []review.Finding, diffIndex *DiffIndex) []ValidatedComment {
+func ValidateFindings(findings []domain.Finding, diffIndex *DiffIndex) []ValidatedComment {
 	var result []ValidatedComment
 	for _, f := range findings {
 		comment := findingToComment(f)
@@ -46,7 +46,7 @@ func ValidateFindings(findings []review.Finding, diffIndex *DiffIndex) []Validat
 	return result
 }
 
-func findingToComment(f review.Finding) Comment {
+func findingToComment(f domain.Finding) Comment {
 	startLine := f.StartLine
 	if startLine == 0 {
 		startLine = f.Line
@@ -73,8 +73,8 @@ func findingToComment(f review.Finding) Comment {
 	}
 }
 
-func FormatInlineComment(severity review.Severity, title, body, suggestionCode, existingCode string, startLine int, key string) string {
-	sev := string(severity)
+func FormatInlineComment(severity string, title, body, suggestionCode, existingCode string, startLine int, key string) string {
+	sev := severity
 	if sev == "" {
 		sev = "MAJOR"
 	}
@@ -89,11 +89,11 @@ func FormatInlineComment(severity review.Severity, title, body, suggestionCode, 
 	return result
 }
 
-func FormatSummaryBody(summary string, findings []review.Finding, maxComments int) string {
+func FormatSummaryBody(summary string, findings []domain.Finding, maxComments int) string {
 	ff := make([]types.FormatFinding, len(findings))
 	for i, f := range findings {
 		ff[i] = types.FormatFinding{
-			Severity:      string(f.Severity),
+			Severity:      f.Severity,
 			Title:         f.Title,
 			Path:          f.Path,
 			Line:          f.Line,

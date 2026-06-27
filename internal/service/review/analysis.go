@@ -5,22 +5,23 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/pkg/slicex"
 )
 
-func BuildAnalysis(result Result) Analysis {
+func BuildAnalysis(result domain.Result) domain.Analysis {
 	if analysis := analysisFromRawOCR(result.RawOCR, result); analysis.Overview != "" {
 		return analysis
 	}
 	return analysisFromFindings(result)
 }
 
-func analysisFromFindings(result Result) Analysis {
+func analysisFromFindings(result domain.Result) domain.Analysis {
 	if len(result.Findings) == 0 {
-		return Analysis{Overview: "代码评审未发现需要报告的代码问题。"}
+		return domain.Analysis{Overview: "代码评审未发现需要报告的代码问题。"}
 	}
 
-	analysis := Analysis{
+	analysis := domain.Analysis{
 		Overview: fmt.Sprintf(
 			"代码评审共审查 %d 个文件，发现 %d 个问题。",
 			result.OCR.FilesReviewed,
@@ -52,26 +53,26 @@ func analysisFromFindings(result Result) Analysis {
 	return analysis
 }
 
-func BuildAnalysisFromRaw(raw json.RawMessage, result Result) Analysis {
+func BuildAnalysisFromRaw(raw json.RawMessage, result domain.Result) domain.Analysis {
 	result.RawOCR = raw
 	return BuildAnalysis(result)
 }
 
-func analysisFromRawOCR(raw json.RawMessage, result Result) Analysis {
+func analysisFromRawOCR(raw json.RawMessage, result domain.Result) domain.Analysis {
 	if len(raw) == 0 {
-		return Analysis{}
+		return domain.Analysis{}
 	}
 	var payload struct {
 		ProjectSummary string `json:"project_summary"`
-		Comments []struct {
+		Comments       []struct {
 			Content        string `json:"content"`
 			SuggestionCode string `json:"suggestion_code"`
 		} `json:"comments"`
 	}
 	if json.Unmarshal(raw, &payload) != nil {
-		return Analysis{}
+		return domain.Analysis{}
 	}
-	analysis := Analysis{
+	analysis := domain.Analysis{
 		Overview: fmt.Sprintf(
 			"代码评审共审查 %d 个文件，产出 %d 条评审意见。",
 			result.OCR.FilesReviewed,
@@ -126,13 +127,13 @@ func isRecommendationLine(line string) bool {
 		strings.HasPrefix(line, "4.")
 }
 
-func severityLabel(severity Severity) string {
+func severityLabel(severity string) string {
 	switch severity {
-	case SeverityCritical:
+	case domain.SeverityCritical:
 		return "严重"
-	case SeverityMajor:
+	case domain.SeverityMajor:
 		return "高风险"
-	case SeverityMinor:
+	case domain.SeverityMinor:
 		return "中风险"
 	default:
 		return "提示"

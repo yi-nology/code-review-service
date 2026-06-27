@@ -1,6 +1,7 @@
 package review
 
 import (
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/pkg/stringx"
 )
 
@@ -14,7 +15,7 @@ var categoryKeywords = []struct {
 	{"正确性", []string{"nil", "null", "error", "panic", "错误", "异常", "失效", "空指针"}},
 }
 
-func classifyFinding(finding Finding) string {
+func classifyFinding(finding domain.Finding) string {
 	text := finding.Title + " " + finding.Body
 	for _, entry := range categoryKeywords {
 		if stringx.ContainsAny(text, entry.Keywords...) {

@@ -8,8 +8,8 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/types"
-	"github.com/oekit/pkg/slicex"
 	"github.com/oekit/logx"
+	"github.com/oekit/pkg/slicex"
 )
 
 // Orchestrator manages the discussion process.

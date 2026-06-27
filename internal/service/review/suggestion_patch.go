@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 type SuggestionPatchItem struct {
@@ -55,7 +57,7 @@ type interval struct {
 	end   int
 }
 
-func BuildSuggestionPatch(reviewID string, findings []Finding, indexes []int) SuggestionPatchPreview {
+func BuildSuggestionPatch(reviewID string, findings []domain.Finding, indexes []int) SuggestionPatchPreview {
 	selected := indexes
 	if len(selected) == 0 {
 		selected = make([]int, len(findings))
@@ -144,7 +146,7 @@ func BuildSuggestionPatch(reviewID string, findings []Finding, indexes []int) Su
 	return result
 }
 
-func findingStartLine(f Finding) int {
+func findingStartLine(f domain.Finding) int {
 	if f.StartLine > 0 {
 		return f.StartLine
 	}

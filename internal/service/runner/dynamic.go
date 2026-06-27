@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 type ocrSettingsSource interface {
@@ -36,17 +36,17 @@ func NewDynamicOpenCodeReviewRunner(fallback *OpenCodeReviewRunner, settings ocr
 	return r
 }
 
-func (r *DynamicOpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspace) (review.Result, error) {
+func (r *DynamicOpenCodeReviewRunner) Run(ctx context.Context, workspace domain.Workspace) (domain.Result, error) {
 	s, err := r.settings.Get(ctx)
 	if err != nil {
-		return review.Result{}, fmt.Errorf("读取 OCR 配置失败: %w", err)
+		return domain.Result{}, fmt.Errorf("读取 OCR 配置失败: %w", err)
 	}
 	enabled := s.Enabled
 	if workspace.OCR.Enabled != nil {
 		enabled = *workspace.OCR.Enabled
 	}
 	if !enabled {
-		return review.Result{}, fmt.Errorf("代码评审未启用，请先在 OCR 配置页面启用并测试模型连接")
+		return domain.Result{}, fmt.Errorf("代码评审未启用，请先在 OCR 配置页面启用并测试模型连接")
 	}
 
 	cfg := r.buildConfig(s, workspace.OCR)
@@ -54,7 +54,7 @@ func (r *DynamicOpenCodeReviewRunner) Run(ctx context.Context, workspace review.
 	return ocr.Run(ctx, workspace)
 }
 
-func (r *DynamicOpenCodeReviewRunner) Preview(ctx context.Context, workspace review.Workspace) (*review.PreviewResult, error) {
+func (r *DynamicOpenCodeReviewRunner) Preview(ctx context.Context, workspace domain.Workspace) (*domain.PreviewResult, error) {
 	s, err := r.settings.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("读取 OCR 配置失败: %w", err)
@@ -71,57 +71,6 @@ func (r *DynamicOpenCodeReviewRunner) Preview(ctx context.Context, workspace rev
 	return runPreview(ctx, cfg, workspace)
 }
 
-func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings, overrides review.OCROverrides) OpenCodeReviewConfig {
-	cfg := OpenCodeReviewConfig{
-		Binary:          firstNonBlank(s.Binary, r.fallback.config.Binary),
-		Audience:        firstNonBlank(overrides.Audience, s.Audience, r.fallback.config.Audience, "human"),
-		RulePath:        r.fallback.config.RulePath,
-		DefaultSeverity: firstNonBlank(overrides.DefaultSeverity, s.DefaultSeverity, r.fallback.config.DefaultSeverity, string(review.SeverityMajor)),
-		URL:             firstNonBlank(overrides.URL, s.URL),
-		Model:           firstNonBlank(overrides.Model, s.ModelName),
-		AuthToken:       s.AuthToken,
-		AuthHeader:      s.AuthHeader,
-		ExtraHeaders:    s.ExtraHeaders,
-		UseAnthropic:    overrides.UseAnthropic || s.UseAnthropic,
-		ExtraBody: ResolveExtraBody(
-			firstNonBlank(overrides.ExtraBody, string(s.ExtraBody)),
-			firstNonBlank(s.ReasoningMode, "light"),
-			s.ReasoningBudget,
-			s.Provider,
-		),
-		Language:                firstNonBlank(overrides.Language, s.Language),
-		MaxTools:                firstPositive(overrides.MaxTools, s.MaxTools),
-		Background:              firstNonBlank(overrides.Background, s.Background),
-		ToolsPath:               firstNonBlank(overrides.ToolsPath, s.ToolsPath),
-		ToolsConfig:             string(s.ToolsConfig),
-		TelemetryEnabled:        s.TelemetryEnabled,
-		TelemetryExporter:       s.TelemetryExporter,
-		TelemetryOTLPEndpoint:   s.TelemetryOTLPEndpoint,
-		TelemetryContentLogging: s.TelemetryContentLogging,
-		ContextWindow:           int(s.ContextWindow),
-		MaxOutputTokens:         int(s.MaxOutputTokens),
-	}
-	cfg.Concurrency = firstPositive(overrides.Concurrency, s.Concurrency, r.fallback.config.Concurrency)
-	cfg.MaxGitProcs = firstPositive(overrides.MaxGitProcs, s.MaxGitProcs, r.fallback.config.MaxGitProcs)
-	cfg.TimeoutMinutes = firstPositive(overrides.TimeoutMinutes, s.TimeoutMinutes, r.fallback.config.TimeoutMinutes)
-	if strings.TrimSpace(cfg.ToolsPath) == "" && strings.TrimSpace(cfg.ToolsConfig) == "" {
-		cfg.ToolsConfig = r.defaultToolConfig("diff")
-	}
-	return cfg
-}
-
-func (r *DynamicOpenCodeReviewRunner) defaultToolConfig(mode string) string {
-	if r.toolPackages == nil {
-		return ""
-	}
-	items, err := r.toolPackages.List(context.Background())
-	if err != nil {
-		return ""
-	}
-	for i := range items {
-		if items[i].Enabled && (items[i].ScanType == "" || items[i].ScanType == "all" || items[i].ScanType == mode) {
-			return string(items[i].Config)
-		}
-	}
-	return ""
+func (r *DynamicOpenCodeReviewRunner) buildConfig(s *models.OCRSettings, overrides domain.OCROverrides) OpenCodeReviewConfig {
+	return BuildConfig(s, overrides, r.fallback.config, r.toolPackages)
 }

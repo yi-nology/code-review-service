@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 type GitProviderProviders struct {
@@ -18,7 +18,7 @@ func NewGitProviderProviders(svc *GitProviderService, maxDiffBytes int64) *GitPr
 	return &GitProviderProviders{svc: svc, maxDiffBytes: maxDiffBytes}
 }
 
-func (p *GitProviderProviders) Get(name string) (review.Provider, bool) {
+func (p *GitProviderProviders) Get(name string) (domain.Provider, bool) {
 	if !p.svc.HasProvider(name) {
 		return nil, false
 	}
@@ -31,10 +31,10 @@ type gitProviderAdapter struct {
 	maxDiffBytes int64
 }
 
-func (a *gitProviderAdapter) Prepare(ctx context.Context, req review.Request) (review.Workspace, error) {
+func (a *gitProviderAdapter) Prepare(ctx context.Context, req domain.Request) (domain.Workspace, error) {
 	owner, repoName, err := ParseRepoPath(req.Repo)
 	if err != nil {
-		return review.Workspace{}, fmt.Errorf("invalid repo path %q: %w", req.Repo, err)
+		return domain.Workspace{}, fmt.Errorf("invalid repo path %q: %w", req.Repo, err)
 	}
 
 	var diff string
@@ -49,12 +49,12 @@ func (a *gitProviderAdapter) Prepare(ctx context.Context, req review.Request) (r
 			prNumber, err = strconv.Atoi(req.MergeRequestIID)
 		}
 		if err != nil || prNumber <= 0 {
-			return review.Workspace{}, fmt.Errorf("invalid PR/MR number: %w", err)
+			return domain.Workspace{}, fmt.Errorf("invalid PR/MR number: %w", err)
 		}
 
 		diff, err = a.svc.GetCRDiffString(ctx, a.platform, owner, repoName, prNumber)
 		if err != nil {
-			return review.Workspace{}, fmt.Errorf("get diff via API: %w", err)
+			return domain.Workspace{}, fmt.Errorf("get diff via API: %w", err)
 		}
 
 		cr, crErr := a.svc.GetCR(ctx, a.platform, owner, repoName, prNumber)
@@ -67,7 +67,7 @@ func (a *gitProviderAdapter) Prepare(ctx context.Context, req review.Request) (r
 	}
 
 	if a.maxDiffBytes > 0 && int64(len(diff)) > a.maxDiffBytes {
-		return review.Workspace{}, fmt.Errorf("diff size %d bytes exceeds limit of %d bytes", len(diff), a.maxDiffBytes)
+		return domain.Workspace{}, fmt.Errorf("diff size %d bytes exceeds limit of %d bytes", len(diff), a.maxDiffBytes)
 	}
 
 	cloneURL := a.svc.BuildCloneURL(a.platform, owner, repoName)
@@ -87,10 +87,10 @@ func (a *gitProviderAdapter) Prepare(ctx context.Context, req review.Request) (r
 		}
 	}
 	if err != nil {
-		return review.Workspace{}, fmt.Errorf("clone repository: %w", err)
+		return domain.Workspace{}, fmt.Errorf("clone repository: %w", err)
 	}
 
-	return review.Workspace{
+	return domain.Workspace{
 		Provider:        a.platform,
 		Repo:            strings.TrimPrefix(req.Repo, "/"),
 		BaseSHA:         baseSHA,

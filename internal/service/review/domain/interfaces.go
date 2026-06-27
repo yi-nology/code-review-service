@@ -1,19 +1,23 @@
-package review
+package domain
 
 import "context"
 
+// Providers 提供 git 平台 Provider 的查找。
 type Providers interface {
 	Get(name string) (Provider, bool)
 }
 
+// Provider 准备一个评审工作区（克隆、解析 PR/SHA、构建 diff）。
 type Provider interface {
 	Prepare(context.Context, Request) (Workspace, error)
 }
 
+// Runner 执行评审（子进程或直接调用），返回原始结果。
 type Runner interface {
 	Run(context.Context, Workspace) (Result, error)
 }
 
+// WritebackPublisher 将评审结果回写到 git 平台。
 type WritebackPublisher interface {
 	PublishWithDiff(ctx context.Context, req Request, result Result, diff string) (*WritebackResult, error)
 }

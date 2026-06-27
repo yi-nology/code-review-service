@@ -11,11 +11,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/concurrency/async"
 )
 
-func runPreview(ctx context.Context, cfg OpenCodeReviewConfig, workspace review.Workspace) (*review.PreviewResult, error) {
+func runPreview(ctx context.Context, cfg OpenCodeReviewConfig, workspace domain.Workspace) (*domain.PreviewResult, error) {
 	timeout := time.Duration(cfg.TimeoutMinutes) * time.Minute
 	if timeout <= 0 {
 		timeout = 10 * time.Minute
@@ -83,7 +83,7 @@ func runPreview(ctx context.Context, cfg OpenCodeReviewConfig, workspace review.
 
 	output := bytes.TrimSpace(stdout.Bytes())
 	if len(output) == 0 {
-		return &review.PreviewResult{Files: []string{}}, nil
+		return &domain.PreviewResult{Files: []string{}}, nil
 	}
 
 	var files []string
@@ -98,7 +98,7 @@ func runPreview(ctx context.Context, cfg OpenCodeReviewConfig, workspace review.
 		}
 	}
 
-	return &review.PreviewResult{Files: files}, nil
+	return &domain.PreviewResult{Files: files}, nil
 }
 
 // appendLLMEnv 已迁移到 config.go 中的 AppendLLMEnv

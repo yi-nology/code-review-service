@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/service/progress"
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/convert"
@@ -31,9 +31,9 @@ func (r *OpenCodeReviewRunner) Config() OpenCodeReviewConfig {
 // 不可重试的错误重试只会成倍放大超时窗口（默认每次 10.5min）。需要重试时显式配置。
 const defaultOCRMaxRetries = 0
 
-func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspace) (review.Result, error) {
+func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace domain.Workspace) (domain.Result, error) {
 	if strings.TrimSpace(workspace.Dir) == "" {
-		return review.Result{}, fmt.Errorf("open-code-review requires a checked out workspace")
+		return domain.Result{}, fmt.Errorf("open-code-review requires a checked out workspace")
 	}
 
 	timeout := time.Duration(r.config.TimeoutMinutes) * time.Minute
@@ -52,7 +52,7 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 	var lastErr error
 	for attempt := 1; attempt <= attempts; attempt++ {
 		if err := ctx.Err(); err != nil {
-			return review.Result{}, err
+			return domain.Result{}, err
 		}
 
 		attemptCtx, cancel := context.WithTimeout(ctx, timeout+30*time.Second)
@@ -78,10 +78,10 @@ func (r *OpenCodeReviewRunner) Run(ctx context.Context, workspace review.Workspa
 			break
 		}
 	}
-	return review.Result{}, lastErr
+	return domain.Result{}, lastErr
 }
 
-func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Workspace, timeout time.Duration) (review.Result, error) {
+func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace domain.Workspace, timeout time.Duration) (domain.Result, error) {
 	fromRef := workspace.BaseSHA
 	toRef := workspace.HeadSHA
 	if fromRef == "" {
@@ -111,7 +111,7 @@ func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Wor
 	}
 	toolsArgs, cleanupTools, err := appendToolsArgs(args, r.config)
 	if err != nil {
-		return review.Result{}, err
+		return domain.Result{}, err
 	}
 	args = toolsArgs
 	if cleanupTools != nil {
@@ -134,13 +134,13 @@ func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Wor
 
 	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {
-		return review.Result{}, fmt.Errorf("failed to create stderr pipe: %w", err)
+		return domain.Result{}, fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
 
 	progressReporter := progress.ProgressReporterFromContext(ctx)
 
 	if err := cmd.Start(); err != nil {
-		return review.Result{}, &BinaryMissingError{Binary: r.config.Binary, Err: err}
+		return domain.Result{}, &BinaryMissingError{Binary: r.config.Binary, Err: err}
 	}
 
 	var stderrLines []string
@@ -189,7 +189,7 @@ func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace review.Wor
 		stderrMu.Lock()
 		message := strings.Join(stderrLines, "\n")
 		stderrMu.Unlock()
-		return review.Result{}, classifyExitError(ctx, err, timeout, message)
+		return domain.Result{}, classifyExitError(ctx, err, timeout, message)
 	}
 
 	return ParseOpenCodeReviewOutput(stdout.Bytes(), r.config.DefaultSeverity)

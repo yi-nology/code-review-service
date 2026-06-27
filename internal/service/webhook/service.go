@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -13,6 +14,10 @@ import (
 
 	"gorm.io/datatypes"
 )
+
+// ErrSignatureMismatch 表示 webhook 签名校验失败。
+// 作为哨兵错误供 handler 用 errors.Is 精确判定（替代脆弱的字符串匹配）。
+var ErrSignatureMismatch = errors.New("signature verification failed")
 
 type ServiceConfig struct {
 	Normalizers        map[string]Normalizer
@@ -66,7 +71,7 @@ func (s *Service) HandleWebhook(ctx context.Context, provider, installationID st
 	}
 
 	if !normalizer.VerifySignature(rawBody, signature, secret) {
-		return nil, fmt.Errorf("signature verification failed")
+		return nil, ErrSignatureMismatch
 	}
 
 	h := sha256.Sum256(rawBody)

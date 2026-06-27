@@ -13,9 +13,9 @@ import (
 
 // mockSessionRepo 实现 repository.SessionRepository，用于单元测试
 type mockSessionRepo struct {
-	sessions map[string]*models.ReviewSession // sessionID -> session
-	byReview map[string][]*models.ReviewSession // reviewID -> sessions
-	getErr   error
+	sessions  map[string]*models.ReviewSession   // sessionID -> session
+	byReview  map[string][]*models.ReviewSession // reviewID -> sessions
+	getErr    error
 	createErr error
 	updateErr error
 }

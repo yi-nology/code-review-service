@@ -9,11 +9,12 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"gorm.io/datatypes"
 )
 
-func (s *Service) updateWithRawOCR(ctx context.Context, id string, req Request, response Response, rawOCR json.RawMessage) error {
+func (s *Service) updateWithRawOCR(ctx context.Context, id string, req domain.Request, response domain.Response, rawOCR json.RawMessage) error {
 	review, err := s.reviewRepo.GetByReviewID(ctx, id)
 	if err != nil && !errors.Is(err, repository.ErrNotFound) {
 		return err
@@ -28,19 +29,19 @@ func (s *Service) updateWithRawOCR(ctx context.Context, id string, req Request, 
 		}
 	}
 
-	var previousResponse Response
+	var previousResponse domain.Response
 	if err := json.Unmarshal(review.Response, &previousResponse); err != nil {
 		return fmt.Errorf("decode previous response: %w", err)
 	}
 
 	previousStatus := previousResponse.Status
-	previousHistory := append([]Event(nil), previousResponse.History...)
+	previousHistory := append([]domain.Event(nil), previousResponse.History...)
 
 	if len(response.History) == 0 {
 		response.History = previousHistory
 	}
 	if response.Status != "" && response.Status != previousStatus {
-		response.History = append(response.History, Event{
+		response.History = append(response.History, domain.Event{
 			Stage:     response.Status,
 			Status:    StatusEventState(response.Status),
 			Message:   StatusEventMessage(response.Status),

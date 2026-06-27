@@ -53,18 +53,18 @@ var providerFormatMap = map[string]providerThinkingFormat{
 	// OpenAI 系列（o1, o3 等推理模型）
 	"openai": formatOpenAIReasoning,
 	// 通义千问系列（Qwen）
-	"dashscope":  formatQwenThinking,
-	"qwen":       formatQwenThinking,
-	"aliyun":     formatQwenThinking,
+	"dashscope": formatQwenThinking,
+	"qwen":      formatQwenThinking,
+	"aliyun":    formatQwenThinking,
 	// 智谱 GLM 系列
-	"z-ai":       formatGLMThinking,
-	"zhipu":      formatGLMThinking,
-	"bigmodel":   formatGLMThinking,
+	"z-ai":     formatGLMThinking,
+	"zhipu":    formatGLMThinking,
+	"bigmodel": formatGLMThinking,
 	// DeepSeek 系列
-	"deepseek":   formatDeepSeekThinking,
+	"deepseek": formatDeepSeekThinking,
 	// MiMo 系列
-	"mimo":       formatMiMoThinking,
-	"xiaomi":     formatMiMoThinking,
+	"mimo":   formatMiMoThinking,
+	"xiaomi": formatMiMoThinking,
 }
 
 // resolveReasoningBudget 根据 reasoningMode + customBudget 确定最终的 budget 值

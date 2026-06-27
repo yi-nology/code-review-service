@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/service/progress"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/concurrency/group"
 	"github.com/oekit/logx"
@@ -59,11 +60,6 @@ func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval,
 		}
 	})
 
-	async.GoSafe(func() {
-		<-ctx.Done()
-		s.inFlight.Wait()
-	})
-
 	// 定期重排卡住的 running 评审（运行时超时保护）
 	async.GoSafe(func() {
 		ticker := time.NewTicker(staleAfter)
@@ -82,6 +78,28 @@ func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval,
 			}
 		}
 	})
+}
+
+// Shutdown 通知 worker 停止并等待所有 in-flight review 完成或 ctx 超时。
+//
+// 由 fx 的 OnStop 钩子调用（见 modules/worker.go），确保停机时：
+//  1. worker/stale-requeue goroutine 通过传入的 lifecycle ctx 取消自然退出；
+//  2. 阻塞等待所有正在执行的 review 落库完成，避免 DB 连接池被提前关闭导致写失败。
+//
+// WorkerModule 必须在 DatabaseModule 之后注册（见 init.go），以保证本方法
+// 的 OnStop 先于 DB 的 OnStop 执行。
+func (s *Service) Shutdown(ctx context.Context) error {
+	done := make(chan struct{})
+	go func() {
+		s.inFlight.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Duration) {
@@ -119,7 +137,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 		}
 
 		review := reviews[0]
-		var req Request
+		var req domain.Request
 		if err := json.Unmarshal(review.Request, &req); err != nil {
 			logx.Error("failed to decode review request", "review_id", review.ReviewID, "error", err)
 			s.recordFailure(ctx, review.ReviewID, req, fmt.Errorf("decode request: %w", err))
@@ -130,7 +148,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 
 		provider, ok := s.Providers.Get(req.Provider)
 		if !ok {
-			err := fmt.Errorf("%w: %q", ErrUnsupportedProvider, req.Provider)
+			err := fmt.Errorf("%w: %q", domain.ErrUnsupportedProvider, req.Provider)
 			logx.Errorf("worker: provider not found: requested=%q review_id=%s", req.Provider, review.ReviewID)
 			s.recordFailure(ctx, review.ReviewID, req, err)
 			release()
@@ -152,7 +170,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 
 			if _, err := s.Executor.Execute(ctx, review.ReviewID, req, provider, progressReporter); err != nil && ctx.Err() == nil {
 				logx.Error("async review failed", "worker_id", workerID, "review_id", review.ReviewID, "error", err)
-				// Report error to progress tracker
+				// domain.Report error to progress tracker
 				if progressReporter != nil {
 					if tracker, ok := progressReporter.(*progress.ProgressTracker); ok {
 						tracker.SetError(err.Error())

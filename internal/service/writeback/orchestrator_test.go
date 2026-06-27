@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 type mockWritebackItemRepo struct {
@@ -86,16 +86,16 @@ func TestPublishStoresServiceReviewID(t *testing.T) {
 	})
 
 	diff := "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1,1 +1,1 @@\n-old\n+new\n"
-	_, err := orch.Publish(t.Context(), review.Request{
+	_, err := orch.Publish(t.Context(), domain.Request{
 		ReviewID:      "review-service-1",
 		Provider:      "github",
 		Repo:          "org/repo",
 		PullRequestID: "12",
 		HeadSHA:       "abc123",
-	}, review.Result{
+	}, domain.Result{
 		Summary: "summary",
-		Findings: []review.Finding{{
-			Severity: review.SeverityMajor,
+		Findings: []domain.Finding{{
+			Severity: domain.SeverityMajor,
 			Path:     "a.go",
 			Line:     1,
 			Title:    "replace old",
@@ -123,15 +123,15 @@ func TestPublishFallsBackToProviderReviewID(t *testing.T) {
 		ItemRepo: repo,
 	})
 
-	_, err := orch.Publish(t.Context(), review.Request{
+	_, err := orch.Publish(t.Context(), domain.Request{
 		Provider:      "github",
 		Repo:          "org/repo",
 		PullRequestID: "12",
 		HeadSHA:       "abc123",
-	}, review.Result{
+	}, domain.Result{
 		Summary: "summary",
-		Findings: []review.Finding{{
-			Severity: review.SeverityMajor,
+		Findings: []domain.Finding{{
+			Severity: domain.SeverityMajor,
 			Path:     "a.go",
 			Line:     1,
 			Title:    "replace old",
@@ -163,14 +163,14 @@ func TestPublishUpdatesExistingWritebackItemOnRetry(t *testing.T) {
 		ItemRepo: repo,
 	})
 
-	_, err := orch.Publish(t.Context(), review.Request{
+	_, err := orch.Publish(t.Context(), domain.Request{
 		ReviewID:      "review-service-1",
 		Provider:      "github",
 		Repo:          "org/repo",
 		PullRequestID: "12",
 		HeadSHA:       "abc123",
-	}, review.Result{Summary: "summary", Findings: []review.Finding{{
-		Severity: review.SeverityMajor,
+	}, domain.Result{Summary: "summary", Findings: []domain.Finding{{
+		Severity: domain.SeverityMajor,
 		Path:     "a.go",
 		Line:     1,
 		Title:    "replace old",

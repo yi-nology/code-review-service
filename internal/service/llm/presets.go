@@ -2,38 +2,38 @@ package llm
 
 // ProviderPreset 定义 LLM 提供商预设配置
 type ProviderPreset struct {
-	ID              string        `json:"id"`
-	DisplayName     string        `json:"display_name"`
-	Category        string        `json:"category"`       // coding_plan, direct, local
-	Type            string        `json:"type"`           // openai_compatible, anthropic, gemini, ollama
-	BaseURL         string        `json:"base_url"`
-	Protocol        string        `json:"protocol"`       // openai, anthropic
-	SupportsThinking bool         `json:"supports_thinking"`
-	Models          []ModelOption `json:"models"`
-	DefaultModel    string        `json:"default_model"`
-	Icon            string        `json:"icon"`
-	Region          string        `json:"region"`         // cn, global
-	RequiresKey     bool          `json:"requires_key"`
+	ID               string        `json:"id"`
+	DisplayName      string        `json:"display_name"`
+	Category         string        `json:"category"` // coding_plan, direct, local
+	Type             string        `json:"type"`     // openai_compatible, anthropic, gemini, ollama
+	BaseURL          string        `json:"base_url"`
+	Protocol         string        `json:"protocol"` // openai, anthropic
+	SupportsThinking bool          `json:"supports_thinking"`
+	Models           []ModelOption `json:"models"`
+	DefaultModel     string        `json:"default_model"`
+	Icon             string        `json:"icon"`
+	Region           string        `json:"region"` // cn, global
+	RequiresKey      bool          `json:"requires_key"`
 }
 
 // ModelOption 定义模型选项
 type ModelOption struct {
-	ID          string `json:"id"`
-	DisplayName string `json:"display_name"`
-	MaxTokens   int    `json:"max_tokens"`
-	SupportsThinking bool `json:"supports_thinking"`
+	ID               string `json:"id"`
+	DisplayName      string `json:"display_name"`
+	MaxTokens        int    `json:"max_tokens"`
+	SupportsThinking bool   `json:"supports_thinking"`
 }
 
 // Presets 预设的 LLM 提供商列表
 var Presets = []ProviderPreset{
 	// ========== Coding Plan (包月套餐) ==========
 	{
-		ID:          "zhipu-coding-plan",
-		DisplayName: "智谱 AI (Coding Plan)",
-		Category:    "coding_plan",
-		Type:        "openai_compatible",
-		BaseURL:     "https://open.bigmodel.cn/api/paas/v4",
-		Protocol:    "openai",
+		ID:               "zhipu-coding-plan",
+		DisplayName:      "智谱 AI (Coding Plan)",
+		Category:         "coding_plan",
+		Type:             "openai_compatible",
+		BaseURL:          "https://open.bigmodel.cn/api/paas/v4",
+		Protocol:         "openai",
 		SupportsThinking: true,
 		Models: []ModelOption{
 			{ID: "glm-5.1", DisplayName: "GLM-5.1", MaxTokens: 4096, SupportsThinking: true},
@@ -47,12 +47,12 @@ var Presets = []ProviderPreset{
 		RequiresKey:  true,
 	},
 	{
-		ID:          "volcengine-coding-plan",
-		DisplayName: "火山引擎 (Coding Plan)",
-		Category:    "coding_plan",
-		Type:        "openai_compatible",
-		BaseURL:     "https://ark.cn-beijing.volces.com/api/v3",
-		Protocol:    "openai",
+		ID:               "volcengine-coding-plan",
+		DisplayName:      "火山引擎 (Coding Plan)",
+		Category:         "coding_plan",
+		Type:             "openai_compatible",
+		BaseURL:          "https://ark.cn-beijing.volces.com/api/v3",
+		Protocol:         "openai",
 		SupportsThinking: true,
 		Models: []ModelOption{
 			{ID: "doubao-seed-2-0-pro", DisplayName: "豆包 Seed 2.0 Pro", MaxTokens: 4096, SupportsThinking: true},
@@ -65,12 +65,12 @@ var Presets = []ProviderPreset{
 		RequiresKey:  true,
 	},
 	{
-		ID:          "mimo-coding-plan",
-		DisplayName: "小米 MiMo (Coding Plan)",
-		Category:    "coding_plan",
-		Type:        "openai_compatible",
-		BaseURL:     "https://token-plan-cn.xiaomimimo.com/v1",
-		Protocol:    "openai",
+		ID:               "mimo-coding-plan",
+		DisplayName:      "小米 MiMo (Coding Plan)",
+		Category:         "coding_plan",
+		Type:             "openai_compatible",
+		BaseURL:          "https://token-plan-cn.xiaomimimo.com/v1",
+		Protocol:         "openai",
 		SupportsThinking: true,
 		Models: []ModelOption{
 			{ID: "mimo-v2.5", DisplayName: "MiMo V2.5", MaxTokens: 4096, SupportsThinking: true},
@@ -83,12 +83,12 @@ var Presets = []ProviderPreset{
 		RequiresKey:  true,
 	},
 	{
-		ID:          "minimax-coding-plan",
-		DisplayName: "MiniMax (Coding Plan)",
-		Category:    "coding_plan",
-		Type:        "openai_compatible",
-		BaseURL:     "https://api.minimax.chat/v1",
-		Protocol:    "openai",
+		ID:               "minimax-coding-plan",
+		DisplayName:      "MiniMax (Coding Plan)",
+		Category:         "coding_plan",
+		Type:             "openai_compatible",
+		BaseURL:          "https://api.minimax.chat/v1",
+		Protocol:         "openai",
 		SupportsThinking: false,
 		Models: []ModelOption{
 			{ID: "MiniMax-M2.5", DisplayName: "MiniMax M2.5", MaxTokens: 4096},
@@ -100,12 +100,12 @@ var Presets = []ProviderPreset{
 		RequiresKey:  true,
 	},
 	{
-		ID:          "kimi-coding-plan",
-		DisplayName: "Kimi (Coding Plan)",
-		Category:    "coding_plan",
-		Type:        "openai_compatible",
-		BaseURL:     "https://api.moonshot.cn/v1",
-		Protocol:    "openai",
+		ID:               "kimi-coding-plan",
+		DisplayName:      "Kimi (Coding Plan)",
+		Category:         "coding_plan",
+		Type:             "openai_compatible",
+		BaseURL:          "https://api.moonshot.cn/v1",
+		Protocol:         "openai",
 		SupportsThinking: false,
 		Models: []ModelOption{
 			{ID: "moonshot-v1-8k", DisplayName: "Moonshot V1 8K", MaxTokens: 4096},
@@ -120,12 +120,12 @@ var Presets = []ProviderPreset{
 
 	// ========== Direct API (直接调用) ==========
 	{
-		ID:          "openai",
-		DisplayName: "OpenAI",
-		Category:    "direct",
-		Type:        "openai_compatible",
-		BaseURL:     "https://api.openai.com/v1",
-		Protocol:    "openai",
+		ID:               "openai",
+		DisplayName:      "OpenAI",
+		Category:         "direct",
+		Type:             "openai_compatible",
+		BaseURL:          "https://api.openai.com/v1",
+		Protocol:         "openai",
 		SupportsThinking: true,
 		Models: []ModelOption{
 			{ID: "gpt-5.2", DisplayName: "GPT-5.2", MaxTokens: 4096, SupportsThinking: true},
@@ -142,12 +142,12 @@ var Presets = []ProviderPreset{
 		RequiresKey:  true,
 	},
 	{
-		ID:          "anthropic",
-		DisplayName: "Anthropic",
-		Category:    "direct",
-		Type:        "anthropic",
-		BaseURL:     "https://api.anthropic.com",
-		Protocol:    "anthropic",
+		ID:               "anthropic",
+		DisplayName:      "Anthropic",
+		Category:         "direct",
+		Type:             "anthropic",
+		BaseURL:          "https://api.anthropic.com",
+		Protocol:         "anthropic",
 		SupportsThinking: true,
 		Models: []ModelOption{
 			{ID: "claude-opus-4-5-20250929", DisplayName: "Claude Opus 4.5", MaxTokens: 4096, SupportsThinking: true},
@@ -161,12 +161,12 @@ var Presets = []ProviderPreset{
 		RequiresKey:  true,
 	},
 	{
-		ID:          "deepseek",
-		DisplayName: "DeepSeek",
-		Category:    "direct",
-		Type:        "openai_compatible",
-		BaseURL:     "https://api.deepseek.com",
-		Protocol:    "openai",
+		ID:               "deepseek",
+		DisplayName:      "DeepSeek",
+		Category:         "direct",
+		Type:             "openai_compatible",
+		BaseURL:          "https://api.deepseek.com",
+		Protocol:         "openai",
 		SupportsThinking: true,
 		Models: []ModelOption{
 			{ID: "deepseek-v4-pro", DisplayName: "DeepSeek V4 Pro", MaxTokens: 4096, SupportsThinking: true},
@@ -180,12 +180,12 @@ var Presets = []ProviderPreset{
 		RequiresKey:  true,
 	},
 	{
-		ID:          "dashscope",
-		DisplayName: "阿里百炼",
-		Category:    "direct",
-		Type:        "openai_compatible",
-		BaseURL:     "https://dashscope.aliyuncs.com/compatible-mode/v1",
-		Protocol:    "openai",
+		ID:               "dashscope",
+		DisplayName:      "阿里百炼",
+		Category:         "direct",
+		Type:             "openai_compatible",
+		BaseURL:          "https://dashscope.aliyuncs.com/compatible-mode/v1",
+		Protocol:         "openai",
 		SupportsThinking: true,
 		Models: []ModelOption{
 			{ID: "qwen-max", DisplayName: "Qwen Max", MaxTokens: 4096, SupportsThinking: true},
@@ -200,12 +200,12 @@ var Presets = []ProviderPreset{
 		RequiresKey:  true,
 	},
 	{
-		ID:          "zhipu",
-		DisplayName: "智谱 AI (直接调用)",
-		Category:    "direct",
-		Type:        "openai_compatible",
-		BaseURL:     "https://open.bigmodel.cn/api/paas/v4",
-		Protocol:    "openai",
+		ID:               "zhipu",
+		DisplayName:      "智谱 AI (直接调用)",
+		Category:         "direct",
+		Type:             "openai_compatible",
+		BaseURL:          "https://open.bigmodel.cn/api/paas/v4",
+		Protocol:         "openai",
 		SupportsThinking: true,
 		Models: []ModelOption{
 			{ID: "glm-5.1", DisplayName: "GLM-5.1", MaxTokens: 4096, SupportsThinking: true},
@@ -221,17 +221,17 @@ var Presets = []ProviderPreset{
 
 	// ========== Local (本地部署) ==========
 	{
-		ID:          "ollama",
-		DisplayName: "Ollama (本地)",
-		Category:    "local",
-		Type:        "ollama",
-		BaseURL:     "http://localhost:11434/v1",
-		Protocol:    "openai",
+		ID:               "ollama",
+		DisplayName:      "Ollama (本地)",
+		Category:         "local",
+		Type:             "ollama",
+		BaseURL:          "http://localhost:11434/v1",
+		Protocol:         "openai",
 		SupportsThinking: false,
-		Models:      []ModelOption{}, // 动态加载
-		DefaultModel: "",
-		Icon:        "ollama",
-		Region:      "global",
-		RequiresKey: false,
+		Models:           []ModelOption{}, // 动态加载
+		DefaultModel:     "",
+		Icon:             "ollama",
+		Region:           "global",
+		RequiresKey:      false,
 	},
 }

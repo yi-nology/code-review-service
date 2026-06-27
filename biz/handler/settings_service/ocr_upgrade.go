@@ -5,7 +5,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/cloudwego/hertz/pkg/app"
 )
@@ -72,7 +72,7 @@ func OCRUpgradeStatus(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, upgradeStatusToResp(status))
 }
 
-func upgradeStatusToResp(s *review.OCRUpgradeStatus) *modelSettings.OCRUpgradeStatusResp {
+func upgradeStatusToResp(s *domain.OCRUpgradeStatus) *modelSettings.OCRUpgradeStatusResp {
 	if s == nil {
 		return &modelSettings.OCRUpgradeStatusResp{State: "idle"}
 	}

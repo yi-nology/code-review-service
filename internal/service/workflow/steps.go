@@ -12,6 +12,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/requirements"
 	"github.com/yi-nology/code-review-service/internal/service/scoring"
+	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/slicex"
 	"github.com/oekit/workflow"
@@ -446,7 +447,7 @@ func generateFinalReport(
 	// 单次遍历：同一 normalized severity 同时决定 bucket 归属和评分计数，
 	// 确保「严重」问题不会被分到 suggestions 却按 critical 计分等不一致。
 	for _, finding := range aggregatedResult.Findings {
-		switch normalizeSeverity(finding.Severity) {
+		switch types.NormalizeSeverity(finding.Severity) {
 		case "critical":
 			blockers = append(blockers, finding)
 			counts.Critical++
@@ -490,21 +491,6 @@ func generateFinalReport(
 		Score:       score.Value,
 		GatePassed:  gatePassed,
 		GateReason:  gateReason,
-	}
-}
-
-// normalizeSeverity 与 review.NormalizeSeverity 行为一致：大小写/空白容错，
-// 未知值兜底为 major。本地定义避免 workflow → review 反向依赖。
-func normalizeSeverity(s string) string {
-	switch strings.ToLower(strings.TrimSpace(s)) {
-	case "critical":
-		return "critical"
-	case "minor":
-		return "minor"
-	case "info":
-		return "info"
-	default: // "major"、空值、未知 → major
-		return "major"
 	}
 }
 

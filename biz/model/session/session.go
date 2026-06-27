@@ -4,6 +4,7 @@ package session
 
 import (
 	"fmt"
+
 	"github.com/apache/thrift/lib/go/thrift"
 )
 

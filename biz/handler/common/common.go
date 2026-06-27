@@ -41,8 +41,22 @@ func Fail(c *hertzApp.RequestContext, err error) {
 		mw.ErrorResp(c, 404, "resource not found")
 		return
 	}
+	// 未知错误一律脱敏：详细错误仅入日志，响应体只返回通用消息，
+	// 避免向客户端泄露内部路径、SQL、堆栈等敏感信息。
 	logx.Errorf("internal error: %v", err)
-	mw.ErrorResp(c, 500, err.Error())
+	mw.ErrorResp(c, 500, "internal server error")
+}
+
+// InternalErr 包装一个内部错误，返回 500 + 通用消息。
+// 真实的错误细节由 Fail 统一记录到日志，不会进入 HTTP 响应体。
+//
+// 用于 handler 希望显式标记某次失败为内部错误（而非透传 service 层错误）的场景。
+func InternalErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	logx.Errorf("internal error: %v", err)
+	return &AppError{Code: 500, Message: "internal server error"}
 }
 
 func Success(c *hertzApp.RequestContext, data any) {

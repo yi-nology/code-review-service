@@ -4,9 +4,10 @@ import (
 	"context"
 	"os/exec"
 
+	"github.com/yi-nology/code-review-service/internal/readiness"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/ocr"
-	"github.com/yi-nology/code-review-service/internal/service/review"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/oekit/logx"
 	"go.uber.org/fx"
@@ -16,7 +17,7 @@ import (
 // 预检失败不阻断启动（return nil），而是通过 hlog 告警，并依赖 /health 的 checker
 // 持续反映问题，让 k8s/运维能在 1 分钟内发现。这是本次 LLM DNS 事故的根因修复之一：
 // 之前启动完全不验证 OCR/LLM，首次评审才发现故障。
-var PreflightModule = fx.Invoke(RegisterPreflight)
+var PreflightModule = fx.Options(fx.Invoke(RegisterPreflight))
 
 func RegisterPreflight(lc fx.Lifecycle, repos *repository.RepoContainer, resolver *ocr.ConfigResolver) {
 	lc.Append(fx.Hook{
@@ -31,7 +32,7 @@ func RegisterPreflight(lc fx.Lifecycle, repos *repository.RepoContainer, resolve
 				return nil
 			}
 
-			cfg, _ := resolver.Resolve(review.OCROverrides{})
+			cfg, _ := resolver.Resolve(domain.OCROverrides{})
 			binary := cfg.Binary
 			if binary == "" {
 				binary = "ocr"
@@ -42,7 +43,7 @@ func RegisterPreflight(lc fx.Lifecycle, repos *repository.RepoContainer, resolve
 				logx.Infof("[preflight] OCR 二进制就绪: %s", binary)
 			}
 
-			if err := llmEndpointCheck(repos, resolver)(ctx); err != nil {
+			if err := readiness.LLMEndpointCheck(repos, resolver)(ctx); err != nil {
 				logx.Errorf("[preflight] LLM endpoint 检查失败: %v。评审将会失败，请检查 LLM 配置（URL/认证/网络）", err)
 			} else {
 				logx.Infof("[preflight] LLM endpoint 可达")
