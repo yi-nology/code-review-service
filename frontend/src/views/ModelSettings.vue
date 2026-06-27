@@ -1,298 +1,329 @@
 <template>
   <AppLayout>
-    <div class="model-settings-page">
-      <header class="page-header">
+    <div class="ms-page">
+      <header class="ms-header">
         <div>
           <div class="eyebrow">MODEL SETTINGS</div>
           <h1>模型配置</h1>
-          <p>配置代码审查使用的 AI 模型和参数</p>
+          <p>配置代码审查使用的 AI 模型与执行参数</p>
         </div>
-        <div class="header-actions">
+        <div class="ms-actions">
           <el-button @click="syncProviders" :loading="syncingProviders">
             <el-icon><Connection /></el-icon>
-            同步 OCR Provider
+            <span>同步 Provider</span>
           </el-button>
           <el-button @click="fetchSettings" :loading="loading">
             <el-icon><Refresh /></el-icon>
-            刷新
+            <span>刷新</span>
           </el-button>
         </div>
       </header>
 
-      <!-- 当前配置状态卡片 -->
-      <div class="status-card" v-if="form.provider && !showWizard">
-        <div class="status-icon" :class="form.provider">
-          {{ form.provider.charAt(0).toUpperCase() }}
-        </div>
-        <div class="status-info">
-          <div class="status-title">
-            <strong>{{ getPresetName(form.provider) }}</strong>
-            <el-tag :type="form.enabled ? 'success' : 'info'" size="small">
+      <!-- 状态条 -->
+      <section class="status-strip" :class="{ off: !form.enabled }">
+        <div class="ss-icon" :class="currentIcon">{{ currentInitial }}</div>
+        <div class="ss-main">
+          <div class="ss-title">
+            <strong>{{ currentDisplayName }}</strong>
+            <el-tag :type="form.enabled ? 'success' : 'info'" size="small" effect="light">
               {{ form.enabled ? '已启用' : '未启用' }}
             </el-tag>
+            <el-tag size="small" effect="plain" :type="form.use_anthropic ? 'warning' : 'info'">
+              {{ form.use_anthropic ? 'Anthropic' : 'OpenAI 兼容' }}
+            </el-tag>
+            <el-tag v-if="currentRegion" size="small" effect="plain">{{ currentRegion === 'cn' ? '国内' : '海外' }}</el-tag>
           </div>
-          <div class="status-meta">
-            <span>{{ form.model }}</span>
-            <span class="separator">·</span>
-            <span>{{ form.reasoning_mode === 'disabled' ? '推理关闭' : '推理开启' }}</span>
-            <span class="separator">·</span>
-            <span>{{ form.language }}</span>
+          <div class="ss-meta">
+            <span class="mono">{{ form.model || '未设置模型' }}</span>
+            <span class="sep">·</span>
+            <span>{{ reasoningLabel }}</span>
+            <span class="sep">·</span>
+            <span>{{ form.language === 'Chinese' ? '中文' : 'English' }}</span>
+            <span class="sep">·</span>
+            <span class="mono url">{{ form.url || '—' }}</span>
           </div>
         </div>
-        <div class="status-actions">
-          <el-button type="primary" @click="openWizard">
-            <el-icon><Edit /></el-icon>
-            修改配置
-          </el-button>
+        <div class="ss-controls">
+          <label class="enable-toggle">
+            <span>启用</span>
+            <el-switch v-model="form.enabled" />
+          </label>
           <el-button @click="handleTestLLM" :loading="testingLLM">
             <el-icon><Connection /></el-icon>
-            测试连接
+            <span>测试连接</span>
           </el-button>
         </div>
-      </div>
+      </section>
 
-      <!-- 未配置提示 -->
-      <div class="empty-state" v-if="!form.provider && !showWizard">
-        <div class="empty-icon">🤖</div>
-        <h3>尚未配置模型</h3>
-        <p>选择一个服务商开始配置</p>
-        <el-button type="primary" @click="openWizard">
-          <el-icon><Plus /></el-icon>
-          立即配置
-        </el-button>
-      </div>
+      <section v-if="!form.provider" class="empty-banner">
+        <el-icon><InfoFilled /></el-icon>
+        <span>尚未选择服务商，请在下方选择或使用自定义配置。</span>
+      </section>
 
-      <!-- 配置向导 -->
-      <ModelSetupWizard
-        v-if="showWizard"
-        ref="wizardRef"
-        :presets="syncedPresets"
-        :saving="saving"
-        :testing-llm="testingLLM"
-        :initial-config="form"
-        @save="handleSaveConfig"
-        @test="handleTestLLM"
-      />
-
-      <!-- 快速配置入口（仅在显示状态卡片时） -->
-      <div v-if="form.provider && !showWizard" class="quick-config-section">
-        <div class="section-header">
-          <h3>快速配置</h3>
-          <el-button text type="primary" @click="showAdvanced = !showAdvanced">
-            {{ showAdvanced ? '收起' : '展开' }}
-            <el-icon><ArrowDown v-if="!showAdvanced" /><ArrowUp v-else /></el-icon>
-          </el-button>
+      <!-- 主配置卡片 -->
+      <section class="config-card">
+        <!-- 服务商 -->
+        <div class="block">
+          <div class="block-head">
+            <h3>服务商</h3>
+            <el-input
+              v-model="providerQuery"
+              placeholder="搜索服务商…"
+              clearable
+              size="small"
+              class="provider-search"
+            >
+              <template #prefix><el-icon><Search /></el-icon></template>
+            </el-input>
+          </div>
+          <div class="provider-chips">
+            <button
+              v-for="p in filteredProviders"
+              :key="p.name"
+              type="button"
+              class="pchip"
+              :class="{ active: isProviderSelected(p) }"
+              @click="selectProvider(p)"
+            >
+              <span class="pchip-icon" :class="iconOf(p.name)">{{ initialOf(p.name) }}</span>
+              <span class="pchip-body">
+                <strong>{{ displayOf(p.name) }}</strong>
+                <small>
+                  {{ p.models.length ? `${p.models.length} 个推荐模型` : (p.base_url ? '手动填写模型' : '自定义') }}
+                </small>
+              </span>
+              <el-icon v-if="isProviderSelected(p)" class="pchip-check"><Check /></el-icon>
+            </button>
+            <button type="button" class="pchip custom" :class="{ active: isCustomSelected }" @click="selectCustom">
+              <span class="pchip-icon custom">+</span>
+              <span class="pchip-body">
+                <strong>自定义</strong>
+                <small>手动填写全部信息</small>
+              </span>
+            </button>
+          </div>
         </div>
+
+        <el-divider />
+
+        <!-- 连接 & 模型 -->
+        <div class="grid-2">
+          <div class="block">
+            <h3 class="block-title">连接</h3>
+            <el-form label-position="top" :model="form">
+              <el-form-item label="接口地址" required>
+                <el-input v-model="form.url" placeholder="https://api.example.com/v1" />
+              </el-form-item>
+              <el-form-item label="API Key">
+                <el-input
+                  v-model="authToken"
+                  type="password"
+                  show-password
+                  placeholder="••••••••（留空保持不变）"
+                />
+              </el-form-item>
+              <el-form-item label="请求协议">
+                <el-radio-group v-model="form.use_anthropic">
+                  <el-radio :value="false">OpenAI 兼容</el-radio>
+                  <el-radio :value="true">Anthropic</el-radio>
+                </el-radio-group>
+              </el-form-item>
+            </el-form>
+          </div>
+
+          <div class="block">
+            <h3 class="block-title">模型</h3>
+            <el-form label-position="top" :model="form">
+              <el-form-item label="模型名称" required>
+                <el-select
+                  v-model="form.model"
+                  filterable
+                  allow-create
+                  default-first-option
+                  :placeholder="currentModels.length ? '选择或输入模型名称' : '输入模型名称（如 gpt-4o）'"
+                  style="width: 100%"
+                >
+                  <el-option v-for="m in currentModels" :key="m" :label="m" :value="m" />
+                </el-select>
+                <div class="tip">模型版本更新频繁，请以服务商文档为准；可直接输入任意模型名。</div>
+              </el-form-item>
+              <div class="grid-2 inner">
+                <el-form-item label="推理模式">
+                  <el-select v-model="form.reasoning_mode" style="width: 100%">
+                    <el-option label="禁用" value="disabled" />
+                    <el-option label="轻量 (2K)" value="light" />
+                    <el-option label="中等 (8K)" value="medium" />
+                    <el-option label="充分 (32K)" value="full" />
+                    <el-option label="自定义" value="custom" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item v-if="form.reasoning_mode === 'custom'" label="推理预算 (tokens)">
+                  <el-input-number
+                    v-model="form.reasoning_budget"
+                    :min="1000"
+                    :max="100000"
+                    :step="1000"
+                    style="width: 100%"
+                  />
+                </el-form-item>
+              </div>
+            </el-form>
+          </div>
+        </div>
+
+        <el-divider />
+
+        <!-- 输出 & 执行 -->
+        <div class="grid-2">
+          <div class="block">
+            <h3 class="block-title">输出</h3>
+            <el-form label-position="top" :model="form">
+              <div class="grid-2 inner">
+                <el-form-item label="输出语言">
+                  <el-select v-model="form.language" style="width: 100%">
+                    <el-option label="中文" value="Chinese" />
+                    <el-option label="English" value="English" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="输出受众">
+                  <el-segmented
+                    v-model="form.audience"
+                    :options="[
+                      { label: '人工可读', value: 'human' },
+                      { label: 'Agent 精简', value: 'agent' },
+                    ]"
+                  />
+                </el-form-item>
+              </div>
+              <el-form-item label="默认严重级别">
+                <el-select v-model="form.default_severity" style="width: 100%">
+                  <el-option label="严重 Critical" value="critical" />
+                  <el-option label="高危 Major" value="major" />
+                  <el-option label="中危 Minor" value="minor" />
+                  <el-option label="低危 Info" value="info" />
+                </el-select>
+              </el-form-item>
+            </el-form>
+          </div>
+
+          <div class="block">
+            <h3 class="block-title">执行</h3>
+            <el-form label-position="top" :model="form">
+              <div class="grid-3 inner">
+                <el-form-item label="模型并发">
+                  <el-input-number v-model="form.concurrency" :min="1" :max="32" style="width: 100%" />
+                </el-form-item>
+                <el-form-item label="Git 并发">
+                  <el-input-number v-model="form.max_git_procs" :min="1" :max="64" style="width: 100%" />
+                </el-form-item>
+                <el-form-item label="超时(分)">
+                  <el-input-number v-model="form.timeout_minutes" :min="1" :max="120" style="width: 100%" />
+                </el-form-item>
+              </div>
+            </el-form>
+          </div>
+        </div>
+
+        <div class="save-bar">
+          <span class="save-hint">修改后请点击保存，配置将立即生效。</span>
+          <div class="save-buttons">
+            <el-button @click="handleTestLLM" :loading="testingLLM">
+              <el-icon><Connection /></el-icon>
+              <span>测试连接</span>
+            </el-button>
+            <el-button type="primary" @click="handleSave" :loading="saving">
+              <el-icon><Check /></el-icon>
+              <span>保存配置</span>
+            </el-button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 高级配置 -->
+      <section class="advanced">
+        <button type="button" class="adv-toggle" @click="showAdvanced = !showAdvanced">
+          <div class="adv-toggle-left">
+            <span class="adv-title">高级配置</span>
+            <small>OCR 二进制 / 工具 / 遥测 / Viewer / 审查背景</small>
+          </div>
+          <el-icon class="adv-arrow"><ArrowDown v-if="!showAdvanced" /><ArrowUp v-else /></el-icon>
+        </button>
         <el-collapse-transition>
-          <div v-show="showAdvanced" class="advanced-config">
-            <el-card class="config-card">
-              <el-tabs v-model="activeTab">
-                <el-tab-pane label="执行参数" name="execution">
-                  <ExecutionParamsTab />
-                </el-tab-pane>
-                <el-tab-pane label="审查侧重点" name="review">
-                  <ReviewFocusTab />
-                </el-tab-pane>
-              </el-tabs>
-            </el-card>
+          <div v-show="showAdvanced" class="adv-body">
+            <el-tabs v-model="activeTab" class="adv-tabs">
+              <el-tab-pane label="执行参数" name="execution">
+                <ExecutionParamsTab />
+              </el-tab-pane>
+              <el-tab-pane label="审查背景" name="review">
+                <ReviewFocusTab />
+              </el-tab-pane>
+            </el-tabs>
           </div>
         </el-collapse-transition>
-      </div>
+      </section>
     </div>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, provide, onMounted } from 'vue'
+import { ref, reactive, computed, provide, onMounted } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
-import { Refresh, Edit, Connection, Plus, ArrowDown, ArrowUp } from '@element-plus/icons-vue'
+import { Refresh, Connection, Search, Check, ArrowDown, ArrowUp, InfoFilled } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ExecutionParamsTab from '@/components/model-settings/ExecutionParamsTab.vue'
 import ReviewFocusTab from '@/components/model-settings/ReviewFocusTab.vue'
-import ModelSetupWizard from '@/components/model-settings/ModelSetupWizard.vue'
 import { modelSettingsKey, type ModelSettingsContext } from '@/components/model-settings/context'
 import { getOCRSettings, listLLMProviders, updateOCRSettings, testLLM } from '@/api/config'
-import type { LLMProvider, OCRSettings, ProviderPreset } from '@/types/config'
+import type { LLMProvider, OCRSettings } from '@/types/config'
 
-const allPresets: ProviderPreset[] = [
-  {
-    id: 'zhipu-coding-plan',
-    display_name: '智谱 AI (Coding Plan)',
-    category: 'coding_plan',
-    type: 'openai_compatible',
-    base_url: 'https://open.bigmodel.cn/api/paas/v4',
-    protocol: 'openai',
-    supports_thinking: true,
-    icon: 'zhipu',
-    region: 'cn',
-    requires_key: true,
-    default_model: 'glm-5.1',
-    models: [
-      { id: 'glm-5.1', display_name: 'GLM-5.1', max_tokens: 4096, supports_thinking: true },
-      { id: 'glm-5.2', display_name: 'GLM-5.2', max_tokens: 4096, supports_thinking: true },
-      { id: 'glm-4v-plus', display_name: 'GLM-4V-Plus', max_tokens: 4096, supports_thinking: true },
-    ],
-  },
-  {
-    id: 'volcengine-coding-plan',
-    display_name: '火山引擎 (Coding Plan)',
-    category: 'coding_plan',
-    type: 'openai_compatible',
-    base_url: 'https://ark.cn-beijing.volces.com/api/v3',
-    protocol: 'openai',
-    supports_thinking: true,
-    icon: 'volcengine',
-    region: 'cn',
-    requires_key: true,
-    default_model: 'doubao-seed-2-0-pro',
-    models: [
-      { id: 'doubao-seed-2-0-pro', display_name: '豆包 Seed 2.0 Pro', max_tokens: 4096, supports_thinking: true },
-      { id: 'doubao-seed-2-0-lite', display_name: '豆包 Seed 2.0 Lite', max_tokens: 4096, supports_thinking: false },
-      { id: 'doubao-seed-2-0-code', display_name: '豆包 Seed 2.0 Code', max_tokens: 4096, supports_thinking: true },
-    ],
-  },
-  {
-    id: 'mimo-coding-plan',
-    display_name: '小米 MiMo (Coding Plan)',
-    category: 'coding_plan',
-    type: 'openai_compatible',
-    base_url: 'https://token-plan-cn.xiaomimimo.com/v1',
-    protocol: 'openai',
-    supports_thinking: true,
-    icon: 'mimo',
-    region: 'cn',
-    requires_key: true,
-    default_model: 'mimo-v2.5-pro',
-    models: [
-      { id: 'mimo-v2.5', display_name: 'MiMo V2.5', max_tokens: 4096, supports_thinking: true },
-      { id: 'mimo-v2.5-pro', display_name: 'MiMo V2.5 Pro', max_tokens: 4096, supports_thinking: true },
-      { id: 'mimo-v2.5-lite', display_name: 'MiMo V2.5 Lite', max_tokens: 4096, supports_thinking: false },
-    ],
-  },
-  {
-    id: 'minimax-coding-plan',
-    display_name: 'MiniMax (Coding Plan)',
-    category: 'coding_plan',
-    type: 'openai_compatible',
-    base_url: 'https://api.minimax.chat/v1',
-    protocol: 'openai',
-    supports_thinking: false,
-    icon: 'minimax',
-    region: 'cn',
-    requires_key: true,
-    default_model: 'MiniMax-M2.5',
-    models: [
-      { id: 'MiniMax-M2.5', display_name: 'MiniMax M2.5', max_tokens: 4096, supports_thinking: false },
-      { id: 'MiniMax-M2.7-highspeed', display_name: 'MiniMax M2.7 Highspeed', max_tokens: 4096, supports_thinking: false },
-    ],
-  },
-  {
-    id: 'kimi-coding-plan',
-    display_name: 'Kimi (Coding Plan)',
-    category: 'coding_plan',
-    type: 'openai_compatible',
-    base_url: 'https://api.moonshot.cn/v1',
-    protocol: 'openai',
-    supports_thinking: false,
-    icon: 'kimi',
-    region: 'cn',
-    requires_key: true,
-    default_model: 'moonshot-v1-32k',
-    models: [
-      { id: 'moonshot-v1-8k', display_name: 'Moonshot V1 8K', max_tokens: 4096, supports_thinking: false },
-      { id: 'moonshot-v1-32k', display_name: 'Moonshot V1 32K', max_tokens: 4096, supports_thinking: false },
-      { id: 'moonshot-v1-128k', display_name: 'Moonshot V1 128K', max_tokens: 4096, supports_thinking: false },
-    ],
-  },
-  {
-    id: 'openai',
-    display_name: 'OpenAI',
-    category: 'direct',
-    type: 'openai_compatible',
-    base_url: 'https://api.openai.com/v1',
-    protocol: 'openai',
-    supports_thinking: true,
-    icon: 'openai',
-    region: 'global',
-    requires_key: true,
-    default_model: 'gpt-5.2',
-    models: [
-      { id: 'gpt-5.2', display_name: 'GPT-5.2', max_tokens: 4096, supports_thinking: true },
-      { id: 'gpt-4o', display_name: 'GPT-4o', max_tokens: 4096, supports_thinking: false },
-      { id: 'o3', display_name: 'o3', max_tokens: 4096, supports_thinking: true },
-      { id: 'o3-mini', display_name: 'o3 Mini', max_tokens: 4096, supports_thinking: true },
-    ],
-  },
-  {
-    id: 'anthropic',
-    display_name: 'Anthropic',
-    category: 'direct',
-    type: 'anthropic',
-    base_url: 'https://api.anthropic.com',
-    protocol: 'anthropic',
-    supports_thinking: true,
-    icon: 'anthropic',
-    region: 'global',
-    requires_key: true,
-    default_model: 'claude-sonnet-4-5-20250929',
-    models: [
-      { id: 'claude-sonnet-4-5-20250929', display_name: 'Claude Sonnet 4.5', max_tokens: 4096, supports_thinking: true },
-      { id: 'claude-opus-4-5-20250929', display_name: 'Claude Opus 4.5', max_tokens: 4096, supports_thinking: true },
-      { id: 'claude-haiku-4-20250514', display_name: 'Claude Haiku 4', max_tokens: 4096, supports_thinking: true },
-    ],
-  },
-  {
-    id: 'deepseek',
-    display_name: 'DeepSeek',
-    category: 'direct',
-    type: 'openai_compatible',
-    base_url: 'https://api.deepseek.com',
-    protocol: 'openai',
-    supports_thinking: true,
-    icon: 'deepseek',
-    region: 'cn',
-    requires_key: true,
-    default_model: 'deepseek-v4-pro',
-    models: [
-      { id: 'deepseek-v4-pro', display_name: 'DeepSeek V4 Pro', max_tokens: 4096, supports_thinking: true },
-      { id: 'deepseek-v4-flash', display_name: 'DeepSeek V4 Flash', max_tokens: 4096, supports_thinking: false },
-      { id: 'deepseek-reasoner', display_name: 'DeepSeek Reasoner', max_tokens: 4096, supports_thinking: true },
-    ],
-  },
-  {
-    id: 'dashscope',
-    display_name: '阿里百炼 (Token Plan)',
-    category: 'coding_plan',
-    type: 'openai_compatible',
-    base_url: 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
-    protocol: 'openai',
-    supports_thinking: true,
-    icon: 'dashscope',
-    region: 'cn',
-    requires_key: true,
-    default_model: 'qwen3.7-plus',
-    models: [
-      { id: 'qwen3.7-max', display_name: 'Qwen3.7 Max', max_tokens: 8192, supports_thinking: true },
-      { id: 'qwen3.7-plus', display_name: 'Qwen3.7 Plus', max_tokens: 8192, supports_thinking: true },
-      { id: 'qwen3.6-flash', display_name: 'Qwen3.6 Flash', max_tokens: 8192, supports_thinking: true },
-      { id: 'qwen-max', display_name: 'Qwen Max', max_tokens: 8192, supports_thinking: true },
-      { id: 'qwen-plus', display_name: 'Qwen Plus', max_tokens: 8192, supports_thinking: true },
-      { id: 'qwen-turbo', display_name: 'Qwen Turbo', max_tokens: 8192, supports_thinking: false },
-      { id: 'qwen-coder-plus', display_name: 'Qwen Coder Plus', max_tokens: 8192, supports_thinking: true },
-      { id: 'qwen-long', display_name: 'Qwen Long', max_tokens: 8192, supports_thinking: false },
-    ],
-  },
-]
+// 服务商显示元数据：以 OCR 二进制返回的 provider name 为键
+const providerMeta: Record<string, { display: string; icon: string; region: string }> = {
+  openai: { display: 'OpenAI', icon: 'openai', region: 'global' },
+  anthropic: { display: 'Anthropic', icon: 'anthropic', region: 'global' },
+  deepseek: { display: 'DeepSeek', icon: 'deepseek', region: 'cn' },
+  dashscope: { display: '阿里百炼 DashScope', icon: 'dashscope', region: 'cn' },
+  'dashscope-tokenplan': { display: '阿里百炼 (Token Plan)', icon: 'dashscope', region: 'cn' },
+  'z-ai': { display: '智谱 AI', icon: 'zhipu', region: 'cn' },
+  volcengine: { display: '火山引擎 (豆包)', icon: 'volcengine', region: 'cn' },
+  mimo: { display: '小米 MiMo', icon: 'mimo', region: 'cn' },
+  minimax: { display: 'MiniMax', icon: 'minimax', region: 'cn' },
+  kimi: { display: 'Moonshot Kimi', icon: 'kimi', region: 'cn' },
+  'baidu-qianfan': { display: '百度千帆', icon: 'baidu', region: 'cn' },
+  'hy-tokenplan': { display: '腾讯混元 (Token Plan)', icon: 'hunyuan', region: 'cn' },
+  'tencent-tokenhub': { display: '腾讯云 (TokenHub)', icon: 'tencent', region: 'cn' },
+}
+
+interface ProviderOption {
+  name: string
+  protocol: string
+  base_url: string
+  models: string[]
+}
+
+function metaOf(name: string) {
+  return providerMeta[name] || { display: name, icon: name, region: '' }
+}
+function displayOf(name: string) {
+  return metaOf(name).display
+}
+function iconOf(name: string) {
+  return metaOf(name).icon
+}
+function initialOf(name: string) {
+  return displayOf(name).charAt(0).toUpperCase()
+}
 
 const loading = ref(false)
 const saving = ref(false)
 const testingLLM = ref(false)
 const syncingProviders = ref(false)
-const showWizard = ref(false)
 const showAdvanced = ref(false)
 const activeTab = ref('execution')
-const wizardRef = ref<InstanceType<typeof ModelSetupWizard> | null>(null)
-const syncedPresets = ref<ProviderPreset[]>([...allPresets])
+const providerQuery = ref('')
+const authToken = ref('')
+const extraBodyText = ref('')
+
+const providers = ref<LLMProvider[]>([])
 
 const form = reactive<OCRSettings>({
   enabled: false,
@@ -324,93 +355,104 @@ const form = reactive<OCRSettings>({
   max_output_tokens: 0,
 })
 
-function getPresetName(provider: string) {
-  const preset = syncedPresets.value.find((p) => p.id === provider || p.id.includes(provider))
-  return preset?.display_name || provider
+const providerOptions = computed<ProviderOption[]>(() =>
+  providers.value.map((p) => ({
+    name: p.name,
+    protocol: p.protocol,
+    base_url: p.base_url || '',
+    models: p.default_model || [],
+  })),
+)
+
+const filteredProviders = computed(() => {
+  const kw = providerQuery.value.trim().toLowerCase()
+  if (!kw) return providerOptions.value
+  return providerOptions.value.filter(
+    (p) =>
+      p.name.toLowerCase().includes(kw) ||
+      displayOf(p.name).toLowerCase().includes(kw) ||
+      p.models.some((m) => m.toLowerCase().includes(kw)),
+  )
+})
+
+const currentModels = computed(() => {
+  const matched = providerOptions.value.find((p) => p.name === form.provider)
+  return matched?.models || []
+})
+
+const isCustomSelected = computed(
+  () => form.provider === 'custom' || (!!form.provider && !providerOptions.value.some((p) => p.name === form.provider)),
+)
+
+function isProviderSelected(p: ProviderOption) {
+  return form.provider === p.name
 }
 
-function openWizard() {
-  showWizard.value = true
+const currentIcon = computed(() => iconOf(form.provider || 'custom'))
+const currentDisplayName = computed(() => (form.provider ? displayOf(form.provider) : '未配置'))
+const currentInitial = computed(() => currentDisplayName.value.charAt(0))
+const currentRegion = computed(() => (form.provider ? metaOf(form.provider).region : ''))
+
+const reasoningLabel = computed(() => {
+  switch (form.reasoning_mode) {
+    case 'disabled':
+      return '推理关闭'
+    case 'light':
+      return '推理·轻量'
+    case 'medium':
+      return '推理·中等'
+    case 'full':
+      return '推理·充分'
+    case 'custom':
+      return `推理·${form.reasoning_budget || 0}`
+    default:
+      return '推理·未知'
+  }
+})
+
+function selectProvider(p: ProviderOption) {
+  form.provider = p.name
+  if (p.base_url) form.url = p.base_url
+  form.use_anthropic = p.protocol === 'anthropic'
+  if (p.models.length && (!form.model || !p.models.includes(form.model))) {
+    form.model = p.models[0]
+  }
 }
 
-async function handleSaveConfig() {
+function selectCustom() {
+  form.provider = 'custom'
+}
+
+async function handleSave() {
+  if (!form.url || !form.model) {
+    ElMessage.warning('请填写接口地址和模型')
+    return
+  }
   saving.value = true
   try {
-    let settings: OCRSettings
-
-    if (showWizard.value && wizardRef.value) {
-      const editForm = wizardRef.value.getEditForm()
-
-      if (!editForm.url || !editForm.model) {
-        ElMessage.warning('请填写接口地址和模型')
-        return
-      }
-
-      settings = {
-        ...form,
-        enabled: true,
-        provider: wizardRef.value.selectedPreset?.id || 'custom',
-        url: editForm.url,
-        model: editForm.model,
-        auth_token: editForm.auth_token || form.auth_token,
-        use_anthropic: editForm.use_anthropic,
-        reasoning_mode: editForm.reasoning_mode,
-        reasoning_budget: editForm.reasoning_budget,
-        language: editForm.language,
-        audience: editForm.audience,
-        default_severity: editForm.default_severity,
-        concurrency: editForm.concurrency,
-        max_git_procs: editForm.max_git_procs,
-        timeout_minutes: editForm.timeout_minutes,
-        background: editForm.background,
-      }
-    } else {
-      settings = { ...form, enabled: true }
-    }
-
-    await updateOCRSettings(settings)
-    Object.assign(form, settings)
-    showWizard.value = false
+    const settings: OCRSettings = { ...form, auth_token: authToken.value || form.auth_token }
+    const saved = await updateOCRSettings(settings)
+    Object.assign(form, saved)
+    authToken.value = ''
     ElMessage.success('配置已保存')
   } catch (e: any) {
-    ElMessage.error(e.message || '保存失败')
+    ElMessage.error(e?.message || '保存失败')
   } finally {
     saving.value = false
   }
 }
 
 async function handleTestLLM() {
-  // 如果在向导模式中，先保存配置再测试
-  if (showWizard.value && wizardRef.value) {
-    const editForm = wizardRef.value.getEditForm()
-    if (editForm.url && editForm.model) {
-      try {
-        const settings: OCRSettings = {
-          ...form,
-          enabled: true,
-          provider: wizardRef.value.selectedPreset?.id || 'custom',
-          url: editForm.url,
-          model: editForm.model,
-          auth_token: editForm.auth_token || form.auth_token,
-          use_anthropic: editForm.use_anthropic,
-          reasoning_mode: editForm.reasoning_mode,
-          reasoning_budget: editForm.reasoning_budget,
-          language: editForm.language,
-          audience: editForm.audience,
-          default_severity: editForm.default_severity,
-          concurrency: editForm.concurrency,
-          max_git_procs: editForm.max_git_procs,
-          timeout_minutes: editForm.timeout_minutes,
-          background: editForm.background,
-        }
-        await updateOCRSettings(settings)
-        Object.assign(form, settings)
-      } catch (e: any) {
-        ElMessage.warning('保存配置失败，将测试当前已保存的配置')
-      }
+  if (form.url && form.model) {
+    try {
+      const settings: OCRSettings = { ...form, auth_token: authToken.value || form.auth_token }
+      const saved = await updateOCRSettings(settings)
+      Object.assign(form, saved)
+      authToken.value = ''
+    } catch {
+      ElMessage.warning('保存配置失败，将测试已保存的配置')
     }
   }
-
   testingLLM.value = true
   try {
     const result = await testLLM()
@@ -434,6 +476,11 @@ async function fetchSettings() {
     if (!form.binary) form.binary = 'ocr'
     if (!form.audience) form.audience = 'human'
     if (!form.default_severity) form.default_severity = 'major'
+    if (!form.reasoning_mode) form.reasoning_mode = 'light'
+    authToken.value = ''
+    extraBodyText.value = form.extra_body ? JSON.stringify(form.extra_body, null, 2) : ''
+  } catch (e: any) {
+    ElMessage.error(e?.message || '加载配置失败')
   } finally {
     loading.value = false
   }
@@ -442,64 +489,42 @@ async function fetchSettings() {
 async function syncProviders(silent = false) {
   syncingProviders.value = true
   try {
-    const providers = await listLLMProviders()
-    syncedPresets.value = mergeProviderPresets(allPresets, providers)
-    if (!silent) ElMessage.success(`已同步 ${providers.length} 个 OCR Provider`)
+    providers.value = await listLLMProviders()
+    if (!silent) ElMessage.success(`已同步 ${providers.value.length} 个 Provider`)
   } catch (e: any) {
-    if (!silent) ElMessage.error(e.message || '同步 OCR Provider 失败')
+    if (!silent) ElMessage.error(e?.message || '同步 Provider 失败')
   } finally {
     syncingProviders.value = false
   }
 }
 
-function mergeProviderPresets(base: ProviderPreset[], providers: LLMProvider[]): ProviderPreset[] {
-  const next = base.map((item) => ({ ...item, models: [...item.models] }))
-  providers.forEach((provider) => {
-    const models = (provider.default_model || []).map((model) => ({
-      id: model,
-      display_name: model,
-      max_tokens: 4096,
-      supports_thinking: /reason|thinking|o\d|glm|qwen|claude|deepseek/i.test(model),
-    }))
-    const existing = next.find((item) => item.id === provider.name || item.id.includes(provider.name))
-    if (existing) {
-      if (provider.base_url) existing.base_url = provider.base_url
-      if (provider.protocol) {
-        existing.protocol = provider.protocol
-        existing.type = provider.protocol === 'anthropic' ? 'anthropic' : 'openai_compatible'
-      }
-      if (models.length) {
-        existing.models = models
-        existing.default_model = models[0].id
-      }
-      return
+function syncExtraBody(showError = false): boolean {
+  const text = extraBodyText.value.trim()
+  if (!text) {
+    form.extra_body = undefined
+    return true
+  }
+  try {
+    const parsed = JSON.parse(text)
+    if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
+      throw new Error('必须是 JSON 对象')
     }
-    next.push({
-      id: provider.name,
-      display_name: provider.name,
-      category: 'ocr',
-      type: provider.protocol === 'anthropic' ? 'anthropic' : 'openai_compatible',
-      base_url: provider.base_url || '',
-      protocol: provider.protocol || 'openai',
-      supports_thinking: models.some((model) => model.supports_thinking),
-      models,
-      default_model: models[0]?.id || '',
-      icon: provider.name,
-      region: 'global',
-      requires_key: true,
-    })
-  })
-  return next
+    form.extra_body = parsed
+    return true
+  } catch (e: any) {
+    if (showError) ElMessage.error(`额外请求体格式错误：${e.message || e}`)
+    return false
+  }
 }
 
 const ctx: ModelSettingsContext = {
   form,
   saving,
   testingLLM,
-  extraBodyText: ref(''),
-  save: handleSaveConfig,
+  extraBodyText,
+  save: handleSave,
   testLLM: handleTestLLM,
-  syncExtraBody: () => true,
+  syncExtraBody,
   selectedProvider: ref(null),
   selectedProviderType: ref(null),
   selectProvider: () => {},
@@ -513,29 +538,30 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.model-settings-page {
-  width: min(1200px, 100%);
+.ms-page {
+  width: min(1180px, 100%);
   margin: 0 auto;
-  padding: 34px 36px 48px;
+  padding: 30px 32px 56px;
 }
 
-.page-header {
+.ms-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 24px;
+  gap: 16px;
+  margin-bottom: 22px;
 }
 
-.page-header h1 {
-  margin: 4px 0 8px;
+.ms-header h1 {
+  margin: 4px 0 6px;
+  font-size: 26px;
   color: var(--app-text);
-  font-size: 28px;
 }
 
-.page-header p {
+.ms-header p {
   margin: 0;
+  font-size: 13px;
   color: var(--app-muted);
-  font-size: 14px;
 }
 
 .eyebrow {
@@ -545,192 +571,381 @@ onMounted(() => {
   letter-spacing: 1.3px;
 }
 
-.header-actions {
+.ms-actions {
   display: flex;
   gap: 8px;
-}
-
-.status-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 20px 24px;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  border: 1px solid #bae6fd;
-  border-radius: 16px;
-  margin-bottom: 24px;
-}
-
-.status-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  font-weight: 700;
-  color: white;
   flex-shrink: 0;
 }
 
-.status-icon.zhipu,
-.status-icon.zhipu-coding-plan {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
+/* 状态条 */
+.status-strip {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #eff4ff 0%, #e8effd 100%);
+  border: 1px solid #cdddff;
+  border-radius: 14px;
+  margin-bottom: 20px;
 }
 
-.status-icon.volcengine,
-.status-icon.volcengine-coding-plan {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+.status-strip.off {
+  background: var(--app-surface);
+  border-color: var(--app-border);
 }
 
-.status-icon.mimo,
-.status-icon.mimo-coding-plan {
-  background: linear-gradient(135deg, #10b981, #059669);
+.ss-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  background: var(--app-border);
 }
 
-.status-icon.minimax,
-.status-icon.minimax-coding-plan {
-  background: linear-gradient(135deg, #ec4899, #db2777);
-}
-
-.status-icon.kimi,
-.status-icon.kimi-coding-plan {
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-}
-
-.status-icon.openai {
-  background: linear-gradient(135deg, #10b981, #059669);
-}
-
-.status-icon.anthropic {
-  background: linear-gradient(135deg, #d97706, #b45309);
-}
-
-.status-icon.deepseek {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-}
-
-.status-icon.dashscope {
-  background: linear-gradient(135deg, #6366f1, #4f46e5);
-}
-
-.status-info {
+.ss-main {
   flex: 1;
   min-width: 0;
 }
 
-.status-title {
+.ss-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
 }
 
-.status-title strong {
+.ss-title strong {
   font-size: 16px;
   color: var(--app-text);
 }
 
-.status-meta {
+.ss-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 13px;
   color: var(--app-muted);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.ss-meta .mono {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+.ss-meta .url {
+  color: var(--app-primary);
+  word-break: break-all;
+}
+
+.sep {
+  color: #c4ccd9;
+}
+
+.ss-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.enable-toggle {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.separator {
-  color: #d1d5db;
-}
-
-.status-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 60px 40px;
-  background: var(--app-bg);
-  border: 2px dashed var(--app-border);
-  border-radius: 16px;
-  margin-bottom: 24px;
-}
-
-.empty-state .empty-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.empty-state h3 {
-  margin: 0 0 8px;
-  font-size: 18px;
-  color: var(--app-text);
-}
-
-.empty-state p {
-  margin: 0 0 20px;
+  font-size: 13px;
   color: var(--app-muted);
-  font-size: 14px;
 }
 
-.quick-config-section {
-  margin-top: 32px;
-}
-
-.section-header {
+.empty-banner {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
   margin-bottom: 16px;
+  border-radius: 10px;
+  background: #fff7e6;
+  border: 1px solid #ffe3b3;
+  color: #93601a;
+  font-size: 13px;
 }
 
-.section-header h3 {
-  margin: 0;
-  font-size: 18px;
+/* 主卡片 */
+.config-card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 16px;
+  padding: 24px 26px;
+  box-shadow: var(--app-shadow);
+}
+
+.block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.block-head h3,
+.block-title {
+  margin: 0 0 12px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--app-text);
 }
 
-.advanced-config {
-  margin-top: 8px;
+.provider-search {
+  max-width: 260px;
 }
 
-.config-card {
+.provider-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.pchip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 2px solid var(--app-border);
+  border-radius: 12px;
+  background: var(--app-surface);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s ease;
+  position: relative;
+  font: inherit;
+  color: var(--app-text);
+}
+
+.pchip:hover {
+  border-color: var(--app-primary);
+  transform: translateY(-1px);
+}
+
+.pchip.active {
+  border-color: var(--app-primary);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.06), rgba(37, 99, 235, 0.02));
+}
+
+.pchip.custom {
+  border-style: dashed;
+}
+
+.pchip-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  background: var(--app-border);
+}
+
+.pchip-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.pchip-body strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--app-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pchip-body small {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--app-muted);
+}
+
+.pchip-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: var(--app-primary);
+  font-size: 16px;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.grid-2.inner {
+  gap: 16px;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.tip {
+  font-size: 12px;
+  color: var(--app-muted);
+  margin-top: 4px;
+}
+
+:deep(.el-divider--horizontal) {
+  margin: 22px 0;
+}
+
+.save-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 18px;
+  border-top: 1px solid var(--app-border);
+}
+
+.save-hint {
+  font-size: 12px;
+  color: var(--app-muted);
+}
+
+.save-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+/* 高级配置 */
+.advanced {
+  margin-top: 22px;
+}
+
+.adv-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 20px;
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  background: var(--app-surface);
+  cursor: pointer;
+  font: inherit;
+  color: var(--app-text);
+  transition: border-color 0.18s ease;
+}
+
+.adv-toggle:hover {
+  border-color: var(--app-primary);
+}
+
+.adv-toggle-left {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.adv-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.adv-toggle-left small {
+  font-size: 12px;
+  color: var(--app-muted);
+}
+
+.adv-arrow {
+  color: var(--app-muted);
+}
+
+.adv-body {
+  margin-top: 12px;
+  padding: 18px 22px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
   border-radius: 14px;
 }
 
-@media (max-width: 768px) {
-  .model-settings-page {
-    padding: 20px 16px;
+/* 服务商图标配色（与 OCR 二进制返回的 name 对应） */
+.ss-icon.openai,
+.pchip-icon.openai { background: linear-gradient(135deg, #10a37f, #0d8a6a); }
+.ss-icon.anthropic,
+.pchip-icon.anthropic { background: linear-gradient(135deg, #d97706, #b45309); }
+.ss-icon.deepseek,
+.pchip-icon.deepseek { background: linear-gradient(135deg, #4d6bfe, #2b4fd6); }
+.ss-icon.dashscope,
+.pchip-icon.dashscope { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+.ss-icon.zhipu,
+.pchip-icon.zhipu { background: linear-gradient(135deg, #3b5bdb, #2b3fa8); }
+.ss-icon.volcengine,
+.pchip-icon.volcengine { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.ss-icon.mimo,
+.pchip-icon.mimo { background: linear-gradient(135deg, #10b981, #059669); }
+.ss-icon.minimax,
+.pchip-icon.minimax { background: linear-gradient(135deg, #ec4899, #db2777); }
+.ss-icon.kimi,
+.pchip-icon.kimi { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+.ss-icon.baidu,
+.pchip-icon.baidu { background: linear-gradient(135deg, #2932e1, #1b2bbd); }
+.ss-icon.hunyuan,
+.pchip-icon.hunyuan { background: linear-gradient(135deg, #0052d9, #003eaa); }
+.ss-icon.tencent,
+.pchip-icon.tencent { background: linear-gradient(135deg, #00a4ff, #0080d6); }
+.pchip-icon.custom { background: var(--app-border); color: var(--app-muted); }
+
+@media (max-width: 860px) {
+  .ms-page {
+    padding: 20px 16px 40px;
   }
 
-  .status-card {
-    flex-direction: column;
-    text-align: center;
+  .grid-2 {
+    grid-template-columns: 1fr;
   }
 
-  .status-meta {
-    justify-content: center;
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .status-strip {
     flex-wrap: wrap;
   }
 
-  .status-actions {
-    justify-content: center;
-  }
-
-  .page-header {
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .header-actions {
+  .ss-controls {
     width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 560px) {
+  .grid-3 {
+    grid-template-columns: 1fr;
   }
 
-  .header-actions .el-button {
-    flex: 1;
+  .save-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .save-buttons {
+    justify-content: flex-end;
   }
 }
 </style>
