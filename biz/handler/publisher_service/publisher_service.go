@@ -43,7 +43,7 @@ func PublishReview(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	if err := publishReview(ctx, req.ID, req.SummaryOnly != nil && *req.SummaryOnly); err != nil {
+	if err := publishReview(ctx, req.ID, req.SummaryOnly != nil && *req.SummaryOnly, false); err != nil {
 		common.Fail(c, err)
 		return
 	}
@@ -83,14 +83,14 @@ func RetryPublish(ctx context.Context, c *app.RequestContext) {
 		common.Success(c, map[string]any{"message": "no retryable writeback items", "review_id": id})
 		return
 	}
-	if err := publishReview(ctx, id, false); err != nil {
+	if err := publishReview(ctx, id, false, false); err != nil {
 		common.Fail(c, err)
 		return
 	}
 	common.Success(c, map[string]any{"message": "retry published", "review_id": id})
 }
 
-func publishReview(ctx context.Context, id string, summaryOnly bool) error {
+func publishReview(ctx context.Context, id string, summaryOnly bool, force bool) error {
 	record, found, err := handlerInst.reviewSvc.Get(ctx, id)
 	if err != nil || !found {
 		return common.NotFound("review not found")
@@ -118,7 +118,7 @@ func publishReview(ctx context.Context, id string, summaryOnly bool) error {
 
 	publishReq := record.Request
 	publishReq.ReviewID = record.ID
-	if _, err := handlerInst.writeback.Publish(ctx, publishReq, result, diff); err != nil {
+	if _, err := handlerInst.writeback.PublishWithOptions(ctx, publishReq, result, diff, writeback.PublishOptions{Force: force}); err != nil {
 		return err
 	}
 	return nil
@@ -153,7 +153,7 @@ func UpdatePublishedComment(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	if err := publishReview(ctx, req.ID, false); err != nil {
+	if err := publishReview(ctx, req.ID, false, true); err != nil {
 		common.Fail(c, err)
 		return
 	}

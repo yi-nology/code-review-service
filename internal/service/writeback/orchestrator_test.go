@@ -315,6 +315,49 @@ func TestPublishSkipsWhenSummaryAndInlineAlreadyPublished(t *testing.T) {
 	}
 }
 
+func TestPublishWithForceRepublishesAlreadyPublishedItems(t *testing.T) {
+	repo := &mockWritebackItemRepo{items: []models.WritebackItem{
+		{ReviewID: "review-service-1", FindingKey: summaryFindingKey, Kind: "summary", Status: "published", Attempts: 1},
+		{ReviewID: "review-service-1", FindingKey: testFindingKey(), Kind: "inline", Status: "published", Attempts: 1},
+	}}
+	adapter := &capturingWritebackAdapter{}
+	orch := NewOrchestrator(OrchestratorConfig{
+		Adapters: map[string]Adapter{"github": adapter},
+		ItemRepo: repo,
+	})
+
+	result, err := orch.PublishWithOptions(t.Context(), domain.Request{
+		ReviewID:      "review-service-1",
+		Provider:      "github",
+		Repo:          "org/repo",
+		PullRequestID: "12",
+		HeadSHA:       "abc123",
+	}, domain.Result{Summary: "summary", Findings: []domain.Finding{{
+		Severity: domain.SeverityMajor,
+		Path:     "a.go",
+		Line:     1,
+		Title:    "replace old",
+		Body:     "body",
+	}}}, "", PublishOptions{Force: true})
+	if err != nil {
+		t.Fatalf("PublishWithOptions() error = %v", err)
+	}
+	if result == nil || result.Skipped {
+		t.Fatalf("result = %+v, want republish", result)
+	}
+	if adapter.review.Summary == "" || len(adapter.review.Comments) != 1 {
+		t.Fatalf("adapter review = %+v, want summary and inline comment", adapter.review)
+	}
+	inline, ok := findWritebackItem(repo.items, testFindingKey(), "inline")
+	if !ok || inline.Attempts != 2 || inline.Status != "published" {
+		t.Fatalf("inline item after force publish = %+v ok=%v", inline, ok)
+	}
+	summary, ok := findWritebackItem(repo.items, summaryFindingKey, "summary")
+	if !ok || summary.Attempts != 2 || summary.Status != "published" {
+		t.Fatalf("summary item after force publish = %+v ok=%v", summary, ok)
+	}
+}
+
 func TestStatusSummarizesWritebackItems(t *testing.T) {
 	repo := &mockWritebackItemRepo{items: []models.WritebackItem{
 		{ReviewID: "r1", FindingKey: "a", Kind: "inline", Status: "published", Attempts: 1},

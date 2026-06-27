@@ -21,6 +21,10 @@ type OrchestratorConfig struct {
 	SummaryOnly bool
 }
 
+type PublishOptions struct {
+	Force bool
+}
+
 type Orchestrator struct {
 	adapters    map[string]Adapter
 	itemRepo    repository.WritebackItemRepository
@@ -45,6 +49,10 @@ func NewOrchestrator(cfg OrchestratorConfig) *Orchestrator {
 }
 
 func (o *Orchestrator) Publish(ctx context.Context, req domain.Request, result domain.Result, diff string) (*domain.WritebackResult, error) {
+	return o.PublishWithOptions(ctx, req, result, diff, PublishOptions{})
+}
+
+func (o *Orchestrator) PublishWithOptions(ctx context.Context, req domain.Request, result domain.Result, diff string, opts PublishOptions) (*domain.WritebackResult, error) {
 	adapter, ok := o.adapters[req.Provider]
 	if !ok {
 		return nil, fmt.Errorf("no writeback adapter for provider %q", req.Provider)
@@ -81,7 +89,7 @@ func (o *Orchestrator) Publish(ctx context.Context, req domain.Request, result d
 	}
 
 	summaryBody := FormatSummaryBody(result.Summary, result.Findings, o.maxComments)
-	if isPublishedWritebackItem(existingItems[writebackItemKey(summaryFindingKey, "summary")]) {
+	if !opts.Force && isPublishedWritebackItem(existingItems[writebackItemKey(summaryFindingKey, "summary")]) {
 		summaryBody = ""
 	}
 
@@ -112,7 +120,7 @@ func (o *Orchestrator) Publish(ctx context.Context, req domain.Request, result d
 			if !caps.MultiLineComments && vc.Range.End > vc.Range.Start+1 {
 				continue
 			}
-			if isPublishedWritebackItem(existingItems[writebackItemKey(vc.Key, "inline")]) {
+			if !opts.Force && isPublishedWritebackItem(existingItems[writebackItemKey(vc.Key, "inline")]) {
 				continue
 			}
 
