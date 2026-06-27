@@ -28,6 +28,8 @@ type OCRRulePackageRepository interface {
 	GetByID(ctx context.Context, id uint) (*models.OCRRulePackage, error)
 	Save(ctx context.Context, pkg *models.OCRRulePackage) error
 	Delete(ctx context.Context, id uint) error
+	ListVersions(ctx context.Context, id uint) ([]models.OCRRulePackageVersion, error)
+	RestoreVersion(ctx context.Context, id uint, version int) (*models.OCRRulePackage, error)
 }
 
 type OCRToolPackageRepository interface {
@@ -35,4 +37,6 @@ type OCRToolPackageRepository interface {
 	GetByID(ctx context.Context, id uint) (*models.OCRToolPackage, error)
 	Save(ctx context.Context, pkg *models.OCRToolPackage) error
 	Delete(ctx context.Context, id uint) error
+	ListVersions(ctx context.Context, id uint) ([]models.OCRToolPackageVersion, error)
+	RestoreVersion(ctx context.Context, id uint, version int) (*models.OCRToolPackage, error)
 }

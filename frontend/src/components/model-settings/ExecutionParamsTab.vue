@@ -174,6 +174,7 @@
             <div class="tool-package-actions">
               <el-switch size="small" :model-value="pkg.enabled" @change="toggleToolPackage(pkg)" />
               <el-button size="small" text @click="editToolPackage(pkg)">{{ pkg.built_in ? '复制' : '编辑' }}</el-button>
+              <el-button v-if="pkg.id" size="small" text @click="showToolPackageHistory(pkg)">历史</el-button>
               <el-button v-if="!pkg.built_in" size="small" text type="danger" @click="removeToolPackage(pkg)">删除</el-button>
             </div>
           </div>
@@ -221,6 +222,36 @@
         </section>
       </div>
     </el-drawer>
+
+    <el-dialog v-model="toolPackageHistoryDialog" title="工具包版本历史" width="680px">
+      <div class="history-title">
+        <strong>{{ historyToolPackage?.name || '工具包' }}</strong>
+        <span>保存工具包时会自动记录修改前的版本</span>
+      </div>
+      <div v-loading="toolPackageHistoryLoading" class="version-list">
+        <div
+          v-for="version in toolPackageVersions"
+          :key="version.version"
+          class="version-item"
+        >
+          <div>
+            <strong>版本 {{ version.version }}</strong>
+            <span>{{ formatVersionTime(version.created_at) }}</span>
+            <small>{{ version.snapshot?.name || '-' }} · {{ countTools(version.snapshot?.config) }} 个工具</small>
+          </div>
+          <el-button
+            size="small"
+            type="primary"
+            plain
+            :loading="toolPackageHistoryRestoring"
+            @click="restoreToolPackage(version.version)"
+          >
+            恢复
+          </el-button>
+        </div>
+        <el-empty v-if="!toolPackageVersions.length" description="暂无历史版本" :image-size="56" />
+      </div>
+    </el-dialog>
   </el-form>
 </template>
 
@@ -229,8 +260,18 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 import { useModelSettings } from './context'
-import { deleteToolPackage, getViewerStatus, listToolPackages, saveToolPackage, startViewer, stopViewer, validateToolPackage } from '@/api/config'
-import type { OCRToolPackage, ViewerStatus } from '@/types/config'
+import {
+  deleteToolPackage,
+  getViewerStatus,
+  listToolPackageVersions,
+  listToolPackages,
+  restoreToolPackageVersion,
+  saveToolPackage,
+  startViewer,
+  stopViewer,
+  validateToolPackage,
+} from '@/api/config'
+import type { OCRAssetVersion, OCRToolPackage, ViewerStatus } from '@/types/config'
 
 const { form, saving, extraBodyText, save, syncExtraBody } = useModelSettings()
 
@@ -244,6 +285,11 @@ const validatingTools = ref(false)
 const toolDrawer = ref(false)
 const savingToolPackage = ref(false)
 const validatingDraft = ref(false)
+const toolPackageHistoryDialog = ref(false)
+const toolPackageHistoryLoading = ref(false)
+const toolPackageHistoryRestoring = ref(false)
+const historyToolPackage = ref<OCRToolPackage | null>(null)
+const toolPackageVersions = ref<OCRAssetVersion<OCRToolPackage>[]>([])
 
 const builtinTools = [
   { name: 'file_read', label: 'file_read' },
@@ -392,6 +438,45 @@ async function removeToolPackage(pkg: OCRToolPackage) {
   }
 }
 
+async function showToolPackageHistory(pkg: OCRToolPackage) {
+  if (!pkg.id) return
+  historyToolPackage.value = pkg
+  toolPackageHistoryDialog.value = true
+  toolPackageHistoryLoading.value = true
+  try {
+    toolPackageVersions.value = await listToolPackageVersions(pkg.id)
+  } catch (e: any) {
+    ElMessage.error(e.message || '获取工具包历史失败')
+  } finally {
+    toolPackageHistoryLoading.value = false
+  }
+}
+
+async function restoreToolPackage(version: number) {
+  if (!historyToolPackage.value?.id) return
+  try {
+    await ElMessageBox.confirm(`确定将「${historyToolPackage.value.name}」恢复到版本 ${version}？`, '恢复工具包', {
+      type: 'warning',
+      confirmButtonText: '恢复',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  toolPackageHistoryRestoring.value = true
+  try {
+    const restored = await restoreToolPackageVersion(historyToolPackage.value.id, version)
+    historyToolPackage.value = restored
+    await refreshToolPackages()
+    toolPackageVersions.value = await listToolPackageVersions(restored.id!)
+    ElMessage.success(`已恢复到版本 ${version}`)
+  } catch (e: any) {
+    ElMessage.error(e.message || '恢复工具包失败')
+  } finally {
+    toolPackageHistoryRestoring.value = false
+  }
+}
+
 async function validateToolDraft() {
   validatingDraft.value = true
   try {
@@ -460,6 +545,11 @@ function inferSelectedTools(config: any) {
   return selected
 }
 
+function countTools(config: any) {
+  const list = Array.isArray(config) ? config : Array.isArray(config?.tools) ? config.tools : []
+  return list.length
+}
+
 function makeToolConfig(names: string[]) {
   return names.map((name) => ({
     name,
@@ -486,6 +576,11 @@ function toolDescription(name: string) {
 
 function splitLines(value: string) {
   return value.split('\n').map((item) => item.trim()).filter(Boolean)
+}
+
+function formatVersionTime(value: string) {
+  if (!value) return '-'
+  return new Date(value).toLocaleString('zh-CN')
 }
 
 onMounted(() => {
@@ -659,6 +754,68 @@ const commandPreview = computed(() => {
   width: 100%;
   height: 100%;
   border: 0;
+}
+
+.history-title {
+  margin-bottom: 14px;
+}
+
+.history-title strong,
+.history-title span {
+  display: block;
+}
+
+.history-title strong {
+  color: #303133;
+  font-size: 15px;
+}
+
+.history-title span {
+  margin-top: 4px;
+  color: #909399;
+  font-size: 12px;
+}
+
+.version-list {
+  min-height: 120px;
+}
+
+.version-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e6ebf2;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.version-item + .version-item {
+  margin-top: 10px;
+}
+
+.version-item strong,
+.version-item span,
+.version-item small {
+  display: block;
+}
+
+.version-item strong {
+  color: #303133;
+  font-size: 13px;
+}
+
+.version-item span {
+  margin-top: 4px;
+  color: #909399;
+  font-size: 12px;
+}
+
+.version-item small {
+  margin-top: 4px;
+  color: #409eff;
+  font-size: 11px;
 }
 
 @media (max-width: 720px) {

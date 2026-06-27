@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
@@ -39,6 +41,12 @@ type toolPackageDTO struct {
 	ProjectRefs []string               `json:"project_refs,omitempty"`
 	BuiltIn     bool                   `json:"built_in,omitempty"`
 	Meta        map[string]interface{} `json:"meta,omitempty"`
+}
+
+type assetVersionDTO struct {
+	Version   int       `json:"version"`
+	CreatedAt time.Time `json:"created_at"`
+	Snapshot  any       `json:"snapshot"`
 }
 
 func ListRulePackages(ctx context.Context, c *app.RequestContext) {
@@ -117,6 +125,51 @@ func DeleteRulePackage(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, map[string]any{})
 }
 
+func ListRulePackageVersions(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, handlerInst.rulePackages, "规则包") {
+		return
+	}
+	id, err := parseUintID(c.Param("id"))
+	if err != nil {
+		common.Fail(c, common.BadRequest("规则包 ID 无效"))
+		return
+	}
+	items, err := handlerInst.rulePackages.ListVersions(ctx, id)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	resp := make([]assetVersionDTO, 0, len(items))
+	for i := range items {
+		var snapshot models.OCRRulePackage
+		_ = json.Unmarshal(items[i].Snapshot, &snapshot)
+		resp = append(resp, assetVersionDTO{Version: items[i].Version, CreatedAt: items[i].CreatedAt, Snapshot: dbRulePackageToDTO(&snapshot)})
+	}
+	common.Success(c, map[string]any{"items": resp})
+}
+
+func RestoreRulePackageVersion(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, handlerInst.rulePackages, "规则包") {
+		return
+	}
+	id, err := parseUintID(c.Param("id"))
+	if err != nil {
+		common.Fail(c, common.BadRequest("规则包 ID 无效"))
+		return
+	}
+	version, err := strconv.Atoi(strings.TrimSpace(c.Param("version")))
+	if err != nil || version <= 0 {
+		common.Fail(c, common.BadRequest("版本号无效"))
+		return
+	}
+	pkg, err := handlerInst.rulePackages.RestoreVersion(ctx, id, version)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	common.Success(c, map[string]any{"item": dbRulePackageToDTO(pkg)})
+}
+
 func ListToolPackages(ctx context.Context, c *app.RequestContext) {
 	if !common.FeatureGuard(c, handlerInst.toolPackages, "工具包") {
 		return
@@ -191,6 +244,51 @@ func DeleteToolPackage(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	common.Success(c, map[string]any{})
+}
+
+func ListToolPackageVersions(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, handlerInst.toolPackages, "工具包") {
+		return
+	}
+	id, err := parseUintID(c.Param("id"))
+	if err != nil {
+		common.Fail(c, common.BadRequest("工具包 ID 无效"))
+		return
+	}
+	items, err := handlerInst.toolPackages.ListVersions(ctx, id)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	resp := make([]assetVersionDTO, 0, len(items))
+	for i := range items {
+		var snapshot models.OCRToolPackage
+		_ = json.Unmarshal(items[i].Snapshot, &snapshot)
+		resp = append(resp, assetVersionDTO{Version: items[i].Version, CreatedAt: items[i].CreatedAt, Snapshot: dbToolPackageToDTO(&snapshot)})
+	}
+	common.Success(c, map[string]any{"items": resp})
+}
+
+func RestoreToolPackageVersion(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, handlerInst.toolPackages, "工具包") {
+		return
+	}
+	id, err := parseUintID(c.Param("id"))
+	if err != nil {
+		common.Fail(c, common.BadRequest("工具包 ID 无效"))
+		return
+	}
+	version, err := strconv.Atoi(strings.TrimSpace(c.Param("version")))
+	if err != nil || version <= 0 {
+		common.Fail(c, common.BadRequest("版本号无效"))
+		return
+	}
+	pkg, err := handlerInst.toolPackages.RestoreVersion(ctx, id, version)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	common.Success(c, map[string]any{"item": dbToolPackageToDTO(pkg)})
 }
 
 func ValidateToolPackage(ctx context.Context, c *app.RequestContext) {

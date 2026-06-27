@@ -3,7 +3,7 @@ import type {
   OCRSettings, ProjectPolicy, ProjectPolicyList, GitPlatform, GitPlatformList,
   GitTestResult, GlobalRules, TestLLMResult, PlatformRepo, PlatformBranch,
   PlatformPullRequest, ReviewerAgent, LLMProvider, CustomProvider,
-  RulesCheckResult, OCRVersion, ViewerStatus, OCRRulePackage, OCRToolPackage,
+  RulesCheckResult, OCRVersion, ViewerStatus, OCRAssetVersion, OCRRulePackage, OCRToolPackage,
   OCRUpdateInfo, OCRUpgradeStatus
 } from '@/types/config'
 
@@ -236,6 +236,16 @@ export async function deleteRulePackage(id: number): Promise<void> {
   return request.delete(`/settings/rules/packages/${id}`) as any
 }
 
+export async function listRulePackageVersions(id: number): Promise<OCRAssetVersion<OCRRulePackage>[]> {
+  const resp: any = await request.get(`/settings/rules/packages/${id}/history`)
+  return resp?.items ?? []
+}
+
+export async function restoreRulePackageVersion(id: number, version: number): Promise<OCRRulePackage> {
+  const resp: any = await request.post(`/settings/rules/packages/${id}/history/${version}/restore`)
+  return resp?.item ?? resp
+}
+
 // ==================== Tool Packages ====================
 
 export async function listToolPackages(): Promise<OCRToolPackage[]> {
@@ -253,6 +263,16 @@ export async function saveToolPackage(data: OCRToolPackage): Promise<OCRToolPack
 
 export async function deleteToolPackage(id: number): Promise<void> {
   return request.delete(`/settings/ocr/tool-packages/${id}`) as any
+}
+
+export async function listToolPackageVersions(id: number): Promise<OCRAssetVersion<OCRToolPackage>[]> {
+  const resp: any = await request.get(`/settings/ocr/tool-packages/${id}/history`)
+  return resp?.items ?? []
+}
+
+export async function restoreToolPackageVersion(id: number, version: number): Promise<OCRToolPackage> {
+  const resp: any = await request.post(`/settings/ocr/tool-packages/${id}/history/${version}/restore`)
+  return resp?.item ?? resp
 }
 
 export async function validateToolPackage(config: any): Promise<{ valid: boolean; message?: string }> {

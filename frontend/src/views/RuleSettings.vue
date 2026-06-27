@@ -76,6 +76,7 @@
                 <div class="package-actions">
                   <el-switch size="small" :model-value="pkg.enabled" @change="toggleRulePackage(pkg)" />
                   <el-button size="small" text @click="editRulePackage(pkg)">{{ pkg.built_in ? '复制' : '编辑' }}</el-button>
+                  <el-button v-if="pkg.id" size="small" text @click="showRulePackageHistory(pkg)">历史</el-button>
                   <el-button v-if="!pkg.built_in" size="small" text type="danger" @click="removeRulePackage(pkg)">删除</el-button>
                 </div>
               </div>
@@ -188,6 +189,36 @@
           <el-button type="primary" :loading="rulePackageSaving" @click="saveRulePackageForm">保存规则包</el-button>
         </template>
       </el-dialog>
+
+      <el-dialog v-model="rulePackageHistoryDialog" title="规则包版本历史" width="680px">
+        <div class="history-title">
+          <strong>{{ historyRulePackage?.name || '规则包' }}</strong>
+          <span>保存规则包时会自动记录修改前的版本</span>
+        </div>
+        <div v-loading="rulePackageHistoryLoading" class="version-list">
+          <div
+            v-for="version in rulePackageVersions"
+            :key="version.version"
+            class="version-item"
+          >
+            <div>
+              <strong>版本 {{ version.version }}</strong>
+              <span>{{ formatVersionTime(version.created_at) }}</span>
+              <small>{{ version.snapshot?.name || '-' }} · {{ version.snapshot?.rules?.length || 0 }} 条规则</small>
+            </div>
+            <el-button
+              size="small"
+              type="primary"
+              plain
+              :loading="rulePackageHistoryRestoring"
+              @click="restoreRulePackage(version.version)"
+            >
+              恢复
+            </el-button>
+          </div>
+          <el-empty v-if="!rulePackageVersions.length" description="暂无历史版本" :image-size="56" />
+        </div>
+      </el-dialog>
     </div>
   </AppLayout>
 </template>
@@ -199,8 +230,17 @@ import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 import { CircleCheckFilled, Refresh } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import RuleEditor from '@/components/RuleEditor.vue'
-import { getGlobalRules, updateGlobalRules, rulesCheck, listRulePackages, saveRulePackage, deleteRulePackage } from '@/api/config'
-import type { OCRRulePackage, ReviewRule, RulesCheckResult } from '@/types/config'
+import {
+  deleteRulePackage,
+  getGlobalRules,
+  listRulePackageVersions,
+  listRulePackages,
+  restoreRulePackageVersion,
+  rulesCheck,
+  saveRulePackage,
+  updateGlobalRules,
+} from '@/api/config'
+import type { OCRAssetVersion, OCRRulePackage, ReviewRule, RulesCheckResult } from '@/types/config'
 
 type RuleTemplate = ReviewRule & { name: string }
 
@@ -243,6 +283,11 @@ const editingRulePackageID = ref<number | undefined>()
 const checkPath = ref('')
 const checkResult = ref<RulesCheckResult | null>(null)
 const checking = ref(false)
+const rulePackageHistoryDialog = ref(false)
+const rulePackageHistoryLoading = ref(false)
+const rulePackageHistoryRestoring = ref(false)
+const historyRulePackage = ref<OCRRulePackage | null>(null)
+const rulePackageVersions = ref<OCRAssetVersion<OCRRulePackage>[]>([])
 
 const normalizedRules = computed(() => {
   return globalRules.value
@@ -415,6 +460,45 @@ async function removeRulePackage(pkg: OCRRulePackage) {
   }
 }
 
+async function showRulePackageHistory(pkg: OCRRulePackage) {
+  if (!pkg.id) return
+  historyRulePackage.value = pkg
+  rulePackageHistoryDialog.value = true
+  rulePackageHistoryLoading.value = true
+  try {
+    rulePackageVersions.value = await listRulePackageVersions(pkg.id)
+  } catch (e: any) {
+    ElMessage.error(e.message || '获取规则包历史失败')
+  } finally {
+    rulePackageHistoryLoading.value = false
+  }
+}
+
+async function restoreRulePackage(version: number) {
+  if (!historyRulePackage.value?.id) return
+  try {
+    await ElMessageBox.confirm(`确定将「${historyRulePackage.value.name}」恢复到版本 ${version}？`, '恢复规则包', {
+      type: 'warning',
+      confirmButtonText: '恢复',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  rulePackageHistoryRestoring.value = true
+  try {
+    const restored = await restoreRulePackageVersion(historyRulePackage.value.id, version)
+    historyRulePackage.value = restored
+    await fetchGlobalRules()
+    rulePackageVersions.value = await listRulePackageVersions(restored.id!)
+    ElMessage.success(`已恢复到版本 ${version}`)
+  } catch (e: any) {
+    ElMessage.error(e.message || '恢复规则包失败')
+  } finally {
+    rulePackageHistoryRestoring.value = false
+  }
+}
+
 async function saveRulePackageForm() {
   const form = rulePackageForm.value
   const rules = form.rules
@@ -458,6 +542,11 @@ function splitInline(value: string) {
 
 function splitLines(value: string) {
   return value.split('\n').map((item) => item.trim()).filter(Boolean)
+}
+
+function formatVersionTime(value: string) {
+  if (!value) return '-'
+  return new Date(value).toLocaleString('zh-CN')
 }
 
 async function handleRulesCheck() {
@@ -728,6 +817,68 @@ onMounted(fetchGlobalRules)
   line-height: 1.65;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.history-title {
+  margin-bottom: 14px;
+}
+
+.history-title strong,
+.history-title span {
+  display: block;
+}
+
+.history-title strong {
+  color: var(--app-text);
+  font-size: 15px;
+}
+
+.history-title span {
+  margin-top: 4px;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.version-list {
+  min-height: 120px;
+}
+
+.version-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e6ebf2;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.version-item + .version-item {
+  margin-top: 10px;
+}
+
+.version-item strong,
+.version-item span,
+.version-item small {
+  display: block;
+}
+
+.version-item strong {
+  color: var(--app-text);
+  font-size: 13px;
+}
+
+.version-item span {
+  margin-top: 4px;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.version-item small {
+  margin-top: 4px;
+  color: var(--app-primary);
+  font-size: 11px;
 }
 
 @media (max-width: 1040px) {

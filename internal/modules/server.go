@@ -9,6 +9,7 @@ import (
 	"time"
 
 	reviewHandler "github.com/yi-nology/code-review-service/biz/handler/review_service"
+	settingsHandler "github.com/yi-nology/code-review-service/biz/handler/settings_service"
 	"github.com/yi-nology/code-review-service/biz/router"
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/middleware"
@@ -100,12 +101,20 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos
 
 	router.GeneratedRegister(h)
 	registerReviewExtraRoutes(h)
+	registerSettingsExtraRoutes(h)
 	registerViewerProxyRoute(h, viewerMgr)
 }
 
 func registerReviewExtraRoutes(h *server.Hertz) {
 	h.POST("/api/v1/reviews/:id/suggestion-patch/apply", reviewHandler.ApplySuggestionPatch)
 	h.POST("/api/v1/reviews/:id/model-compare", reviewHandler.CompareReviewModels)
+}
+
+func registerSettingsExtraRoutes(h *server.Hertz) {
+	h.GET("/api/v1/settings/rules/packages/:id/history", settingsHandler.ListRulePackageVersions)
+	h.POST("/api/v1/settings/rules/packages/:id/history/:version/restore", settingsHandler.RestoreRulePackageVersion)
+	h.GET("/api/v1/settings/ocr/tool-packages/:id/history", settingsHandler.ListToolPackageVersions)
+	h.POST("/api/v1/settings/ocr/tool-packages/:id/history/:version/restore", settingsHandler.RestoreToolPackageVersion)
 }
 
 func registerViewerProxyRoute(h *server.Hertz, viewerMgr *ocr.ViewerManager) {

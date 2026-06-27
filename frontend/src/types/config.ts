@@ -95,6 +95,12 @@ export interface OCRToolPackage {
   built_in?: boolean
 }
 
+export interface OCRAssetVersion<T = any> {
+  version: number
+  created_at: string
+  snapshot: T
+}
+
 export interface TestLLMResult {
   success: boolean
   message?: string
@@ -241,4 +247,3 @@ export interface ProviderPreset {
   region: string
   requires_key: boolean
 }
-
