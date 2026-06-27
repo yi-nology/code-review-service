@@ -14,11 +14,9 @@ import (
 )
 
 func InitDB(cfg *config.DatabaseConfig) (*gormDB.DB, error) {
-	db, err := gormx.OpenWithPool(
+	db, err := gormx.Open(
 		gormLib.Open(cfg.DSN),
-		cfg.MaxIdleConns,
-		cfg.MaxOpenConns,
-		30*time.Minute,
+		gormx.WithConnectionPool(cfg.MaxIdleConns, cfg.MaxOpenConns, 30*time.Minute),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("init database: %w", err)
