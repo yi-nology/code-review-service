@@ -26,5 +26,5 @@ func NewDynamicOpenCodeReviewRunner(
 	fallback *runner.OpenCodeReviewRunner,
 	repos *repository.RepoContainer,
 ) *runner.DynamicOpenCodeReviewRunner {
-	return runner.NewDynamicOpenCodeReviewRunner(fallback, repos.OCRSettings, repos.GlobalRules, repos.OCRToolPackage)
+	return runner.NewDynamicOpenCodeReviewRunner(fallback, repos.OCRSettings, repos.OCRToolPackage)
 }

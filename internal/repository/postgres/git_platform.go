@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 
 	gormLib "gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -29,7 +30,7 @@ func (r *GitPlatformRepo) Get(ctx context.Context, provider, installationID stri
 	err := r.db.WithContext(ctx).Where("provider = ? AND installation_id = ?", provider, installationID).First(&p).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, nil
+			return nil, repoerr.ErrNotFound
 		}
 		return nil, err
 	}
@@ -61,7 +62,7 @@ func (r *GitPlatformRepo) GetByProviderAndInstallation(ctx context.Context, prov
 	err := r.db.WithContext(ctx).Where("provider = ? AND installation_id = ?", provider, installationID).First(&p).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, nil
+			return nil, repoerr.ErrNotFound
 		}
 		return nil, err
 	}

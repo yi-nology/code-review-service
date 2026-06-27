@@ -3,6 +3,7 @@ package executor
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -117,7 +118,10 @@ func (s *Service) Execute(ctx context.Context, id string, req domain.Request, pr
 	projectPolicy := models.ProjectPolicy{FailOn: "critical"}
 	if s.projectRepo != nil {
 		p, err := s.projectRepo.GetByProviderRepo(ctx, req.Provider, req.Repo)
-		if err == nil && p != nil {
+		if err != nil && !errors.Is(err, repository.ErrNotFound) {
+			logx.Warn("failed to get project policy, using default", "error", err)
+		}
+		if p != nil {
 			projectPolicy = *p
 		}
 	}

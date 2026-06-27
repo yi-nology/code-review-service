@@ -406,7 +406,10 @@ func (s *Service) Preview(ctx context.Context, req domain.Request) ([]string, er
 	projectPolicy := models.ProjectPolicy{FailOn: "critical"}
 	if s.projectRepo != nil {
 		policyRecord, err := s.projectRepo.GetByProviderRepo(ctx, req.Provider, req.Repo)
-		if err == nil && policyRecord != nil {
+		if err != nil && !errors.Is(err, repository.ErrNotFound) {
+			logx.Warn("failed to get project policy, using default", "error", err)
+		}
+		if policyRecord != nil {
 			projectPolicy = *policyRecord
 		}
 	}
@@ -485,7 +488,10 @@ func (s *Service) Scan(ctx context.Context, req domain.ScanRequest) (*domain.Sca
 	projectPolicy := models.ProjectPolicy{FailOn: "critical"}
 	if s.projectRepo != nil {
 		policyRecord, err := s.projectRepo.GetByProviderRepo(ctx, providerName, repo)
-		if err == nil && policyRecord != nil {
+		if err != nil && !errors.Is(err, repository.ErrNotFound) {
+			logx.Warn("failed to get project policy, using default", "error", err)
+		}
+		if policyRecord != nil {
 			projectPolicy = *policyRecord
 		}
 	}

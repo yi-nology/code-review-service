@@ -13,10 +13,6 @@ type ocrSettingsSource interface {
 	Get(ctx context.Context) (*models.OCRSettings, error)
 }
 
-type globalRulesSource interface {
-	Get(ctx context.Context) (*models.GlobalRules, error)
-}
-
 type toolPackageSource interface {
 	List(ctx context.Context) ([]models.OCRToolPackage, error)
 }
@@ -24,12 +20,11 @@ type toolPackageSource interface {
 type DynamicOpenCodeReviewRunner struct {
 	fallback     *OpenCodeReviewRunner
 	settings     ocrSettingsSource
-	globalRules  globalRulesSource
 	toolPackages toolPackageSource
 }
 
-func NewDynamicOpenCodeReviewRunner(fallback *OpenCodeReviewRunner, settings ocrSettingsSource, globalRules globalRulesSource, toolPackages ...toolPackageSource) *DynamicOpenCodeReviewRunner {
-	r := &DynamicOpenCodeReviewRunner{fallback: fallback, settings: settings, globalRules: globalRules}
+func NewDynamicOpenCodeReviewRunner(fallback *OpenCodeReviewRunner, settings ocrSettingsSource, toolPackages ...toolPackageSource) *DynamicOpenCodeReviewRunner {
+	r := &DynamicOpenCodeReviewRunner{fallback: fallback, settings: settings}
 	if len(toolPackages) > 0 {
 		r.toolPackages = toolPackages[0]
 	}

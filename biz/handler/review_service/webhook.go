@@ -60,6 +60,10 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 
 	platform, err := h.platformRepo.GetByProviderAndInstallation(ctx, req.Provider, req.Installation)
 	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			common.Fail(c, common.NotFound("installation not found"))
+			return
+		}
 		logx.Error("lookup installation failed", "provider", req.Provider, "installation", req.Installation, "error", err)
 		common.Fail(c, common.BizErr(500, "internal error"))
 		return

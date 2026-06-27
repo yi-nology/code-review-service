@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 
 	gormLib "gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -35,7 +36,7 @@ func (r *WebhookDeliveryRepo) Get(ctx context.Context, provider, installationID,
 		First(&d).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, nil
+			return nil, repoerr.ErrNotFound
 		}
 		return nil, err
 	}

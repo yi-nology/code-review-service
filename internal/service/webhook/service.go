@@ -79,7 +79,7 @@ func (s *Service) HandleWebhook(ctx context.Context, provider, installationID st
 	payloadSHA256 := hex.EncodeToString(h[:])
 
 	existing, err := s.deliveryRepo.Get(ctx, provider, installationID, deliveryID)
-	if err != nil {
+	if err != nil && !errors.Is(err, repository.ErrNotFound) {
 		return nil, fmt.Errorf("check delivery: %w", err)
 	}
 	if existing != nil {

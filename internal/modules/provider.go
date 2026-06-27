@@ -2,6 +2,7 @@ package modules
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/yi-nology/code-review-service/internal/config"
@@ -67,7 +68,7 @@ func syncGitPlatforms(ctx context.Context, repos *repository.RepoContainer, svc 
 	// 持久化 YAML/ENV 配置的平台到 DB（仅当不存在时）。
 	for name, pCfg := range yamlConfigs {
 		existing, err := repos.GitPlatform.Get(ctx, name, "default")
-		if err != nil {
+		if err != nil && !errors.Is(err, repository.ErrNotFound) {
 			logx.Errorf("init: get git platform from DB %s: %v", name, err)
 			continue
 		}

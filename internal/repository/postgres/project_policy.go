@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 
 	gormLib "gorm.io/gorm"
 )
@@ -32,7 +33,7 @@ func (r *ProjectPolicyRepo) GetByProviderRepo(ctx context.Context, provider, rep
 		First(&policy).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, nil
+			return nil, repoerr.ErrNotFound
 		}
 		return nil, err
 	}

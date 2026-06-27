@@ -7,6 +7,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/service/cleanup"
 
+	"github.com/oekit/logx"
 	"go.uber.org/fx"
 )
 
@@ -23,6 +24,8 @@ func registerWorkspaceCleaner(cfg *config.Config, lc fx.Lifecycle) {
 	if cfg.Review.WorkspaceCleanup.MaxAge != "" {
 		if d, err := time.ParseDuration(cfg.Review.WorkspaceCleanup.MaxAge); err == nil {
 			maxAge = d
+		} else {
+			logx.Warnf("invalid workspace cleanup max_age %q, using default 24h: %v", cfg.Review.WorkspaceCleanup.MaxAge, err)
 		}
 	}
 
