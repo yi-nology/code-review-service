@@ -137,6 +137,11 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 		return &review.WritebackResult{Skipped: true}, nil
 	}
 
+	serviceReviewID := strings.TrimSpace(req.ReviewID)
+	if serviceReviewID == "" {
+		serviceReviewID = wbResult.ReviewID
+	}
+
 	published, failed := 0, 0
 	for _, cr := range wbResult.Comments {
 		status := "published"
@@ -150,7 +155,7 @@ func (o *Orchestrator) Publish(ctx context.Context, req review.Request, result r
 			published++
 		}
 		_ = o.itemRepo.Create(ctx, &models.WritebackItem{
-			ReviewID:           wbResult.ReviewID,
+			ReviewID:           serviceReviewID,
 			FindingKey:         cr.Key,
 			Kind:               "inline",
 			ProviderExternalID: cr.ExternalID,

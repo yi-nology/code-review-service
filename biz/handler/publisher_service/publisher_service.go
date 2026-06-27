@@ -11,8 +11,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
 
-	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/oekit/logx"
+	"github.com/cloudwego/hertz/pkg/app"
 )
 
 var handlerInst *PublisherHandler //nolint:unused // initialized by InitHandler, used by route handlers
@@ -70,7 +70,9 @@ func PublishReview(ctx context.Context, c *app.RequestContext) {
 		}
 	}
 
-	if _, err := handlerInst.writeback.Publish(ctx, record.Request, result, diff); err != nil {
+	publishReq := record.Request
+	publishReq.ReviewID = record.ID
+	if _, err := handlerInst.writeback.Publish(ctx, publishReq, result, diff); err != nil {
 		common.Fail(c, err)
 		return
 	}

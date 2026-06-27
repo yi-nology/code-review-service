@@ -10,6 +10,7 @@ import (
 )
 
 type Request struct {
+	ReviewID        string `json:"-"`
 	Provider        string `json:"provider"`
 	Repo            string `json:"repo"`
 	ProjectID       string `json:"project_id,omitempty"`

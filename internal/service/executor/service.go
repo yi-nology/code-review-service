@@ -350,6 +350,7 @@ func (s *Service) publishWriteback(ctx context.Context, id string, req review.Re
 	s.appendHistory(ctx, id, "writeback", "running", "publishing review comments to git platform", nil)
 
 	writebackReq := req
+	writebackReq.ReviewID = id
 	if workspace.OriginalHeadSHA != "" {
 		writebackReq.HeadSHA = workspace.OriginalHeadSHA
 	}
