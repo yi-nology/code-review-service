@@ -8,6 +8,11 @@ function getErrorMessage(error: any): string {
   return data?.message || data?.error || data?.msg || error.message || '请求失败'
 }
 
+function expireAuth() {
+  localStorage.removeItem('token')
+  window.dispatchEvent(new Event('review-auth-expired'))
+}
+
 const request = axios.create({
   baseURL: '/api/v1',
   timeout: 30000,
@@ -32,11 +37,9 @@ request.interceptors.response.use(
     if (body && typeof body === 'object' && 'code' in body && 'data' in body) {
       if (body.code !== 0) {
         if (body.code === 401) {
-          localStorage.removeItem('token')
+          expireAuth()
           if (window.location.pathname !== '/') {
             ElMessage.error('登录已失效，请重新输入 Token')
-            window.location.href = '/'
-            return new Promise(() => {})
           }
         }
         if (body.code !== 404) {
@@ -50,10 +53,9 @@ request.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token')
+      expireAuth()
       if (window.location.pathname !== '/') {
         ElMessage.error('登录已失效，请重新输入 Token')
-        window.location.href = '/'
       }
       return Promise.reject(error)
     }

@@ -46,7 +46,7 @@
             <h2>审查记录</h2>
             <p>点击记录查看完整报告，运行中任务会自动刷新。</p>
           </div>
-          <el-button circle plain aria-label="刷新列表" @click="fetchReviews">
+          <el-button circle plain aria-label="刷新列表" @click="refreshReviews">
             <el-icon><Refresh /></el-icon>
           </el-button>
         </div>
@@ -233,7 +233,7 @@
             :total="pagination.total"
             :page-sizes="[10, 20, 50, 100]"
             layout="sizes, prev, pager, next"
-            @current-change="fetchReviews"
+            @current-change="handlePageChange"
             @size-change="handlePageSizeChange"
           />
         </div>
@@ -242,7 +242,7 @@
       <!-- 发起审查对话框 -->
       <ReviewCreateDialog
         v-model="showCreateDialog"
-        @created="fetchReviews"
+        @created="handleReviewCreated"
         @goto="(id) => router.push(`/reviews/${id}`)"
       />
     </div>
@@ -393,6 +393,18 @@ function resetFilters() {
 
 function handlePageSizeChange() {
   pagination.page = 1
+  fetchReviews()
+}
+
+function handlePageChange() {
+  fetchReviews()
+}
+
+function refreshReviews() {
+  fetchReviews()
+}
+
+function handleReviewCreated() {
   fetchReviews()
 }
 
