@@ -3,9 +3,8 @@
     <div class="reviews-page">
       <header class="page-header">
         <div>
-          <div class="eyebrow">REVIEW WORKSPACE</div>
           <h1>代码审查</h1>
-          <p>集中查看审查进度、质量门禁与待处理风险。</p>
+          <p>跟踪审查队列、质量门禁和风险项处理状态。</p>
         </div>
         <el-button type="primary" size="large" @click="openCreateDialog">
           <el-icon><Plus /></el-icon>
@@ -13,64 +12,39 @@
         </el-button>
       </header>
 
-      <el-row :gutter="16" class="stats-row">
-        <el-col :xs="12" :sm="12" :md="6">
-          <el-card shadow="never" class="stat-card total">
-            <div class="stat-icon"><el-icon><Files /></el-icon></div>
-            <div class="stat-item">
-              <span>审查总数</span>
-              <strong>{{ stats.total }}</strong>
-              <small>全部任务记录</small>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :xs="12" :sm="12" :md="6">
-          <el-card shadow="never" class="stat-card running">
-            <div class="stat-icon"><el-icon><Loading /></el-icon></div>
-            <div class="stat-item">
-              <span>正在执行</span>
-              <strong>{{ stats.running }}</strong>
-              <small>排队或分析中</small>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :xs="12" :sm="12" :md="6">
-          <el-card shadow="never" class="stat-card failed">
-            <div class="stat-icon"><el-icon><WarningFilled /></el-icon></div>
-            <div class="stat-item">
-              <span>门禁未通过</span>
-              <strong>{{ stats.gate_failed }}</strong>
-              <small>需要优先处理</small>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :xs="12" :sm="12" :md="6">
-          <el-card shadow="never" class="stat-card findings">
-            <div class="stat-icon"><el-icon><Aim /></el-icon></div>
-            <div class="stat-item">
-              <span>发现问题</span>
-              <strong>{{ stats.findings }}</strong>
-              <small>所有风险项</small>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :xs="12" :sm="12" :md="6">
-          <el-card shadow="never" class="stat-card tokens">
-            <div class="stat-icon"><el-icon><Coin /></el-icon></div>
-            <div class="stat-item">
-              <span>累计 Tokens</span>
-              <strong>{{ stats.total_tokens ? stats.total_tokens.toLocaleString() : 0 }}</strong>
-              <small>评审消耗</small>
-            </div>
-          </el-card>
-        </el-col>
-      </el-row>
+      <section class="metric-strip" aria-label="审查概览">
+        <div class="metric-item">
+          <span class="metric-icon total"><el-icon><Files /></el-icon></span>
+          <span class="metric-label">审查总数</span>
+          <strong>{{ stats.total }}</strong>
+        </div>
+        <div class="metric-item">
+          <span class="metric-icon running"><el-icon><Loading /></el-icon></span>
+          <span class="metric-label">正在执行</span>
+          <strong>{{ stats.running }}</strong>
+        </div>
+        <div class="metric-item">
+          <span class="metric-icon failed"><el-icon><WarningFilled /></el-icon></span>
+          <span class="metric-label">门禁未通过</span>
+          <strong>{{ stats.gate_failed }}</strong>
+        </div>
+        <div class="metric-item">
+          <span class="metric-icon findings"><el-icon><Aim /></el-icon></span>
+          <span class="metric-label">发现问题</span>
+          <strong>{{ stats.findings }}</strong>
+        </div>
+        <div class="metric-item">
+          <span class="metric-icon tokens"><el-icon><Coin /></el-icon></span>
+          <span class="metric-label">累计 Tokens</span>
+          <strong>{{ stats.total_tokens ? stats.total_tokens.toLocaleString() : 0 }}</strong>
+        </div>
+      </section>
 
       <el-card class="records-card">
         <div class="records-toolbar">
           <div>
             <h2>审查记录</h2>
-            <p>点击任意记录查看完整报告</p>
+            <p>点击记录查看完整报告，运行中任务会自动刷新。</p>
           </div>
           <el-button circle plain aria-label="刷新列表" @click="fetchReviews">
             <el-icon><Refresh /></el-icon>
@@ -436,21 +410,22 @@ onBeforeUnmount(() => {
 .reviews-page {
   width: min(1440px, 100%);
   margin: 0 auto;
-  padding: 34px 36px 48px;
+  padding: 28px 32px 44px;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 28px;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 18px;
 }
 
 .page-header h1 {
-  margin: 4px 0 7px;
+  margin: 0 0 5px;
   color: var(--app-text);
-  font-size: 30px;
-  letter-spacing: -0.8px;
+  font-size: 26px;
+  letter-spacing: 0;
 }
 
 .page-header p {
@@ -459,95 +434,86 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
-.eyebrow {
-  color: var(--app-primary);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.4px;
-}
-
 .page-header .el-button {
-  min-height: 44px;
-  padding-inline: 18px;
-  border-radius: 10px;
-  box-shadow: 0 7px 18px rgba(91, 91, 214, 0.2);
+  min-height: 40px;
+  padding-inline: 16px;
+  border-radius: 8px;
+  box-shadow: none;
 }
 
-.stats-row {
-  margin-bottom: 20px;
-}
-
-.stats-row .el-col {
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  height: 126px;
-  overflow: hidden;
-}
-
-.stat-card :deep(.el-card__body) {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  height: 100%;
-  padding: 20px;
-}
-
-.stat-icon {
+.metric-strip {
   display: grid;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 44px;
-  place-items: center;
-  border-radius: 12px;
-  font-size: 20px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--app-shadow);
 }
 
-.total .stat-icon {
-  color: #5b5bd6;
-  background: #eeeeff;
-}
-
-.running .stat-icon {
-  color: #2878c7;
-  background: #eaf4ff;
-}
-
-.failed .stat-icon {
-  color: #d84b5b;
-  background: #fff0f2;
-}
-
-.findings .stat-icon {
-  color: #d98616;
-  background: #fff6e8;
-}
-
-.stat-item {
+.metric-item {
+  display: grid;
   min-width: 0;
+  grid-template-columns: 34px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  padding: 16px 18px;
+  border-right: 1px solid var(--app-border);
 }
 
-.stat-item span {
-  display: block;
-  margin-bottom: 2px;
+.metric-item:last-child {
+  border-right: 0;
+}
+
+.metric-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  grid-row: 1 / span 2;
+  place-items: center;
+  border-radius: 8px;
+  font-size: 17px;
+}
+
+.metric-icon.total {
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+.metric-icon.running {
+  color: #0891b2;
+  background: #ecfeff;
+}
+
+.metric-icon.failed {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.metric-icon.findings {
+  color: #d97706;
+  background: #fffbeb;
+}
+
+.metric-icon.tokens {
+  color: #059669;
+  background: #ecfdf5;
+}
+
+.metric-label {
+  min-width: 0;
   color: var(--app-muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
-.stat-item strong {
-  display: block;
+.metric-item strong {
+  overflow: hidden;
   color: var(--app-text);
-  font-size: 27px;
-  line-height: 1.15;
-}
-
-.stat-item small {
-  display: block;
-  margin-top: 4px;
-  color: #9aa2b1;
-  font-size: 11px;
+  font-size: 22px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .records-card {
@@ -563,7 +529,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 22px 16px;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .records-toolbar h2 {
@@ -580,23 +547,25 @@ onBeforeUnmount(() => {
 
 .filter-bar {
   display: flex;
+  align-items: center;
   gap: 10px;
-  padding: 0 22px 18px;
+  padding: 12px 18px;
   border-bottom: 1px solid var(--app-border);
+  background: #fafbfc;
 }
 
 .repo-search {
-  width: min(360px, 35%);
+  width: min(420px, 40%);
 }
 
 .filter-bar .el-select {
-  width: 150px;
+  width: 148px;
 }
 
 .review-table {
   --el-table-border-color: #edf0f4;
   --el-table-header-bg-color: #fafbfc;
-  --el-table-row-hover-bg-color: #fafaff;
+  --el-table-row-hover-bg-color: #f8fafc;
   color: var(--app-text);
 }
 
@@ -605,14 +574,14 @@ onBeforeUnmount(() => {
 }
 
 .review-table :deep(th.el-table__cell) {
-  height: 44px;
+  height: 42px;
   color: #7d8698;
   font-size: 12px;
   font-weight: 700;
 }
 
 .review-table :deep(td.el-table__cell) {
-  height: 70px;
+  height: 62px;
 }
 
 .review-table :deep(.review-row) {
@@ -678,7 +647,7 @@ onBeforeUnmount(() => {
   place-items: center;
   border-radius: 50%;
   color: #fff;
-  background: linear-gradient(135deg, #7777eb, #5252c7);
+  background: #2563eb;
   font-size: 11px;
   font-weight: 700;
 }
@@ -827,6 +796,22 @@ onBeforeUnmount(() => {
     padding-inline: 24px;
   }
 
+  .metric-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .metric-item {
+    border-bottom: 1px solid var(--app-border);
+  }
+
+  .metric-item:nth-child(3n) {
+    border-right: 0;
+  }
+
+  .metric-item:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
   .filter-bar {
     flex-wrap: wrap;
   }
@@ -850,8 +835,7 @@ onBeforeUnmount(() => {
     font-size: 25px;
   }
 
-  .page-header p,
-  .eyebrow {
+  .page-header p {
     display: none;
   }
 
@@ -859,20 +843,37 @@ onBeforeUnmount(() => {
     min-height: 40px;
   }
 
-  .stat-card {
-    height: 104px;
+  .metric-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .stat-card :deep(.el-card__body) {
-    padding: 14px;
+  .metric-item {
+    grid-template-columns: 1fr;
+    padding: 12px;
   }
 
-  .stat-icon {
+  .metric-item:nth-child(3n) {
+    border-right: 1px solid var(--app-border);
+  }
+
+  .metric-item:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .metric-item:nth-last-child(-n + 2) {
+    border-bottom: 1px solid var(--app-border);
+  }
+
+  .metric-item:last-child {
+    border-bottom: 0;
+  }
+
+  .metric-icon {
     display: none;
   }
 
-  .stat-item small {
-    display: none;
+  .metric-item strong {
+    font-size: 20px;
   }
 
   .filter-bar .el-select {

@@ -104,20 +104,17 @@ async function handleLogin() {
 .login-page {
   display: grid;
   min-height: 100vh;
-  grid-template-columns: minmax(420px, 1.05fr) minmax(420px, 0.95fr);
-  background: #fff;
+  grid-template-columns: minmax(420px, 0.9fr) minmax(420px, 1.1fr);
+  background: #f6f7f9;
 }
 
 .login-intro {
   display: flex;
   min-height: 100vh;
   flex-direction: column;
-  padding: 42px clamp(48px, 7vw, 110px);
+  padding: 42px clamp(44px, 6vw, 88px);
   color: #fff;
-  background:
-    radial-gradient(circle at 78% 22%, rgba(124, 124, 239, 0.3), transparent 25%),
-    radial-gradient(circle at 15% 85%, rgba(76, 190, 164, 0.12), transparent 28%),
-    #171b2e;
+  background: #111827;
 }
 
 .login-brand,
@@ -135,9 +132,9 @@ async function handleLogin() {
   width: 38px;
   height: 38px;
   place-items: center;
-  border-radius: 11px;
+  border-radius: 8px;
   color: #fff;
-  background: linear-gradient(135deg, #7777eb, #5252c7);
+  background: #2563eb;
 }
 
 .intro-copy {
@@ -146,24 +143,24 @@ async function handleLogin() {
 }
 
 .eyebrow {
-  margin-bottom: 18px;
-  color: #9393f3;
+  margin-bottom: 14px;
+  color: #93c5fd;
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: 1.7px;
+  letter-spacing: 0;
 }
 
 .intro-copy h1 {
   margin: 0;
-  font-size: clamp(42px, 5vw, 68px);
-  line-height: 1.12;
-  letter-spacing: -2.5px;
+  font-size: clamp(34px, 4vw, 48px);
+  line-height: 1.18;
+  letter-spacing: 0;
 }
 
 .intro-copy p {
   max-width: 480px;
-  margin: 24px 0 0;
-  color: #9ea7bd;
+  margin: 20px 0 0;
+  color: #aeb7c8;
   font-size: 16px;
   line-height: 1.8;
 }
@@ -191,13 +188,16 @@ async function handleLogin() {
   min-height: 100vh;
   place-items: center;
   padding: 40px;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(91, 91, 214, 0.08), transparent 28%),
-    #fff;
+  background: #f6f7f9;
 }
 
 .login-card {
   width: min(400px, 100%);
+  padding: 32px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--app-shadow);
 }
 
 .mobile-brand {
@@ -208,8 +208,8 @@ async function handleLogin() {
 .login-card h2 {
   margin: 0 0 8px;
   color: var(--app-text);
-  font-size: 30px;
-  letter-spacing: -0.7px;
+  font-size: 26px;
+  letter-spacing: 0;
 }
 
 .login-card > p {
@@ -230,7 +230,7 @@ async function handleLogin() {
   width: 100%;
   height: 46px;
   margin-top: 18px;
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .login-card small {
@@ -264,7 +264,7 @@ async function handleLogin() {
   .login-card {
     padding: 28px 24px;
     border: 1px solid var(--app-border);
-    border-radius: 18px;
+    border-radius: 8px;
     background: #fff;
     box-shadow: var(--app-shadow);
   }

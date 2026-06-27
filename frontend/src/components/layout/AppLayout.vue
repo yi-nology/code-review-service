@@ -185,18 +185,17 @@ onBeforeUnmount(() => {
   display: flex;
   width: 252px;
   flex-direction: column;
-  color: #dfe4f2;
-  background:
-    radial-gradient(circle at 20% 0%, rgba(105, 105, 223, 0.22), transparent 28%),
-    #171b2e;
+  border-right: 1px solid #20283a;
+  color: #d8dee9;
+  background: #111827;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 84px;
-  padding: 0 22px;
+  min-height: 74px;
+  padding: 0 18px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -206,10 +205,10 @@ onBeforeUnmount(() => {
   height: 40px;
   flex: 0 0 40px;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 8px;
   color: #fff;
-  background: linear-gradient(135deg, #7777eb, #5252c7);
-  box-shadow: 0 8px 20px rgba(69, 69, 181, 0.35);
+  background: #2563eb;
+  box-shadow: none;
   font-size: 21px;
 }
 
@@ -230,7 +229,7 @@ onBeforeUnmount(() => {
 
 .brand-copy span {
   margin-top: 3px;
-  color: #8991a8;
+  color: #8d98aa;
   font-size: 12px;
 }
 
@@ -240,15 +239,15 @@ onBeforeUnmount(() => {
 
 .navigation {
   flex: 1;
-  padding: 22px 14px;
+  padding: 18px 12px;
 }
 
 .nav-label {
   margin: 0 10px 8px;
-  color: #707990;
+  color: #778399;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 1.2px;
+  letter-spacing: 0;
 }
 
 .settings-label {
@@ -267,8 +266,8 @@ onBeforeUnmount(() => {
   min-height: 38px;
   padding: 0 12px;
   border: none;
-  border-radius: 8px;
-  color: #8991a8;
+  border-radius: 6px;
+  color: #8d98aa;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -279,7 +278,7 @@ onBeforeUnmount(() => {
 
 .nav-group-header:hover {
   color: #dfe4f2;
-  background: rgba(255, 255, 255, 0.04);
+  background: #182235;
 }
 
 .nav-group-arrow {
@@ -307,8 +306,8 @@ onBeforeUnmount(() => {
   min-height: 44px;
   margin-bottom: 4px;
   padding: 0 12px;
-  border-radius: 10px;
-  color: #aeb6ca;
+  border-radius: 7px;
+  color: #a9b4c5;
   text-decoration: none;
   transition: 160ms ease;
 }
@@ -319,13 +318,13 @@ onBeforeUnmount(() => {
 
 .nav-item:hover {
   color: #fff;
-  background: rgba(255, 255, 255, 0.06);
+  background: #182235;
 }
 
 .nav-item.router-link-active {
   color: #fff;
-  background: linear-gradient(90deg, rgba(91, 91, 214, 0.34), rgba(91, 91, 214, 0.16));
-  box-shadow: inset 3px 0 #8181ee;
+  background: #1d4ed8;
+  box-shadow: none;
 }
 
 .sidebar-footer {
@@ -335,8 +334,8 @@ onBeforeUnmount(() => {
   margin: 14px;
   padding: 14px;
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.035);
+  border-radius: 8px;
+  background: #162033;
 }
 
 .health-dot {
@@ -375,7 +374,7 @@ onBeforeUnmount(() => {
   flex: 0 0 30px;
   place-items: center;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   color: #7e879d;
   background: transparent;
   cursor: pointer;
@@ -405,7 +404,7 @@ onBeforeUnmount(() => {
 
 .main-content {
   min-height: 100vh;
-  background: #f5f7fb;
+  background: #f6f7f9;
 }
 
 .mobile-header,

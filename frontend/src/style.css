@@ -7,8 +7,8 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --app-primary: #5b5bd6;
-  --app-primary-dark: #4747bc;
+  --app-primary: #2563eb;
+  --app-primary-dark: #1d4ed8;
   --app-text: #172033;
   --app-muted: #697386;
   --app-border: #e7eaf0;
@@ -17,7 +17,7 @@
   --app-success: #159570;
   --app-warning: #d98616;
   --app-danger: #d84b5b;
-  --app-shadow: 0 10px 32px rgba(23, 32, 51, 0.06);
+  --app-shadow: 0 8px 24px rgba(23, 32, 51, 0.055);
 }
 
 * {
@@ -47,15 +47,15 @@ select {
 .el-button--primary {
   --el-button-bg-color: var(--app-primary);
   --el-button-border-color: var(--app-primary);
-  --el-button-hover-bg-color: #6969df;
-  --el-button-hover-border-color: #6969df;
+  --el-button-hover-bg-color: #3b82f6;
+  --el-button-hover-border-color: #3b82f6;
   --el-button-active-bg-color: var(--app-primary-dark);
   --el-button-active-border-color: var(--app-primary-dark);
 }
 
 .el-card {
   --el-card-border-color: var(--app-border);
-  border-radius: 14px;
+  border-radius: 8px;
   box-shadow: none;
 }
 
