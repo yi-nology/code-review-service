@@ -226,6 +226,13 @@ export interface ViewerStatus {
   message?: string
 }
 
+export interface ViewerSessionLocation {
+  repo_slug: string
+  path: string
+  session_id?: string
+  matched: boolean
+}
+
 export interface ModelOption {
   id: string
   display_name: string

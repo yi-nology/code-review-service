@@ -115,6 +115,7 @@ func registerSettingsExtraRoutes(h *server.Hertz) {
 	h.POST("/api/v1/settings/rules/packages/:id/history/:version/restore", settingsHandler.RestoreRulePackageVersion)
 	h.GET("/api/v1/settings/ocr/tool-packages/:id/history", settingsHandler.ListToolPackageVersions)
 	h.POST("/api/v1/settings/ocr/tool-packages/:id/history/:version/restore", settingsHandler.RestoreToolPackageVersion)
+	h.POST("/api/v1/settings/ocr/viewer/locate", settingsHandler.LocateViewerSession)
 }
 
 func registerViewerProxyRoute(h *server.Hertz, viewerMgr *ocr.ViewerManager) {

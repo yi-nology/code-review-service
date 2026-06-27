@@ -186,7 +186,8 @@
                   <span>{{ detail.repo }}</span>
                   <code>{{ detail.review_id }}</code>
                   <code v-if="detail.head_sha">{{ detail.head_sha }}</code>
-                  <el-tag v-if="reviewViewerRepoSlug" size="small" type="success">已定位 workspace</el-tag>
+                  <el-tag v-if="reviewViewerMatched" size="small" type="success">已定位 session</el-tag>
+                  <el-tag v-else-if="reviewViewerRepoSlug" size="small" type="success">已定位 workspace</el-tag>
                   <el-tag v-else size="small" type="info">Viewer 总览</el-tag>
                 </div>
                 <iframe title="OCR Viewer" :src="reviewViewerSrc" />
@@ -359,7 +360,7 @@ import ReviewGateCard from '@/components/review-detail/ReviewGateCard.vue'
 import ReviewHistoryCard from '@/components/review-detail/ReviewHistoryCard.vue'
 import ReviewSessionsCard from '@/components/review-detail/ReviewSessionsCard.vue'
 import { getReview, cancelReview, rerunReview, downloadSuggestionPatch } from '@/api/review'
-import { getViewerStatus, startViewer } from '@/api/config'
+import { getViewerStatus, locateViewerSession, startViewer } from '@/api/config'
 import { sessionApi, type ReviewSession } from '@/api/session'
 import { getProviderLabel } from '@/utils/url-parser'
 import { getStatusLabel, getStatusType } from '@/utils/status'
@@ -379,6 +380,8 @@ const viewportWidth = ref(window.innerWidth)
 const viewerStatus = ref<ViewerStatus | null>(null)
 const viewerLoading = ref(false)
 const reviewViewerOpen = ref(false)
+const reviewViewerPath = ref('')
+const reviewViewerMatched = ref(false)
 const findingsPanelRef = ref<InstanceType<typeof ReviewFindingsPanel> | null>(null)
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 let fetchInFlight = false
@@ -407,6 +410,7 @@ const reviewViewerRepoSlug = computed(() => {
   return workspaceDir.replace(/^[/\\]+/, '').replace(/[/\\]+/g, '-')
 })
 const reviewViewerSrc = computed(() => {
+  if (reviewViewerPath.value) return `/api/v1/settings/ocr/viewer/proxy${reviewViewerPath.value}`
   if (!reviewViewerRepoSlug.value) return '/api/v1/settings/ocr/viewer/proxy/'
   return `/api/v1/settings/ocr/viewer/proxy/r/${encodeURIComponent(reviewViewerRepoSlug.value)}`
 })
@@ -538,11 +542,31 @@ async function toggleReviewViewer() {
       ElMessage.error(status.message || 'OCR Viewer 未运行')
       return
     }
+    await locateReviewViewer()
     reviewViewerOpen.value = true
   } catch (error: any) {
     ElMessage.error(error?.message || '启动 OCR Viewer 失败')
   } finally {
     viewerLoading.value = false
+  }
+}
+
+async function locateReviewViewer() {
+  reviewViewerPath.value = ''
+  reviewViewerMatched.value = false
+  const workspaceDir = String(detail.value?.raw_ocr_input?.workspace?.dir || '').trim()
+  if (!workspaceDir) return
+  try {
+    const location = await locateViewerSession({
+      workspace_dir: workspaceDir,
+      started_at: String(detail.value?.raw_ocr_input?.started_at || ''),
+    })
+    if (location?.path) {
+      reviewViewerPath.value = location.path
+      reviewViewerMatched.value = Boolean(location.matched)
+    }
+  } catch {
+    // 定位失败时保留前端 workspace fallback，不影响打开 Viewer。
   }
 }
 

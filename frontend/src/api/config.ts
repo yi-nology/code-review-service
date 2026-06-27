@@ -4,7 +4,7 @@ import type {
   GitTestResult, GlobalRules, TestLLMResult, PlatformRepo, PlatformBranch,
   PlatformPullRequest, ReviewerAgent, LLMProvider, CustomProvider,
   RulesCheckResult, OCRVersion, ViewerStatus, OCRAssetVersion, OCRRulePackage, OCRToolPackage,
-  OCRUpdateInfo, OCRUpgradeStatus
+  OCRUpdateInfo, OCRUpgradeStatus, ViewerSessionLocation
 } from '@/types/config'
 
 function parseIgnorePaths(raw: any): string[] {
@@ -150,6 +150,13 @@ export async function startViewer(addr?: string): Promise<ViewerStatus> {
 
 export async function stopViewer(): Promise<ViewerStatus> {
   return request.post('/settings/ocr/viewer/stop') as any
+}
+
+export async function locateViewerSession(data: {
+  workspace_dir: string
+  started_at?: string
+}): Promise<ViewerSessionLocation> {
+  return request.post('/settings/ocr/viewer/locate', data) as any
 }
 
 // ==================== Project Policies ====================

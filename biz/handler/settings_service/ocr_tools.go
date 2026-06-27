@@ -2,6 +2,13 @@ package settings_service
 
 import (
 	"context"
+	"encoding/json"
+	"math"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
@@ -122,6 +129,30 @@ func StopViewer(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, resp)
 }
 
+func LocateViewerSession(ctx context.Context, c *app.RequestContext) {
+	var req struct {
+		WorkspaceDir string `json:"workspace_dir"`
+		StartedAt    string `json:"started_at"`
+	}
+	if err := c.BindAndValidate(&req); err != nil {
+		common.Fail(c, common.BadRequest(err.Error()))
+		return
+	}
+	workspaceDir := strings.TrimSpace(req.WorkspaceDir)
+	if workspaceDir == "" {
+		common.Fail(c, common.BadRequest("workspace_dir 不能为空"))
+		return
+	}
+	startedAt, _ := time.Parse(time.RFC3339, strings.TrimSpace(req.StartedAt))
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	location := locateViewerSession(homeDir, workspaceDir, startedAt)
+	common.Success(c, location)
+}
+
 func ListLLMProviders(ctx context.Context, c *app.RequestContext) {
 	if !common.FeatureGuard(c, handlerInst.providerLister, "LLM Provider 列表") {
 		return
@@ -143,4 +174,93 @@ func ListLLMProviders(ctx context.Context, c *app.RequestContext) {
 		items = append(items, item)
 	}
 	common.Success(c, &modelSettings.ListLLMProvidersResp{BuiltIn: items})
+}
+
+type viewerSessionLocation struct {
+	RepoSlug  string `json:"repo_slug"`
+	Path      string `json:"path"`
+	SessionID string `json:"session_id,omitempty"`
+	Matched   bool   `json:"matched"`
+}
+
+func locateViewerSession(homeDir, workspaceDir string, startedAt time.Time) viewerSessionLocation {
+	slug := viewerRepoSlug(workspaceDir)
+	location := viewerSessionLocation{RepoSlug: slug, Path: "/r/" + url.PathEscape(slug)}
+	sessionID := findNearestViewerSession(filepath.Join(homeDir, ".opencodereview", "sessions", slug), workspaceDir, startedAt)
+	if sessionID != "" {
+		location.SessionID = sessionID
+		location.Path += "/" + url.PathEscape(sessionID)
+		location.Matched = true
+	}
+	return location
+}
+
+func viewerRepoSlug(workspaceDir string) string {
+	value := strings.TrimLeft(strings.TrimSpace(workspaceDir), `/\`)
+	parts := strings.FieldsFunc(value, func(r rune) bool {
+		return r == '/' || r == '\\'
+	})
+	return strings.Join(parts, "-")
+}
+
+func findNearestViewerSession(sessionDir, workspaceDir string, startedAt time.Time) string {
+	entries, err := os.ReadDir(sessionDir)
+	if err != nil {
+		return ""
+	}
+	bestSession := ""
+	bestDelta := math.MaxFloat64
+	var latestAt time.Time
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".jsonl" {
+			continue
+		}
+		meta, ok := readViewerSessionStart(filepath.Join(sessionDir, entry.Name()))
+		if !ok {
+			continue
+		}
+		if meta.CWD != "" && workspaceDir != "" && filepath.Clean(meta.CWD) != filepath.Clean(workspaceDir) {
+			continue
+		}
+		if startedAt.IsZero() {
+			if meta.Timestamp.After(latestAt) {
+				bestSession = meta.SessionID
+				latestAt = meta.Timestamp
+			}
+			continue
+		}
+		delta := math.Abs(meta.Timestamp.Sub(startedAt).Seconds())
+		if delta < bestDelta {
+			bestSession = meta.SessionID
+			bestDelta = delta
+		}
+	}
+	if !startedAt.IsZero() && bestDelta > 30*60 {
+		return ""
+	}
+	return bestSession
+}
+
+type viewerSessionStart struct {
+	CWD       string    `json:"cwd"`
+	SessionID string    `json:"sessionId"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+func readViewerSessionStart(path string) (viewerSessionStart, bool) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return viewerSessionStart{}, false
+	}
+	if idx := strings.IndexByte(string(data), '\n'); idx >= 0 {
+		data = data[:idx]
+	}
+	var meta viewerSessionStart
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return viewerSessionStart{}, false
+	}
+	if strings.TrimSpace(meta.SessionID) == "" {
+		meta.SessionID = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	}
+	return meta, meta.SessionID != ""
 }
