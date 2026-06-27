@@ -157,10 +157,14 @@
                 <el-descriptions-item label="总 Tokens">{{ detail.report.ocr.total_tokens ? detail.report.ocr.total_tokens.toLocaleString() : '-' }}</el-descriptions-item>
                 <el-descriptions-item label="输入 Tokens">{{ detail.report.ocr.input_tokens ? detail.report.ocr.input_tokens.toLocaleString() : '-' }}</el-descriptions-item>
                 <el-descriptions-item label="输出 Tokens">{{ detail.report.ocr.output_tokens ? detail.report.ocr.output_tokens.toLocaleString() : '-' }}</el-descriptions-item>
+                <el-descriptions-item label="缓存读 Tokens">{{ detail.report.ocr.cache_read_tokens ? detail.report.ocr.cache_read_tokens.toLocaleString() : '-' }}</el-descriptions-item>
+                <el-descriptions-item label="缓存写 Tokens">{{ detail.report.ocr.cache_write_tokens ? detail.report.ocr.cache_write_tokens.toLocaleString() : '-' }}</el-descriptions-item>
+                <el-descriptions-item label="平均 Tokens/文件">{{ tokensPerReviewedFile }}</el-descriptions-item>
                 <el-descriptions-item label="耗时">{{ detail.report.ocr.elapsed || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="审查范围">
                   {{ detail.report.scope?.reviewed_files ?? '-' }} / {{ detail.report.scope?.changed_files ?? '-' }} 文件
                 </el-descriptions-item>
+                <el-descriptions-item label="风险密度">{{ findingDensityLabel }}</el-descriptions-item>
                 <el-descriptions-item label="排除文件">{{ detail.report.scope?.excluded_files ?? '-' }}</el-descriptions-item>
                 <el-descriptions-item label="工具调用">{{ detail.report.ocr.tool_calls?.total ?? '-' }}</el-descriptions-item>
               </el-descriptions>
@@ -383,6 +387,17 @@ const toolCallRows = computed(() => {
   return Object.entries(byTool)
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count)
+})
+const tokensPerReviewedFile = computed(() => {
+  const total = detail.value?.report?.ocr?.total_tokens || 0
+  const reviewed = detail.value?.report?.scope?.reviewed_files || detail.value?.report?.ocr?.files_reviewed || 0
+  if (!total || !reviewed) return '-'
+  return Math.round(total / reviewed).toLocaleString()
+})
+const findingDensityLabel = computed(() => {
+  const density = detail.value?.report?.score?.findings_density
+  if (density === undefined || density === null) return '-'
+  return `${density.toFixed(2)} / 百行`
 })
 const showProgressTracker = computed(() => Boolean(detail.value && (
   ['queued', 'running', 'failed', 'success', 'completed'].includes(detail.value.status) ||
