@@ -5,7 +5,15 @@
         <span>问题报告</span>
         <div class="finding-header-actions">
           <el-tag>{{ findings.length }} 个问题</el-tag>
-          <el-button size="small" plain @click="selectPatchableFindings">全选可生成</el-button>
+          <el-tooltip
+            :disabled="Boolean(patchableFindingIndexes.length)"
+            content="当前没有满足文件路径、起始行号、现有代码和建议代码的问题"
+            placement="top"
+          >
+            <el-button size="small" plain :disabled="!patchableFindingIndexes.length" @click="selectPatchableFindings">
+              全选可生成
+            </el-button>
+          </el-tooltip>
         </div>
       </div>
     </template>
@@ -48,6 +56,15 @@
           </el-button>
         </div>
       </div>
+      <el-alert
+        v-if="!patchableFindingIndexes.length"
+        class="patch-empty-alert"
+        title="当前问题缺少可安全生成 Patch 的建议代码"
+        description="修复 Patch 需要问题同时包含文件路径、起始行号、现有代码和建议代码。只有满足这些条件的问题才能勾选并生成 diff。"
+        type="info"
+        :closable="false"
+        show-icon
+      />
       <div v-if="patchPreview" class="patch-result">
         <div class="patch-result-meta">
           <el-tag type="success" size="small">生成 {{ patchPreview.generated_count }}</el-tag>
@@ -84,12 +101,14 @@
     <div class="finding-list">
       <div v-for="(finding, index) in findings" :key="index" class="finding-item">
         <div class="finding-header">
-          <el-checkbox
-            class="finding-patch-checkbox"
-            :model-value="selectedPatchIndexes.includes(index)"
-            :disabled="!isPatchableFinding(finding)"
-            @change="(checked: boolean | string | number) => togglePatchFinding(index, Boolean(checked))"
-          />
+          <el-tooltip :disabled="isPatchableFinding(finding)" :content="patchBlockReason(finding)" placement="top">
+            <el-checkbox
+              class="finding-patch-checkbox"
+              :model-value="selectedPatchIndexes.includes(index)"
+              :disabled="!isPatchableFinding(finding)"
+              @change="(checked: boolean | string | number) => togglePatchFinding(index, Boolean(checked))"
+            />
+          </el-tooltip>
           <el-tag :type="getSeverityType(finding.severity)" size="small">
             {{ finding.severity.toUpperCase() }}
           </el-tag>
@@ -97,6 +116,9 @@
           <span class="finding-path" v-if="finding.path">
             {{ finding.path }}{{ finding.line ? `:${finding.line}` : '' }}
           </span>
+          <el-tag v-if="!isPatchableFinding(finding)" size="small" type="info">
+            {{ patchBlockReason(finding) }}
+          </el-tag>
           <el-dropdown trigger="click" @command="(command: string) => handleFeedback(index, command)">
             <el-button size="small" plain>
               {{ feedbackLabel(feedbackByIndex[index]?.status) || '标记' }}
@@ -178,6 +200,15 @@ const canApplyPatch = computed(() => {
 function isPatchableFinding(finding: Finding) {
   const line = finding.start_line || finding.line || 0
   return Boolean(finding.path?.trim() && finding.existing_code?.trim() && finding.suggestion_code?.trim() && line > 0)
+}
+
+function patchBlockReason(finding: Finding) {
+  const line = finding.start_line || finding.line || 0
+  if (!finding.path?.trim()) return '缺少文件路径'
+  if (line <= 0) return '缺少起始行号'
+  if (!finding.existing_code?.trim()) return '缺少现有代码'
+  if (!finding.suggestion_code?.trim()) return '缺少建议代码'
+  return '可生成 Patch'
 }
 
 function feedbackLabel(status?: string) {
@@ -341,6 +372,10 @@ onMounted(loadFeedback)
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+.patch-empty-alert {
+  margin-top: 10px;
 }
 
 .patch-branch-input {

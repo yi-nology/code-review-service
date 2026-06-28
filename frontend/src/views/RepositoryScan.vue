@@ -927,7 +927,8 @@ function severityType(severity?: string) {
 }
 
 function stripAnsi(value: string) {
-  return value.replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, '')
+  const escapeChar = String.fromCharCode(27)
+  return value.replace(new RegExp(`${escapeChar}\\[[0-9;?]*[ -/]*[@-~]`, 'g'), '')
 }
 
 function parsePreviewLine(line: string) {
