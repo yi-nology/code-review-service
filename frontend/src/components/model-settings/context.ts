@@ -2,7 +2,7 @@ import { inject } from 'vue'
 import type { InjectionKey, Ref } from 'vue'
 import type { OCRSettings, LLMProvider, CustomProvider } from '@/types/config'
 
-export interface ModelSettingsContext {
+export interface SettingsFormContext {
   form: OCRSettings
   saving: Ref<boolean>
   testingLLM: Ref<boolean>
@@ -15,10 +15,10 @@ export interface ModelSettingsContext {
   selectProvider: (provider: LLMProvider | CustomProvider, type: 'builtin' | 'custom') => void
 }
 
-export const modelSettingsKey: InjectionKey<ModelSettingsContext> = Symbol('modelSettings')
+export const settingsFormKey: InjectionKey<SettingsFormContext> = Symbol('settingsForm')
 
-export function useModelSettings(): ModelSettingsContext {
-  const ctx = inject(modelSettingsKey)
-  if (!ctx) throw new Error('useModelSettings must be called within ModelSettings')
+export function useSettingsForm(): SettingsFormContext {
+  const ctx = inject(settingsFormKey)
+  if (!ctx) throw new Error('useSettingsForm must be called within a settings provider')
   return ctx
 }

@@ -125,14 +125,19 @@ func (r *ContributorStatsRepo) getGradeDistribution(ctx context.Context, where s
 		Count int    `gorm:"column:cnt"`
 	}
 	var rows []gradeRow
-	r.db.WithContext(ctx).Raw(`
+	if err := r.db.WithContext(ctx).Raw(`
 		SELECT response->'report'->'score'->>'grade' AS grade, COUNT(*) AS cnt
-		FROM reviews WHERE `+where+` GROUP BY grade
-	`, args...).Scan(&rows)
+		FROM reviews WHERE `+where+` GROUP BY 1
+	`, args...).Scan(&rows).Error; err != nil {
+		logx.Warnf("failed to query grade distribution: %v", err)
+		return map[string]int{}
+	}
 
 	dist := make(map[string]int)
 	for _, gr := range rows {
-		dist[gr.Grade] = gr.Count
+		if gr.Grade != "" {
+			dist[gr.Grade] = gr.Count
+		}
 	}
 	return dist
 }

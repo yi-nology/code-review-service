@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
@@ -49,8 +50,13 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace domain.Worksp
 	if timeout <= 0 {
 		timeout = 10 * time.Minute
 	}
+	progressReporter := progress.ProgressReporterFromContext(ctx)
+
 	ctx, cancel := context.WithTimeout(ctx, timeout+30*time.Second)
 	defer cancel()
+	if progressReporter != nil {
+		ctx = progress.WithProgressReporter(ctx, progressReporter)
+	}
 
 	args := []string{
 		"scan",
@@ -127,6 +133,10 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace domain.Worksp
 		return nil, &BinaryMissingError{Binary: r.config.Binary, Err: err}
 	}
 
+	if progressReporter != nil {
+		progressReporter.UpdatePhase(progress.PhaseAnalysis, "active", 15, "正在扫描代码，请稍候...")
+	}
+
 	var stderrLines []string
 	var stderrMu sync.Mutex
 	var stderrWg sync.WaitGroup
@@ -140,15 +150,34 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace domain.Worksp
 			stderrMu.Lock()
 			stderrLines = append(stderrLines, line)
 			stderrMu.Unlock()
+
+			if progressReporter != nil {
+				parseOCRProgress(line, progressReporter)
+			}
 		}
 		if err := scanner.Err(); err != nil {
 			logx.Warnf("ocr stderr scanner error: %v", err)
 		}
 	})
 
+	done := make(chan struct{})
+	async.GoSafe(func() {
+		select {
+		case <-ctx.Done():
+			if cmd.Process != nil {
+				_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+			}
+		case <-done:
+		}
+	})
+
 	err = cmd.Wait()
+	close(done)
 	stderrWg.Wait()
 	if err != nil {
+		if cmd.Process != nil {
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		}
 		stderrMu.Lock()
 		message := strings.Join(stderrLines, "\n")
 		stderrMu.Unlock()

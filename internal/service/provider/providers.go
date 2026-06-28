@@ -90,12 +90,23 @@ func (a *gitProviderAdapter) Prepare(ctx context.Context, req domain.Request) (d
 		return domain.Workspace{}, fmt.Errorf("clone repository: %w", err)
 	}
 
+	// OriginalHeadSHA 必须是 PR/MR 的真实 head SHA（来自平台 API），而非 req.HeadSHA。
+	// 当仅凭 pull_request_id 创建 review 时，req.HeadSHA 为空；即使 cloneAndResolvePR 为了
+	// 给 reviewer 提供完整文件上下文而构建了合成提交（restoreDeletedFiles / ApplyProjectScope），
+	// 导致 workspace.HeadSHA 偏离真实 head，回写阶段的 stale 检查仍需要用真实 head 与平台
+	// 当前 head 比对。否则 publishWriteback (executor/service.go:410) 的 OriginalHeadSHA 覆盖
+	// 会被跳过，writeback 误判为 stale 而丢弃评论。
+	originalHeadSHA := req.HeadSHA
+	if headSHAFromAPI != "" {
+		originalHeadSHA = headSHAFromAPI
+	}
+
 	return domain.Workspace{
 		Provider:        a.platform,
 		Repo:            strings.TrimPrefix(req.Repo, "/"),
 		BaseSHA:         baseSHA,
 		HeadSHA:         headSHA,
-		OriginalHeadSHA: req.HeadSHA,
+		OriginalHeadSHA: originalHeadSHA,
 		Diff:            diff,
 		Dir:             dir,
 	}, nil

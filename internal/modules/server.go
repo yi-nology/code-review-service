@@ -2,6 +2,7 @@ package modules
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -26,6 +27,7 @@ import (
 	"github.com/oekit/logx"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
+	"github.com/hertz-contrib/cors"
 	"go.uber.org/fx"
 	"gorm.io/gorm"
 )
@@ -37,7 +39,7 @@ var ServerModule = fx.Options(
 
 func RegisterGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 	h.Use(mw.RecoveryMiddleware())
-	h.Use(mw.CORSMiddleware())
+	h.Use(cors.Default())
 
 	skipPaths := middleware.DefaultSkipPaths
 	stack := mw.DefaultMiddleware(mw.StackConfig{
@@ -61,7 +63,7 @@ func RegisterGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 	h.Use(middleware.SecurityHeaders())
 }
 
-func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos *repository.RepoContainer, resolver *ocr.ConfigResolver, viewerMgr *ocr.ViewerManager) {
+func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos *repository.RepoContainer, resolver *ocr.ConfigResolver, viewerMgr *ocr.ViewerManager, cfg *config.Config) {
 	logx.Infof("[routes] registering routes...")
 
 	healthOpts := []health.Option{}
@@ -102,7 +104,7 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos
 	router.GeneratedRegister(h)
 	registerReviewExtraRoutes(h)
 	registerSettingsExtraRoutes(h)
-	registerViewerProxyRoute(h, viewerMgr)
+	registerViewerProxyRoute(h, viewerMgr, cfg.Auth.Token)
 }
 
 func registerReviewExtraRoutes(h *server.Hertz) {
@@ -118,15 +120,25 @@ func registerSettingsExtraRoutes(h *server.Hertz) {
 	h.POST("/api/v1/settings/ocr/viewer/locate", settingsHandler.LocateViewerSession)
 }
 
-func registerViewerProxyRoute(h *server.Hertz, viewerMgr *ocr.ViewerManager) {
-	h.GET("/api/v1/settings/ocr/viewer/proxy/*path", viewerProxyHandler(viewerMgr))
+func registerViewerProxyRoute(h *server.Hertz, viewerMgr *ocr.ViewerManager, authToken string) {
+	h.GET("/api/v1/settings/ocr/viewer/proxy/*path", viewerProxyHandler(viewerMgr, authToken))
 }
 
-func viewerProxyHandler(viewerMgr *ocr.ViewerManager) app.HandlerFunc {
+func viewerProxyHandler(viewerMgr *ocr.ViewerManager, authToken string) app.HandlerFunc {
 	proxyClient := &http.Client{Timeout: 30 * time.Second}
 	const maxProxyBody = 10 << 20 // 10 MB
 
 	return func(ctx context.Context, c *app.RequestContext) {
+		// iframe 无法携带 Authorization 头，改用 token 查询参数鉴权。
+		if authToken != "" {
+			t := string(c.Query("token"))
+			if subtle.ConstantTimeCompare([]byte(t), []byte(authToken)) != 1 {
+				c.SetStatusCode(http.StatusUnauthorized)
+				_, _ = c.WriteString("unauthorized")
+				return
+			}
+		}
+
 		if viewerMgr == nil {
 			c.SetStatusCode(http.StatusServiceUnavailable)
 			return
@@ -165,6 +177,8 @@ func viewerProxyHandler(viewerMgr *ocr.ViewerManager) app.HandlerFunc {
 				c.Response.Header.Set(key, values[0])
 			}
 		}
+		// 强制允许同源 iframe 嵌入，覆盖上游可能返回的限制头。
+		c.Response.Header.Set("X-Frame-Options", "SAMEORIGIN")
 		body, err := io.ReadAll(io.LimitReader(resp.Body, maxProxyBody))
 		if err != nil {
 			c.SetStatusCode(http.StatusBadGateway)

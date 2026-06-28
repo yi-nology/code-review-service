@@ -40,7 +40,7 @@ export async function previewReview(opts: {
 }
 
 export async function scanRepository(data: ScanRepositoryOptions): Promise<ScanRepositoryResult> {
-  return request.post('/reviews/scan', data, { timeout: data.preview ? 120000 : 900000 }) as any
+  return request.post('/reviews/scan', data, { timeout: data.preview ? 120000 : 30000 }) as any
 }
 
 export async function cancelReview(id: string): Promise<ReviewDetail> {

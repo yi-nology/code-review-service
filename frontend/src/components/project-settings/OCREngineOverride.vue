@@ -127,7 +127,7 @@
           <label class="field-block">
             <span>遥测启用</span>
             <el-select :model-value="form.ocr_telemetry_enabled" clearable placeholder="继承全局" @change="$emit('update:ocrTelemetryEnabled', $event)">
-              <el-option label="继承全局" :value="null" />
+              <el-option label="继承全局" value="" />
               <el-option label="启用" :value="true" />
               <el-option label="禁用" :value="false" />
             </el-select>
@@ -149,7 +149,7 @@
           <label class="field-block">
             <span>遥测内容日志</span>
             <el-select :model-value="form.ocr_telemetry_content_logging" clearable placeholder="继承全局" @change="$emit('update:ocrTelemetryContentLogging', $event)">
-              <el-option label="继承全局" :value="null" />
+              <el-option label="继承全局" value="" />
               <el-option label="启用" :value="true" />
               <el-option label="禁用" :value="false" />
             </el-select>

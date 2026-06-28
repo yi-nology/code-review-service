@@ -146,6 +146,14 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 			continue
 		}
 
+		if req.CallbackMode == "scan" {
+			logx.Warnf("worker: orphaned scan review from server restart, marking as failed: %s", review.ReviewID)
+			s.recordFailure(ctx, review.ReviewID, req, fmt.Errorf("scan was interrupted by server restart"))
+			release()
+			timer.Reset(0)
+			continue
+		}
+
 		provider, ok := s.Providers.Get(req.Provider)
 		if !ok {
 			err := fmt.Errorf("%w: %q", domain.ErrUnsupportedProvider, req.Provider)

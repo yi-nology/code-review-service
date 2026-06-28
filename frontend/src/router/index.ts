@@ -10,6 +10,11 @@ const router = createRouter({
       component: { render: () => null },
     },
     {
+      path: '/dashboard',
+      name: 'Dashboard',
+      component: () => import('@/views/Dashboard.vue'),
+    },
+    {
       path: '/reviews',
       name: 'Reviews',
       component: () => import('@/views/Reviews.vue'),
@@ -55,6 +60,11 @@ const router = createRouter({
       component: () => import('@/views/ModelSettings.vue'),
     },
     {
+      path: '/settings/ocr',
+      name: 'OcrSettings',
+      component: () => import('@/views/OcrSettings.vue'),
+    },
+    {
       path: '/settings/projects',
       name: 'ProjectSettings',
       component: () => import('@/views/ProjectSettings.vue'),
@@ -98,7 +108,7 @@ router.beforeEach((to) => {
   }
 
   if (auth.isAuthenticated && to.path === '/') {
-    return { path: '/reviews' }
+    return { path: '/dashboard' }
   }
 })
 

@@ -3,9 +3,10 @@ module github.com/yi-nology/code-review-service
 go 1.26
 
 require (
-	github.com/yi-nology/ekit v0.13.0
+	github.com/yi-nology/ekit v0.14.3
 	github.com/apache/thrift v0.23.0
 	github.com/cloudwego/hertz v0.10.5
+	github.com/hertz-contrib/cors v0.1.0
 	github.com/hertz-contrib/swagger v0.1.1
 	github.com/hertz-contrib/websocket v0.2.0
 	github.com/jackc/pgx/v5 v5.5.5
@@ -109,7 +110,6 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/hashicorp/go-version v1.9.0 // indirect
-	github.com/hertz-contrib/cors v0.1.0 // indirect
 	github.com/hertz-contrib/csrf v0.1.1 // indirect
 	github.com/hertz-contrib/etag v0.1.0 // indirect
 	github.com/hertz-contrib/gzip v0.0.4 // indirect

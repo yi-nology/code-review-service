@@ -93,42 +93,50 @@
         <el-empty v-else description="暂无 OCR 趋势数据" :image-size="48" />
       </section>
 
-      <el-card class="reports-card">
-        <div class="toolbar">
-          <div>
+      <section class="reports-section">
+        <div class="reports-header">
+          <div class="reports-title">
             <h2>项目质量报告</h2>
-            <p>点击项目查看完整聚合报告</p>
+            <span class="reports-subtitle">共 {{ pagination.total }} 个项目</span>
           </div>
-          <el-button circle plain aria-label="刷新" @click="fetchProjects">
-            <el-icon><Refresh /></el-icon>
-          </el-button>
+          <div class="reports-actions">
+            <el-button :icon="Refresh" circle @click="fetchProjects" />
+          </div>
         </div>
 
         <div class="filter-bar">
-          <el-select v-model="filters.provider" placeholder="全部平台" clearable @change="applyFilters">
-            <el-option v-for="p in PROVIDER_OPTIONS" :key="p.value" :label="p.label" :value="p.value" />
-          </el-select>
-          <el-input v-model="filters.repo" class="repo-search" placeholder="搜索仓库，例如 owner/repo" clearable @keyup.enter="applyFilters" @clear="applyFilters">
+          <el-input
+            v-model="filters.repo"
+            class="filter-search"
+            placeholder="搜索仓库..."
+            clearable
+            @keyup.enter="applyFilters"
+            @clear="applyFilters"
+          >
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
-          <el-select v-model="filters.sort" placeholder="排序方式" @change="applyFilters">
-            <el-option label="平均分" value="avg_score" />
-            <el-option label="审查数" value="review_count" />
-            <el-option label="通过率" value="pass_rate" />
-            <el-option label="严重问题" value="critical_count" />
-            <el-option label="最近活跃" value="last_review_at" />
+          <el-select v-model="filters.provider" placeholder="全部平台" clearable @change="applyFilters" class="filter-select">
+            <el-option v-for="p in PROVIDER_OPTIONS" :key="p.value" :label="p.label" :value="p.value" />
+          </el-select>
+          <el-select v-model="filters.sort" placeholder="排序" @change="applyFilters" class="filter-select">
+            <el-option label="按评分" value="avg_score" />
+            <el-option label="按审查数" value="review_count" />
+            <el-option label="按通过率" value="pass_rate" />
+            <el-option label="按严重问题" value="critical_count" />
+            <el-option label="按活跃度" value="last_review_at" />
           </el-select>
           <el-date-picker
             v-model="dateRange"
-            class="date-range"
+            class="filter-date"
             type="daterange"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
+            start-placeholder="开始"
+            end-placeholder="结束"
             unlink-panels
             @change="applyFilters"
           />
-          <el-button type="primary" plain @click="applyFilters">筛选</el-button>
-          <el-button v-if="hasFilters" link @click="resetFilters">重置</el-button>
+          <el-button v-if="hasFilters" text @click="resetFilters" class="filter-reset">
+            清除筛选
+          </el-button>
         </div>
 
         <el-table
@@ -137,64 +145,81 @@
           class="project-table"
           empty-text="暂无项目报告数据"
           @row-click="goToDetail"
+          :row-class-name="() => 'clickable-row'"
         >
-          <el-table-column label="项目" min-width="260">
+          <el-table-column label="项目" min-width="240">
             <template #default="{ row }">
               <div class="repo-cell">
-                <span class="provider-mark">{{ getProviderInitial(row.provider) }}</span>
-                <div>
-                  <strong>{{ row.repo }}</strong>
-                  <small>{{ providerLabel(row.provider) }}</small>
+                <span class="provider-badge" :class="row.provider">{{ getProviderInitial(row.provider) }}</span>
+                <div class="repo-info">
+                  <span class="repo-name">{{ row.repo }}</span>
+                  <span class="repo-provider">{{ providerLabel(row.provider) }}</span>
                 </div>
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="审查数" width="90" align="center">
+
+          <el-table-column label="审查" width="70" align="center">
             <template #default="{ row }">
-              <span class="num-cell">{{ row.review_count }}</span>
+              <span class="metric-value">{{ row.review_count }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="平均分" width="150">
+
+          <el-table-column label="平均分" width="140">
             <template #default="{ row }">
               <div class="score-cell">
-                <strong :class="scoreClass(row.avg_score)">{{ row.avg_score }}</strong>
-                <el-progress :percentage="row.avg_score" :show-text="false" :stroke-width="5" :color="getScoreColor(row.avg_score)" />
+                <span class="score-value" :class="scoreClass(row.avg_score)">{{ row.avg_score }}</span>
+                <div class="score-bar">
+                  <div class="score-bar-fill" :style="{ width: row.avg_score + '%', backgroundColor: getScoreColor(row.avg_score) }"></div>
+                </div>
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="通过率" width="110">
+
+          <el-table-column label="通过率" width="80" align="center">
             <template #default="{ row }">
-              <span class="pass-rate" :class="passRateClass(row.pass_rate)">{{ row.pass_rate.toFixed(0) }}%</span>
+              <span class="pass-rate-badge" :class="passRateClass(row.pass_rate)">
+                {{ row.pass_rate.toFixed(0) }}%
+              </span>
             </template>
           </el-table-column>
-          <el-table-column label="问题总数" width="100" align="center">
+
+          <el-table-column label="问题" width="70" align="center">
             <template #default="{ row }">
-              <span class="finding-count" :class="{ active: row.total_findings > 0 }">{{ row.total_findings }}</span>
+              <span class="findings-badge" :class="{ 'has-findings': row.total_findings > 0 }">
+                {{ row.total_findings }}
+              </span>
             </template>
           </el-table-column>
-          <el-table-column label="严重问题" width="100" align="center">
+
+          <el-table-column label="严重" width="70" align="center">
             <template #default="{ row }">
-              <span v-if="row.critical_count > 0" class="severity-tag critical">{{ row.critical_count }}</span>
-              <span v-else class="muted">0</span>
+              <span v-if="row.critical_count > 0" class="critical-badge">{{ row.critical_count }}</span>
+              <span v-else class="zero-value">-</span>
             </template>
           </el-table-column>
-          <el-table-column label="问题分布" min-width="200">
+
+          <el-table-column label="风险分布" min-width="180">
             <template #default="{ row }">
-              <div class="severity-stack">
-                <span class="critical" v-if="row.critical_count > 0" title="严重">严重 {{ row.critical_count }}</span>
-                <span class="major" v-if="row.major_count > 0" title="高风险">高风险 {{ row.major_count }}</span>
-                <span class="minor" v-if="row.minor_count > 0" title="中风险">中风险 {{ row.minor_count }}</span>
-                <span class="info" v-if="row.info_count > 0" title="提示">提示 {{ row.info_count }}</span>
-                <span v-if="row.critical_count + row.major_count + row.minor_count + row.info_count === 0" class="muted">无问题</span>
+              <div class="risk-bars">
+                <template v-if="row.critical_count + row.major_count + row.minor_count + row.info_count > 0">
+                  <div v-if="row.critical_count > 0" class="risk-segment critical" :style="{ flex: row.critical_count }" :title="'严重: ' + row.critical_count"></div>
+                  <div v-if="row.major_count > 0" class="risk-segment major" :style="{ flex: row.major_count }" :title="'高风险: ' + row.major_count"></div>
+                  <div v-if="row.minor_count > 0" class="risk-segment minor" :style="{ flex: row.minor_count }" :title="'中风险: ' + row.minor_count"></div>
+                  <div v-if="row.info_count > 0" class="risk-segment info" :style="{ flex: row.info_count }" :title="'提示: ' + row.info_count"></div>
+                </template>
+                <span v-else class="zero-value">-</span>
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="最近审查" width="130">
+
+          <el-table-column label="最近审查" width="100">
             <template #default="{ row }">
-              <span class="time-text">{{ formatDateRelative(row.last_review_at) }}</span>
+              <span class="time-value">{{ formatDateRelative(row.last_review_at) }}</span>
             </template>
           </el-table-column>
-          <el-table-column width="48" align="right">
+
+          <el-table-column width="40" align="right">
             <template #default>
               <el-icon class="row-arrow"><ArrowRight /></el-icon>
             </template>
@@ -202,7 +227,6 @@
         </el-table>
 
         <div class="pagination-wrap">
-          <span>共 {{ pagination.total }} 个项目</span>
           <el-pagination
             v-model:current-page="pagination.page"
             v-model:page-size="pagination.pageSize"
@@ -213,7 +237,7 @@
             @size-change="handlePageSizeChange"
           />
         </div>
-      </el-card>
+      </section>
     </div>
   </AppLayout>
 </template>
@@ -548,193 +572,278 @@ onMounted(fetchProjects)
   font-size: 11px;
 }
 
-.reports-card {
+.reports-section {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: var(--app-shadow);
 }
 
-.reports-card :deep(.el-card__body) {
-  padding: 0;
-}
-
-.toolbar {
+.reports-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 22px 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--app-border);
 }
 
-.toolbar h2 {
-  margin: 0 0 4px;
-  color: var(--app-text);
-  font-size: 17px;
+.reports-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
 }
 
-.toolbar p {
+.reports-title h2 {
   margin: 0;
-  color: #929aab;
-  font-size: 12px;
+  color: var(--app-text);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.reports-subtitle {
+  color: var(--app-muted);
+  font-size: 13px;
 }
 
 .filter-bar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
-  padding: 0 22px 18px;
+  padding: 14px 24px;
   border-bottom: 1px solid var(--app-border);
 }
 
-.repo-search {
-  width: 260px;
+.filter-search {
+  width: 200px;
 }
 
-.date-range {
-  width: 280px;
+.filter-select {
+  width: 120px;
+}
+
+.filter-bar :deep(.filter-date) {
+  flex-grow: 0;
+  width: 340px;
+  max-width: 340px;
+}
+
+.filter-reset {
+  margin-left: auto;
+  color: var(--app-muted);
 }
 
 .project-table {
-  --el-table-border-color: #edf0f4;
-  --el-table-header-bg-color: #fafbfc;
-  --el-table-row-hover-bg-color: #fafaff;
+  --el-table-border-color: transparent;
+  --el-table-header-bg-color: transparent;
+  --el-table-row-hover-bg-color: #f8f9ff;
 }
 
 .project-table :deep(th.el-table__cell) {
-  height: 44px;
-  color: #7d8698;
+  height: 40px;
+  color: var(--app-muted);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .project-table :deep(td.el-table__cell) {
-  height: 64px;
+  height: 56px;
+  border-bottom: 1px solid #f0f2f5;
 }
 
-.project-table :deep(.el-table__row) {
+.project-table :deep(.clickable-row) {
   cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
+.project-table :deep(.clickable-row:hover td) {
+  background-color: #f8f9ff !important;
+}
+
+/* 项目列 */
 .repo-cell {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.provider-mark {
-  display: grid;
-  width: 36px;
-  height: 36px;
-  flex: 0 0 36px;
-  place-items: center;
-  border-radius: 10px;
-  color: #fff;
-  background: #535bd2;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.repo-cell strong {
-  display: block;
-  color: var(--app-text);
-  font-size: 13px;
-}
-
-.repo-cell small {
-  display: block;
-  margin-top: 2px;
-  color: #9aa2b1;
-  font-size: 11px;
-}
-
-.num-cell,
-.time-text {
-  color: var(--app-text);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.score-cell {
-  display: grid;
-  grid-template-columns: 38px 1fr;
-  align-items: center;
-  gap: 8px;
-}
-
-.score-high { color: #159570; }
-.score-mid { color: #d98616; }
-.score-low { color: #d84b5b; }
-
-.pass-rate {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.pass-rate.high { color: #159570; }
-.pass-rate.mid { color: #d98616; }
-.pass-rate.low { color: #d84b5b; }
-
-.finding-count,
-.severity-tag.critical {
-  display: inline-grid;
-  min-width: 26px;
-  height: 26px;
-  place-items: center;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.finding-count {
-  color: #7f8796;
-  background: #f2f4f7;
-}
-
-.finding-count.active {
-  color: #c77910;
-  background: #fff3df;
-}
-
-.severity-tag.critical {
-  color: #d84b5b;
-  background: #fff0f2;
-}
-
-.severity-stack {
+.provider-badge {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
 }
 
-.severity-stack span {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 7px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
+.provider-badge.github { background: #24292f; }
+.provider-badge.gitlab { background: #fc6d26; }
+.provider-badge.gitea { background: #609926; }
+.provider-badge.gitcode { background: #1a73e8; }
+
+.repo-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.repo-name {
+  color: var(--app-text);
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.severity-stack .critical { color: #d84b5b; background: #fff0f2; }
-.severity-stack .major { color: #d98616; background: #fff6e8; }
-.severity-stack .minor { color: #2878c7; background: #eaf4ff; }
-.severity-stack .info { color: #687385; background: #f2f4f7; }
+.repo-provider {
+  color: var(--app-muted);
+  font-size: 11px;
+}
 
-.muted {
-  color: #c0c6d0;
+/* 通用指标 */
+.metric-value {
+  color: var(--app-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 评分列 */
+.score-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.score-value {
+  font-size: 14px;
+  font-weight: 700;
+  min-width: 28px;
+}
+
+.score-bar {
+  flex: 1;
+  height: 4px;
+  background: #f0f2f5;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.score-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.score-high { color: #10b981; }
+.score-mid { color: #f59e0b; }
+.score-low { color: #ef4444; }
+
+/* 通过率 */
+.pass-rate-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pass-rate-badge.high { color: #10b981; background: #ecfdf5; }
+.pass-rate-badge.mid { color: #f59e0b; background: #fffbeb; }
+.pass-rate-badge.low { color: #ef4444; background: #fef2f2; }
+
+/* 问题数 */
+.findings-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  border-radius: 6px;
   font-size: 13px;
+  font-weight: 600;
+  color: var(--app-muted);
 }
 
+.findings-badge.has-findings {
+  color: #d97706;
+  background: #fffbeb;
+}
+
+/* 严重问题 */
+.critical-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ef4444;
+  background: #fef2f2;
+}
+
+.zero-value {
+  color: #d1d5db;
+  font-size: 14px;
+}
+
+/* 风险分布条 */
+.risk-bars {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  gap: 2px;
+  min-width: 100px;
+}
+
+.risk-segment {
+  height: 100%;
+  min-width: 4px;
+  border-radius: 2px;
+  transition: flex 0.3s ease;
+}
+
+.risk-segment.critical { background: #ef4444; }
+.risk-segment.major { background: #f59e0b; }
+.risk-segment.minor { background: #3b82f6; }
+.risk-segment.info { background: #9ca3af; }
+
+/* 时间 */
+.time-value {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+/* 箭头 */
 .row-arrow {
-  color: #c0c6d0;
+  color: #d1d5db;
+  transition: color 0.15s ease;
 }
 
+.clickable-row:hover .row-arrow {
+  color: var(--app-primary);
+}
+
+/* 分页 */
 .pagination-wrap {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 16px 22px 20px;
-  color: #8d95a6;
-  font-size: 12px;
+  justify-content: flex-end;
+  padding: 12px 24px;
+  border-top: 1px solid var(--app-border);
 }
 
 @media (max-width: 760px) {
@@ -742,18 +851,19 @@ onMounted(fetchProjects)
     padding: 24px 16px 36px;
   }
 
-  .repo-search {
-    width: 100%;
-  }
-
-  .date-range {
-    width: 100%;
-  }
-
-  .pagination-wrap {
-    align-items: flex-start;
+  .filter-bar {
     flex-direction: column;
-    gap: 12px;
+    align-items: stretch;
+  }
+
+  .filter-search,
+  .filter-select,
+  .filter-date {
+    width: 100%;
+  }
+
+  .filter-reset {
+    margin-left: 0;
   }
 }
 
@@ -778,6 +888,12 @@ onMounted(fetchProjects)
 
   .trend-points {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reports-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
   }
 }
 </style>

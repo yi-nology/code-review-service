@@ -1,9 +1,11 @@
 import type { App } from 'vue'
 import { ElAlert } from 'element-plus/es/components/alert/index'
+import { ElBadge } from 'element-plus/es/components/badge/index'
 import { ElButton } from 'element-plus/es/components/button/index'
 import { ElCard } from 'element-plus/es/components/card/index'
 import { ElCheckbox } from 'element-plus/es/components/checkbox/index'
 import { ElCol } from 'element-plus/es/components/col/index'
+import { ElDatePicker } from 'element-plus/es/components/date-picker/index'
 import { ElCollapse, ElCollapseItem } from 'element-plus/es/components/collapse/index'
 import { ElConfigProvider } from 'element-plus/es/components/config-provider/index'
 import { ElDescriptions, ElDescriptionsItem } from 'element-plus/es/components/descriptions/index'
@@ -33,11 +35,13 @@ import { ElTimeline, ElTimelineItem } from 'element-plus/es/components/timeline/
 
 import 'element-plus/theme-chalk/base.css'
 import 'element-plus/theme-chalk/el-alert.css'
+import 'element-plus/theme-chalk/el-badge.css'
 import 'element-plus/theme-chalk/el-button.css'
 import 'element-plus/theme-chalk/el-card.css'
 import 'element-plus/theme-chalk/el-checkbox.css'
 import 'element-plus/theme-chalk/el-col.css'
 import 'element-plus/theme-chalk/el-collapse.css'
+import 'element-plus/theme-chalk/el-date-picker.css'
 import 'element-plus/theme-chalk/el-collapse-item.css'
 import 'element-plus/theme-chalk/el-config-provider.css'
 import 'element-plus/theme-chalk/el-descriptions.css'
@@ -82,6 +86,7 @@ import 'element-plus/theme-chalk/el-tooltip.css'
 
 const components = [
   ElAlert,
+  ElBadge,
   ElButton,
   ElCard,
   ElCheckbox,
@@ -91,6 +96,7 @@ const components = [
   ElConfigProvider,
   ElDescriptions,
   ElDescriptionsItem,
+  ElDatePicker,
   ElDialog,
   ElDivider,
   ElDrawer,

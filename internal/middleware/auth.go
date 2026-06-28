@@ -23,7 +23,8 @@ func BearerTokenAuth(token string) app.HandlerFunc {
 		mw.WithAuthSkipFunc(func(path string) bool {
 			return strings.HasPrefix(path, "/swagger") ||
 				strings.HasPrefix(path, "/openapi.yaml") ||
-				strings.HasPrefix(path, "/api/v1/webhooks")
+				strings.HasPrefix(path, "/api/v1/webhooks") ||
+				strings.HasPrefix(path, "/api/v1/settings/ocr/viewer/proxy")
 		}),
 	)
 }
@@ -48,12 +49,25 @@ func SecurityHeaders() app.HandlerFunc {
 		"font-src 'self' data: https://fonts.gstatic.com; " +
 		"frame-ancestors 'self'"
 
+	// Viewer 代理需要同源 iframe 嵌入；代理处理器会用 token 查询参数自行鉴权。
+	viewerProxyCSP := "default-src 'self'; " +
+		"script-src 'self' 'unsafe-inline'; " +
+		"style-src 'self' 'unsafe-inline'; " +
+		"img-src 'self' data: blob:; " +
+		"connect-src 'self' ws: wss: http: https:; " +
+		"font-src 'self' data:; " +
+		"frame-ancestors 'self'"
+
 	return func(ctx context.Context, c *app.RequestContext) {
 		path := string(c.Request.URI().Path())
-		if strings.HasPrefix(path, "/swagger") || strings.HasPrefix(path, "/openapi.yaml") {
+		switch {
+		case strings.HasPrefix(path, "/swagger") || strings.HasPrefix(path, "/openapi.yaml"):
 			c.Header("Content-Security-Policy", swaggerCSP)
 			c.Header("X-Frame-Options", "SAMEORIGIN")
-		} else {
+		case strings.HasPrefix(path, "/api/v1/settings/ocr/viewer/proxy"):
+			c.Header("Content-Security-Policy", viewerProxyCSP)
+			c.Header("X-Frame-Options", "SAMEORIGIN")
+		default:
 			c.Header("Content-Security-Policy", appCSP)
 			c.Header("X-Frame-Options", "DENY")
 		}

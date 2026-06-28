@@ -16,6 +16,10 @@
 
       <nav class="navigation" @click="sidebarOpen = false">
         <p class="nav-label">工作台</p>
+        <router-link to="/dashboard" class="nav-item">
+          <el-icon><HomeFilled /></el-icon>
+          <span>运营总览</span>
+        </router-link>
         <router-link to="/reviews" class="nav-item">
           <el-icon><DocumentChecked /></el-icon>
           <span>审查记录</span>
@@ -48,6 +52,10 @@
             <router-link to="/settings/model" class="nav-item">
               <el-icon><Cpu /></el-icon>
               <span>模型配置</span>
+            </router-link>
+            <router-link to="/settings/ocr" class="nav-item">
+              <el-icon><Tools /></el-icon>
+              <span>OCR 设置</span>
             </router-link>
             <router-link to="/settings/platforms" class="nav-item">
               <el-icon><Connection /></el-icon>
@@ -125,11 +133,13 @@ import {
   DocumentChecked,
   Finished,
   FolderChecked,
+  HomeFilled,
   List,
   Menu,
   Notebook,
   Search,
   SwitchButton,
+  Tools,
   User,
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'

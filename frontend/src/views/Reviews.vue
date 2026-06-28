@@ -258,6 +258,7 @@ import {
   CircleCheckFilled,
   CircleCloseFilled,
   Clock,
+  Coin,
   Files,
   Loading,
   Plus,

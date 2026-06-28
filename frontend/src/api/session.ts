@@ -89,8 +89,17 @@ export const sessionApi = {
 
 // Progress API
 export const progressApi = {
-  getProgress(reviewId: string): Promise<ReviewProgress> {
-    return request.get(`/reviews/${reviewId}/progress/status`).then((response: any) => response.progress || response)
+  async getProgress(reviewId: string): Promise<ReviewProgress | null> {
+    try {
+      const response: any = await request.get(`/reviews/${reviewId}/progress/status`)
+      return response?.progress || response || null
+    } catch (error: any) {
+      // 404 表示没有活跃的 review，返回 null 而不是抛出错误
+      if (error?.response?.status === 404 || error?.message?.includes('no active review')) {
+        return null
+      }
+      throw error
+    }
   },
 
   getActiveReviews(): Promise<{

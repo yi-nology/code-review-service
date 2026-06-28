@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository"
@@ -19,6 +20,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/runner"
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
+	"github.com/yi-nology/code-review-service/internal/vcs"
 
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/slicex"
@@ -36,6 +38,10 @@ type Service struct {
 	workflow        *workflow.ReviewWorkflow
 	agentManager    *agent.AgentManager
 	llmMetrics      *llm.Metrics
+
+	// running tracks currently executing reviews for cancellation support
+	runningMu sync.Mutex
+	running   map[string]context.CancelFunc
 }
 
 type Config struct {
@@ -65,6 +71,7 @@ func NewService(cfg Config) *Service {
 		workflow:        cfg.Workflow,
 		agentManager:    cfg.AgentManager,
 		llmMetrics:      cfg.LLMMetrics,
+		running:         make(map[string]context.CancelFunc),
 	}
 }
 
@@ -76,7 +83,34 @@ func (s *Service) shouldUseWorkflow() bool {
 	return len(agents) > 1
 }
 
+// CancelExecution cancels a running execution for the given review ID
+func (s *Service) CancelExecution(reviewID string) {
+	s.runningMu.Lock()
+	if cancel, ok := s.running[reviewID]; ok {
+		logx.Infof("cancelling execution for review %s", reviewID)
+		cancel()
+		delete(s.running, reviewID)
+	}
+	s.runningMu.Unlock()
+}
+
 func (s *Service) Execute(ctx context.Context, id string, req domain.Request, provider domain.Provider, progressReporter progress.ProgressReporter) (domain.Response, error) {
+	// Cancel any existing execution for this review
+	s.CancelExecution(id)
+
+	// Create a cancellable context for this execution
+	ctx, cancel := context.WithCancel(ctx)
+	s.runningMu.Lock()
+	s.running[id] = cancel
+	s.runningMu.Unlock()
+
+	// Ensure we clean up when done
+	defer func() {
+		s.runningMu.Lock()
+		delete(s.running, id)
+		s.runningMu.Unlock()
+	}()
+
 	if err := s.updateStatus(ctx, id, "running"); err != nil {
 		return domain.Response{}, err
 	}
@@ -171,6 +205,18 @@ func (s *Service) Execute(ctx context.Context, id string, req domain.Request, pr
 		logx.Warn("failed to update OCR input", "review_id", id, "error", err)
 	}
 
+	// 如果 diff 为空但有 workspace 目录和 SHA，尝试从 git 计算 diff
+	if strings.TrimSpace(workspace.Diff) == "" && workspace.Dir != "" && workspace.BaseSHA != "" && workspace.HeadSHA != "" {
+		if git, gitErr := vcs.Open(workspace.Dir, ""); gitErr == nil {
+			if diff, diffErr := git.Diff(ctx, workspace.BaseSHA, workspace.HeadSHA); diffErr == nil && len(diff) > 0 {
+				workspace.Diff = diff
+				logx.Infof("recovered empty diff from git for review %s (%d bytes)", id, len(diff))
+			} else {
+				logx.Warnf("failed to recover diff from git for review %s: %v", id, diffErr)
+			}
+		}
+	}
+
 	if s.shouldUseWorkflow() {
 		return s.executeWithWorkflow(ctx, id, req, workspace, projectPolicy)
 	}
@@ -218,6 +264,7 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req domain
 		findings = append(findings, bucket...)
 	}
 
+	// 确保 scope 被正确初始化（即使没有配置 ignorePaths）
 	scope := workspace.Scope
 	scope.ChangedLines = review.CountDiffLines(workspace.Diff)
 	if scope.ChangedFiles == 0 {

@@ -150,18 +150,20 @@
               <div class="grid-2 inner">
                 <el-form-item label="推理模式">
                   <el-select v-model="form.reasoning_mode" style="width: 100%">
-                    <el-option label="禁用" value="disabled" />
-                    <el-option label="轻量 (2K)" value="light" />
-                    <el-option label="中等 (8K)" value="medium" />
-                    <el-option label="充分 (32K)" value="full" />
-                    <el-option label="自定义" value="custom" />
+                    <el-option
+                      v-for="opt in reasoningModeOptions"
+                      :key="opt.value"
+                      :label="opt.label"
+                      :value="opt.value"
+                    />
                   </el-select>
+                  <div class="tip">基于当前模型 {{ form.model || '未选择' }} ({{ formatTokens(currentContextWindow) }} 上下文) 计算</div>
                 </el-form-item>
                 <el-form-item v-if="form.reasoning_mode === 'custom'" label="推理预算 (tokens)">
                   <el-input-number
                     v-model="form.reasoning_budget"
                     :min="1000"
-                    :max="100000"
+                    :max="currentContextWindow"
                     :step="1000"
                     style="width: 100%"
                   />
@@ -178,49 +180,24 @@
           <div class="block">
             <h3 class="block-title">输出</h3>
             <el-form label-position="top" :model="form">
-              <div class="grid-2 inner">
-                <el-form-item label="输出语言">
-                  <el-select v-model="form.language" style="width: 100%">
-                    <el-option label="中文" value="Chinese" />
-                    <el-option label="English" value="English" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="输出受众">
-                  <el-segmented
-                    v-model="form.audience"
-                    :options="[
-                      { label: '人工可读', value: 'human' },
-                      { label: 'Agent 精简', value: 'agent' },
-                    ]"
-                  />
-                </el-form-item>
-              </div>
-              <el-form-item label="默认严重级别">
-                <el-select v-model="form.default_severity" style="width: 100%">
-                  <el-option label="严重 Critical" value="critical" />
-                  <el-option label="高危 Major" value="major" />
-                  <el-option label="中危 Minor" value="minor" />
-                  <el-option label="低危 Info" value="info" />
+              <el-form-item label="输出语言">
+                <el-select v-model="form.language" style="width: 100%">
+                  <el-option label="中文" value="Chinese" />
+                  <el-option label="English" value="English" />
                 </el-select>
               </el-form-item>
             </el-form>
           </div>
 
-          <div class="block">
-            <h3 class="block-title">执行</h3>
-            <el-form label-position="top" :model="form">
-              <div class="grid-3 inner">
-                <el-form-item label="模型并发">
-                  <el-input-number v-model="form.concurrency" :min="1" :max="32" style="width: 100%" />
-                </el-form-item>
-                <el-form-item label="Git 并发">
-                  <el-input-number v-model="form.max_git_procs" :min="1" :max="64" style="width: 100%" />
-                </el-form-item>
-                <el-form-item label="超时(分)">
-                  <el-input-number v-model="form.timeout_minutes" :min="1" :max="120" style="width: 100%" />
-                </el-form-item>
-              </div>
-            </el-form>
+          <div class="block block-hint">
+            <h3 class="block-title">执行 & 工具</h3>
+            <p class="hint-text">
+              并发数、Git 进程、超时、默认严重级别、OCR 二进制、工具包、遥测与 Viewer 等执行参数已迁移至
+              <router-link to="/settings/ocr" class="hint-link">OCR 设置</router-link> 页面。
+            </p>
+            <el-button type="primary" plain @click="$router.push('/settings/ocr')">
+              前往 OCR 设置
+            </el-button>
           </div>
         </div>
 
@@ -238,43 +215,18 @@
           </div>
         </div>
       </section>
-
-      <!-- 高级配置 -->
-      <section class="advanced">
-        <button type="button" class="adv-toggle" @click="showAdvanced = !showAdvanced">
-          <div class="adv-toggle-left">
-            <span class="adv-title">高级配置</span>
-            <small>OCR 二进制 / 工具 / 遥测 / Viewer / 审查背景</small>
-          </div>
-          <el-icon class="adv-arrow"><ArrowDown v-if="!showAdvanced" /><ArrowUp v-else /></el-icon>
-        </button>
-        <el-collapse-transition>
-          <div v-show="showAdvanced" class="adv-body">
-            <el-tabs v-model="activeTab" class="adv-tabs">
-              <el-tab-pane label="执行参数" name="execution">
-                <ExecutionParamsTab />
-              </el-tab-pane>
-              <el-tab-pane label="审查背景" name="review">
-                <ReviewFocusTab />
-              </el-tab-pane>
-            </el-tabs>
-          </div>
-        </el-collapse-transition>
-      </section>
     </div>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, provide, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
-import { Refresh, Connection, Search, Check, ArrowDown, ArrowUp, InfoFilled } from '@element-plus/icons-vue'
+import { Refresh, Connection, Search, Check, InfoFilled } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import ExecutionParamsTab from '@/components/model-settings/ExecutionParamsTab.vue'
-import ReviewFocusTab from '@/components/model-settings/ReviewFocusTab.vue'
-import { modelSettingsKey, type ModelSettingsContext } from '@/components/model-settings/context'
-import { getOCRSettings, listLLMProviders, updateOCRSettings, testLLM } from '@/api/config'
-import type { LLMProvider, OCRSettings } from '@/types/config'
+import { useOcrSettingsForm } from '@/composables/useOcrSettingsForm'
+import { listLLMProviders } from '@/api/config'
+import type { LLMProvider } from '@/types/config'
 
 // 服务商显示元数据：以 OCR 二进制返回的 provider name 为键
 const providerMeta: Record<string, { display: string; icon: string; region: string }> = {
@@ -313,47 +265,184 @@ function initialOf(name: string) {
   return displayOf(name).charAt(0).toUpperCase()
 }
 
-const loading = ref(false)
-const saving = ref(false)
-const testingLLM = ref(false)
 const syncingProviders = ref(false)
-const showAdvanced = ref(false)
-const activeTab = ref('execution')
 const providerQuery = ref('')
-const authToken = ref('')
-const extraBodyText = ref('')
+
+// 常见模型的 context window 映射 (2026年数据)
+const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
+  // OpenAI GPT-5 系列
+  'gpt-5.5': 400000,
+  'gpt-5.4': 1048576,        // 272K standard, 1.05M opt-in
+  'gpt-5.4-pro': 1048576,
+  'gpt-5.2': 400000,
+  'gpt-5': 400000,
+  'gpt-5-mini': 400000,
+  'gpt-5-nano': 400000,
+  'gpt-5.3-codex': 400000,
+  // OpenAI GPT-4 系列
+  'gpt-4.1': 1000000,
+  'gpt-4o': 128000,
+  'gpt-4o-mini': 128000,
+  'gpt-4-turbo': 128000,
+  'gpt-4': 8192,
+  'gpt-3.5-turbo': 16385,
+  // OpenAI o 系列
+  'o1': 200000,
+  'o1-mini': 128000,
+  'o1-preview': 128000,
+  'o3': 200000,
+  'o3-mini': 200000,
+  'o4-mini': 200000,
+  // Anthropic Claude 4 系列
+  'claude-opus-4': 200000,
+  'claude-opus-4.6': 200000,
+  'claude-sonnet-4': 200000,
+  'claude-sonnet-4.6': 200000,
+  'claude-haiku-4': 200000,
+  'claude-haiku-4.5': 200000,
+  // Anthropic Claude 3 系列
+  'claude-3-opus': 200000,
+  'claude-3-sonnet': 200000,
+  'claude-3-haiku': 200000,
+  'claude-3.5-sonnet': 200000,
+  'claude-3.5-haiku': 200000,
+  // DeepSeek
+  'deepseek-v4-pro': 128000,
+  'deepseek-v4-flash': 128000,
+  'deepseek-v3.2': 128000,
+  'deepseek-v3.1': 128000,
+  'deepseek-chat': 128000,
+  'deepseek-coder': 128000,
+  'deepseek-reasoner': 128000,
+  'deepseek-r1': 128000,
+  // Google Gemini
+  'gemini-3.1-pro': 1000000,
+  'gemini-3-flash': 1000000,
+  'gemini-2.5-pro': 1000000,
+  'gemini-2.5-flash': 1000000,
+  'gemini-pro': 1000000,
+  'gemini-flash': 1000000,
+  // Qwen 通义千问
+  'qwen3.5': 1000000,        // 256K standard, 1M via Plus API
+  'qwen3': 256000,
+  'qwen3-235b': 1000000,
+  'qwen3-coder': 1000000,
+  'qwen-coder-plus': 131072,
+  'qwen-turbo': 1000000,
+  'qwen-plus': 131072,
+  'qwen-max': 32768,
+  'qwen-long': 10000000,
+  'qwen2.5': 131072,
+  'qwen2': 32768,
+  // 智谱 GLM
+  'glm-5.2': 128000,
+  'glm-5.1': 128000,
+  'glm-4v-plus': 131072,
+  'glm-4': 128000,
+  'glm-4-flash': 128000,
+  'glm-4v': 131072,
+  // 豆包
+  'doubao-seed-2-0-pro': 256000,
+  'doubao-seed-2-0-lite': 256000,
+  'doubao-seed-2-0-code': 256000,
+  'doubao-pro': 128000,
+  'doubao-lite': 128000,
+  // MiMo 小米
+  'mimo-v2.5-pro': 1048576,
+  'mimo-v2.5': 1048576,
+  'mimo-v2.5-lite': 1048576,
+  'mimo': 1048576,           // 1M context
+  // MiniMax
+  'minimax-m2.7-highspeed': 1000000,
+  'minimax-m2.5': 1000000,
+  // Moonshot Kimi
+  'moonshot-v1-8k': 8192,
+  'moonshot-v1-32k': 32768,
+  'moonshot-v1-128k': 131072,
+  'kimi': 131072,
+  // Mistral
+  'mistral-large-3': 256000,
+  'mistral-large': 256000,
+  'mistral-medium-3': 131000,
+  'mistral-medium': 131000,
+  'mistral-small': 256000,
+  'ministral': 256000,
+  'magistral': 128000,
+  'mixtral': 32768,
+  'mistral': 32768,
+  // Meta Llama
+  'llama-4-maverick': 1000000,
+  'llama-4-scout': 10000000,   // 10M context!
+  'llama-4': 1000000,
+  'llama-3': 8192,
+  'llama-2': 4096,
+  // Nvidia Nemotron
+  'nemotron-3-ultra': 1000000,
+  'nemotron-3-super': 1000000,
+  'nemotron-3-nano': 1000000,
+  'nemotron': 1000000,
+  // 其他小模型
+  'yi': 4096,
+  'chatglm': 8192,
+  'codellama': 16384,
+}
+
+// 获取当前模型的 context window
+const currentContextWindow = computed(() => {
+  const model = form.model?.toLowerCase() || ''
+  // 精确匹配
+  if (MODEL_CONTEXT_WINDOWS[model]) return MODEL_CONTEXT_WINDOWS[model]
+  // 模糊匹配：模型名包含某关键字即命中（长键优先，避免短键误匹配）
+  const fuzzyKeys = Object.keys(MODEL_CONTEXT_WINDOWS).sort((a, b) => b.length - a.length)
+  for (const key of fuzzyKeys) {
+    if (key && model.includes(key)) return MODEL_CONTEXT_WINDOWS[key]
+  }
+  // 默认 128K（大多数现代模型）
+  return 128000
+})
+
+// 根据 context window 动态计算推理模式选项
+const reasoningModeOptions = computed(() => {
+  const ctx = currentContextWindow.value
+  // 按比例计算：轻量 ~2%, 中等 ~12%, 充分 ~50%；
+  // 上限刻意调高，确保 128K/200K/256K 等常见模型之间能看到差异
+  const light = Math.min(8192, Math.max(1024, Math.round(ctx * 0.02)))
+  const medium = Math.min(32768, Math.max(4096, Math.round(ctx * 0.12)))
+  const full = Math.min(131072, Math.max(8192, Math.round(ctx * 0.5)))
+
+  return [
+    { label: '禁用', value: 'disabled' },
+    { label: `轻量 (${formatTokens(light)})`, value: 'light', budget: light },
+    { label: `中等 (${formatTokens(medium)})`, value: 'medium', budget: medium },
+    { label: `充分 (${formatTokens(full)})`, value: 'full', budget: full },
+    { label: '自定义', value: 'custom' },
+  ]
+})
+
+function formatTokens(n: number): string {
+  if (n >= 1000000) return `${(n / 1000000).toFixed(0)}M`
+  if (n >= 1000) return `${(n / 1000).toFixed(0)}K`
+  return `${n}`
+}
+
+// 获取当前推理模式对应的预算值
+function getReasoningBudget(mode: string): number {
+  const opt = reasoningModeOptions.value.find(o => o.value === mode)
+  return (opt as any)?.budget || 0
+}
+
+const {
+  form,
+  loading,
+  saving,
+  testingLLM,
+  authToken,
+  fetchSettings,
+  handleSave,
+  handleTestLLM,
+} = useOcrSettingsForm()
 
 const providers = ref<LLMProvider[]>([])
-
-const form = reactive<OCRSettings>({
-  enabled: false,
-  binary: 'ocr',
-  audience: 'human',
-  default_severity: 'major',
-  provider: '',
-  url: '',
-  model: '',
-  use_anthropic: false,
-  auth_token: '',
-  auth_header: 'Authorization',
-  extra_headers: '',
-  language: 'Chinese',
-  concurrency: 2,
-  max_git_procs: 4,
-  timeout_minutes: 10,
-  max_tools: 0,
-  background: '',
-  tools_path: '',
-  tools_config: '',
-  telemetry_enabled: false,
-  telemetry_exporter: '',
-  telemetry_otlp_endpoint: '',
-  telemetry_content_logging: false,
-  reasoning_mode: 'light',
-  reasoning_budget: 0,
-  context_window: 0,
-  max_output_tokens: 0,
-})
 
 const providerOptions = computed<ProviderOption[]>(() =>
   providers.value.map((p) => ({
@@ -398,13 +487,13 @@ const reasoningLabel = computed(() => {
     case 'disabled':
       return '推理关闭'
     case 'light':
-      return '推理·轻量'
+      return `推理·轻量 (${formatTokens(getReasoningBudget('light'))})`
     case 'medium':
-      return '推理·中等'
+      return `推理·中等 (${formatTokens(getReasoningBudget('medium'))})`
     case 'full':
-      return '推理·充分'
+      return `推理·充分 (${formatTokens(getReasoningBudget('full'))})`
     case 'custom':
-      return `推理·${form.reasoning_budget || 0}`
+      return `推理·${formatTokens(form.reasoning_budget || 0)}`
     default:
       return '推理·未知'
   }
@@ -423,69 +512,6 @@ function selectCustom() {
   form.provider = 'custom'
 }
 
-async function handleSave() {
-  if (!form.url || !form.model) {
-    ElMessage.warning('请填写接口地址和模型')
-    return
-  }
-  saving.value = true
-  try {
-    const settings: OCRSettings = { ...form, auth_token: authToken.value || form.auth_token }
-    const saved = await updateOCRSettings(settings)
-    Object.assign(form, saved)
-    authToken.value = ''
-    ElMessage.success('配置已保存')
-  } catch (e: any) {
-    ElMessage.error(e?.message || '保存失败')
-  } finally {
-    saving.value = false
-  }
-}
-
-async function handleTestLLM() {
-  if (form.url && form.model) {
-    try {
-      const settings: OCRSettings = { ...form, auth_token: authToken.value || form.auth_token }
-      const saved = await updateOCRSettings(settings)
-      Object.assign(form, saved)
-      authToken.value = ''
-    } catch {
-      ElMessage.warning('保存配置失败，将测试已保存的配置')
-    }
-  }
-  testingLLM.value = true
-  try {
-    const result = await testLLM()
-    if (result.success) {
-      ElMessage.success(result.message || '连接测试成功')
-    } else {
-      ElMessage.error(result.message || '连接测试失败')
-    }
-  } catch (e: any) {
-    ElMessage.error(e?.message || '测试失败')
-  } finally {
-    testingLLM.value = false
-  }
-}
-
-async function fetchSettings() {
-  loading.value = true
-  try {
-    const settings = await getOCRSettings()
-    Object.assign(form, settings)
-    if (!form.binary) form.binary = 'ocr'
-    if (!form.audience) form.audience = 'human'
-    if (!form.default_severity) form.default_severity = 'major'
-    if (!form.reasoning_mode) form.reasoning_mode = 'light'
-    authToken.value = ''
-    extraBodyText.value = form.extra_body ? JSON.stringify(form.extra_body, null, 2) : ''
-  } catch (e: any) {
-    ElMessage.error(e?.message || '加载配置失败')
-  } finally {
-    loading.value = false
-  }
-}
-
 async function syncProviders(silent = false) {
   syncingProviders.value = true
   try {
@@ -497,39 +523,6 @@ async function syncProviders(silent = false) {
     syncingProviders.value = false
   }
 }
-
-function syncExtraBody(showError = false): boolean {
-  const text = extraBodyText.value.trim()
-  if (!text) {
-    form.extra_body = undefined
-    return true
-  }
-  try {
-    const parsed = JSON.parse(text)
-    if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
-      throw new Error('必须是 JSON 对象')
-    }
-    form.extra_body = parsed
-    return true
-  } catch (e: any) {
-    if (showError) ElMessage.error(`额外请求体格式错误：${e.message || e}`)
-    return false
-  }
-}
-
-const ctx: ModelSettingsContext = {
-  form,
-  saving,
-  testingLLM,
-  extraBodyText,
-  save: handleSave,
-  testLLM: handleTestLLM,
-  syncExtraBody,
-  selectedProvider: ref(null),
-  selectedProviderType: ref(null),
-  selectProvider: () => {},
-}
-provide(modelSettingsKey, ctx)
 
 onMounted(() => {
   fetchSettings()
@@ -796,12 +789,6 @@ onMounted(() => {
   gap: 16px;
 }
 
-.grid-3 {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
 .tip {
   font-size: 12px;
   color: var(--app-muted);
@@ -832,56 +819,29 @@ onMounted(() => {
   gap: 10px;
 }
 
-/* 高级配置 */
-.advanced {
-  margin-top: 22px;
-}
-
-.adv-toggle {
+/* 迁移提示块 */
+.block-hint {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 14px 20px;
-  border: 1px solid var(--app-border);
-  border-radius: 14px;
-  background: var(--app-surface);
-  cursor: pointer;
-  font: inherit;
-  color: var(--app-text);
-  transition: border-color 0.18s ease;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
 }
 
-.adv-toggle:hover {
-  border-color: var(--app-primary);
+.hint-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--app-muted);
 }
 
-.adv-toggle-left {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.adv-title {
-  font-size: 15px;
+.hint-link {
+  color: var(--app-primary);
+  text-decoration: none;
   font-weight: 600;
 }
 
-.adv-toggle-left small {
-  font-size: 12px;
-  color: var(--app-muted);
-}
-
-.adv-arrow {
-  color: var(--app-muted);
-}
-
-.adv-body {
-  margin-top: 12px;
-  padding: 18px 22px;
-  background: var(--app-surface);
-  border: 1px solid var(--app-border);
-  border-radius: 14px;
+.hint-link:hover {
+  text-decoration: underline;
 }
 
 /* 服务商图标配色（与 OCR 二进制返回的 name 对应） */
@@ -920,10 +880,6 @@ onMounted(() => {
     grid-template-columns: 1fr;
   }
 
-  .grid-3 {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .status-strip {
     flex-wrap: wrap;
   }
@@ -935,10 +891,6 @@ onMounted(() => {
 }
 
 @media (max-width: 560px) {
-  .grid-3 {
-    grid-template-columns: 1fr;
-  }
-
   .save-bar {
     flex-direction: column;
     align-items: stretch;

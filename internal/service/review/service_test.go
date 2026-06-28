@@ -746,7 +746,7 @@ func TestCancelQueuedReview(t *testing.T) {
 	}
 }
 
-func TestCancelRejectsRunningReview(t *testing.T) {
+func TestCancelAllowsRunningReview(t *testing.T) {
 	repo := &mockReviewRepo{}
 	svc := newTestService(repo, blockingRunner{})
 
@@ -761,12 +761,12 @@ func TestCancelRejectsRunningReview(t *testing.T) {
 	snap[0].Status = "running"
 	repo.Save(context.Background(), snap[0])
 
-	_, err = svc.Cancel(context.Background(), resp.ReviewID)
-	if err == nil {
-		t.Fatal("expected error when cancelling running review")
+	cancelResp, err := svc.Cancel(context.Background(), resp.ReviewID)
+	if err != nil {
+		t.Fatalf("expected running review to be cancellable, got error: %v", err)
 	}
-	if !errors.Is(err, review.ErrInvalidState) {
-		t.Fatalf("expected ErrInvalidState, got: %v", err)
+	if cancelResp.Status != "failed" {
+		t.Fatalf("expected cancelled review status 'failed', got %q", cancelResp.Status)
 	}
 }
 

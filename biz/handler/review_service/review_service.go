@@ -229,7 +229,12 @@ func ScanRepository(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, mapReviewError(err))
 		return
 	}
-	common.Success(c, result)
+
+	status := consts.StatusOK
+	if !req.Preview && result.ReviewID != "" && result.Result == nil {
+		status = consts.StatusAccepted
+	}
+	c.JSON(status, result)
 }
 
 func cleanStringSlice(values []string) []string {

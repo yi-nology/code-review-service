@@ -12,6 +12,7 @@ type ProgressReporter interface {
 	ReportProgress(message string, progress float64)
 	ReportFileProgress(filename string, current, total int)
 	ReportAgentStatus(agentName, status, message string)
+	UpdatePhase(phase Phase, status string, progress float64, message string)
 }
 
 type progressReporterKey struct{}

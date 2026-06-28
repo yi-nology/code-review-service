@@ -362,6 +362,7 @@ import ReviewSessionsCard from '@/components/review-detail/ReviewSessionsCard.vu
 import { getReview, cancelReview, rerunReview, downloadSuggestionPatch } from '@/api/review'
 import { getViewerStatus, locateViewerSession, startViewer } from '@/api/config'
 import { sessionApi, type ReviewSession } from '@/api/session'
+import { useAuthStore } from '@/stores/auth'
 import { getProviderLabel } from '@/utils/url-parser'
 import { getStatusLabel, getStatusType } from '@/utils/status'
 import { formatDateTime } from '@/utils/format'
@@ -372,6 +373,7 @@ import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 
 const router = useRouter()
 const route = useRoute()
+const auth = useAuthStore()
 const loading = ref(false)
 const detail = ref<ReviewDetailType | null>(null)
 const sessions = ref<ReviewSession[]>([])
@@ -410,9 +412,14 @@ const reviewViewerRepoSlug = computed(() => {
   return workspaceDir.replace(/^[/\\]+/, '').replace(/[/\\]+/g, '-')
 })
 const reviewViewerSrc = computed(() => {
-  if (reviewViewerPath.value) return `/api/v1/settings/ocr/viewer/proxy${reviewViewerPath.value}`
-  if (!reviewViewerRepoSlug.value) return '/api/v1/settings/ocr/viewer/proxy/'
-  return `/api/v1/settings/ocr/viewer/proxy/r/${encodeURIComponent(reviewViewerRepoSlug.value)}`
+  let target: string
+  if (reviewViewerPath.value) target = `/api/v1/settings/ocr/viewer/proxy${reviewViewerPath.value}`
+  else if (!reviewViewerRepoSlug.value) target = '/api/v1/settings/ocr/viewer/proxy/'
+  else target = `/api/v1/settings/ocr/viewer/proxy/r/${encodeURIComponent(reviewViewerRepoSlug.value)}`
+  // iframe 无法携带 Authorization 头，改用 token 查询参数鉴权（与代理端约定一致）。
+  if (!auth.token) return target
+  const sep = target.includes('?') ? '&' : '?'
+  return `${target}${sep}token=${encodeURIComponent(auth.token)}`
 })
 const showProgressTracker = computed(() => Boolean(detail.value && (
   ['queued', 'running', 'failed', 'success', 'completed'].includes(detail.value.status) ||

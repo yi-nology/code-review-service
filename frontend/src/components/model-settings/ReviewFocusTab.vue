@@ -17,9 +17,9 @@
 </template>
 
 <script setup lang="ts">
-import { useModelSettings } from './context'
+import { useSettingsForm } from './context'
 
-const { form, saving, save } = useModelSettings()
+const { form, saving, save } = useSettingsForm()
 </script>
 
 <style scoped>

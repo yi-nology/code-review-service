@@ -145,7 +145,7 @@
     </el-form-item>
 
     <div v-if="embedViewer && viewerStatus?.running" class="viewer-frame">
-      <iframe title="OCR Viewer" src="/api/v1/settings/ocr/viewer/proxy/" />
+      <iframe title="OCR Viewer" :src="viewerProxyUrl" />
     </div>
 
     <el-divider content-position="left">执行预览</el-divider>
@@ -261,7 +261,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
-import { useModelSettings } from './context'
+import { useSettingsForm } from './context'
+import { useAuthStore } from '@/stores/auth'
 import {
   deleteToolPackage,
   getViewerStatus,
@@ -275,7 +276,13 @@ import {
 } from '@/api/config'
 import type { OCRAssetVersion, OCRToolPackage, ViewerStatus } from '@/types/config'
 
-const { form, saving, extraBodyText, save, syncExtraBody } = useModelSettings()
+const { form, saving, extraBodyText, save, syncExtraBody } = useSettingsForm()
+const auth = useAuthStore()
+
+const viewerProxyUrl = computed(() => {
+  const base = '/api/v1/settings/ocr/viewer/proxy/'
+  return auth.token ? `${base}?token=${encodeURIComponent(auth.token)}` : base
+})
 
 const viewerStatus = ref<ViewerStatus | null>(null)
 const viewerLoading = ref(false)

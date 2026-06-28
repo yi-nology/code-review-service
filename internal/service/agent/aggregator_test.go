@@ -91,3 +91,38 @@ func TestAggregateDeduplicatesAndMarksRedundancy(t *testing.T) {
 		t.Fatalf("expected confirmed, got %q", out.Findings[0].RedundancyStatus)
 	}
 }
+
+// TestMergeFindingsPreservesCodeFields 验证合并时 ExistingCode/SuggestionCode 不丢失。
+func TestMergeFindingsPreservesCodeFields(t *testing.T) {
+	agg := NewDefaultAggregator(DefaultAggregatorConfig())
+
+	results := []AgentResult{
+		{AgentName: "a-1", Persona: "p", Findings: []Finding{
+			{ID: "x", Path: "main.go", Line: 10, EndLine: 10, Severity: "major", Body: "from agent 1"},
+		}},
+		{AgentName: "a-2", Persona: "p", Findings: []Finding{
+			{
+				ID:             "y",
+				Path:           "main.go",
+				Line:           10,
+				EndLine:        10,
+				Severity:       "major",
+				Body:           "from agent 2",
+				ExistingCode:   "var x = 1",
+				SuggestionCode: "const x = 1",
+			},
+		}},
+	}
+
+	out := agg.Aggregate(results)
+	if len(out.Findings) != 1 {
+		t.Fatalf("expected 1 deduplicated finding, got %d", len(out.Findings))
+	}
+	f := out.Findings[0]
+	if f.ExistingCode != "var x = 1" {
+		t.Fatalf("expected ExistingCode %q, got %q", "var x = 1", f.ExistingCode)
+	}
+	if f.SuggestionCode != "const x = 1" {
+		t.Fatalf("expected SuggestionCode %q, got %q", "const x = 1", f.SuggestionCode)
+	}
+}

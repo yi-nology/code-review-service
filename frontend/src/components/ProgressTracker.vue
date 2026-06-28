@@ -293,8 +293,12 @@ function inferProgressFromHistory(history: ReviewHistoryEvent[], status: string)
 async function loadInitialProgress() {
   try {
     const progress = await progressApi.getProgress(props.reviewId)
-    applyProgressSnapshot(progress)
-    error.value = null
+    if (progress) {
+      applyProgressSnapshot(progress)
+      error.value = null
+    } else {
+      applySessionFallback()
+    }
   } catch {
     applySessionFallback()
   }
@@ -378,8 +382,9 @@ function closeWebSocket() {
 onMounted(() => {
   resetPhases()
   applySessionFallback()
-  loadInitialProgress()
+  // 实时进度（tracker）仅在 queued/running 时存在；终态评审直接走会话/历史回退，避免 404 噪音。
   if (['queued', 'running'].includes(props.reviewStatus || '')) {
+    loadInitialProgress()
     connectWebSocket()
   }
 })

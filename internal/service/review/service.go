@@ -22,6 +22,7 @@ import (
 	gitprovider "github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
+	"github.com/oekit/concurrency/async"
 	mw "github.com/oekit/middleware"
 
 	"github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
@@ -94,6 +95,7 @@ type Service struct {
 	Executor        Executor
 	inFlight        sync.WaitGroup
 	concurrencySem  chan struct{}
+	scanCancels     sync.Map
 }
 
 func NewService(cfg ServiceConfig) *Service {
@@ -470,12 +472,165 @@ func (s *Service) Scan(ctx context.Context, req domain.ScanRequest) (*domain.Sca
 		return nil, fmt.Errorf("scan feature not configured")
 	}
 
+	if req.Preview {
+		return s.scanExecute(ctx, req)
+	}
+
+	return s.scanAsync(ctx, req)
+}
+
+func (s *Service) scanAsync(ctx context.Context, req domain.ScanRequest) (*domain.ScanResult, error) {
+	providerName := strings.TrimSpace(req.Provider)
+	repo := strings.TrimSpace(req.Repo)
+	head := strings.TrimSpace(req.HeadSHA)
+
+	id := newReviewID(time.Now().UTC())
+	scanReq := domain.Request{
+		Provider:     providerName,
+		Repo:         repo,
+		ProjectID:    strings.TrimSpace(req.ProjectID),
+		BaseSHA:      head,
+		HeadSHA:      head,
+		CallbackMode: "scan",
+	}
+	fingerprint, err := requestFingerprint(scanReq)
+	if err != nil {
+		return nil, err
+	}
+
+	queuedResp := domain.Response{
+		ReviewID: id,
+		Status:   StatusQueued,
+		Summary:  "repository scan queued",
+		Gate:     domain.PendingGate(),
+		History: []domain.Event{{
+			Stage:     stageQueued,
+			Status:    statusCompleted,
+			Message:   "repository scan queued",
+			CreatedAt: time.Now().UTC(),
+		}},
+	}
+
+	reviewRow := &models.Review{
+		ReviewID:           id,
+		RequestFingerprint: fingerprint,
+		Provider:           providerName,
+		Repo:               repo,
+		Status:             StatusQueued,
+		BaseSHA:            head,
+		HeadSHA:            head,
+		Summary:            queuedResp.Summary,
+		Request:            mustMarshal(scanReq),
+		Response:           mustMarshal(queuedResp),
+	}
+	if err := s.reviewRepo.Create(ctx, reviewRow); err != nil {
+		return nil, err
+	}
+
+	var reporter progress.ProgressReporter
+	if s.progressManager != nil {
+		tracker := s.progressManager.CreateTracker(id, id, 1)
+		reporter = tracker
+	}
+
+	s.inFlight.Add(1)
+	async.GoSafe(func() {
+		defer s.inFlight.Done()
+		defer func() {
+			if s.progressManager != nil {
+				s.progressManager.RemoveTracker(id)
+			}
+		}()
+
+		if s.concurrencySem != nil {
+			s.concurrencySem <- struct{}{}
+			defer func() { <-s.concurrencySem }()
+		}
+
+		s.runScanBackground(id, req, reporter)
+	})
+
+	return &domain.ScanResult{ReviewID: id}, nil
+}
+
+func (s *Service) runScanBackground(reviewID string, req domain.ScanRequest, reporter progress.ProgressReporter) {
+	scanCtx, cancel := context.WithCancel(context.Background())
+	s.scanCancels.Store(reviewID, cancel)
+	defer func() {
+		cancel()
+		s.scanCancels.Delete(reviewID)
+	}()
+	if reporter != nil {
+		scanCtx = progress.WithProgressReporter(scanCtx, reporter)
+		reporter.UpdatePhase(progress.PhaseContext, "active", 3, "准备仓库工作区...")
+	}
+
+	if err := s.updateReviewFields(scanCtx, reviewID, func(review *models.Review) {
+		var resp domain.Response
+		if err := json.Unmarshal(review.Response, &resp); err != nil {
+			resp = domain.Response{ReviewID: reviewID}
+		}
+		resp.Status = statusRunning
+		resp.Summary = "repository scan running"
+		resp.History = append(resp.History, domain.Event{
+			Stage:     "repository",
+			Status:    statusRunning,
+			Message:   "preparing workspace and running full scan",
+			CreatedAt: time.Now().UTC(),
+		})
+		review.Status = statusRunning
+		review.Response = mustMarshal(resp)
+		review.UpdatedAt = time.Now().UTC()
+	}); err != nil {
+		logx.Errorf("failed to update scan status to running: review_id=%s: %v", reviewID, err)
+	}
+
+	scanResult, projectPolicy, err := s.scanExecuteWithPolicy(scanCtx, req)
+	if err != nil {
+		logx.Errorf("async scan failed: review_id=%s: %v", reviewID, err)
+		s.recordScanFailure(scanCtx, reviewID, err)
+		if tracker, ok := reporter.(*progress.ProgressTracker); ok {
+			tracker.SetError(err.Error())
+		}
+		return
+	}
+
+	if err := s.persistScanResultUpdate(scanCtx, reviewID, req, projectPolicy, scanResult); err != nil {
+		logx.Errorf("failed to persist scan result: review_id=%s: %v", reviewID, err)
+		s.recordScanFailure(scanCtx, reviewID, err)
+		if tracker, ok := reporter.(*progress.ProgressTracker); ok {
+			tracker.SetError(err.Error())
+		}
+		return
+	}
+
+	if tracker, ok := reporter.(*progress.ProgressTracker); ok {
+		tracker.UpdatePhase(progress.PhaseSynthesis, "active", 90, "保存扫描结果...")
+		tracker.Complete()
+	}
+}
+
+func (s *Service) scanExecute(ctx context.Context, req domain.ScanRequest) (*domain.ScanResult, error) {
+	scanResult, _, err := s.scanExecuteWithPolicy(ctx, req)
+	return scanResult, err
+}
+
+func (s *Service) scanExecuteWithPolicy(ctx context.Context, req domain.ScanRequest) (*domain.ScanResult, models.ProjectPolicy, error) {
+	providerName := strings.TrimSpace(req.Provider)
+	repo := strings.TrimSpace(req.Repo)
+	head := strings.TrimSpace(req.HeadSHA)
+
+	reporter := progress.ProgressReporterFromContext(ctx)
+
 	p, ok := s.Providers.Get(providerName)
 	if !ok {
 		logx.Errorf("Scan: provider not found: requested=%q", providerName)
-		return nil, fmt.Errorf("%w: %s", domain.ErrUnsupportedProvider, providerName)
+		return nil, models.ProjectPolicy{}, fmt.Errorf("%w: %s", domain.ErrUnsupportedProvider, providerName)
 	}
 
+	if reporter != nil {
+		reporter.UpdatePhase(progress.PhaseContext, "active", 5, "克隆/检出仓库...")
+	}
 	workspace, err := p.Prepare(ctx, domain.Request{
 		Provider: providerName,
 		Repo:     repo,
@@ -483,7 +638,7 @@ func (s *Service) Scan(ctx context.Context, req domain.ScanRequest) (*domain.Sca
 		HeadSHA:  head,
 	})
 	if err != nil {
-		return nil, err
+		return nil, models.ProjectPolicy{}, err
 	}
 	if workspace.Dir != "" {
 		defer func() { _ = os.RemoveAll(workspace.Dir) }()
@@ -516,58 +671,57 @@ func (s *Service) Scan(ctx context.Context, req domain.ScanRequest) (*domain.Sca
 		}
 	}
 
+	if reporter != nil {
+		reporter.UpdatePhase(progress.PhaseAnalysis, "active", 10, "启动代码扫描引擎...")
+	}
 	scanResult, err := s.ScanRunner.Scan(ctx, workspace, req)
 	if err != nil {
-		return nil, err
+		return nil, models.ProjectPolicy{}, err
 	}
 	if req.Preview || scanResult == nil || scanResult.Result == nil {
-		return scanResult, nil
+		return scanResult, projectPolicy, nil
 	}
 
+	if reporter != nil {
+		reporter.UpdatePhase(progress.PhaseSynthesis, "active", 80, "生成扫描报告...")
+	}
 	report := BuildReport(scanResult.Result)
 	analysis := BuildAnalysis(*scanResult.Result)
 	scanResult.Report = &report
 	scanResult.Analysis = &analysis
 
-	reviewID, err := s.persistScanResult(ctx, req, projectPolicy, scanResult)
+	return scanResult, projectPolicy, nil
+}
+
+func (s *Service) recordScanFailure(ctx context.Context, reviewID string, scanErr error) {
+	err := s.updateReviewFields(ctx, reviewID, func(review *models.Review) {
+		var resp domain.Response
+		if err := json.Unmarshal(review.Response, &resp); err != nil {
+			resp = domain.Response{ReviewID: reviewID}
+		}
+		resp.Status = statusFailed
+		resp.Summary = "repository scan failed"
+		resp.Gate = domain.ErrorGate("scan execution failed")
+		resp.Error = scanErr.Error()
+		resp.History = append(resp.History, domain.Event{
+			Stage:     "ocr_scan",
+			Status:    statusFailed,
+			Message:   scanErr.Error(),
+			CreatedAt: time.Now().UTC(),
+		})
+		review.Status = statusFailed
+		review.Response = mustMarshal(resp)
+		review.UpdatedAt = time.Now().UTC()
+	})
 	if err != nil {
-		return nil, err
-	}
-	scanResult.ReviewID = reviewID
-	return scanResult, nil
-}
-
-// ProjectPolicyToOCROverrides 将项目策略中的 OCR 配置项映射为 review.OCROverrides。
-// 作为 scan 路径与 executor 路径的单一实现，消除重复。
-func ProjectPolicyToOCROverrides(p models.ProjectPolicy) domain.OCROverrides {
-	return domain.OCROverrides{
-		Enabled:                 p.OCREnabled,
-		Concurrency:             p.OCRConcurrency,
-		TimeoutMinutes:          p.OCRTimeoutMinutes,
-		MaxTools:                p.OCRMaxTools,
-		DefaultSeverity:         p.OCRDefaultSeverity,
-		Background:              p.OCRBackground,
-		Audience:                p.OCRAudience,
-		Provider:                p.OCRProvider,
-		URL:                     p.OCRURL,
-		Model:                   p.OCRModel,
-		MaxGitProcs:             p.OCRMaxGitProcs,
-		UseAnthropic:            p.OCRUseAnthropic,
-		ExtraBody:               p.OCRExtraBody,
-		Language:                p.OCRLanguage,
-		Binary:                  p.OCRBinary,
-		ToolsPath:               p.OCRToolsPath,
-		TelemetryEnabled:        p.OCRTelemetryEnabled,
-		TelemetryExporter:       p.OCRTelemetryExporter,
-		TelemetryOTLPEndpoint:   p.OCRTelemetryOTLPEndpoint,
-		TelemetryContentLogging: p.OCRTelemetryContentLogging,
+		logx.Errorf("failed to record scan failure: review_id=%s: %v", reviewID, err)
 	}
 }
 
-func (s *Service) persistScanResult(ctx context.Context, scanReq domain.ScanRequest, projectPolicy models.ProjectPolicy, scanResult *domain.ScanResult) (string, error) {
+func (s *Service) persistScanResultUpdate(ctx context.Context, reviewID string, scanReq domain.ScanRequest, projectPolicy models.ProjectPolicy, scanResult *domain.ScanResult) error {
 	result := scanResult.Result
 	if result == nil {
-		return "", fmt.Errorf("scan result is empty")
+		return fmt.Errorf("scan result is empty")
 	}
 	report := BuildReport(result)
 	if scanResult.Report != nil {
@@ -587,17 +741,8 @@ func (s *Service) persistScanResult(ctx context.Context, scanReq domain.ScanRequ
 	}
 	gate := gateEngine.Evaluate(scanPolicyFindings(result.Findings))
 
-	id := newReviewID(time.Now().UTC())
-	req := domain.Request{
-		Provider:     scanReq.Provider,
-		Repo:         scanReq.Repo,
-		ProjectID:    scanReq.ProjectID,
-		BaseSHA:      scanReq.HeadSHA,
-		HeadSHA:      scanReq.HeadSHA,
-		CallbackMode: "scan",
-	}
 	resp := domain.Response{
-		ReviewID: id,
+		ReviewID: reviewID,
 		Status:   statusSuccess,
 		Summary:  result.Summary,
 		Gate:     domain.CompletedGate(gate.Passed, gate.Reason),
@@ -625,31 +770,52 @@ func (s *Service) persistScanResult(ctx context.Context, scanReq domain.ScanRequ
 			},
 		},
 	}
-	fingerprint, err := requestFingerprint(req)
-	if err != nil {
-		return "", err
+
+	return s.updateReviewFields(ctx, reviewID, func(review *models.Review) {
+		review.Status = resp.Status
+		review.Score = report.Score.Value
+		review.Grade = report.Score.Grade
+		review.Summary = resp.Summary
+		review.Response = mustMarshal(resp)
+		if len(result.RawOCR) > 0 {
+			review.RawOCR = datatypes.JSON(result.RawOCR)
+		}
+		review.UpdatedAt = time.Now().UTC()
+	})
+}
+
+func (s *Service) updateReviewFields(ctx context.Context, reviewID string, fn func(review *models.Review)) error {
+	return s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *models.Review) error {
+		fn(review)
+		return nil
+	})
+}
+
+// ProjectPolicyToOCROverrides 将项目策略中的 OCR 配置项映射为 review.OCROverrides。
+// 作为 scan 路径与 executor 路径的单一实现，消除重复。
+func ProjectPolicyToOCROverrides(p models.ProjectPolicy) domain.OCROverrides {
+	return domain.OCROverrides{
+		Enabled:                 p.OCREnabled,
+		Concurrency:             p.OCRConcurrency,
+		TimeoutMinutes:          p.OCRTimeoutMinutes,
+		MaxTools:                p.OCRMaxTools,
+		DefaultSeverity:         p.OCRDefaultSeverity,
+		Background:              p.OCRBackground,
+		Audience:                p.OCRAudience,
+		Provider:                p.OCRProvider,
+		URL:                     p.OCRURL,
+		Model:                   p.OCRModel,
+		MaxGitProcs:             p.OCRMaxGitProcs,
+		UseAnthropic:            p.OCRUseAnthropic,
+		ExtraBody:               p.OCRExtraBody,
+		Language:                p.OCRLanguage,
+		Binary:                  p.OCRBinary,
+		ToolsPath:               p.OCRToolsPath,
+		TelemetryEnabled:        p.OCRTelemetryEnabled,
+		TelemetryExporter:       p.OCRTelemetryExporter,
+		TelemetryOTLPEndpoint:   p.OCRTelemetryOTLPEndpoint,
+		TelemetryContentLogging: p.OCRTelemetryContentLogging,
 	}
-	record := &models.Review{
-		ReviewID:           id,
-		RequestFingerprint: fingerprint,
-		Provider:           req.Provider,
-		Repo:               req.Repo,
-		Status:             resp.Status,
-		BaseSHA:            req.BaseSHA,
-		HeadSHA:            req.HeadSHA,
-		Score:              report.Score.Value,
-		Grade:              report.Score.Grade,
-		Summary:            resp.Summary,
-		Request:            mustMarshal(req),
-		Response:           mustMarshal(resp),
-	}
-	if len(result.RawOCR) > 0 {
-		record.RawOCR = datatypes.JSON(result.RawOCR)
-	}
-	if err := s.reviewRepo.Create(ctx, record); err != nil {
-		return "", err
-	}
-	return id, nil
 }
 
 func scanPolicyFindings(findings []domain.Finding) []policy.Finding {
@@ -711,10 +877,16 @@ func (s *Service) Requeue(ctx context.Context, reviewID string) (domain.Response
 }
 
 func (s *Service) Cancel(ctx context.Context, reviewID string) (domain.Response, error) {
+	if cancelFn, ok := s.scanCancels.LoadAndDelete(reviewID); ok {
+		if fn, ok := cancelFn.(context.CancelFunc); ok {
+			fn()
+		}
+	}
+
 	var resultResp domain.Response
 	err := s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *models.Review) error {
-		if review.Status != StatusQueued {
-			return fmt.Errorf("%w: only queued reviews can be cancelled (current: %s)", ErrInvalidState, review.Status)
+		if review.Status != StatusQueued && review.Status != statusRunning {
+			return fmt.Errorf("%w: only queued or running reviews can be cancelled (current: %s)", ErrInvalidState, review.Status)
 		}
 
 		var resp domain.Response

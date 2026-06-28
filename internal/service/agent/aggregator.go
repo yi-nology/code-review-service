@@ -245,6 +245,16 @@ func (a *DefaultAggregator) mergeFindings(findings []FindingWithAgent) FindingWi
 		}
 	}
 
+	// Preserve ExistingCode / SuggestionCode from the finding that has them
+	for _, f := range findings {
+		if f.ExistingCode != "" && (merged.ExistingCode == "" || len(f.ExistingCode) > len(merged.ExistingCode)) {
+			merged.ExistingCode = f.ExistingCode
+		}
+		if f.SuggestionCode != "" && (merged.SuggestionCode == "" || len(f.SuggestionCode) > len(merged.SuggestionCode)) {
+			merged.SuggestionCode = f.SuggestionCode
+		}
+	}
+
 	return merged
 }
 

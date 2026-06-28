@@ -85,7 +85,7 @@ async function handleLogin() {
       return
     }
     auth.setToken(value)
-    await router.replace('/reviews')
+    await router.replace('/dashboard')
   } catch (err: any) {
     if (err.response?.status === 401) {
       error.value = 'Token 无效，请检查后重试'
