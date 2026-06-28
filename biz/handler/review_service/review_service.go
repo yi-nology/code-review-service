@@ -13,6 +13,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/service/runner"
 
 	"github.com/oekit/pkg/convert"
 	"github.com/oekit/pkg/mathx"
@@ -423,6 +424,12 @@ func mapReviewError(err error) error {
 		return common.BizErr(422, err.Error())
 	case errors.Is(err, domain.ErrIdempotencyConflict):
 		return common.BizErr(409, err.Error())
+	case runner.IsBinaryMissing(err):
+		return common.BizErr(400, err.Error())
+	case runner.IsTimeout(err):
+		return common.BizErr(504, err.Error())
+	case runner.IsExit(err):
+		return common.BizErr(502, err.Error())
 	default:
 		return err
 	}
