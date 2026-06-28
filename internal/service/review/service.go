@@ -674,7 +674,40 @@ func (s *Service) scanExecuteWithPolicy(ctx context.Context, req domain.ScanRequ
 	if reporter != nil {
 		reporter.UpdatePhase(progress.PhaseAnalysis, "active", 10, "启动代码扫描引擎...")
 	}
+
+	stopHeartbeat := make(chan struct{})
+	var heartbeatDone chan struct{}
+	if reporter != nil {
+		heartbeatDone = make(chan struct{})
+		go func() {
+			defer close(heartbeatDone)
+			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
+			pct := 15.0
+			for {
+				select {
+				case <-stopHeartbeat:
+					return
+				case <-ticker.C:
+					inc := (75.0 - pct) * 0.06
+					if inc < 0.5 {
+						inc = 0.5
+					}
+					pct += inc
+					if pct > 75 {
+						pct = 75
+					}
+					reporter.ReportProgress(fmt.Sprintf("正在扫描代码... %.0f%%", pct), pct)
+				}
+			}
+		}()
+	}
+
 	scanResult, err := s.ScanRunner.Scan(ctx, workspace, req)
+	close(stopHeartbeat)
+	if heartbeatDone != nil {
+		<-heartbeatDone
+	}
 	if err != nil {
 		return nil, models.ProjectPolicy{}, err
 	}

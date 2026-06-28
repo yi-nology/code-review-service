@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -220,15 +221,73 @@ func parsePreviewFiles(output []byte) []string {
 	}
 	var files []string
 	if err := json.Unmarshal(output, &files); err == nil {
-		return files
+		return cleanPreviewFiles(files)
 	}
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 	files = make([]string, 0, len(lines))
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			files = append(files, line)
+	inReviewSection := false
+	for _, raw := range lines {
+		line := strings.TrimSpace(stripANSI(raw))
+		if line == "" {
+			continue
 		}
+		lower := strings.ToLower(line)
+		switch {
+		case strings.HasPrefix(lower, "will review"):
+			inReviewSection = true
+			continue
+		case strings.HasPrefix(lower, "excluded from review"):
+			inReviewSection = false
+			continue
+		case strings.HasPrefix(lower, "preview:"):
+			continue
+		}
+		if inReviewSection {
+			if file := parsePreviewFileLine(line); file != "" {
+				files = append(files, file)
+			}
+		}
+	}
+	if len(files) > 0 {
+		return files
+	}
+	return cleanPreviewFiles(lines)
+}
+
+var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+
+func stripANSI(value string) string {
+	return ansiPattern.ReplaceAllString(value, "")
+}
+
+func parsePreviewFileLine(line string) string {
+	line = strings.TrimSpace(line)
+	if strings.HasPrefix(line, "[") {
+		if end := strings.Index(line, "]"); end >= 0 {
+			line = strings.TrimSpace(line[end+1:])
+		}
+	}
+	if idx := strings.Index(line, " ("); idx >= 0 {
+		line = strings.TrimSpace(line[:idx])
+	}
+	if idx := strings.Index(line, " +"); idx >= 0 {
+		line = strings.TrimSpace(line[:idx])
+	}
+	if idx := strings.Index(line, " -"); idx >= 0 {
+		line = strings.TrimSpace(line[:idx])
+	}
+	return line
+}
+
+func cleanPreviewFiles(values []string) []string {
+	files := make([]string, 0, len(values))
+	for _, value := range values {
+		value = parsePreviewFileLine(stripANSI(value))
+		lower := strings.ToLower(value)
+		if value == "" || strings.HasPrefix(lower, "preview:") || strings.HasPrefix(lower, "will review") || strings.HasPrefix(lower, "excluded from review") {
+			continue
+		}
+		files = append(files, value)
 	}
 	return files
 }

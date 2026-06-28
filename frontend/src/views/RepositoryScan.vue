@@ -260,7 +260,7 @@
         <section class="panel result-panel">
           <!-- Idle -->
           <div
-            v-if="scanState === 'idle' && previewFiles.length === 0"
+            v-if="scanState === 'idle' && !hasPreview"
             class="result-empty"
           >
             <el-empty description="先选择仓库，预览或开始扫描" />
@@ -268,7 +268,7 @@
 
           <!-- Preview -->
           <div
-            v-if="previewFiles.length > 0 && scanState === 'idle'"
+            v-if="hasPreview && scanState === 'idle'"
             class="preview-section"
           >
             <div class="section-head">
@@ -284,27 +284,65 @@
                 <el-button
                   text
                   type="primary"
-                  @click="previewFiles = []"
+                  @click="clearPreview"
                 >
                   清空
                 </el-button>
               </div>
             </div>
-            <div class="preview-summary">
-              将扫描 <strong>{{ filteredPreviewFiles.length }}</strong> 个文件
+            <div
+              class="preview-summary"
+              :class="{ 'has-excluded': previewInfo.excluded.length > 0 }"
+            >
+              <div class="preview-stat">
+                <span>总变更</span>
+                <strong>{{ previewInfo.totalChanged || previewInfo.reviewable.length + previewInfo.excluded.length }}</strong>
+              </div>
+              <div class="preview-stat primary">
+                <span>将审查</span>
+                <strong>{{ filteredPreviewFiles.length }}</strong>
+              </div>
+              <div
+                v-if="previewInfo.excluded.length"
+                class="preview-stat"
+              >
+                <span>已排除</span>
+                <strong>{{ previewInfo.excluded.length }}</strong>
+              </div>
             </div>
-            <div class="file-list">
-              <code
+            <div class="file-list" :class="{ empty: filteredPreviewFiles.length === 0 }">
+              <div
                 v-for="file in filteredPreviewFiles"
                 :key="file"
-              >{{ file }}</code>
+                class="file-row"
+              >
+                <span class="file-badge">审查</span>
+                <code>{{ file }}</code>
+              </div>
               <div
                 v-if="filteredPreviewFiles.length === 0"
                 class="file-list-empty"
               >
-                无匹配文件
+                没有匹配的可审查文件
               </div>
             </div>
+            <el-collapse
+              v-if="filteredExcludedFiles.length"
+              class="excluded-collapse"
+            >
+              <el-collapse-item :title="`已排除文件 (${filteredExcludedFiles.length})`" name="excluded">
+                <div class="file-list excluded-list">
+                  <div
+                    v-for="file in filteredExcludedFiles"
+                    :key="file"
+                    class="file-row"
+                  >
+                    <span class="file-badge muted">排除</span>
+                    <code>{{ file }}</code>
+                  </div>
+                </div>
+              </el-collapse-item>
+            </el-collapse>
           </div>
 
           <!-- Running: Progress Tracker -->
@@ -747,11 +785,21 @@ const formRules: FormRules = {
 
 const canRun = computed(() => Boolean(form.provider && form.repo && form.head_sha))
 const scanRunning = computed(() => scanState.value === 'queued' || scanState.value === 'running')
+const previewInfo = computed(() => normalizePreviewOutput(previewFiles.value))
+const hasPreview = computed(() => previewFiles.value.length > 0 || previewInfo.value.reviewable.length > 0 || previewInfo.value.excluded.length > 0)
 
 const filteredPreviewFiles = computed(() => {
-  if (!previewFilter.value) return previewFiles.value
+  const files = previewInfo.value.reviewable
+  if (!previewFilter.value) return files
   const q = previewFilter.value.toLowerCase()
-  return previewFiles.value.filter((f) => f.toLowerCase().includes(q))
+  return files.filter((f) => f.toLowerCase().includes(q))
+})
+
+const filteredExcludedFiles = computed(() => {
+  const files = previewInfo.value.excluded
+  if (!previewFilter.value) return files
+  const q = previewFilter.value.toLowerCase()
+  return files.filter((f) => f.toLowerCase().includes(q))
 })
 
 const allFindings = computed<Finding[]>(() => reviewDetail.value?.findings ?? [])
@@ -810,12 +858,69 @@ function severityType(severity?: string) {
   return 'success'
 }
 
+function stripAnsi(value: string) {
+  return value.replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, '')
+}
+
+function parsePreviewLine(line: string) {
+  let value = stripAnsi(line).trim()
+  if (!value) return ''
+  if (value.startsWith('[')) {
+    const end = value.indexOf(']')
+    if (end >= 0) value = value.slice(end + 1).trim()
+  }
+  value = value.replace(/\s+\((unsupported_ext|excluded|ignored|binary|too_large|generated)[^)]+\)\s*$/i, '').trim()
+  value = value.replace(/\s+[+-]\d+.*$/, '').trim()
+  return value
+}
+
+function normalizePreviewOutput(values: string[]) {
+  const reviewable: string[] = []
+  const excluded: string[] = []
+  let totalChanged = 0
+  let section: 'reviewable' | 'excluded' | '' = ''
+
+  for (const raw of values) {
+    const line = stripAnsi(raw).trim()
+    if (!line) continue
+    const summary = line.match(/^Preview:\s*(\d+)\s+file/i)
+    if (summary) {
+      totalChanged = Number(summary[1]) || totalChanged
+      continue
+    }
+    if (/^Will review/i.test(line)) {
+      section = 'reviewable'
+      continue
+    }
+    if (/^Excluded from review/i.test(line)) {
+      section = 'excluded'
+      continue
+    }
+    const file = parsePreviewLine(line)
+    if (!file) continue
+    if (section === 'excluded' || /\((unsupported_ext|excluded|ignored|binary|too_large|generated)/i.test(line)) {
+      excluded.push(file)
+    } else if (section === 'reviewable' || !/^Preview:/i.test(file)) {
+      reviewable.push(file)
+    }
+  }
+
+  return {
+    totalChanged,
+    reviewable: Array.from(new Set(reviewable)),
+    excluded: Array.from(new Set(excluded)),
+  }
+}
+
 // ===== Storage =====
 
 function saveFormState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       provider: form.provider,
+      repo: form.repo,
+      branch: branch.value,
+      head_sha: form.head_sha,
       pathsText: pathsText.value,
       excludeText: excludeText.value,
       background: form.background,
@@ -834,6 +939,9 @@ function restoreFormState() {
     if (!raw) return
     const saved = JSON.parse(raw)
     form.provider = saved.provider || ''
+    form.repo = saved.repo || ''
+    branch.value = saved.branch || ''
+    form.head_sha = saved.head_sha || ''
     pathsText.value = saved.pathsText || ''
     excludeText.value = saved.excludeText || ''
     form.background = saved.background || ''
@@ -986,7 +1094,8 @@ async function runScan(preview: boolean) {
         preview: true,
       })
       previewFiles.value = data.preview_files || []
-      ElMessage.success(`预览完成：${previewFiles.value.length} 个文件`)
+      const info = normalizePreviewOutput(previewFiles.value)
+      ElMessage.success(`预览完成：将审查 ${info.reviewable.length} 个文件`)
     } catch (e: any) {
       ElMessage.error(e.message || '预览失败')
     } finally {
@@ -1119,10 +1228,17 @@ function resetScan() {
   scanStartTime.value = null
   elapsedText.value = ''
   previewFiles.value = []
+  previewFilter.value = ''
   clearScanSession()
 }
 
+function clearPreview() {
+  previewFiles.value = []
+  previewFilter.value = ''
+}
+
 watch(() => form, saveFormState, { deep: true })
+watch([branch, pathsText, excludeText], saveFormState)
 watch([severityFilter, groupByPath], () => { findingsPage.value = 1 })
 
 function onVisibilityChange() {
@@ -1134,6 +1250,10 @@ function onVisibilityChange() {
 onMounted(async () => {
   restoreFormState()
   await loadPlatforms()
+  if (form.provider && form.repo) {
+    searchRepos('')
+    loadBranches()
+  }
   document.addEventListener('visibilitychange', onVisibilityChange)
   resumeScanSession()
 })
@@ -1314,8 +1434,41 @@ onBeforeUnmount(() => {
 }
 
 .preview-summary {
-  font-size: 13px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.preview-summary.has-excluded {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.preview-stat {
+  padding: 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-bg);
+}
+
+.preview-stat span,
+.preview-stat strong {
+  display: block;
+}
+
+.preview-stat span {
   color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.preview-stat strong {
+  margin-top: 4px;
+  color: var(--app-text);
+  font-size: 22px;
+}
+
+.preview-stat.primary strong {
+  color: var(--app-primary);
 }
 
 .file-list {
@@ -1327,21 +1480,71 @@ onBeforeUnmount(() => {
   background: var(--app-bg);
 }
 
-.file-list code {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--app-border);
-  color: var(--app-text);
-  font-size: 13px;
+.file-list.empty {
+  display: block;
 }
 
-.file-list code:last-child {
+.file-row {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.file-row:last-child {
   border-bottom: 0;
+}
+
+.file-row code {
+  overflow: hidden;
+  color: var(--app-text);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-badge {
+  display: inline-flex;
+  justify-content: center;
+  width: 42px;
+  border-radius: 6px;
+  color: #0f766e;
+  background: #dff7f1;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 22px;
+}
+
+.file-badge.muted {
+  color: #7a8292;
+  background: #edf0f5;
 }
 
 .file-list-empty {
   padding: 24px;
   text-align: center;
   color: var(--app-muted);
+}
+
+.excluded-collapse {
+  border-top: 1px solid var(--app-border);
+  border-bottom: 0;
+}
+
+.excluded-collapse :deep(.el-collapse-item__header) {
+  color: var(--app-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.excluded-collapse :deep(.el-collapse-item__wrap) {
+  border-bottom: 0;
+}
+
+.excluded-list {
+  max-height: 260px;
 }
 
 /* ===== Progress ===== */
@@ -1566,6 +1769,10 @@ onBeforeUnmount(() => {
   }
 
   .inline-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-summary {
     grid-template-columns: 1fr;
   }
 }
