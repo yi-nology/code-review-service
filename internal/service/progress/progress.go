@@ -50,6 +50,9 @@ func (p *ReviewProgress) UpdatePhase(phase Phase, status string, progress float6
 		if phaseInfo.Name == string(phase) {
 			p.Phases[i].Status = status
 			p.Phases[i].Progress = progress
+			if message != "" {
+				p.Phases[i].Description = message
+			}
 			if status == "active" && phaseInfo.StartTime.IsZero() {
 				p.Phases[i].StartTime = time.Now()
 			}

@@ -587,7 +587,7 @@ func (s *Service) runScanBackground(reviewID string, req domain.ScanRequest, rep
 		logx.Errorf("failed to update scan status to running: review_id=%s: %v", reviewID, err)
 	}
 
-	scanResult, projectPolicy, err := s.scanExecuteWithPolicy(scanCtx, req)
+	scanResult, projectPolicy, err := s.scanExecuteWithPolicy(scanCtx, reviewID, req)
 	if err != nil {
 		logx.Errorf("async scan failed: review_id=%s: %v", reviewID, err)
 		s.recordScanFailure(scanCtx, reviewID, err)
@@ -613,11 +613,11 @@ func (s *Service) runScanBackground(reviewID string, req domain.ScanRequest, rep
 }
 
 func (s *Service) scanExecute(ctx context.Context, req domain.ScanRequest) (*domain.ScanResult, error) {
-	scanResult, _, err := s.scanExecuteWithPolicy(ctx, req)
+	scanResult, _, err := s.scanExecuteWithPolicy(ctx, "", req)
 	return scanResult, err
 }
 
-func (s *Service) scanExecuteWithPolicy(ctx context.Context, req domain.ScanRequest) (*domain.ScanResult, models.ProjectPolicy, error) {
+func (s *Service) scanExecuteWithPolicy(ctx context.Context, reviewID string, req domain.ScanRequest) (*domain.ScanResult, models.ProjectPolicy, error) {
 	providerName := strings.TrimSpace(req.Provider)
 	repo := strings.TrimSpace(req.Repo)
 	head := strings.TrimSpace(req.HeadSHA)
@@ -677,39 +677,27 @@ func (s *Service) scanExecuteWithPolicy(ctx context.Context, req domain.ScanRequ
 		reporter.UpdatePhase(progress.PhaseAnalysis, "active", 10, "启动代码扫描引擎...")
 	}
 
-	stopHeartbeat := make(chan struct{})
-	var heartbeatDone chan struct{}
-	if reporter != nil {
-		heartbeatDone = make(chan struct{})
-		go func() {
-			defer close(heartbeatDone)
-			ticker := time.NewTicker(5 * time.Second)
-			defer ticker.Stop()
-			pct := 15.0
-			for {
-				select {
-				case <-stopHeartbeat:
-					return
-				case <-ticker.C:
-					inc := (75.0 - pct) * 0.06
-					if inc < 0.5 {
-						inc = 0.5
-					}
-					pct += inc
-					if pct > 75 {
-						pct = 75
-					}
-					reporter.ReportProgress(fmt.Sprintf("正在扫描代码... %.0f%%", pct), pct)
-				}
-			}
-		}()
+	if reviewID != "" && workspace.Dir != "" {
+		ocrInput := domain.OCRInput{
+			Binary: "ocr",
+			Workspace: domain.WorkspaceInfo{
+				Provider: providerName,
+				Repo:     repo,
+				BaseSHA:  workspace.BaseSHA,
+				HeadSHA:  workspace.HeadSHA,
+				Dir:      workspace.Dir,
+			},
+			RulePath:  workspace.RulePath,
+			StartedAt: time.Now().UTC(),
+		}
+		if err := s.updateReviewFields(ctx, reviewID, func(review *models.Review) {
+			review.RawOCRInput = mustMarshal(ocrInput)
+		}); err != nil {
+			logx.Warn("failed to persist scan ocr input", "review_id", reviewID, "error", err)
+		}
 	}
 
 	scanResult, err := s.ScanRunner.Scan(ctx, workspace, req)
-	close(stopHeartbeat)
-	if heartbeatDone != nil {
-		<-heartbeatDone
-	}
 	if err != nil {
 		return nil, models.ProjectPolicy{}, err
 	}

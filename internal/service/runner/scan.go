@@ -63,11 +63,15 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace domain.Worksp
 	args := []string{
 		"scan",
 		"--repo", workspace.Dir,
-		"--format", "json",
 		"--concurrency", convert.IntToStr(r.config.Concurrency),
 		"--max-git-procs", convert.IntToStr(r.config.MaxGitProcs),
 		"--timeout", convert.IntToStr(timeoutMinutes),
 		"--audience", r.config.Audience,
+	}
+	if req.Preview {
+		args = append(args, "--format", "json")
+	} else {
+		args = append(args, "--format", "text")
 	}
 	if req.Preview {
 		args = append(args, "--preview")
@@ -123,8 +127,100 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace domain.Worksp
 	env = AppendLLMEnv(env, r.config)
 	cmd.Env = env
 
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
+	var stdoutBuf bytes.Buffer
+	if req.Preview {
+		cmd.Stdout = &stdoutBuf
+	} else {
+		stdoutPipe, err := cmd.StdoutPipe()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
+		}
+
+		if err := cmd.Start(); err != nil {
+			return nil, &BinaryMissingError{Binary: r.config.Binary, Err: err}
+		}
+
+		if progressReporter != nil {
+			progressReporter.UpdatePhase(progress.PhaseAnalysis, "active", 15, "正在扫描代码...")
+		}
+
+		scanState := newOcrScanState()
+		var textLines []string
+		var stdoutWg sync.WaitGroup
+		stdoutWg.Add(1)
+		async.GoSafe(func() {
+			defer stdoutWg.Done()
+			scanner := bufio.NewScanner(stdoutPipe)
+			scanner.Buffer(make([]byte, 0, 64*1024), 4<<20)
+			for scanner.Scan() {
+				line := scanner.Text()
+				trimmed := strings.TrimSpace(line)
+				if strings.HasPrefix(trimmed, "[ocr]") {
+					scanState.parseLine(line, progressReporter)
+				} else if trimmed != "" {
+					textLines = append(textLines, line)
+				}
+			}
+			if err := scanner.Err(); err != nil {
+				logx.Warnf("ocr stdout scanner error: %v", err)
+			}
+		})
+
+		done := make(chan struct{})
+		async.GoSafe(func() {
+			select {
+			case <-ctx.Done():
+				if cmd.Process != nil {
+					_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+				}
+			case <-done:
+			}
+		})
+
+		err = cmd.Wait()
+		close(done)
+		stdoutWg.Wait()
+		if err != nil {
+			if cmd.Process != nil {
+				_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+			}
+			return nil, classifyExitError(ctx, err, timeout, "")
+		}
+
+		result := parseScanTextOutput(strings.Join(textLines, "\n"), r.config.DefaultSeverity)
+		result.OCR.ToolCalls = &domain.ToolCallsMetadata{
+			Total:  int64(scanState.toolCallCount),
+			ByTool: scanState.toolByTool,
+		}
+		if scanState.summary {
+			if scanState.filesReviewed > 0 {
+				result.OCR.FilesReviewed = scanState.filesReviewed
+			}
+			if scanState.comments > 0 {
+				result.OCR.Comments = scanState.comments
+			}
+			if scanState.totalTokens > 0 {
+				result.OCR.TotalTokens = scanState.totalTokens
+			}
+			if scanState.inputTokens > 0 {
+				result.OCR.InputTokens = scanState.inputTokens
+			}
+			if scanState.outputTokens > 0 {
+				result.OCR.OutputTokens = scanState.outputTokens
+			}
+			if scanState.elapsed != "" {
+				result.OCR.Elapsed = scanState.elapsed
+			}
+		}
+		if result.Scope.ReviewedFiles == 0 && result.OCR.FilesReviewed > 0 {
+			result.Scope.ReviewedFiles = int(result.OCR.FilesReviewed)
+			result.Scope.ChangedFiles = int(result.OCR.FilesReviewed)
+		}
+		return &domain.ScanResult{
+			Result:   &result,
+			Warnings: result.Warnings,
+		}, nil
+	}
 
 	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {
@@ -133,10 +229,6 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace domain.Worksp
 
 	if err := cmd.Start(); err != nil {
 		return nil, &BinaryMissingError{Binary: r.config.Binary, Err: err}
-	}
-
-	if progressReporter != nil {
-		progressReporter.UpdatePhase(progress.PhaseAnalysis, "active", 15, "正在扫描代码，请稍候...")
 	}
 
 	var stderrLines []string
@@ -152,10 +244,6 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace domain.Worksp
 			stderrMu.Lock()
 			stderrLines = append(stderrLines, line)
 			stderrMu.Unlock()
-
-			if progressReporter != nil {
-				parseOCRProgress(line, progressReporter)
-			}
 		}
 		if err := scanner.Err(); err != nil {
 			logx.Warnf("ocr stderr scanner error: %v", err)
@@ -186,23 +274,8 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace domain.Worksp
 		return nil, classifyExitError(ctx, err, timeout, message)
 	}
 
-	output := bytes.TrimSpace(stdout.Bytes())
-	if req.Preview {
-		return &domain.ScanResult{PreviewFiles: parsePreviewFiles(output)}, nil
-	}
-
-	result, err := ParseOpenCodeReviewOutput(output, r.config.DefaultSeverity)
-	if err != nil {
-		return nil, err
-	}
-	if result.Scope.ReviewedFiles == 0 && result.OCR.FilesReviewed > 0 {
-		result.Scope.ReviewedFiles = int(result.OCR.FilesReviewed)
-		result.Scope.ChangedFiles = int(result.OCR.FilesReviewed)
-	}
-	return &domain.ScanResult{
-		Result:   &result,
-		Warnings: result.Warnings,
-	}, nil
+	output := bytes.TrimSpace(stdoutBuf.Bytes())
+	return &domain.ScanResult{PreviewFiles: parsePreviewFiles(output)}, nil
 }
 
 func cleanStrings(values []string) []string {

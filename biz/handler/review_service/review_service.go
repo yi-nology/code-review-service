@@ -1,7 +1,9 @@
 package review_service
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -516,12 +518,24 @@ func convertDetail(r domain.Record) modelReview.ReviewDetail {
 		Gate: convertGate(r.Response.Gate), Analysis: convertAnalysis(r.Response.Analysis),
 		History: convertEvents(r.Response.History), Findings: convertFindings(r.Response.Findings),
 		Report: convertReport(r.Response.Report), RawOcr: common.StrPtr(string(r.RawOCR)),
+		RawOcrInput: convertOCRInput(r.RawOCRInput),
 
 		Error: common.StrPtr(r.Response.Error), Author: common.StrPtr(r.Request.Author),
 		AuthorName: common.StrPtr(r.Request.AuthorName), AuthorAvatar: common.StrPtr(r.Request.AuthorAvatar),
 		CreatedAt: common.StrPtr(common.FormatTime(r.CreatedAt)),
 		UpdatedAt: common.StrPtr(common.FormatTime(r.UpdatedAt)),
 	}
+}
+
+func convertOCRInput(raw json.RawMessage) *modelReview.OCRInput {
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return nil
+	}
+	item := &modelReview.OCRInput{}
+	if err := json.Unmarshal(raw, item); err != nil {
+		return nil
+	}
+	return item
 }
 
 func convertReport(r domain.Report) *modelReview.Report {
