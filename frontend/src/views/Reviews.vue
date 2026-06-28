@@ -251,7 +251,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   Aim,
   ArrowRight,
@@ -279,8 +279,14 @@ import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 import { useListPage } from '@/composables/useListPage'
 
 const router = useRouter()
+const route = useRoute()
 const showCreateDialog = ref(false)
 const actingId = ref('')
+const initialFilters = {
+  repo: typeof route.query.repo === 'string' ? route.query.repo : '',
+  provider: typeof route.query.provider === 'string' ? route.query.provider : '',
+  status: typeof route.query.status === 'string' ? route.query.status : '',
+}
 
 const {
   loading,
@@ -300,7 +306,7 @@ const {
     const result = await getReviews(params)
     return { items: result.items, total: result.total, stats: result.stats }
   },
-  defaultFilters: { repo: '', provider: '', status: '' },
+  defaultFilters: initialFilters,
   shouldPoll: (result) => {
     const stats = (result as { stats?: ListStats }).stats
     return (stats?.running ?? 0) > 0
