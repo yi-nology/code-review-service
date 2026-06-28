@@ -160,6 +160,23 @@ struct ReviewDetail {
     21: optional string author (api.body="author")
     22: optional string author_name (api.body="author_name")
     23: optional string author_avatar (api.body="author_avatar")
+    24: optional OCRInput raw_ocr_input (api.body="raw_ocr_input")
+}
+
+struct OCRInputWorkspace {
+    1: optional string provider (api.body="provider")
+    2: optional string repo (api.body="repo")
+    3: optional string base_sha (api.body="base_sha")
+    4: optional string head_sha (api.body="head_sha")
+    5: optional string dir (api.body="dir")
+}
+
+struct OCRInput {
+    1: optional string binary (api.body="binary")
+    2: optional list<string> args (api.body="args")
+    3: optional OCRInputWorkspace workspace (api.body="workspace")
+    4: optional string rule_path (api.body="rule_path")
+    5: optional string started_at (api.body="started_at")
 }
 
 struct GetReviewResp {

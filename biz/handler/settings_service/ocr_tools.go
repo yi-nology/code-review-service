@@ -139,11 +139,11 @@ func LocateViewerSession(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	workspaceDir := strings.TrimSpace(req.WorkspaceDir)
-	if workspaceDir == "" {
-		common.Fail(c, common.BadRequest("workspace_dir 不能为空"))
+	startedAt, _ := time.Parse(time.RFC3339, strings.TrimSpace(req.StartedAt))
+	if workspaceDir == "" && startedAt.IsZero() {
+		common.Fail(c, common.BadRequest("workspace_dir 和 started_at 不能同时为空"))
 		return
 	}
-	startedAt, _ := time.Parse(time.RFC3339, strings.TrimSpace(req.StartedAt))
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		common.Fail(c, err)
@@ -184,6 +184,9 @@ type viewerSessionLocation struct {
 }
 
 func locateViewerSession(homeDir, workspaceDir string, startedAt time.Time) viewerSessionLocation {
+	if workspaceDir == "" {
+		return findSessionGlobally(homeDir, startedAt)
+	}
 	slug := viewerRepoSlug(workspaceDir)
 	location := viewerSessionLocation{RepoSlug: slug, Path: "/r/" + url.PathEscape(slug)}
 	sessionID := findNearestViewerSession(filepath.Join(homeDir, ".opencodereview", "sessions", slug), workspaceDir, startedAt)
@@ -193,6 +196,54 @@ func locateViewerSession(homeDir, workspaceDir string, startedAt time.Time) view
 		location.Matched = true
 	}
 	return location
+}
+
+func findSessionGlobally(homeDir string, startedAt time.Time) viewerSessionLocation {
+	sessionsRoot := filepath.Join(homeDir, ".opencodereview", "sessions")
+	entries, err := os.ReadDir(sessionsRoot)
+	if err != nil {
+		return viewerSessionLocation{}
+	}
+	bestSlug := ""
+	bestSessionID := ""
+	bestDelta := math.MaxFloat64
+	for _, dirEntry := range entries {
+		if !dirEntry.IsDir() {
+			continue
+		}
+		slug := dirEntry.Name()
+		fileEntries, err := os.ReadDir(filepath.Join(sessionsRoot, slug))
+		if err != nil {
+			continue
+		}
+		for _, fileEntry := range fileEntries {
+			if fileEntry.IsDir() || filepath.Ext(fileEntry.Name()) != ".jsonl" {
+				continue
+			}
+			meta, ok := readViewerSessionStart(filepath.Join(sessionsRoot, slug, fileEntry.Name()))
+			if !ok {
+				continue
+			}
+			delta := meta.Timestamp.Sub(startedAt).Seconds()
+			if delta < -60 || delta > 60*60 {
+				continue
+			}
+			if delta < bestDelta {
+				bestSlug = slug
+				bestSessionID = meta.SessionID
+				bestDelta = delta
+			}
+		}
+	}
+	if bestSessionID == "" {
+		return viewerSessionLocation{}
+	}
+	return viewerSessionLocation{
+		RepoSlug:  bestSlug,
+		Path:      "/r/" + url.PathEscape(bestSlug) + "/" + url.PathEscape(bestSessionID),
+		SessionID: bestSessionID,
+		Matched:   true,
+	}
 }
 
 func viewerRepoSlug(workspaceDir string) string {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -928,3 +929,83 @@ func mustMarshalJSON(v interface{}) datatypesJSON {
 }
 
 type datatypesJSON = datatypes.JSON
+
+type stubScanRunner struct {
+	result *domain.ScanResult
+	err    error
+	calls  int
+}
+
+func (r *stubScanRunner) Scan(_ context.Context, _ domain.Workspace, _ domain.ScanRequest) (*domain.ScanResult, error) {
+	r.calls++
+	if r.err != nil {
+		return nil, r.err
+	}
+	return r.result, nil
+}
+
+func TestScanRecordsRawOCRInput(t *testing.T) {
+	workspaceDir := t.TempDir()
+
+	repo := &mockReviewRepo{}
+	scanRunner := &stubScanRunner{result: &domain.ScanResult{
+		Result: &domain.Result{Summary: "scan ok", OCR: domain.OCRMetadata{Status: "success", FilesReviewed: 1}},
+	}}
+
+	svc := review.NewService(review.ServiceConfig{
+		ReviewRepo:      repo,
+		OCRSettingsRepo: &mockOCRSettingsRepo{},
+		ProjectRepo:     &mockProjectPolicyRepo{},
+		Policy:          policy.NewEngine(policy.Config{FailOn: "critical"}),
+		Providers: newTestProviders(testProvider{
+			name: "gitea",
+			prepare: func(_ context.Context, req domain.Request) (domain.Workspace, error) {
+				return domain.Workspace{Repo: req.Repo, BaseSHA: req.BaseSHA, HeadSHA: req.HeadSHA, Dir: workspaceDir}, nil
+			},
+		}),
+		ScanRunner: scanRunner,
+	})
+
+	result, err := svc.Scan(context.Background(), domain.ScanRequest{
+		Provider: "gitea",
+		Repo:     "acme/app",
+		HeadSHA:  "f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5",
+	})
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	var saved *models.Review
+	for time.Now().Before(deadline) {
+		for _, r := range repo.snapshot() {
+			if r.ReviewID == result.ReviewID {
+				saved = r
+			}
+		}
+		if saved != nil && saved.Status == "success" {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if saved == nil {
+		t.Fatal("expected scan review to be persisted")
+	}
+
+	if len(saved.RawOCRInput) == 0 {
+		t.Fatal("expected raw_ocr_input to be recorded for scan, got empty")
+	}
+	var input domain.OCRInput
+	if err := json.Unmarshal(saved.RawOCRInput, &input); err != nil {
+		t.Fatalf("failed to decode raw_ocr_input: %v", err)
+	}
+	if input.Workspace.Dir != workspaceDir {
+		t.Fatalf("expected workspace dir %q, got %q", workspaceDir, input.Workspace.Dir)
+	}
+	if input.StartedAt.IsZero() {
+		t.Fatal("expected non-zero started_at in raw_ocr_input")
+	}
+	if _, err := os.Stat(workspaceDir); err == nil {
+		_ = os.RemoveAll(workspaceDir)
+	}
+}

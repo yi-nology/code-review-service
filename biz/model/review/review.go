@@ -4,7 +4,6 @@ package review
 
 import (
 	"fmt"
-
 	"github.com/apache/thrift/lib/go/thrift"
 )
 
@@ -6510,6 +6509,7 @@ type ReviewDetail struct {
 	Author          *string    `thrift:"author,21,optional" form:"author" json:"author,omitempty"`
 	AuthorName      *string    `thrift:"author_name,22,optional" form:"author_name" json:"author_name,omitempty"`
 	AuthorAvatar    *string    `thrift:"author_avatar,23,optional" form:"author_avatar" json:"author_avatar,omitempty"`
+	RawOcrInput     *OCRInput  `thrift:"raw_ocr_input,24,optional" form:"raw_ocr_input" json:"raw_ocr_input,omitempty"`
 }
 
 func NewReviewDetail() *ReviewDetail {
@@ -6701,6 +6701,15 @@ func (p *ReviewDetail) GetAuthorAvatar() (v string) {
 	return *p.AuthorAvatar
 }
 
+var ReviewDetail_RawOcrInput_DEFAULT *OCRInput
+
+func (p *ReviewDetail) GetRawOcrInput() (v *OCRInput) {
+	if !p.IsSetRawOcrInput() {
+		return ReviewDetail_RawOcrInput_DEFAULT
+	}
+	return p.RawOcrInput
+}
+
 var fieldIDToName_ReviewDetail = map[int16]string{
 	1:  "review_id",
 	2:  "provider",
@@ -6725,6 +6734,7 @@ var fieldIDToName_ReviewDetail = map[int16]string{
 	21: "author",
 	22: "author_name",
 	23: "author_avatar",
+	24: "raw_ocr_input",
 }
 
 func (p *ReviewDetail) IsSetProjectID() bool {
@@ -6797,6 +6807,10 @@ func (p *ReviewDetail) IsSetAuthorName() bool {
 
 func (p *ReviewDetail) IsSetAuthorAvatar() bool {
 	return p.AuthorAvatar != nil
+}
+
+func (p *ReviewDetail) IsSetRawOcrInput() bool {
+	return p.RawOcrInput != nil
 }
 
 func (p *ReviewDetail) Read(iprot thrift.TProtocol) (err error) {
@@ -6997,6 +7011,14 @@ func (p *ReviewDetail) Read(iprot thrift.TProtocol) (err error) {
 		case 23:
 			if fieldTypeId == thrift.STRING {
 				if err = p.ReadField23(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 24:
+			if fieldTypeId == thrift.STRUCT {
+				if err = p.ReadField24(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -7299,6 +7321,14 @@ func (p *ReviewDetail) ReadField23(iprot thrift.TProtocol) error {
 	p.AuthorAvatar = _field
 	return nil
 }
+func (p *ReviewDetail) ReadField24(iprot thrift.TProtocol) error {
+	_field := NewOCRInput()
+	if err := _field.Read(iprot); err != nil {
+		return err
+	}
+	p.RawOcrInput = _field
+	return nil
+}
 
 func (p *ReviewDetail) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -7396,6 +7426,10 @@ func (p *ReviewDetail) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField23(oprot); err != nil {
 			fieldId = 23
+			goto WriteFieldError
+		}
+		if err = p.writeField24(oprot); err != nil {
+			fieldId = 24
 			goto WriteFieldError
 		}
 	}
@@ -7859,11 +7893,805 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 23 end error: ", p), err)
 }
 
+func (p *ReviewDetail) writeField24(oprot thrift.TProtocol) (err error) {
+	if p.IsSetRawOcrInput() {
+		if err = oprot.WriteFieldBegin("raw_ocr_input", thrift.STRUCT, 24); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := p.RawOcrInput.Write(oprot); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 24 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 24 end error: ", p), err)
+}
+
 func (p *ReviewDetail) String() string {
 	if p == nil {
 		return "<nil>"
 	}
 	return fmt.Sprintf("ReviewDetail(%+v)", *p)
+
+}
+
+type OCRInputWorkspace struct {
+	Provider *string `thrift:"provider,1,optional" form:"provider" json:"provider,omitempty"`
+	Repo     *string `thrift:"repo,2,optional" form:"repo" json:"repo,omitempty"`
+	BaseSha  *string `thrift:"base_sha,3,optional" form:"base_sha" json:"base_sha,omitempty"`
+	HeadSha  *string `thrift:"head_sha,4,optional" form:"head_sha" json:"head_sha,omitempty"`
+	Dir      *string `thrift:"dir,5,optional" form:"dir" json:"dir,omitempty"`
+}
+
+func NewOCRInputWorkspace() *OCRInputWorkspace {
+	return &OCRInputWorkspace{}
+}
+
+func (p *OCRInputWorkspace) InitDefault() {
+}
+
+var OCRInputWorkspace_Provider_DEFAULT string
+
+func (p *OCRInputWorkspace) GetProvider() (v string) {
+	if !p.IsSetProvider() {
+		return OCRInputWorkspace_Provider_DEFAULT
+	}
+	return *p.Provider
+}
+
+var OCRInputWorkspace_Repo_DEFAULT string
+
+func (p *OCRInputWorkspace) GetRepo() (v string) {
+	if !p.IsSetRepo() {
+		return OCRInputWorkspace_Repo_DEFAULT
+	}
+	return *p.Repo
+}
+
+var OCRInputWorkspace_BaseSha_DEFAULT string
+
+func (p *OCRInputWorkspace) GetBaseSha() (v string) {
+	if !p.IsSetBaseSha() {
+		return OCRInputWorkspace_BaseSha_DEFAULT
+	}
+	return *p.BaseSha
+}
+
+var OCRInputWorkspace_HeadSha_DEFAULT string
+
+func (p *OCRInputWorkspace) GetHeadSha() (v string) {
+	if !p.IsSetHeadSha() {
+		return OCRInputWorkspace_HeadSha_DEFAULT
+	}
+	return *p.HeadSha
+}
+
+var OCRInputWorkspace_Dir_DEFAULT string
+
+func (p *OCRInputWorkspace) GetDir() (v string) {
+	if !p.IsSetDir() {
+		return OCRInputWorkspace_Dir_DEFAULT
+	}
+	return *p.Dir
+}
+
+var fieldIDToName_OCRInputWorkspace = map[int16]string{
+	1: "provider",
+	2: "repo",
+	3: "base_sha",
+	4: "head_sha",
+	5: "dir",
+}
+
+func (p *OCRInputWorkspace) IsSetProvider() bool {
+	return p.Provider != nil
+}
+
+func (p *OCRInputWorkspace) IsSetRepo() bool {
+	return p.Repo != nil
+}
+
+func (p *OCRInputWorkspace) IsSetBaseSha() bool {
+	return p.BaseSha != nil
+}
+
+func (p *OCRInputWorkspace) IsSetHeadSha() bool {
+	return p.HeadSha != nil
+}
+
+func (p *OCRInputWorkspace) IsSetDir() bool {
+	return p.Dir != nil
+}
+
+func (p *OCRInputWorkspace) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField2(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 3:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField3(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 4:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField4(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 5:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField5(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_OCRInputWorkspace[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *OCRInputWorkspace) ReadField1(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.Provider = _field
+	return nil
+}
+func (p *OCRInputWorkspace) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.Repo = _field
+	return nil
+}
+func (p *OCRInputWorkspace) ReadField3(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.BaseSha = _field
+	return nil
+}
+func (p *OCRInputWorkspace) ReadField4(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.HeadSha = _field
+	return nil
+}
+func (p *OCRInputWorkspace) ReadField5(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.Dir = _field
+	return nil
+}
+
+func (p *OCRInputWorkspace) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("OCRInputWorkspace"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
+			goto WriteFieldError
+		}
+		if err = p.writeField3(oprot); err != nil {
+			fieldId = 3
+			goto WriteFieldError
+		}
+		if err = p.writeField4(oprot); err != nil {
+			fieldId = 4
+			goto WriteFieldError
+		}
+		if err = p.writeField5(oprot); err != nil {
+			fieldId = 5
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *OCRInputWorkspace) writeField1(oprot thrift.TProtocol) (err error) {
+	if p.IsSetProvider() {
+		if err = oprot.WriteFieldBegin("provider", thrift.STRING, 1); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.Provider); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *OCRInputWorkspace) writeField2(oprot thrift.TProtocol) (err error) {
+	if p.IsSetRepo() {
+		if err = oprot.WriteFieldBegin("repo", thrift.STRING, 2); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.Repo); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
+func (p *OCRInputWorkspace) writeField3(oprot thrift.TProtocol) (err error) {
+	if p.IsSetBaseSha() {
+		if err = oprot.WriteFieldBegin("base_sha", thrift.STRING, 3); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.BaseSha); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 end error: ", p), err)
+}
+
+func (p *OCRInputWorkspace) writeField4(oprot thrift.TProtocol) (err error) {
+	if p.IsSetHeadSha() {
+		if err = oprot.WriteFieldBegin("head_sha", thrift.STRING, 4); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.HeadSha); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 end error: ", p), err)
+}
+
+func (p *OCRInputWorkspace) writeField5(oprot thrift.TProtocol) (err error) {
+	if p.IsSetDir() {
+		if err = oprot.WriteFieldBegin("dir", thrift.STRING, 5); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.Dir); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 end error: ", p), err)
+}
+
+func (p *OCRInputWorkspace) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("OCRInputWorkspace(%+v)", *p)
+
+}
+
+type OCRInput struct {
+	Binary    *string            `thrift:"binary,1,optional" form:"binary" json:"binary,omitempty"`
+	Args      []string           `thrift:"args,2,optional,list<string>" form:"args" json:"args,omitempty"`
+	Workspace *OCRInputWorkspace `thrift:"workspace,3,optional" form:"workspace" json:"workspace,omitempty"`
+	RulePath  *string            `thrift:"rule_path,4,optional" form:"rule_path" json:"rule_path,omitempty"`
+	StartedAt *string            `thrift:"started_at,5,optional" form:"started_at" json:"started_at,omitempty"`
+}
+
+func NewOCRInput() *OCRInput {
+	return &OCRInput{}
+}
+
+func (p *OCRInput) InitDefault() {
+}
+
+var OCRInput_Binary_DEFAULT string
+
+func (p *OCRInput) GetBinary() (v string) {
+	if !p.IsSetBinary() {
+		return OCRInput_Binary_DEFAULT
+	}
+	return *p.Binary
+}
+
+var OCRInput_Args_DEFAULT []string
+
+func (p *OCRInput) GetArgs() (v []string) {
+	if !p.IsSetArgs() {
+		return OCRInput_Args_DEFAULT
+	}
+	return p.Args
+}
+
+var OCRInput_Workspace_DEFAULT *OCRInputWorkspace
+
+func (p *OCRInput) GetWorkspace() (v *OCRInputWorkspace) {
+	if !p.IsSetWorkspace() {
+		return OCRInput_Workspace_DEFAULT
+	}
+	return p.Workspace
+}
+
+var OCRInput_RulePath_DEFAULT string
+
+func (p *OCRInput) GetRulePath() (v string) {
+	if !p.IsSetRulePath() {
+		return OCRInput_RulePath_DEFAULT
+	}
+	return *p.RulePath
+}
+
+var OCRInput_StartedAt_DEFAULT string
+
+func (p *OCRInput) GetStartedAt() (v string) {
+	if !p.IsSetStartedAt() {
+		return OCRInput_StartedAt_DEFAULT
+	}
+	return *p.StartedAt
+}
+
+var fieldIDToName_OCRInput = map[int16]string{
+	1: "binary",
+	2: "args",
+	3: "workspace",
+	4: "rule_path",
+	5: "started_at",
+}
+
+func (p *OCRInput) IsSetBinary() bool {
+	return p.Binary != nil
+}
+
+func (p *OCRInput) IsSetArgs() bool {
+	return p.Args != nil
+}
+
+func (p *OCRInput) IsSetWorkspace() bool {
+	return p.Workspace != nil
+}
+
+func (p *OCRInput) IsSetRulePath() bool {
+	return p.RulePath != nil
+}
+
+func (p *OCRInput) IsSetStartedAt() bool {
+	return p.StartedAt != nil
+}
+
+func (p *OCRInput) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.LIST {
+				if err = p.ReadField2(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 3:
+			if fieldTypeId == thrift.STRUCT {
+				if err = p.ReadField3(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 4:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField4(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 5:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField5(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_OCRInput[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *OCRInput) ReadField1(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.Binary = _field
+	return nil
+}
+func (p *OCRInput) ReadField2(iprot thrift.TProtocol) error {
+	_, size, err := iprot.ReadListBegin()
+	if err != nil {
+		return err
+	}
+	_field := make([]string, 0, size)
+	for i := 0; i < size; i++ {
+
+		var _elem string
+		if v, err := iprot.ReadString(); err != nil {
+			return err
+		} else {
+			_elem = v
+		}
+
+		_field = append(_field, _elem)
+	}
+	if err := iprot.ReadListEnd(); err != nil {
+		return err
+	}
+	p.Args = _field
+	return nil
+}
+func (p *OCRInput) ReadField3(iprot thrift.TProtocol) error {
+	_field := NewOCRInputWorkspace()
+	if err := _field.Read(iprot); err != nil {
+		return err
+	}
+	p.Workspace = _field
+	return nil
+}
+func (p *OCRInput) ReadField4(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.RulePath = _field
+	return nil
+}
+func (p *OCRInput) ReadField5(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.StartedAt = _field
+	return nil
+}
+
+func (p *OCRInput) Write(oprot thrift.TProtocol) (err error) {
+	var fieldId int16
+	if err = oprot.WriteStructBegin("OCRInput"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
+			goto WriteFieldError
+		}
+		if err = p.writeField3(oprot); err != nil {
+			fieldId = 3
+			goto WriteFieldError
+		}
+		if err = p.writeField4(oprot); err != nil {
+			fieldId = 4
+			goto WriteFieldError
+		}
+		if err = p.writeField5(oprot); err != nil {
+			fieldId = 5
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *OCRInput) writeField1(oprot thrift.TProtocol) (err error) {
+	if p.IsSetBinary() {
+		if err = oprot.WriteFieldBegin("binary", thrift.STRING, 1); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.Binary); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *OCRInput) writeField2(oprot thrift.TProtocol) (err error) {
+	if p.IsSetArgs() {
+		if err = oprot.WriteFieldBegin("args", thrift.LIST, 2); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteListBegin(thrift.STRING, len(p.Args)); err != nil {
+			return err
+		}
+		for _, v := range p.Args {
+			if err := oprot.WriteString(v); err != nil {
+				return err
+			}
+		}
+		if err := oprot.WriteListEnd(); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
+func (p *OCRInput) writeField3(oprot thrift.TProtocol) (err error) {
+	if p.IsSetWorkspace() {
+		if err = oprot.WriteFieldBegin("workspace", thrift.STRUCT, 3); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := p.Workspace.Write(oprot); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 3 end error: ", p), err)
+}
+
+func (p *OCRInput) writeField4(oprot thrift.TProtocol) (err error) {
+	if p.IsSetRulePath() {
+		if err = oprot.WriteFieldBegin("rule_path", thrift.STRING, 4); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.RulePath); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 4 end error: ", p), err)
+}
+
+func (p *OCRInput) writeField5(oprot thrift.TProtocol) (err error) {
+	if p.IsSetStartedAt() {
+		if err = oprot.WriteFieldBegin("started_at", thrift.STRING, 5); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.StartedAt); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 5 end error: ", p), err)
+}
+
+func (p *OCRInput) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("OCRInput(%+v)", *p)
 
 }
 

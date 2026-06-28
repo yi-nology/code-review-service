@@ -78,3 +78,36 @@ func TestLocateViewerSessionUsesLatestSessionWithoutStartedAt(t *testing.T) {
 		t.Fatalf("location = %+v, want latest session", location)
 	}
 }
+
+func TestLocateViewerSessionGlobalSearchWithoutWorkspaceDir(t *testing.T) {
+	home := t.TempDir()
+	slugA := "tmp-review-workspace-aaa"
+	slugB := "tmp-review-workspace-bbb"
+	for _, slug := range []string{slugA, slugB} {
+		dir := filepath.Join(home, ".opencodereview", "sessions", slug)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", slug, err)
+		}
+	}
+	earlySession := `{"cwd":"/tmp/review-workspace-aaa","sessionId":"too-early","timestamp":"2026-06-28T09:50:00Z","type":"session_start"}`
+	nearSession := `{"cwd":"/tmp/review-workspace-aaa","sessionId":"near-match","timestamp":"2026-06-28T10:05:00Z","type":"session_start"}`
+	farSession := `{"cwd":"/tmp/review-workspace-bbb","sessionId":"too-late","timestamp":"2026-06-28T11:30:00Z","type":"session_start"}`
+	if err := os.WriteFile(filepath.Join(home, ".opencodereview", "sessions", slugA, "early.jsonl"), []byte(earlySession+"\n"), 0o644); err != nil {
+		t.Fatalf("write early session: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".opencodereview", "sessions", slugA, "near.jsonl"), []byte(nearSession+"\n"), 0o644); err != nil {
+		t.Fatalf("write near session: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".opencodereview", "sessions", slugB, "far.jsonl"), []byte(farSession+"\n"), 0o644); err != nil {
+		t.Fatalf("write far session: %v", err)
+	}
+
+	reviewStartedAt := time.Date(2026, 6, 28, 10, 0, 0, 0, time.UTC)
+	location := locateViewerSession(home, "", reviewStartedAt)
+	if !location.Matched || location.SessionID != "near-match" {
+		t.Fatalf("location = %+v, want near-match session", location)
+	}
+	if location.RepoSlug != slugA {
+		t.Fatalf("slug = %q, want %q", location.RepoSlug, slugA)
+	}
+}

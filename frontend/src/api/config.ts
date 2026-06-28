@@ -153,7 +153,7 @@ export async function stopViewer(): Promise<ViewerStatus> {
 }
 
 export async function locateViewerSession(data: {
-  workspace_dir: string
+  workspace_dir?: string
   started_at?: string
 }): Promise<ViewerSessionLocation> {
   return request.post('/settings/ocr/viewer/locate', data) as any

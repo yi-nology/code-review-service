@@ -188,9 +188,13 @@
                   <code v-if="detail.head_sha">{{ detail.head_sha }}</code>
                   <el-tag v-if="reviewViewerMatched" size="small" type="success">已定位 session</el-tag>
                   <el-tag v-else-if="reviewViewerRepoSlug" size="small" type="success">已定位 workspace</el-tag>
-                  <el-tag v-else size="small" type="info">Viewer 总览</el-tag>
+                  <el-tag v-else size="small" type="warning">未记录 workspace（仅显示 Viewer 总览）</el-tag>
                 </div>
-                <iframe title="OCR Viewer" :src="reviewViewerSrc" />
+                <iframe
+                  title="OCR Viewer"
+                  :src="reviewViewerSrc"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
+                />
               </div>
             </el-card>
 
@@ -692,11 +696,12 @@ async function locateReviewViewer() {
   reviewViewerPath.value = ''
   reviewViewerMatched.value = false
   const workspaceDir = String(detail.value?.raw_ocr_input?.workspace?.dir || '').trim()
-  if (!workspaceDir) return
+  const startedAt = String(detail.value?.raw_ocr_input?.started_at || detail.value?.created_at || '').trim()
+  if (!workspaceDir && !startedAt) return
   try {
     const location = await locateViewerSession({
       workspace_dir: workspaceDir,
-      started_at: String(detail.value?.raw_ocr_input?.started_at || ''),
+      started_at: startedAt,
     })
     if (location?.path) {
       reviewViewerPath.value = location.path
