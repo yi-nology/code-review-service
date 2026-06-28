@@ -9,10 +9,10 @@
         <div class="header-status">
           <el-tag
             v-if="scanState === 'idle'"
-            type="info"
+            :type="canRun ? 'success' : 'info'"
             size="large"
           >
-            待配置
+            {{ canRun ? '已配置' : '待配置' }}
           </el-tag>
           <el-tag
             v-else-if="scanState === 'queued'"
@@ -355,6 +355,15 @@
               :review-status="scanState === 'queued' ? 'queued' : 'running'"
               :sessions="sessions"
               :history="reviewDetail?.history"
+              :phase-definitions="scanPhaseDefinitions"
+            />
+            <el-alert
+              v-if="scanWarning"
+              class="scan-warning"
+              type="warning"
+              show-icon
+              :closable="false"
+              :title="scanWarning"
             />
             <div class="progress-actions">
               <el-button
@@ -723,6 +732,7 @@ import { cancelReview, getReview, scanRepository } from '@/api/review'
 import { sessionApi, type ReviewSession } from '@/api/session'
 import type { GitPlatform, PlatformBranch, PlatformRepo } from '@/types/config'
 import type { ReviewDetail, Finding } from '@/types/review'
+import type { PhaseDefinition } from '@/constants/phases'
 
 const router = useRouter()
 const formRef = ref<FormInstance>()
@@ -750,10 +760,12 @@ const activeReviewId = ref('')
 const reviewDetail = ref<ReviewDetail | null>(null)
 const sessions = ref<ReviewSession[]>([])
 const scanError = ref('')
+const scanWarning = ref('')
 const scanStartTime = ref<number | null>(null)
 const elapsedText = ref('')
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 let elapsedTimer: ReturnType<typeof setInterval> | null = null
+let pollFailureCount = 0
 
 const severityFilter = ref<string[]>([])
 const groupByPath = ref(false)
@@ -765,6 +777,49 @@ const confirmVisible = ref(false)
 
 const STORAGE_KEY = 'scan-form-state'
 const SCAN_SESSION_KEY = 'scan-session'
+
+const scanPhaseDefinitions: PhaseDefinition[] = [
+  {
+    name: 'context',
+    title: '准备工作区',
+    description: '加载配置并检出目标仓库',
+  },
+  {
+    name: 'change_context',
+    title: '扫描范围',
+    description: '解析路径、规则和文件过滤',
+  },
+  {
+    name: 'analysis',
+    title: '代码扫描',
+    description: '运行 OCR 全量扫描并收集发现',
+  },
+  {
+    name: 'reviews',
+    title: '深度审查',
+    description: '分析扫描发现并补充上下文',
+  },
+  {
+    name: 'aggregation',
+    title: '结果聚合',
+    description: '合并并去重扫描发现',
+  },
+  {
+    name: 'discourse',
+    title: '风险确认',
+    description: '校验关键风险和误报',
+  },
+  {
+    name: 'synthesis',
+    title: '生成报告',
+    description: '整理评分、摘要和最终报告',
+  },
+  {
+    name: 'complete',
+    title: '完成',
+    description: '扫描完成',
+  },
+]
 
 const form = reactive({
   provider: '',
@@ -1116,6 +1171,8 @@ async function runScan(preview: boolean) {
     if (data.review_id) {
       activeReviewId.value = data.review_id
       scanState.value = 'queued'
+      scanWarning.value = ''
+      pollFailureCount = 0
       scanStartTime.value = Date.now()
       saveScanSession()
       startPolling()
@@ -1155,6 +1212,8 @@ async function pollReview() {
   if (!activeReviewId.value) return
   try {
     const detail = await getReview(activeReviewId.value)
+    pollFailureCount = 0
+    scanWarning.value = ''
     reviewDetail.value = detail
     if (detail.status === 'success' || detail.status === 'completed') {
       scanState.value = 'success'
@@ -1179,8 +1238,13 @@ async function pollReview() {
       scanState.value = 'running'
     }
     await fetchSessions()
-  } catch {
-    // Network errors are transient, keep polling
+  } catch (e: any) {
+    pollFailureCount += 1
+    if (pollFailureCount >= 2) {
+      scanWarning.value = e?.message
+        ? `服务连接异常，正在重试：${e.message}`
+        : '服务连接异常，正在重试。扫描任务可能仍在后端执行。'
+    }
   }
 }
 
@@ -1209,6 +1273,8 @@ async function cancelScan() {
     await cancelReview(activeReviewId.value)
     scanState.value = 'failed'
     scanError.value = '扫描已取消'
+    scanWarning.value = ''
+    pollFailureCount = 0
     stopPolling()
     stopElapsedTimer()
     clearScanSession()
@@ -1225,6 +1291,8 @@ function resetScan() {
   reviewDetail.value = null
   sessions.value = []
   scanError.value = ''
+  scanWarning.value = ''
+  pollFailureCount = 0
   scanStartTime.value = null
   elapsedText.value = ''
   previewFiles.value = []
@@ -1553,6 +1621,10 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.scan-warning {
+  border-radius: 8px;
 }
 
 .progress-actions {

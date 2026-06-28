@@ -70,7 +70,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { CircleCheckFilled, Loading, Clock } from '@element-plus/icons-vue'
 import { progressApi } from '@/api/session'
 import type { ReviewSession, ReviewProgress, ProgressEvent, ReviewHistoryEvent } from '@/types/session'
-import { REVIEW_PHASES } from '@/constants/phases'
+import { REVIEW_PHASES, type PhaseDefinition } from '@/constants/phases'
 
 interface Agent {
   name: string
@@ -98,7 +98,10 @@ const props = defineProps<{
   reviewStatus?: string
   sessions?: ReviewSession[]
   history?: ReviewHistoryEvent[]
+  phaseDefinitions?: PhaseDefinition[]
 }>()
+
+const phaseDefinitions = computed(() => props.phaseDefinitions?.length ? props.phaseDefinitions : REVIEW_PHASES)
 
 const phases = ref<Phase[]>(
   REVIEW_PHASES.map(p => ({ ...p, status: 'pending' as const, progress: 0 }))
@@ -137,7 +140,7 @@ function normalizeProgress(value: unknown) {
 }
 
 function resetPhases() {
-  phases.value = phases.value.map(phase => ({
+  phases.value = phaseDefinitions.value.map(phase => ({
     ...phase,
     status: 'pending',
     progress: 0,
