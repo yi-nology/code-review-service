@@ -129,6 +129,21 @@ func applyEnvOverrides(cfg *Config) {
 	if v := config.Get("NACOS_NAMESPACE"); v != "" {
 		cfg.Nacos.NamespaceId = v
 	}
+	if v := config.Get("NACOS_SERVICE_NAME"); v != "" {
+		cfg.Nacos.ServiceName = v
+	}
+	if v := config.Get("NACOS_USERNAME"); v != "" {
+		cfg.Nacos.Username = v
+	}
+	if v := config.Get("NACOS_PASSWORD"); v != "" {
+		cfg.Nacos.Password = v
+	}
+	if v := config.Get("NACOS_GROUP"); v != "" {
+		cfg.Nacos.Group = v
+	}
+	if cfg.Nacos.Addr != "" && cfg.Nacos.Group == "" {
+		cfg.Nacos.Group = "DEFAULT_GROUP"
+	}
 
 	if v := config.Get("OTEL_ENDPOINT"); v != "" {
 		cfg.Tracing.Endpoint = v
