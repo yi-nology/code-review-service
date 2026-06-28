@@ -9,6 +9,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	ekitGorm "github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
+	"github.com/oekit/pkg/pagination"
 
 	gormLib "gorm.io/gorm"
 )
@@ -73,7 +74,7 @@ func (r *ReviewRepo) GetActiveByProviderRepo(ctx context.Context, provider, repo
 }
 
 func (r *ReviewRepo) List(ctx context.Context, opts models.ListOptions) (*ekitGorm.PageResponse[models.Review], error) {
-	req := ekitGorm.NewPageRequest(opts.Page, opts.PageSize)
+	req := pagination.NewPageRequest(opts.Page, opts.PageSize)
 
 	return ekitGorm.Paginate[models.Review](r.db.WithContext(ctx).Model(&models.Review{}), req, func(db *gormLib.DB) *gormLib.DB {
 		if opts.Status != "" {

@@ -1,15 +1,15 @@
 module github.com/yi-nology/code-review-service
 
-go 1.26
+go 1.26.4
 
 require (
-	github.com/yi-nology/ekit v0.14.3
+	github.com/yi-nology/ekit v0.16.0
 	github.com/apache/thrift v0.23.0
 	github.com/cloudwego/hertz v0.10.5
 	github.com/hertz-contrib/cors v0.1.0
 	github.com/hertz-contrib/swagger v0.1.1
 	github.com/hertz-contrib/websocket v0.2.0
-	github.com/jackc/pgx/v5 v5.5.5
+	github.com/jackc/pgx/v5 v5.9.2
 	github.com/swaggo/files v1.0.1
 	github.com/yi-nology/git-platform-sdk v0.31.0
 	go.uber.org/fx v1.24.0
@@ -120,8 +120,8 @@ require (
 	github.com/icholy/digest v1.1.0 // indirect
 	github.com/imroc/req/v3 v3.57.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgservicefile v0.0.0-20231201235250-de7065d80cb9 // indirect
-	github.com/jackc/puddle/v2 v2.2.1 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect

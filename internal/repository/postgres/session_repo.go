@@ -8,6 +8,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	ekitGorm "github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
+	"github.com/oekit/pkg/pagination"
 	"github.com/oekit/pkg/uidgen"
 	gormLib "gorm.io/gorm"
 )
@@ -160,7 +161,7 @@ func (r *PostgresSessionRepository) CancelActiveByReviewID(ctx context.Context, 
 func (r *PostgresSessionRepository) List(ctx context.Context, page, pageSize int) (*ekitGorm.PageResponse[models.ReviewSession], error) {
 	return ekitGorm.Paginate[models.ReviewSession](
 		r.db.WithContext(ctx).Model(&models.ReviewSession{}),
-		ekitGorm.NewPageRequest(page, pageSize),
+		pagination.NewPageRequest(page, pageSize),
 		func(db *gormLib.DB) *gormLib.DB {
 			return db.Order("created_at DESC")
 		},
