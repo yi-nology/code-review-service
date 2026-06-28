@@ -1,6 +1,8 @@
 package modules
 
 import (
+	"github.com/yi-nology/code-review-service/biz/handler/diagnostics_service"
+	"github.com/yi-nology/code-review-service/biz/handler/feedback_service"
 	"github.com/yi-nology/code-review-service/biz/handler/progress_service"
 	"github.com/yi-nology/code-review-service/biz/handler/project_agent_service"
 	"github.com/yi-nology/code-review-service/biz/handler/publisher_service"
@@ -9,6 +11,7 @@ import (
 	"github.com/yi-nology/code-review-service/biz/handler/settings_service"
 	"github.com/yi-nology/code-review-service/biz/handler/stats_service"
 	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/yi-nology/code-review-service/internal/service/diagnostics"
 	"github.com/yi-nology/code-review-service/internal/service/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
@@ -30,6 +33,8 @@ var HandlerModule = fx.Options(
 	fx.Invoke(InitProgressHandler),
 	fx.Invoke(InitPublisherHandler),
 	fx.Invoke(InitProjectAgentHandler),
+	fx.Invoke(InitDiagnosticsHandler),
+	fx.Invoke(InitFeedbackHandler),
 )
 
 func InitReviewHandler(reviewSvc *svcReview.Service, gitMgr *gitProvider.GitProviderService) {
@@ -87,4 +92,12 @@ func InitPublisherHandler(writebackOrch *writeback.Orchestrator, reviewSvc *svcR
 
 func InitProjectAgentHandler(repos *repository.RepoContainer) {
 	project_agent_service.InitHandler(repos.ProjectAgent, repos.ReviewerAgent)
+}
+
+func InitDiagnosticsHandler(repos *repository.RepoContainer) {
+	diagnostics_service.InitHandler(diagnostics.NewService(repos.WebhookDelivery, repos.WritebackItem))
+}
+
+func InitFeedbackHandler(repos *repository.RepoContainer) {
+	feedback_service.InitHandler(repos.FindingFeedback)
 }

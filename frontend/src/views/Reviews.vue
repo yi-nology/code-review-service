@@ -51,6 +51,20 @@
           </el-button>
         </div>
 
+        <div class="saved-views">
+          <button
+            v-for="view in savedViews"
+            :key="view.key"
+            type="button"
+            class="saved-view"
+            :class="{ active: activeSavedView === view.key }"
+            @click="applySavedView(view.key)"
+          >
+            <el-icon><component :is="view.icon" /></el-icon>
+            <span>{{ view.label }}</span>
+          </button>
+        </div>
+
         <div class="filter-bar">
           <el-input
             v-model="filters.repo"
@@ -70,6 +84,11 @@
               <el-option label="审查中" value="running" />
               <el-option label="已完成" value="success" />
               <el-option label="执行失败" value="failed" />
+          </el-select>
+          <el-select v-model="filters.gate_status" placeholder="全部门禁" clearable @change="applyFilters">
+              <el-option label="门禁通过" value="passed" />
+              <el-option label="门禁失败" value="failed" />
+              <el-option label="待评估" value="pending" />
           </el-select>
           <el-button type="primary" plain @click="applyFilters">筛选</el-button>
           <el-button v-if="hasFilters" link @click="resetFilters">重置</el-button>
@@ -264,6 +283,7 @@ import {
   Plus,
   Refresh,
   Search,
+  Stopwatch,
   WarningFilled,
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -286,7 +306,18 @@ const initialFilters = {
   repo: typeof route.query.repo === 'string' ? route.query.repo : '',
   provider: typeof route.query.provider === 'string' ? route.query.provider : '',
   status: typeof route.query.status === 'string' ? route.query.status : '',
+  gate_status: typeof route.query.gate_status === 'string' ? route.query.gate_status : '',
 }
+
+type SavedViewKey = 'all' | 'running' | 'gate_failed' | 'failed' | 'high_risk'
+
+const savedViews: Array<{ key: SavedViewKey; label: string; icon: any }> = [
+  { key: 'all', label: '全部记录', icon: Files },
+  { key: 'running', label: '运行中', icon: Stopwatch },
+  { key: 'gate_failed', label: '门禁失败', icon: WarningFilled },
+  { key: 'failed', label: '执行失败', icon: CircleCloseFilled },
+  { key: 'high_risk', label: '高风险队列', icon: Aim },
+]
 
 const {
   loading,
@@ -301,7 +332,7 @@ const {
   resetFilters,
   refresh,
   refreshBackground,
-} = useListPage<Review, { repo: string; provider: string; status: string }>({
+} = useListPage<Review, { repo: string; provider: string; status: string; gate_status: string }>({
   fetchFn: async (params) => {
     const result = await getReviews(params)
     return { items: result.items, total: result.total, stats: result.stats }
@@ -315,6 +346,33 @@ const {
 })
 
 const stats = computed<ListStats>(() => (extraData.value as { stats?: ListStats }).stats ?? { total: 0, running: 0, gate_failed: 0, findings: 0, total_tokens: 0 })
+
+const activeSavedView = computed<SavedViewKey | ''>(() => {
+  if (!filters.repo && !filters.provider && !filters.status && !filters.gate_status) return 'all'
+  if (!filters.repo && !filters.provider && filters.status === 'running' && !filters.gate_status) return 'running'
+  if (!filters.repo && !filters.provider && !filters.status && filters.gate_status === 'failed') return 'gate_failed'
+  if (!filters.repo && !filters.provider && filters.status === 'failed' && !filters.gate_status) return 'failed'
+  if (!filters.repo && !filters.provider && filters.status === 'success' && filters.gate_status === 'failed') return 'high_risk'
+  return ''
+})
+
+function applySavedView(key: SavedViewKey) {
+  filters.repo = ''
+  filters.provider = ''
+  filters.status = ''
+  filters.gate_status = ''
+  if (key === 'running') {
+    filters.status = 'running'
+  } else if (key === 'gate_failed') {
+    filters.gate_status = 'failed'
+  } else if (key === 'failed') {
+    filters.status = 'failed'
+  } else if (key === 'high_risk') {
+    filters.status = 'success'
+    filters.gate_status = 'failed'
+  }
+  applyFilters()
+}
 
 function openCreateDialog() {
   showCreateDialog.value = true
@@ -511,6 +569,41 @@ function handleReviewCreated() {
   margin: 0;
   color: #929aab;
   font-size: 12px;
+}
+
+.saved-views {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 18px 0;
+  background: #fafbfc;
+}
+
+.saved-view {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  border: 1px solid #dce3ef;
+  border-radius: 8px;
+  color: #4b5563;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.saved-view:hover {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.saved-view.active {
+  border-color: #2563eb;
+  color: #fff;
+  background: #2563eb;
 }
 
 .filter-bar {

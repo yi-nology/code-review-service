@@ -77,6 +77,15 @@ export interface Finding {
   suggestion_code?: string
 }
 
+export interface FindingFeedback {
+  review_id: string
+  finding_index: number
+  status: string
+  note?: string
+  created_at: string
+  updated_at: string
+}
+
 export interface SuggestionPatchItem {
   index: number
   path: string
@@ -237,6 +246,7 @@ export interface ListStats {
 
 export interface ListOptions {
   status?: string
+  gate_status?: string
   provider?: string
   repo?: string
   page?: number
@@ -272,6 +282,7 @@ export interface ScanRepositoryOptions {
   no_dedup?: boolean
   no_summary?: boolean
   preview?: boolean
+  timeout_minutes?: number
 }
 
 export interface ScanRepositoryResult {

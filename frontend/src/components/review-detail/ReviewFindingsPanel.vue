@@ -97,6 +97,22 @@
           <span class="finding-path" v-if="finding.path">
             {{ finding.path }}{{ finding.line ? `:${finding.line}` : '' }}
           </span>
+          <el-dropdown trigger="click" @command="(command: string) => handleFeedback(index, command)">
+            <el-button size="small" plain>
+              {{ feedbackLabel(feedbackByIndex[index]?.status) || '标记' }}
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="false_positive">误报</el-dropdown-item>
+                <el-dropdown-item command="accepted_risk">接受风险</el-dropdown-item>
+                <el-dropdown-item command="deferred">暂不处理</el-dropdown-item>
+                <el-dropdown-item command="fixed">已修复</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+          <el-tag v-if="feedbackByIndex[index]" size="small" type="info">
+            {{ feedbackLabel(feedbackByIndex[index].status) }}
+          </el-tag>
         </div>
         <div class="finding-body" v-if="finding.body">{{ finding.body }}</div>
         <div class="finding-code" v-if="finding.existing_code">
@@ -113,10 +129,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { getSeverityType } from '@/utils/status'
-import { previewSuggestionPatch, checkSuggestionPatch, applySuggestionPatch } from '@/api/review'
-import type { Finding, SuggestionPatchApplyResult, SuggestionPatchCheck, SuggestionPatchPreview } from '@/types/review'
+import { previewSuggestionPatch, checkSuggestionPatch, applySuggestionPatch, getFindingFeedback, saveFindingFeedback } from '@/api/review'
+import type { Finding, FindingFeedback, SuggestionPatchApplyResult, SuggestionPatchCheck, SuggestionPatchPreview } from '@/types/review'
 import { ElMessage } from 'element-plus/es/components/message/index'
 
 const props = defineProps<{
@@ -140,6 +156,7 @@ const patchChecking = ref(false)
 const patchDownloading = ref(false)
 const patchApplying = ref(false)
 const patchCheckKey = ref('')
+const feedbackByIndex = ref<Record<number, FindingFeedback>>({})
 
 const patchableFindingIndexes = computed(() => {
   return props.findings
@@ -161,6 +178,27 @@ const canApplyPatch = computed(() => {
 function isPatchableFinding(finding: Finding) {
   const line = finding.start_line || finding.line || 0
   return Boolean(finding.path?.trim() && finding.existing_code?.trim() && finding.suggestion_code?.trim() && line > 0)
+}
+
+function feedbackLabel(status?: string) {
+  const map: Record<string, string> = {
+    false_positive: '误报',
+    accepted_risk: '接受风险',
+    deferred: '暂不处理',
+    fixed: '已修复',
+  }
+  return status ? map[status] || status : ''
+}
+
+async function loadFeedback() {
+  const items = await getFindingFeedback(props.reviewId)
+  feedbackByIndex.value = Object.fromEntries(items.map((item) => [item.finding_index, item]))
+}
+
+async function handleFeedback(index: number, status: string) {
+  const item = await saveFindingFeedback(props.reviewId, index, { status })
+  feedbackByIndex.value = { ...feedbackByIndex.value, [index]: item }
+  ElMessage.success(`已标记为${feedbackLabel(status)}`)
 }
 
 function togglePatchFinding(index: number, checked: boolean) {
@@ -262,6 +300,8 @@ function resetPatchState() {
 }
 
 defineExpose({ resetPatchState })
+
+onMounted(loadFeedback)
 </script>
 
 <style scoped>

@@ -104,7 +104,7 @@
           </div>
         </div>
 
-        <div class="filter-bar">
+        <div class="filter-bar" aria-label="项目报告筛选">
           <el-input
             v-model="filters.repo"
             class="filter-search"
@@ -115,25 +115,28 @@
           >
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
-          <el-select v-model="filters.provider" placeholder="全部平台" clearable @change="applyFilters" class="filter-select">
+          <el-select v-model="filters.provider" placeholder="全部平台" clearable @change="applyFilters" class="filter-select provider-filter">
             <el-option v-for="p in PROVIDER_OPTIONS" :key="p.value" :label="p.label" :value="p.value" />
           </el-select>
-          <el-select v-model="filters.sort" placeholder="排序" @change="applyFilters" class="filter-select">
+          <el-select v-model="filters.sort" placeholder="排序" @change="applyFilters" class="filter-select sort-filter">
             <el-option label="按评分" value="avg_score" />
             <el-option label="按审查数" value="review_count" />
             <el-option label="按通过率" value="pass_rate" />
             <el-option label="按严重问题" value="critical_count" />
             <el-option label="按活跃度" value="last_review_at" />
           </el-select>
-          <el-date-picker
-            v-model="dateRange"
-            class="filter-date"
-            type="daterange"
-            start-placeholder="开始"
-            end-placeholder="结束"
-            unlink-panels
-            @change="applyFilters"
-          />
+          <div class="date-filter">
+            <el-date-picker
+              v-model="dateRange"
+              class="filter-date"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              unlink-panels
+              @change="applyFilters"
+            />
+          </div>
           <el-button v-if="hasFilters" text @click="resetFilters" class="filter-reset">
             清除筛选
           </el-button>
@@ -583,14 +586,16 @@ onMounted(fetchProjects)
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
+  gap: 16px;
+  padding: 18px 22px;
   border-bottom: 1px solid var(--app-border);
 }
 
 .reports-title {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .reports-title h2 {
@@ -606,30 +611,49 @@ onMounted(fetchProjects)
 }
 
 .filter-bar {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 132px 142px auto;
   align-items: center;
+  grid-template-areas:
+    "search provider sort reset"
+    "date date date reset";
   gap: 10px;
-  padding: 14px 24px;
+  padding: 14px 22px;
   border-bottom: 1px solid var(--app-border);
+  background: #fbfcfe;
 }
 
 .filter-search {
-  width: 200px;
+  grid-area: search;
+  width: 100%;
 }
 
 .filter-select {
-  width: 120px;
+  width: 100%;
 }
 
-.filter-bar :deep(.filter-date) {
-  flex-grow: 0;
-  width: 340px;
-  max-width: 340px;
+.provider-filter {
+  grid-area: provider;
+}
+
+.sort-filter {
+  grid-area: sort;
+}
+
+.date-filter {
+  grid-area: date;
+  width: 100%;
+  max-width: 420px;
+}
+
+.date-filter :deep(.filter-date) {
+  width: 100%;
+  max-width: 100%;
 }
 
 .filter-reset {
-  margin-left: auto;
+  grid-area: reset;
+  justify-self: end;
   color: var(--app-muted);
 }
 
@@ -846,27 +870,6 @@ onMounted(fetchProjects)
   border-top: 1px solid var(--app-border);
 }
 
-@media (max-width: 760px) {
-  .project-reports-page {
-    padding: 24px 16px 36px;
-  }
-
-  .filter-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .filter-search,
-  .filter-select,
-  .filter-date {
-    width: 100%;
-  }
-
-  .filter-reset {
-    margin-left: 0;
-  }
-}
-
 @media (max-width: 1040px) {
   .ocr-observability {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -874,6 +877,35 @@ onMounted(fetchProjects)
 
   .trend-points {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+}
+
+@media (max-width: 760px) {
+  .project-reports-page {
+    padding: 24px 16px 36px;
+  }
+
+  .filter-bar {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "search"
+      "provider"
+      "sort"
+      "date"
+      "reset";
+  }
+
+  .filter-search,
+  .filter-select,
+  .date-filter,
+  .filter-date {
+    width: 100%;
+    max-width: none;
+  }
+
+  .filter-reset {
+    justify-self: start;
   }
 }
 

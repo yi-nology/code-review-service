@@ -322,11 +322,12 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 
 	page := options.Offset/options.Limit + 1
 	result, err := s.reviewRepo.List(ctx, models.ListOptions{
-		Status:   options.Status,
-		Provider: options.Provider,
-		Repo:     options.Repo,
-		Page:     page,
-		PageSize: options.Limit,
+		Status:     options.Status,
+		GateStatus: options.GateStatus,
+		Provider:   options.Provider,
+		Repo:       options.Repo,
+		Page:       page,
+		PageSize:   options.Limit,
 	})
 	if err != nil {
 		return ListResult{}, err
@@ -365,9 +366,10 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 	}
 
 	agg, err := s.reviewRepo.AggregateStats(ctx, models.ListOptions{
-		Status:   options.Status,
-		Provider: options.Provider,
-		Repo:     options.Repo,
+		Status:     options.Status,
+		GateStatus: options.GateStatus,
+		Provider:   options.Provider,
+		Repo:       options.Repo,
 	})
 	if err != nil {
 		logx.Warn("failed to compute aggregate stats", "error", err)

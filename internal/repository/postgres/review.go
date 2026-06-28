@@ -79,6 +79,9 @@ func (r *ReviewRepo) List(ctx context.Context, opts models.ListOptions) (*ekitGo
 		if opts.Status != "" {
 			db = db.Where("status = ?", opts.Status)
 		}
+		if opts.GateStatus != "" {
+			db = db.Where("response::jsonb->'gate'->>'status' = ?", opts.GateStatus)
+		}
 		if opts.Provider != "" {
 			db = db.Where("provider = ?", opts.Provider)
 		}
@@ -143,6 +146,9 @@ func (r *ReviewRepo) AggregateStats(ctx context.Context, opts models.ListOptions
 	applyFilters := func(db *gormLib.DB) *gormLib.DB {
 		if opts.Status != "" {
 			db = db.Where("status = ?", opts.Status)
+		}
+		if opts.GateStatus != "" {
+			db = db.Where("response::jsonb->'gate'->>'status' = ?", opts.GateStatus)
 		}
 		if opts.Provider != "" {
 			db = db.Where("provider = ?", opts.Provider)

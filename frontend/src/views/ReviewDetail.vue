@@ -139,8 +139,8 @@
                 <div class="card-header">
                   <span>代码 Review 执行信息</span>
                   <div class="ocr-header-actions">
-                    <el-tag :type="detail.report.ocr.status === 'success' ? 'success' : detail.report.ocr.status === 'skipped' ? 'warning' : 'info'" size="small">
-                      {{ detail.report.ocr.status || '未知' }}
+                    <el-tag :type="ocrDisplay.statusType" size="small">
+                      {{ ocrDisplay.statusLabel }}
                     </el-tag>
                     <el-button size="small" plain :loading="viewerLoading" @click="toggleReviewViewer">
                       {{ reviewViewerOpen ? '收起 Viewer' : '打开 OCR Viewer' }}
@@ -150,23 +150,23 @@
               </template>
               <el-descriptions :column="ocrDescriptionColumns" border size="small">
                 <el-descriptions-item label="引擎">
-                  {{ detail.report.ocr.engine === 'open-code-review' ? 'AI Code Review 引擎' : detail.report.ocr.engine || '-' }}
+                  {{ ocrDisplay.engine }}
                 </el-descriptions-item>
-                <el-descriptions-item label="审查文件数">{{ detail.report.ocr.files_reviewed ?? '-' }}</el-descriptions-item>
-                <el-descriptions-item label="评论数">{{ detail.report.ocr.comments ?? '-' }}</el-descriptions-item>
-                <el-descriptions-item label="总 Tokens">{{ detail.report.ocr.total_tokens ? detail.report.ocr.total_tokens.toLocaleString() : '-' }}</el-descriptions-item>
-                <el-descriptions-item label="输入 Tokens">{{ detail.report.ocr.input_tokens ? detail.report.ocr.input_tokens.toLocaleString() : '-' }}</el-descriptions-item>
-                <el-descriptions-item label="输出 Tokens">{{ detail.report.ocr.output_tokens ? detail.report.ocr.output_tokens.toLocaleString() : '-' }}</el-descriptions-item>
-                <el-descriptions-item label="缓存读 Tokens">{{ detail.report.ocr.cache_read_tokens ? detail.report.ocr.cache_read_tokens.toLocaleString() : '-' }}</el-descriptions-item>
-                <el-descriptions-item label="缓存写 Tokens">{{ detail.report.ocr.cache_write_tokens ? detail.report.ocr.cache_write_tokens.toLocaleString() : '-' }}</el-descriptions-item>
-                <el-descriptions-item label="平均 Tokens/文件">{{ tokensPerReviewedFile }}</el-descriptions-item>
-                <el-descriptions-item label="耗时">{{ detail.report.ocr.elapsed || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="审查文件数">{{ ocrDisplay.filesReviewed }}</el-descriptions-item>
+                <el-descriptions-item label="评论数">{{ ocrDisplay.comments }}</el-descriptions-item>
+                <el-descriptions-item label="总 Tokens">{{ ocrDisplay.totalTokens }}</el-descriptions-item>
+                <el-descriptions-item label="输入 Tokens">{{ ocrDisplay.inputTokens }}</el-descriptions-item>
+                <el-descriptions-item label="输出 Tokens">{{ ocrDisplay.outputTokens }}</el-descriptions-item>
+                <el-descriptions-item label="缓存读 Tokens">{{ ocrDisplay.cacheReadTokens }}</el-descriptions-item>
+                <el-descriptions-item label="缓存写 Tokens">{{ ocrDisplay.cacheWriteTokens }}</el-descriptions-item>
+                <el-descriptions-item label="平均 Tokens/文件">{{ ocrDisplay.tokensPerFile }}</el-descriptions-item>
+                <el-descriptions-item label="耗时">{{ ocrDisplay.elapsed }}</el-descriptions-item>
                 <el-descriptions-item label="审查范围">
-                  {{ detail.report.scope?.reviewed_files ?? '-' }} / {{ detail.report.scope?.changed_files ?? '-' }} 文件
+                  {{ ocrDisplay.scopeLabel }}
                 </el-descriptions-item>
-                <el-descriptions-item label="风险密度">{{ findingDensityLabel }}</el-descriptions-item>
-                <el-descriptions-item label="排除文件">{{ detail.report.scope?.excluded_files ?? '-' }}</el-descriptions-item>
-                <el-descriptions-item label="工具调用">{{ detail.report.ocr.tool_calls?.total ?? '-' }}</el-descriptions-item>
+                <el-descriptions-item label="风险密度">{{ ocrDisplay.findingDensity }}</el-descriptions-item>
+                <el-descriptions-item label="排除文件">{{ ocrDisplay.excludedFiles }}</el-descriptions-item>
+                <el-descriptions-item label="工具调用">{{ ocrDisplay.toolCalls }}</el-descriptions-item>
               </el-descriptions>
               <el-alert
                 v-if="detail.report.ocr.project_summary"
@@ -319,6 +319,8 @@
               :gate-passed="detail.gate?.passed"
               :review-status="detail.status"
               :reason="detail.gate?.reason"
+              :report="detail.report"
+              :findings="detail.findings"
             />
 
             <ModelComparePanel
@@ -390,22 +392,12 @@ let fetchInFlight = false
 const descriptionColumns = computed(() => viewportWidth.value < 720 ? 1 : 2)
 const ocrDescriptionColumns = computed(() => viewportWidth.value < 720 ? 1 : 3)
 const toolCallRows = computed(() => {
-  const byTool = detail.value?.report?.ocr?.tool_calls?.by_tool || {}
+  const byTool = ocrDisplay.value.rawToolCalls?.by_tool || {}
   return Object.entries(byTool)
-    .map(([name, count]) => ({ name, count }))
+    .map(([name, count]) => ({ name, count: Number(count) || 0 }))
     .sort((a, b) => b.count - a.count)
 })
-const tokensPerReviewedFile = computed(() => {
-  const total = detail.value?.report?.ocr?.total_tokens || 0
-  const reviewed = detail.value?.report?.scope?.reviewed_files || detail.value?.report?.ocr?.files_reviewed || 0
-  if (!total || !reviewed) return '-'
-  return Math.round(total / reviewed).toLocaleString()
-})
-const findingDensityLabel = computed(() => {
-  const density = detail.value?.report?.score?.findings_density
-  if (density === undefined || density === null) return '-'
-  return `${density.toFixed(2)} / 百行`
-})
+const ocrDisplay = computed(() => buildOCRDisplay(detail.value))
 const reviewViewerRepoSlug = computed(() => {
   const workspaceDir = String(detail.value?.raw_ocr_input?.workspace?.dir || '').trim()
   if (!workspaceDir) return ''
@@ -437,6 +429,144 @@ function toggleDebugMode() {
 
 function updateViewportWidth() {
   viewportWidth.value = window.innerWidth
+}
+
+function asRecord(value: unknown): Record<string, any> {
+  if (!value) return {}
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value)
+      return parsed && typeof parsed === 'object' ? parsed : {}
+    } catch {
+      return {}
+    }
+  }
+  return typeof value === 'object' ? value as Record<string, any> : {}
+}
+
+function positiveNumber(...values: unknown[]) {
+  for (const value of values) {
+    const n = Number(value)
+    if (Number.isFinite(n) && n > 0) return n
+  }
+  return undefined
+}
+
+function nonNegativeNumber(...values: unknown[]) {
+  for (const value of values) {
+    const n = Number(value)
+    if (Number.isFinite(n) && n >= 0) return n
+  }
+  return undefined
+}
+
+function firstText(...values: unknown[]) {
+  for (const value of values) {
+    const text = String(value ?? '').trim()
+    if (text) return text
+  }
+  return ''
+}
+
+function formatCount(value?: number) {
+  return value === undefined ? '-' : value.toLocaleString()
+}
+
+function tokenMetric(totalTokens: number | undefined, ...values: unknown[]) {
+  return totalTokens ? nonNegativeNumber(...values) : positiveNumber(...values)
+}
+
+function normalizeOCRStatus(value: string, review?: ReviewDetailType | null) {
+  const status = value.trim()
+  if (status) return status
+  if (review?.status === 'success' || review?.status === 'completed') return 'success'
+  if (review?.status === 'failed') return 'failed'
+  if (review?.status === 'running' || review?.status === 'queued') return review.status
+  if (review?.report?.generated) return review.report.complete === false ? 'partial' : 'success'
+  return ''
+}
+
+function getOCRStatusType(status: string) {
+  if (status === 'success' || status === 'completed') return 'success'
+  if (status === 'skipped' || status === 'partial' || status === 'queued' || status === 'running') return 'warning'
+  if (status === 'failed' || status === 'error') return 'danger'
+  return 'info'
+}
+
+function getOCRStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    success: '已完成',
+    completed: '已完成',
+    partial: '部分完成',
+    skipped: '已跳过',
+    queued: '排队中',
+    running: '执行中',
+    failed: '执行失败',
+    error: '执行失败',
+  }
+  return labels[status] || status || '暂无执行状态'
+}
+
+function getEngineLabel(engine: string, hasOCRData: boolean) {
+  if (engine === 'open-code-review') return 'AI Code Review 引擎'
+  if (engine) return engine
+  return hasOCRData ? 'AI Code Review 引擎' : '暂无引擎信息'
+}
+
+function findOCRHistoryDetails(review?: ReviewDetailType | null) {
+  const events = review?.history || []
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const details = asRecord(events[i].details)
+    if (positiveNumber(details.files_reviewed, details.total_tokens, details.comments) || firstText(details.elapsed)) {
+      return details
+    }
+  }
+  return {}
+}
+
+function buildOCRDisplay(review?: ReviewDetailType | null) {
+  const report = review?.report
+  const ocr = report?.ocr || {}
+  const scope = asRecord(report?.scope)
+  const rawOCR = asRecord(review?.raw_ocr)
+  const rawSummary = asRecord(rawOCR.summary)
+  const rawToolCalls = asRecord(rawOCR.tool_calls)
+  const historyDetails = findOCRHistoryDetails(review)
+  const findingsCount = review?.findings?.length || 0
+
+  const filesReviewed = positiveNumber(ocr.files_reviewed, rawSummary.files_reviewed, historyDetails.files_reviewed, scope.reviewed_files)
+  const comments = positiveNumber(ocr.comments, rawSummary.comments, historyDetails.comments, findingsCount)
+  const totalTokens = positiveNumber(ocr.total_tokens, rawSummary.total_tokens, historyDetails.total_tokens)
+  const inputTokens = tokenMetric(totalTokens, ocr.input_tokens, rawSummary.input_tokens)
+  const outputTokens = tokenMetric(totalTokens, ocr.output_tokens, rawSummary.output_tokens)
+  const cacheReadTokens = tokenMetric(totalTokens, ocr.cache_read_tokens, rawSummary.cache_read_tokens)
+  const cacheWriteTokens = tokenMetric(totalTokens, ocr.cache_write_tokens, rawSummary.cache_write_tokens)
+  const changedFiles = positiveNumber(scope.changed_files, filesReviewed)
+  const excludedFiles = nonNegativeNumber(scope.excluded_files)
+  const toolCallsTotal = positiveNumber(ocr.tool_calls?.total, rawToolCalls.total)
+  const status = normalizeOCRStatus(firstText(ocr.status, rawOCR.status), review)
+  const density = report?.score?.findings_density
+  const hasOCRData = Boolean(filesReviewed || comments || totalTokens || rawOCR.summary || report?.generated)
+
+  return {
+    rawToolCalls: ocr.tool_calls || rawToolCalls,
+    statusLabel: getOCRStatusLabel(status),
+    statusType: getOCRStatusType(status),
+    engine: getEngineLabel(firstText(ocr.engine, rawOCR.engine), hasOCRData),
+    filesReviewed: formatCount(filesReviewed),
+    comments: formatCount(comments),
+    totalTokens: formatCount(totalTokens),
+    inputTokens: formatCount(inputTokens),
+    outputTokens: formatCount(outputTokens),
+    cacheReadTokens: formatCount(cacheReadTokens),
+    cacheWriteTokens: formatCount(cacheWriteTokens),
+    tokensPerFile: totalTokens && filesReviewed ? Math.round(totalTokens / filesReviewed).toLocaleString() : '-',
+    elapsed: firstText(ocr.elapsed, rawSummary.elapsed, historyDetails.elapsed) || '-',
+    scopeLabel: `${formatCount(filesReviewed || scope.reviewed_files)} / ${formatCount(changedFiles)} 文件`,
+    findingDensity: density === undefined || density === null ? '-' : `${density.toFixed(2)} / 百行`,
+    excludedFiles: formatCount(excludedFiles),
+    toolCalls: formatCount(toolCallsTotal),
+  }
 }
 
 function getSummaryLabel(review: ReviewDetailType) {

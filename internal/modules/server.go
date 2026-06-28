@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	diagnosticsHandler "github.com/yi-nology/code-review-service/biz/handler/diagnostics_service"
+	feedbackHandler "github.com/yi-nology/code-review-service/biz/handler/feedback_service"
 	reviewHandler "github.com/yi-nology/code-review-service/biz/handler/review_service"
 	settingsHandler "github.com/yi-nology/code-review-service/biz/handler/settings_service"
 	"github.com/yi-nology/code-review-service/biz/router"
@@ -104,6 +106,8 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos
 	router.GeneratedRegister(h)
 	registerReviewExtraRoutes(h)
 	registerSettingsExtraRoutes(h)
+	registerDiagnosticsRoutes(h)
+	registerFeedbackRoutes(h)
 	registerViewerProxyRoute(h, viewerMgr, cfg.Auth.Token)
 }
 
@@ -118,6 +122,15 @@ func registerSettingsExtraRoutes(h *server.Hertz) {
 	h.GET("/api/v1/settings/ocr/tool-packages/:id/history", settingsHandler.ListToolPackageVersions)
 	h.POST("/api/v1/settings/ocr/tool-packages/:id/history/:version/restore", settingsHandler.RestoreToolPackageVersion)
 	h.POST("/api/v1/settings/ocr/viewer/locate", settingsHandler.LocateViewerSession)
+}
+
+func registerDiagnosticsRoutes(h *server.Hertz) {
+	h.GET("/api/v1/diagnostics", diagnosticsHandler.Snapshot)
+}
+
+func registerFeedbackRoutes(h *server.Hertz) {
+	h.GET("/api/v1/reviews/:id/findings/feedback", feedbackHandler.ListFeedback)
+	h.POST("/api/v1/reviews/:id/findings/:index/feedback", feedbackHandler.UpsertFeedback)
 }
 
 func registerViewerProxyRoute(h *server.Hertz, viewerMgr *ocr.ViewerManager, authToken string) {

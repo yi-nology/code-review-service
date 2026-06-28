@@ -47,13 +47,14 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace domain.Worksp
 		return nil, fmt.Errorf("open-code-review scan requires a checked out workspace")
 	}
 
-	timeout := time.Duration(r.config.TimeoutMinutes) * time.Minute
-	if timeout <= 0 {
-		timeout = 10 * time.Minute
+	timeoutMinutes := req.TimeoutMinutes
+	if timeoutMinutes < 5 || timeoutMinutes > 120 {
+		timeoutMinutes = 60
 	}
+	timeout := time.Duration(timeoutMinutes) * time.Minute
 	progressReporter := progress.ProgressReporterFromContext(ctx)
 
-	ctx, cancel := context.WithTimeout(ctx, timeout+30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	if progressReporter != nil {
 		ctx = progress.WithProgressReporter(ctx, progressReporter)
@@ -65,7 +66,7 @@ func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace domain.Worksp
 		"--format", "json",
 		"--concurrency", convert.IntToStr(r.config.Concurrency),
 		"--max-git-procs", convert.IntToStr(r.config.MaxGitProcs),
-		"--timeout", convert.IntToStr(r.config.TimeoutMinutes),
+		"--timeout", convert.IntToStr(timeoutMinutes),
 		"--audience", r.config.Audience,
 	}
 	if req.Preview {

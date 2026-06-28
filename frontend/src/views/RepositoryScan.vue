@@ -176,6 +176,18 @@
                   placeholder="例如：迁移前质量体检，重点关注兼容性和安全风险"
                 />
               </el-form-item>
+
+              <el-form-item label="超时时间（分钟）">
+                <el-input-number
+                  v-model="form.timeout_minutes"
+                  :min="5"
+                  :max="120"
+                  :step="5"
+                  :defaultValue="60"
+                  controls-position="right"
+                  style="width: 100%"
+                />
+              </el-form-item>
             </div>
 
             <!-- Card 3: Advanced (collapsible) -->
@@ -831,6 +843,7 @@ const form = reactive({
   no_plan: false,
   no_dedup: false,
   no_summary: false,
+  timeout_minutes: 60,
 })
 
 const formRules: FormRules = {
@@ -984,6 +997,7 @@ function saveFormState() {
       no_plan: form.no_plan,
       no_dedup: form.no_dedup,
       no_summary: form.no_summary,
+      timeout_minutes: form.timeout_minutes,
     }))
   } catch { /* ignore */ }
 }
@@ -1005,6 +1019,7 @@ function restoreFormState() {
     form.no_plan = saved.no_plan ?? false
     form.no_dedup = saved.no_dedup ?? false
     form.no_summary = saved.no_summary ?? false
+    form.timeout_minutes = saved.timeout_minutes ?? 60
   } catch { /* ignore */ }
 }
 

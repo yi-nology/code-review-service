@@ -1,6 +1,6 @@
 import request from './request'
 import type {
-  ReviewDetail, ListResult, ListOptions, CreateReviewOptions,
+  ReviewDetail, ListResult, ListOptions, CreateReviewOptions, FindingFeedback,
   ModelCompareCandidate, ModelCompareResult, PublishStatus, ScanRepositoryOptions, ScanRepositoryResult, SuggestionPatchApplyResult, SuggestionPatchCheck, SuggestionPatchPreview,
 } from '@/types/review'
 
@@ -136,4 +136,16 @@ export async function applySuggestionPatch(reviewId: string, options: {
 
 export async function compareReviewModels(reviewId: string, candidates: ModelCompareCandidate[]): Promise<ModelCompareResult> {
   return request.post(`/reviews/${reviewId}/model-compare`, { candidates }, { timeout: 900000 }) as any
+}
+
+export async function getFindingFeedback(reviewId: string): Promise<FindingFeedback[]> {
+  const data: any = await request.get(`/reviews/${reviewId}/findings/feedback`)
+  return data?.items ?? []
+}
+
+export async function saveFindingFeedback(reviewId: string, index: number, data: {
+  status: string
+  note?: string
+}): Promise<FindingFeedback> {
+  return request.post(`/reviews/${reviewId}/findings/${index}/feedback`, data) as any
 }

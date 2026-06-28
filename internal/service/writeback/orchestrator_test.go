@@ -3,6 +3,7 @@ package writeback
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
@@ -53,6 +54,18 @@ func (m *mockWritebackItemRepo) ListByReview(context.Context, string) ([]models.
 
 func (m *mockWritebackItemRepo) ListRetryable(context.Context, int) ([]models.WritebackItem, error) {
 	return m.items, nil
+}
+
+func (m *mockWritebackItemRepo) ListRecent(context.Context, string, string, int) ([]models.WritebackItem, error) {
+	return m.items, nil
+}
+
+func (m *mockWritebackItemRepo) CountByStatus(context.Context, time.Time) (map[string]int64, error) {
+	counts := map[string]int64{}
+	for _, item := range m.items {
+		counts[item.Status]++
+	}
+	return counts, nil
 }
 
 type mockWritebackAdapter struct {

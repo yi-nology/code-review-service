@@ -1,11 +1,12 @@
 package models
 
 type ListOptions struct {
-	Status   string
-	Provider string
-	Repo     string
-	Page     int
-	PageSize int
+	Status     string
+	GateStatus string
+	Provider   string
+	Repo       string
+	Page       int
+	PageSize   int
 }
 
 type AggregateStats struct {

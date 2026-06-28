@@ -142,6 +142,7 @@ type ScanRequest struct {
 	NoDedup         bool     `json:"no_dedup,omitempty"`
 	NoSummary       bool     `json:"no_summary,omitempty"`
 	Preview         bool     `json:"preview,omitempty"`
+	TimeoutMinutes  int      `json:"timeout_minutes,omitempty"`
 }
 
 type ScanResult struct {

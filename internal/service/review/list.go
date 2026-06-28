@@ -8,11 +8,12 @@ import (
 )
 
 type ListOptions struct {
-	Status   string
-	Provider string
-	Repo     string
-	Limit    int
-	Offset   int
+	Status     string
+	GateStatus string
+	Provider   string
+	Repo       string
+	Limit      int
+	Offset     int
 }
 
 type ListItem struct {

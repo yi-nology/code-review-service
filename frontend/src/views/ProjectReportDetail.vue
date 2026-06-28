@@ -29,14 +29,17 @@
 
       <div v-else v-loading="loading" class="report-shell">
         <div class="report-controls">
-          <el-date-picker
-            v-model="dateRange"
-            class="date-range"
-            type="daterange"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            unlink-panels
-          />
+          <div class="date-filter">
+            <el-date-picker
+              v-model="dateRange"
+              class="date-range"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              unlink-panels
+            />
+          </div>
           <el-button type="primary" plain @click="applyDateRange">更新报告</el-button>
           <el-button v-if="hasDateRange" link @click="clearDateRange">清除时间范围</el-button>
         </div>
@@ -550,19 +553,34 @@ onMounted(() => {
 }
 
 .report-controls {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) auto auto 1fr;
   align-items: center;
   gap: 10px;
   margin-bottom: 16px;
   border: 1px solid var(--app-border);
   border-radius: 8px;
-  padding: 12px;
+  padding: 12px 14px;
   background: #fff;
 }
 
-.date-range {
-  width: 300px;
+.date-filter {
+  min-width: 0;
+  width: 100%;
+}
+
+.date-filter :deep(.date-range) {
+  width: 100%;
+  max-width: 100%;
+}
+
+.date-filter :deep(.el-range-input) {
+  min-width: 92px;
+}
+
+.date-filter :deep(.el-range-separator) {
+  min-width: 20px;
+  padding: 0 6px;
 }
 
 .stats-row {
@@ -855,6 +873,12 @@ onMounted(() => {
     justify-content: flex-start;
   }
 
+  .report-controls {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .date-filter,
   .date-range {
     width: 100%;
   }

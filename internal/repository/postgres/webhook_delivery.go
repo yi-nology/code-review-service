@@ -57,3 +57,39 @@ func (r *WebhookDeliveryRepo) MarkProcessed(ctx context.Context, provider, insta
 		Where("provider = ? AND installation_id = ? AND delivery_id = ?", provider, installationID, deliveryID).
 		Updates(updates).Error
 }
+
+func (r *WebhookDeliveryRepo) ListRecent(ctx context.Context, provider, status string, limit int) ([]models.WebhookDelivery, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	db := r.db.WithContext(ctx).Model(&models.WebhookDelivery{})
+	if provider != "" {
+		db = db.Where("provider = ?", provider)
+	}
+	if status != "" {
+		db = db.Where("status = ?", status)
+	}
+	var items []models.WebhookDelivery
+	err := db.Order("received_at DESC").Limit(limit).Find(&items).Error
+	return items, err
+}
+
+func (r *WebhookDeliveryRepo) CountByStatus(ctx context.Context, since time.Time) (map[string]int64, error) {
+	type row struct {
+		Status string
+		Count  int64
+	}
+	db := r.db.WithContext(ctx).Model(&models.WebhookDelivery{})
+	if !since.IsZero() {
+		db = db.Where("received_at >= ?", since)
+	}
+	var rows []row
+	if err := db.Select("status, COUNT(*) AS count").Group("status").Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		out[row.Status] = row.Count
+	}
+	return out, nil
+}

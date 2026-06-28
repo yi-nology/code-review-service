@@ -29,4 +29,6 @@ type WritebackItemRepository interface {
 	IncrementAttempts(ctx context.Context, reviewID, findingKey, kind string) error
 	ListByReview(ctx context.Context, reviewID string) ([]models.WritebackItem, error)
 	ListRetryable(ctx context.Context, limit int) ([]models.WritebackItem, error)
+	ListRecent(ctx context.Context, reviewID, status string, limit int) ([]models.WritebackItem, error)
+	CountByStatus(ctx context.Context, since time.Time) (map[string]int64, error)
 }

@@ -102,11 +102,12 @@ func ListReviews(ctx context.Context, c *app.RequestContext) {
 	)
 
 	result, err := handlerInst.reviewSvc.List(ctx, review.ListOptions{
-		Status:   strings.TrimSpace(ptrx.Deref(req.Status, "")),
-		Provider: strings.TrimSpace(ptrx.Deref(req.Provider, "")),
-		Repo:     strings.TrimSpace(ptrx.Deref(req.Repo, "")),
-		Limit:    pageSize,
-		Offset:   (page - 1) * pageSize,
+		Status:     strings.TrimSpace(ptrx.Deref(req.Status, "")),
+		GateStatus: strings.TrimSpace(string(c.Query("gate_status"))),
+		Provider:   strings.TrimSpace(ptrx.Deref(req.Provider, "")),
+		Repo:       strings.TrimSpace(ptrx.Deref(req.Repo, "")),
+		Limit:      pageSize,
+		Offset:     (page - 1) * pageSize,
 	})
 	if err != nil {
 		common.Fail(c, err)
@@ -188,6 +189,7 @@ type scanRepositoryReq struct {
 	NoDedup         bool     `json:"no_dedup,omitempty"`
 	NoSummary       bool     `json:"no_summary,omitempty"`
 	Preview         bool     `json:"preview,omitempty"`
+	TimeoutMinutes  int      `json:"timeout_minutes,omitempty"`
 }
 
 func ScanRepository(ctx context.Context, c *app.RequestContext) {
@@ -210,6 +212,10 @@ func ScanRepository(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, common.BadRequest("max_tokens_budget 不能为负数"))
 		return
 	}
+	if req.TimeoutMinutes > 0 && (req.TimeoutMinutes < 5 || req.TimeoutMinutes > 120) {
+		common.Fail(c, common.BadRequest("timeout_minutes 范围 5-120"))
+		return
+	}
 
 	result, err := handlerInst.reviewSvc.Scan(ctx, domain.ScanRequest{
 		Provider:        strings.TrimSpace(req.Provider),
@@ -225,6 +231,7 @@ func ScanRepository(ctx context.Context, c *app.RequestContext) {
 		NoDedup:         req.NoDedup,
 		NoSummary:       req.NoSummary,
 		Preview:         req.Preview,
+		TimeoutMinutes:  req.TimeoutMinutes,
 	})
 	if err != nil {
 		common.Fail(c, mapReviewError(err))

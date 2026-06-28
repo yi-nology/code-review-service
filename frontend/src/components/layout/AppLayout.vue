@@ -36,6 +36,10 @@
           <el-icon><Notebook /></el-icon>
           <span>项目报告</span>
         </router-link>
+        <router-link to="/diagnostics" class="nav-item">
+          <el-icon><Monitor /></el-icon>
+          <span>诊断中心</span>
+        </router-link>
         <router-link to="/api-docs" class="nav-item">
           <el-icon><Document /></el-icon>
           <span>接口文档</span>
@@ -136,6 +140,7 @@ import {
   HomeFilled,
   List,
   Menu,
+  Monitor,
   Notebook,
   Search,
   SwitchButton,
