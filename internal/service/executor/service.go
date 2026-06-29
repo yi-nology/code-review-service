@@ -237,6 +237,7 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req domain
 		Dir:          workspace.Dir,
 		Round:        1,
 		Requirements: req.Requirements,
+		Language:     workspace.OCR.Language,
 	}
 	// 映射临时 reviewer：domain.EphemeralReviewer → agent.EphemeralSpec（阶段 5）
 	if len(req.EphemeralReviewers) > 0 {
