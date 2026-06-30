@@ -12,6 +12,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/requirements"
 	"github.com/yi-nology/code-review-service/internal/service/scoring"
+	"github.com/yi-nology/code-review-service/internal/service/session"
 	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/slicex"
@@ -512,7 +513,11 @@ func generateFinalReport(
 	}
 }
 
-// sessionService 是 session.Service 的本地接口，避免循环依赖
+// sessionService 描述 workflow 所需的 session 存储契约。
+//
+// PR-11 修复：从匿名本地接口升级为带文档的命名类型，*session.SessionService
+// 自然满足此接口（Go 隐式接口），无需在 session 包内显式声明。
+// 测试可通过 mock 实现该接口。
 type sessionService interface {
 	CreateSession(ctx context.Context, reviewID string, round int) (*models.ReviewSession, error)
 	UpdatePhase(ctx context.Context, sessionID string, phase models.SessionPhase, progress float64) error
@@ -522,3 +527,7 @@ type sessionService interface {
 	CompleteSession(ctx context.Context, sessionID string, finalReport models.FinalReportData) error
 	FailSession(ctx context.Context, sessionID string, reason string) error
 }
+
+// Compile-time assertion: *session.SessionService 必须实现 sessionService。
+// 未来 session.Service 增加方法而忘了更新本接口时，编译会失败。
+var _ sessionService = (*session.SessionService)(nil)
