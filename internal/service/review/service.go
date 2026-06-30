@@ -22,8 +22,6 @@ import (
 	gitprovider "github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
-	"github.com/oklog/ulid/v2"
-
 	"github.com/oekit/concurrency/async"
 	mw "github.com/oekit/middleware"
 
@@ -851,98 +849,6 @@ func scanPolicyFindings(findings []domain.Finding) []policy.Finding {
 	return out
 }
 
-func (s *Service) Requeue(ctx context.Context, reviewID string) (domain.Response, error) {
-	// Cancel any orphaned active sessions before re-queuing to avoid
-	// "already has an active session" conflicts on the next execution.
-	if s.sessionRepo != nil {
-		if err := s.sessionRepo.CancelActiveByReviewID(ctx, reviewID); err != nil {
-			logx.Warnf("requeue: failed to cancel active sessions for %s: %v", reviewID, err)
-		}
-	}
-
-	var resultResp domain.Response
-	err := s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *models.Review) error {
-		switch review.Status {
-		case StatusQueued, statusRunning:
-			return fmt.Errorf("%w: review is %s, only failed or completed reviews can be re-run", ErrInvalidState, review.Status)
-		}
-
-		var resp domain.Response
-		if err := json.Unmarshal(review.Response, &resp); err != nil {
-			return fmt.Errorf("decode response: %w", err)
-		}
-
-		resp.Status = StatusQueued
-		resp.Summary = "review re-queued"
-		resp.Gate = domain.PendingGate()
-		resp.Error = ""
-		resp.Findings = nil
-		resp.Report = domain.Report{}
-		resp.Analysis = domain.Analysis{}
-		resp.History = append(resp.History, domain.Event{
-			Stage:     stageQueued,
-			Status:    statusCompleted,
-			Message:   "review re-queued by user",
-			CreatedAt: time.Now().UTC(),
-		})
-
-		review.Status = StatusQueued
-		review.Response = mustMarshal(resp)
-		review.UpdatedAt = time.Now().UTC()
-		resultResp = resp
-		return nil
-	})
-	if err != nil {
-		if errors.Is(err, repoerr.ErrNotFound) {
-			return domain.Response{}, fmt.Errorf("%w: %s", ErrNotFound, reviewID)
-		}
-		return domain.Response{}, err
-	}
-	return resultResp, nil
-}
-
-func (s *Service) Cancel(ctx context.Context, reviewID string) (domain.Response, error) {
-	if cancelFn, ok := s.scanCancels.LoadAndDelete(reviewID); ok {
-		if fn, ok := cancelFn.(context.CancelFunc); ok {
-			fn()
-		}
-	}
-
-	var resultResp domain.Response
-	err := s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *models.Review) error {
-		if review.Status != StatusQueued && review.Status != statusRunning {
-			return fmt.Errorf("%w: only queued or running reviews can be cancelled (current: %s)", ErrInvalidState, review.Status)
-		}
-
-		var resp domain.Response
-		if err := json.Unmarshal(review.Response, &resp); err != nil {
-			return fmt.Errorf("decode response: %w", err)
-		}
-
-		resp.Status = statusFailed
-		resp.Summary = "review cancelled by user"
-		resp.Gate = domain.ErrorGate("review cancelled")
-		resp.History = append(resp.History, domain.Event{
-			Stage:     stageCancelled,
-			Status:    statusFailed,
-			Message:   "review cancelled by user",
-			CreatedAt: time.Now().UTC(),
-		})
-
-		review.Status = statusFailed
-		review.Response = mustMarshal(resp)
-		review.UpdatedAt = time.Now().UTC()
-		resultResp = resp
-		return nil
-	})
-	if err != nil {
-		if errors.Is(err, repoerr.ErrNotFound) {
-			return domain.Response{}, fmt.Errorf("%w: %s", ErrNotFound, reviewID)
-		}
-		return domain.Response{}, err
-	}
-	return resultResp, nil
-}
 
 func validate(req domain.Request) error {
 	if strings.TrimSpace(req.Provider) == "" {
@@ -985,16 +891,4 @@ func validate(req domain.Request) error {
 	return nil
 }
 
-// NewReviewID 生成 review 唯一 ID。
-// PR-14 修复：原实现用 32-bit crypto/rand + 日期前缀（"rv_20260630_xxx"），
-// 同一天内的实际熵只有 32 bit，且无单调递增性。
-// 改用 ULID（80 bit 熵 + 字典序 = 时间序），便于按 ID 排序做 range scan，
-// 外部链接也更短。
-func NewReviewID(now time.Time) string {
-	return ulid.Make().String()
-}
-
-// newReviewID 是 NewReviewID 的私有别名，保留以避免在 service.go 内部大量改调用点。
-func newReviewID(now time.Time) string {
-	return NewReviewID(now)
-}
+// newReviewID 别名由 id.go 提供，保留 service.go 内部调用点不动。
