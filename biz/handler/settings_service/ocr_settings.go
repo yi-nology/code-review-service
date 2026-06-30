@@ -52,7 +52,7 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 	// 前端已有独立 test-llm 按钮供主动验证，/health 的 llm-endpoint checker 持续监控，
 	// 强制拒绝会让用户无法保存还在迭代调试的配置（用户反馈"不让保存"）。预检结果仅记日志。
 	if dbSettings.Enabled {
-		if tester, ok := handlerInst.llmTester.(*ocr.Tester); ok {
+		if tester, ok := handlerInst.ocr.Tester().(*ocr.Tester); ok {
 			testCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 			result, err := tester.TestLLMWithSettings(testCtx, dbSettings)
 			cancel()
@@ -75,10 +75,10 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 }
 
 func TestLLM(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.llmTester, "LLM 测试") {
+	if !common.FeatureGuard(c, handlerInst.ocr.Tester(), "LLM 测试") {
 		return
 	}
-	result, err := handlerInst.llmTester.TestLLM(ctx)
+	result, err := handlerInst.ocr.Tester().TestLLM(ctx)
 	if err != nil {
 		common.Success(c, &modelSettings.TestLLMResp{
 			Result: &modelSettings.TestLLMResult{Success: false, Message: common.StrPtr(err.Error())},
