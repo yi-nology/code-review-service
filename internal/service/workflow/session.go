@@ -41,6 +41,8 @@ type ReviewRequest struct {
 	Dir          string
 	Requirements []string
 	Round        int
+	// Language 控制 TechLeadAnalysis 等 LLM 生成内容的回复语言。
+	Language string
 	// EphemeralReviewers 是本次评审临时加入的 reviewer（阶段 5），不入库。
 	EphemeralReviewers []agent.EphemeralSpec
 }

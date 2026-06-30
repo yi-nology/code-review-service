@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -177,17 +178,54 @@ func TestGiteaNormalizerNormalize(t *testing.T) {
 }
 
 func TestWebhookServiceMaxPayloadBytes(t *testing.T) {
-	svc := NewService(ServiceConfig{
+	svc, err := NewService(ServiceConfig{
 		MaxPayloadBytes: 0,
+		BotUsername:     "review-bot",
 	})
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
 	if svc.MaxPayloadBytes() != 1<<20 {
 		t.Errorf("expected default 1MB, got %d", svc.MaxPayloadBytes())
 	}
 
-	svc2 := NewService(ServiceConfig{
+	svc2, err := NewService(ServiceConfig{
 		MaxPayloadBytes: 5 << 20,
+		BotUsername:     "review-bot",
 	})
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
 	if svc2.MaxPayloadBytes() != 5<<20 {
 		t.Errorf("expected 5MB, got %d", svc2.MaxPayloadBytes())
+	}
+}
+
+// TestNewService_RequiresBotUsername 验证 PR-07 修复：
+// BotUsername 缺失时 NewService 必须返回 error，阻止生产部署静默放过 bot 回声。
+func TestNewService_RequiresBotUsername(t *testing.T) {
+	_, err := NewService(ServiceConfig{
+		MaxPayloadBytes: 1 << 20,
+		BotUsername:     "",
+	})
+	if err == nil {
+		t.Fatalf("expected error when BotUsername is empty, got nil")
+	}
+	if !strings.Contains(err.Error(), "BotUsername") {
+		t.Fatalf("expected error to mention BotUsername, got %v", err)
+	}
+}
+
+// TestNewService_AcceptsBotUsername 验证 BotUsername 非空时 NewService 成功。
+func TestNewService_AcceptsBotUsername(t *testing.T) {
+	svc, err := NewService(ServiceConfig{
+		MaxPayloadBytes: 1 << 20,
+		BotUsername:     "review-bot",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if svc == nil {
+		t.Fatalf("expected non-nil service")
 	}
 }

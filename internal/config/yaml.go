@@ -18,6 +18,7 @@ type Config struct {
 	Git       GitConfig       `yaml:"git"`
 	Agents    AgentsConfig    `yaml:"agents"`
 	RateLimit RateLimitConfig `yaml:"rate_limit"`
+	Webhook   WebhookConfig   `yaml:"webhook"`
 }
 
 // RateLimitConfig 控制全局 HTTP 限流（每秒请求数与突发桶大小）。
@@ -29,6 +30,9 @@ type RateLimitConfig struct {
 
 type AuthConfig struct {
 	Token string `yaml:"token"`
+	// Insecure 显式允许空 Token 启动（仅 dev 环境）。
+	// 生产环境（prod）下 Insecure=true 仍会启动失败。
+	Insecure bool `yaml:"insecure"`
 }
 
 type DatabaseConfig struct {
@@ -64,6 +68,12 @@ type OCRConfig struct {
 	UpgradeInstallDir string `yaml:"upgrade_install_dir"`
 	// GitHubRepo 指定 ocr 二进制的 GitHub 仓库（owner/repo），默认 alibaba/open-code-review。
 	GitHubRepo string `yaml:"github_repo"`
+}
+
+// WebhookConfig 控制 webhook 行为。
+// BotUsername 用于识别「本服务自身 PR 评论」触发的回声事件，避免自循环。
+type WebhookConfig struct {
+	BotUsername string `yaml:"bot_username"`
 }
 
 type PolicyConfig struct {

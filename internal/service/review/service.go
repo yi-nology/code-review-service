@@ -2,7 +2,6 @@ package review
 
 import (
 	"context"
-	crypto_rand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitprovider "github.com/yi-nology/code-review-service/internal/service/provider"
@@ -36,8 +36,8 @@ var gitObjectIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{7,64}$`)
 var errIdempotencyKeyTooLong = mw.NewBadRequestError("idempotency key too long")
 
 var (
-	ErrNotFound     = repository.ErrNotFound
-	ErrInvalidState = repository.ErrInvalidState
+	ErrNotFound     = repoerr.ErrNotFound
+	ErrInvalidState = repoerr.ErrInvalidState
 )
 
 const (
@@ -187,7 +187,7 @@ func (s *Service) createReview(ctx context.Context, req domain.Request, idempote
 	if err := s.reviewRepo.Create(ctx, review); err != nil {
 		if idempotencyKey != "" && gormx.IsUniqueViolation(err) {
 			existing, getErr := s.reviewRepo.GetByIdempotencyKey(ctx, idempotencyKey)
-			if getErr != nil && !errors.Is(getErr, repository.ErrNotFound) {
+			if getErr != nil && !errors.Is(getErr, repoerr.ErrNotFound) {
 				return domain.Response{}, fmt.Errorf("idempotency recovery: %w", getErr)
 			}
 			if existing != nil {
@@ -219,25 +219,21 @@ func (s *Service) createReview(ctx context.Context, req domain.Request, idempote
 	return s.Executor.Execute(ctx, id, req, provider, nil)
 }
 
+// findActiveReview 查找同一 (provider, repo, PR/MR) 的 active review。
+//
+// PR-02 修复：把 PR/MR 过滤推下 SQL（见 GetActiveByProviderRepo 实现），
+// 避免原先 unmarshal 整条 response JSONB 的开销与 TOCTOU 风险。
+// 仅在有 PR/MR 时才查找；scan 路径（两者都为空）返回 nil。
 func (s *Service) findActiveReview(ctx context.Context, req domain.Request) *domain.Response {
-	hasPR := req.PullRequestID != "" || req.MergeRequestIID != ""
-	if !hasPR {
+	if req.PullRequestID == "" && req.MergeRequestIID == "" {
 		return nil
 	}
-	existing, err := s.reviewRepo.GetActiveByProviderRepo(ctx, req.Provider, req.Repo)
+	existing, err := s.reviewRepo.GetActiveByProviderRepo(ctx, req.Provider, req.Repo, req.PullRequestID, req.MergeRequestIID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repoerr.ErrNotFound) {
 			return nil
 		}
 		logx.CtxErrorf(ctx, "failed to query active review by provider=%s repo=%s: %v", req.Provider, req.Repo, err)
-		return nil
-	}
-	var existingReq domain.Request
-	if err := json.Unmarshal(existing.Request, &existingReq); err != nil {
-		logx.CtxWarnf(ctx, "failed to decode active review request: %v", err)
-		return nil
-	}
-	if existingReq.PullRequestID != req.PullRequestID || existingReq.MergeRequestIID != req.MergeRequestIID {
 		return nil
 	}
 	var resp domain.Response
@@ -274,7 +270,7 @@ func queuedMessage(isWebhook bool) string {
 func (s *Service) Get(ctx context.Context, reviewID string) (domain.Record, bool, error) {
 	review, err := s.reviewRepo.GetByReviewID(ctx, reviewID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repoerr.ErrNotFound) {
 			return domain.Record{}, false, nil
 		}
 		return domain.Record{}, false, err
@@ -414,7 +410,7 @@ func (s *Service) Preview(ctx context.Context, req domain.Request) ([]string, er
 	projectPolicy := models.ProjectPolicy{FailOn: "critical"}
 	if s.projectRepo != nil {
 		policyRecord, err := s.projectRepo.GetByProviderRepo(ctx, req.Provider, req.Repo)
-		if err != nil && !errors.Is(err, repository.ErrNotFound) {
+		if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
 			logx.Warn("failed to get project policy, using default", "error", err)
 		}
 		if policyRecord != nil {
@@ -549,19 +545,23 @@ func (s *Service) scanAsync(ctx context.Context, req domain.ScanRequest) (*domai
 			defer func() { <-s.concurrencySem }()
 		}
 
-		s.runScanBackground(id, req, reporter)
+		// PR-03 修复：派生自 ctx，使得 HTTP 请求被取消时 scan goroutine 也能收到信号。
+		// 旧的 context.WithCancel(context.Background()) 与请求 lifecycle 完全脱钩，
+		// 只能依赖外部 Cancel() 显式调用。
+		scanCtx, cancel := context.WithCancel(ctx)
+		s.scanCancels.Store(id, cancel)
+		defer func() {
+			cancel()
+			s.scanCancels.Delete(id)
+		}()
+
+		s.runScanBackground(scanCtx, id, req, reporter)
 	})
 
 	return &domain.ScanResult{ReviewID: id}, nil
 }
 
-func (s *Service) runScanBackground(reviewID string, req domain.ScanRequest, reporter progress.ProgressReporter) {
-	scanCtx, cancel := context.WithCancel(context.Background())
-	s.scanCancels.Store(reviewID, cancel)
-	defer func() {
-		cancel()
-		s.scanCancels.Delete(reviewID)
-	}()
+func (s *Service) runScanBackground(scanCtx context.Context, reviewID string, req domain.ScanRequest, reporter progress.ProgressReporter) {
 	if reporter != nil {
 		scanCtx = progress.WithProgressReporter(scanCtx, reporter)
 		reporter.UpdatePhase(progress.PhaseContext, "active", 3, "准备仓库工作区...")
@@ -649,7 +649,7 @@ func (s *Service) scanExecuteWithPolicy(ctx context.Context, reviewID string, re
 	projectPolicy := models.ProjectPolicy{FailOn: "critical"}
 	if s.projectRepo != nil {
 		policyRecord, err := s.projectRepo.GetByProviderRepo(ctx, providerName, repo)
-		if err != nil && !errors.Is(err, repository.ErrNotFound) {
+		if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
 			logx.Warn("failed to get project policy, using default", "error", err)
 		}
 		if policyRecord != nil {
@@ -849,98 +849,6 @@ func scanPolicyFindings(findings []domain.Finding) []policy.Finding {
 	return out
 }
 
-func (s *Service) Requeue(ctx context.Context, reviewID string) (domain.Response, error) {
-	// Cancel any orphaned active sessions before re-queuing to avoid
-	// "already has an active session" conflicts on the next execution.
-	if s.sessionRepo != nil {
-		if err := s.sessionRepo.CancelActiveByReviewID(ctx, reviewID); err != nil {
-			logx.Warnf("requeue: failed to cancel active sessions for %s: %v", reviewID, err)
-		}
-	}
-
-	var resultResp domain.Response
-	err := s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *models.Review) error {
-		switch review.Status {
-		case StatusQueued, statusRunning:
-			return fmt.Errorf("%w: review is %s, only failed or completed reviews can be re-run", ErrInvalidState, review.Status)
-		}
-
-		var resp domain.Response
-		if err := json.Unmarshal(review.Response, &resp); err != nil {
-			return fmt.Errorf("decode response: %w", err)
-		}
-
-		resp.Status = StatusQueued
-		resp.Summary = "review re-queued"
-		resp.Gate = domain.PendingGate()
-		resp.Error = ""
-		resp.Findings = nil
-		resp.Report = domain.Report{}
-		resp.Analysis = domain.Analysis{}
-		resp.History = append(resp.History, domain.Event{
-			Stage:     stageQueued,
-			Status:    statusCompleted,
-			Message:   "review re-queued by user",
-			CreatedAt: time.Now().UTC(),
-		})
-
-		review.Status = StatusQueued
-		review.Response = mustMarshal(resp)
-		review.UpdatedAt = time.Now().UTC()
-		resultResp = resp
-		return nil
-	})
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return domain.Response{}, fmt.Errorf("%w: %s", ErrNotFound, reviewID)
-		}
-		return domain.Response{}, err
-	}
-	return resultResp, nil
-}
-
-func (s *Service) Cancel(ctx context.Context, reviewID string) (domain.Response, error) {
-	if cancelFn, ok := s.scanCancels.LoadAndDelete(reviewID); ok {
-		if fn, ok := cancelFn.(context.CancelFunc); ok {
-			fn()
-		}
-	}
-
-	var resultResp domain.Response
-	err := s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *models.Review) error {
-		if review.Status != StatusQueued && review.Status != statusRunning {
-			return fmt.Errorf("%w: only queued or running reviews can be cancelled (current: %s)", ErrInvalidState, review.Status)
-		}
-
-		var resp domain.Response
-		if err := json.Unmarshal(review.Response, &resp); err != nil {
-			return fmt.Errorf("decode response: %w", err)
-		}
-
-		resp.Status = statusFailed
-		resp.Summary = "review cancelled by user"
-		resp.Gate = domain.ErrorGate("review cancelled")
-		resp.History = append(resp.History, domain.Event{
-			Stage:     stageCancelled,
-			Status:    statusFailed,
-			Message:   "review cancelled by user",
-			CreatedAt: time.Now().UTC(),
-		})
-
-		review.Status = statusFailed
-		review.Response = mustMarshal(resp)
-		review.UpdatedAt = time.Now().UTC()
-		resultResp = resp
-		return nil
-	})
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return domain.Response{}, fmt.Errorf("%w: %s", ErrNotFound, reviewID)
-		}
-		return domain.Response{}, err
-	}
-	return resultResp, nil
-}
 
 func validate(req domain.Request) error {
 	if strings.TrimSpace(req.Provider) == "" {
@@ -983,8 +891,4 @@ func validate(req domain.Request) error {
 	return nil
 }
 
-func newReviewID(now time.Time) string {
-	b := make([]byte, 4)
-	_, _ = crypto_rand.Read(b)
-	return fmt.Sprintf("rv_%s_%x", now.Format("20060102"), b)
-}
+// newReviewID 别名由 id.go 提供，保留 service.go 内部调用点不动。

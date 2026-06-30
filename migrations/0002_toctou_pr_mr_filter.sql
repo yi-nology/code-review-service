@@ -1,0 +1,25 @@
+-- 0002_toctou_pr_mr_filter.sql
+-- PR-02 修复：把 (provider, repo, pull_request_id|merge_request_iid) 的
+-- active review 查找从 service 层的 JSONB unmarshal 下推到 SQL 层。
+--
+-- 已有索引 idx_reviews_active_change（见 db.go）继续作为「并发创建同一 PR/MR 的
+-- active review」唯一性兜底；本文件不修改索引结构，仅记录 SQL 改动的契约。
+--
+-- 改造前：
+--   service.findActiveReview：
+--     1) SELECT * FROM reviews WHERE provider=? AND repo=? AND status IN ('queued','running')
+--     2) json.Unmarshal(existing.Request) 比较 pull_request_id
+--   问题：每条 active review 都要 unmarshal 整条 Request JSONB；
+--   并发场景下两个 webhook 抢同一 PR 时，仅靠部分唯一索引兜底，scan 路径完全无保护。
+--
+-- 改造后：
+--   postgres.GetActiveByProviderRepo(ctx, provider, repo, pullRequestID, mergeRequestIID)：
+--     1) 当 pullRequestID != "" → SELECT ... WHERE pull_request_id = ?
+--     2) 当 mergeRequestIID != "" → SELECT ... WHERE merge_request_iid = ?
+--     3) 都为空（scan 路径）→ 仅按 (provider, repo, status) 过滤
+--   service.findActiveReview 直接读 response.Response JSONB 返回，不再 unmarshal Request。
+--
+-- 未来工作（不在本迁移中）：
+--   scan 路径的 TOCTOU 需另立方案：scan 评审通常没有 PR/MR，依赖
+--   (provider, repo, base_sha, head_sha) 联合唯一约束。详见后续 PR。
+SELECT 1;

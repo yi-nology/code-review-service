@@ -12,6 +12,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/requirements"
 	"github.com/yi-nology/code-review-service/internal/service/scoring"
+	"github.com/yi-nology/code-review-service/internal/service/session"
 	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/slicex"
@@ -121,14 +122,15 @@ func (s *analysisStep) runTechLeadAnalysis(ctx context.Context, rs *ReviewSessio
 		diff = diff[:maxDiffChars] + "\n... (diff truncated)"
 	}
 
-	systemPrompt := "你是一名资深技术负责人（Tech Lead），负责分析代码变更。请基于 diff 产出结构化分析：变更摘要、风险点清单、改进建议。只返回 JSON，不要任何解释或 markdown 围栏。"
+	language := strings.TrimSpace(rs.Request.Language)
+	systemPrompt, sectionFiles, sectionDiff, sectionReqs, returnHint := techLeadPrompts(language)
 
 	// A3：从 diff 提取变更文件清单作为显式范围（无需调二进制 preview 即可获得范围感知）
 	changedFiles := extractChangedFiles(rs.Request.Diff)
 
 	var sb strings.Builder
 	if len(changedFiles) > 0 {
-		sb.WriteString("【变更文件范围】\n")
+		sb.WriteString(sectionFiles + "\n")
 		for _, f := range changedFiles {
 			sb.WriteString("- ")
 			sb.WriteString(f)
@@ -136,18 +138,18 @@ func (s *analysisStep) runTechLeadAnalysis(ctx context.Context, rs *ReviewSessio
 		}
 		sb.WriteString("\n")
 	}
-	sb.WriteString("【代码变更 diff】\n```\n")
+	sb.WriteString(sectionDiff + "\n```\n")
 	sb.WriteString(diff)
 	sb.WriteString("\n```\n")
 	if len(rs.Request.Requirements) > 0 {
-		sb.WriteString("\n【需求上下文】\n")
+		sb.WriteString("\n" + sectionReqs + "\n")
 		for _, r := range rs.Request.Requirements {
 			sb.WriteString("- ")
 			sb.WriteString(r)
 			sb.WriteString("\n")
 		}
 	}
-	sb.WriteString("\n请返回 JSON：{\"summary\": \"变更摘要\", \"risks\": [\"风险点\"], \"recommendations\": [\"改进建议\"]}")
+	sb.WriteString("\n" + returnHint)
 
 	var analysis TechLeadAnalysis
 	if err := llm.CompleteJSON(ctx, s.llmProvider, llm.CompleteRequest{
@@ -159,6 +161,23 @@ func (s *analysisStep) runTechLeadAnalysis(ctx context.Context, rs *ReviewSessio
 		return nil
 	}
 	return &analysis
+}
+
+// techLeadPrompts 根据语言返回 Tech Lead 分析的 prompt 各部分。
+// language 为空或 "Chinese" 时使用中文，否则使用英文。
+func techLeadPrompts(language string) (systemPrompt, sectionFiles, sectionDiff, sectionReqs, returnHint string) {
+	if language == "" || strings.EqualFold(language, "Chinese") {
+		return "你是一名资深技术负责人（Tech Lead），负责分析代码变更。请基于 diff 产出结构化分析：变更摘要、风险点清单、改进建议。只返回 JSON，不要任何解释或 markdown 围栏。",
+			"【变更文件范围】",
+			"【代码变更 diff】",
+			"【需求上下文】",
+			"请返回 JSON：{\"summary\": \"变更摘要\", \"risks\": [\"风险点\"], \"recommendations\": [\"改进建议\"]}"
+	}
+	return "You are a senior Tech Lead responsible for analyzing code changes. Produce a structured analysis based on the diff: change summary, risk list, and improvement suggestions. Return JSON only, no explanations or markdown fences.",
+		"【Changed Files】",
+		"【Code Diff】",
+		"【Requirements Context】",
+		"Return JSON: {\"summary\": \"change summary\", \"risks\": [\"risk items\"], \"recommendations\": [\"improvement suggestions\"]}"
 }
 
 // parallelReviewsStep Phase 4: 并行运行多个 review agents
@@ -494,7 +513,11 @@ func generateFinalReport(
 	}
 }
 
-// sessionService 是 session.Service 的本地接口，避免循环依赖
+// sessionService 描述 workflow 所需的 session 存储契约。
+//
+// PR-11 修复：从匿名本地接口升级为带文档的命名类型，*session.SessionService
+// 自然满足此接口（Go 隐式接口），无需在 session 包内显式声明。
+// 测试可通过 mock 实现该接口。
 type sessionService interface {
 	CreateSession(ctx context.Context, reviewID string, round int) (*models.ReviewSession, error)
 	UpdatePhase(ctx context.Context, sessionID string, phase models.SessionPhase, progress float64) error
@@ -504,3 +527,7 @@ type sessionService interface {
 	CompleteSession(ctx context.Context, sessionID string, finalReport models.FinalReportData) error
 	FailSession(ctx context.Context, sessionID string, reason string) error
 }
+
+// Compile-time assertion: *session.SessionService 必须实现 sessionService。
+// 未来 session.Service 增加方法而忘了更新本接口时，编译会失败。
+var _ sessionService = (*session.SessionService)(nil)

@@ -12,6 +12,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
@@ -152,7 +153,7 @@ func (s *Service) Execute(ctx context.Context, id string, req domain.Request, pr
 	projectPolicy := models.ProjectPolicy{FailOn: "critical"}
 	if s.projectRepo != nil {
 		p, err := s.projectRepo.GetByProviderRepo(ctx, req.Provider, req.Repo)
-		if err != nil && !errors.Is(err, repository.ErrNotFound) {
+		if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
 			logx.Warn("failed to get project policy, using default", "error", err)
 		}
 		if p != nil {
@@ -237,6 +238,7 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req domain
 		Dir:          workspace.Dir,
 		Round:        1,
 		Requirements: req.Requirements,
+		Language:     workspace.OCR.Language,
 	}
 	// 映射临时 reviewer：domain.EphemeralReviewer → agent.EphemeralSpec（阶段 5）
 	if len(req.EphemeralReviewers) > 0 {
@@ -280,10 +282,19 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req domain
 	for _, ar := range result.AgentResults {
 		workflowTokens += ar.TokensUsed
 	}
+	var tla *domain.TechLeadAnalysis
+	if result.TechLeadAnalysis != nil {
+		tla = &domain.TechLeadAnalysis{
+			Summary:         result.TechLeadAnalysis.Summary,
+			Risks:           result.TechLeadAnalysis.Risks,
+			Recommendations: result.TechLeadAnalysis.Recommendations,
+		}
+	}
 	dummyResult := domain.Result{
-		Summary:  result.FinalReport.Summary,
-		Findings: findings,
-		Scope:    scope,
+		Summary:           result.FinalReport.Summary,
+		Findings:          findings,
+		Scope:             scope,
+		TechLeadAnalysis:  tla,
 		OCR: domain.OCRMetadata{
 			Engine:        "workflow",
 			Status:        review.OCRStatusSuccess,
@@ -299,17 +310,10 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req domain
 	report.Complete = true
 	report.Generated = true
 
-	analysis := domain.Analysis{
-		Overview: result.FinalReport.Summary,
-	}
-	// B2：把 Tech Lead 分析映射进 domain.Analysis（前端已读该字段）
-	if result.TechLeadAnalysis != nil {
-		if result.TechLeadAnalysis.Summary != "" {
-			analysis.Overview = result.TechLeadAnalysis.Summary
-		}
-		analysis.Risks = result.TechLeadAnalysis.Risks
-		analysis.Recommendations = result.TechLeadAnalysis.Recommendations
-	}
+	// PR-10 修复：复用 review.BuildAnalysis 推导 Analysis，与 runner 路径保持一致。
+	// 之前手写 domain.Analysis{Overview: result.FinalReport.Summary} 会丢失
+	// RootCause / Recommendations 等基于 findings 的字段，UI 上一直空着。
+	analysis := review.BuildAnalysis(dummyResult)
 
 	// workflow FinalReport 已含门禁结论（GatePassed/GateReason，对应 Verdict 如 REQUEST_CHANGES），
 	// 直接采用以与最终报告同步；不再用 review-service policy 重算（会和 workflow 结论冲突）。
@@ -325,11 +329,20 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req domain
 		Gate:     gate,
 	}
 
-	if err := s.updateWithRawOCR(ctx, id, req, resp, nil); err != nil {
-		return domain.Response{}, err
+	wbSummary, wbErr := s.publishWriteback(ctx, id, req, workspace, domain.Result{Summary: resp.Summary, Findings: findings})
+	resp.Writeback = wbSummary
+	if wbErr != nil {
+		resp.Status = domain.StatusSuccessWithPublishFailed
 	}
 
-	s.publishWriteback(ctx, id, req, workspace, domain.Result{Summary: resp.Summary, Findings: findings})
+	if err := s.updateWithRawOCR(ctx, id, req, resp, nil); err != nil {
+		return resp, err
+	}
+
+	// writeback 失败不中断主流程，但把 error 透传给 caller 以便 metrics / 排障。
+	if wbErr != nil {
+		return resp, fmt.Errorf("review completed but writeback failed: %w", wbErr)
+	}
 
 	return resp, nil
 }
@@ -378,19 +391,40 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req domain.R
 		Gate:     domain.CompletedGate(gate.Passed, gate.Reason),
 	}
 
-	s.publishWriteback(ctx, id, req, workspace, domain.Result{Summary: result.Summary, Findings: result.Findings})
+	wbSummary, wbErr := s.publishWriteback(ctx, id, req, workspace, domain.Result{Summary: result.Summary, Findings: result.Findings})
+	resp.Writeback = wbSummary
+	if wbErr != nil {
+		resp.Status = domain.StatusSuccessWithPublishFailed
+	}
 
 	if err := s.updateWithRawOCR(ctx, id, req, resp, result.RawOCR); err != nil {
+		if wbErr != nil {
+			return resp, fmt.Errorf("review completed but writeback failed: %w", wbErr)
+		}
 		return domain.Response{}, err
+	}
+
+	if wbErr != nil {
+		return resp, fmt.Errorf("review completed but writeback failed: %w", wbErr)
 	}
 
 	return resp, nil
 }
 
 // publishWriteback 在审查完成后将结果回写到代码平台（runner 和 workflow 路径共用）。
-func (s *Service) publishWriteback(ctx context.Context, id string, req domain.Request, workspace domain.Workspace, result domain.Result) {
+//
+// 返回值：
+//   - summary: 回写摘要，包含 status / published / failed / skipped / error
+//     字段。调用方负责把 summary 落到 resp.Writeback，并根据 status 决定是否
+//     把 resp.Status 改为 "success_with_publish_failed"。
+//   - err: 仅当底层 writeback.PublishWithDiff 返回非 nil error 时非空。
+//     history 上的 "writeback failed" 事件始终由本函数负责追加；不再静默吞错。
+//
+// 旧实现会把 error 写日志后吞掉，导致用户看到的 review 是 success 状态，
+// 但实际评论没发出去——见 PR-01。
+func (s *Service) publishWriteback(ctx context.Context, id string, req domain.Request, workspace domain.Workspace, result domain.Result) (domain.WritebackSummary, error) {
 	if s.writeback == nil {
-		return
+		return domain.WritebackSummary{Status: domain.WritebackStatusDisabled}, nil
 	}
 
 	callbackMode := req.CallbackMode
@@ -400,7 +434,7 @@ func (s *Service) publishWriteback(ctx context.Context, id string, req domain.Re
 	}
 
 	if callbackMode == "none" || callbackMode == "summary" {
-		return
+		return domain.WritebackSummary{Status: domain.WritebackStatusSkipped}, nil
 	}
 
 	s.appendHistory(ctx, id, "writeback", "running", "publishing review comments to git platform", nil)
@@ -412,18 +446,29 @@ func (s *Service) publishWriteback(ctx context.Context, id string, req domain.Re
 	}
 	wbResult, err := s.writeback.PublishWithDiff(ctx, writebackReq, result, workspace.Diff)
 	if err != nil {
-		logx.Warn("writeback publish failed", "error", err)
+		logx.Warn("writeback publish failed", "review_id", id, "error", err)
 		s.appendHistory(ctx, id, "writeback", "failed", fmt.Sprintf("writeback failed: %v", err), nil)
-		return
+		return domain.WritebackSummary{
+			Status: domain.WritebackStatusFailed,
+			Error:  err.Error(),
+		}, err
 	}
 
+	summary := domain.WritebackSummary{
+		Status:    domain.WritebackStatusOK,
+		Published: wbResult.Published,
+		Failed:    wbResult.Failed,
+		Skipped:   wbResult.Skipped,
+	}
 	if wbResult.Skipped {
+		summary.Status = domain.WritebackStatusSkipped
 		s.appendHistory(ctx, id, "writeback", "completed", "writeback skipped (stale or empty)", nil)
 	} else {
 		s.appendHistory(ctx, id, "writeback", "completed",
 			fmt.Sprintf("comments published to git platform (published=%d, failed=%d)", wbResult.Published, wbResult.Failed),
 			map[string]any{"published": wbResult.Published, "failed": wbResult.Failed})
 	}
+	return summary, nil
 }
 
 // recordFailure 记录评审失败：先追加一条 stage 级别的 failed history（带原始错误），

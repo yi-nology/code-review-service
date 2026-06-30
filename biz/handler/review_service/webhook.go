@@ -9,6 +9,7 @@ import (
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelWebhook "github.com/yi-nology/code-review-service/biz/model/webhook"
 	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/webhook"
 
@@ -60,7 +61,7 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 
 	platform, err := h.platformRepo.GetByProviderAndInstallation(ctx, req.Provider, req.Installation)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repoerr.ErrNotFound) {
 			common.Fail(c, common.NotFound("installation not found"))
 			return
 		}

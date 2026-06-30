@@ -22,6 +22,17 @@ type Result struct {
 	Warnings []OCRWarning    `json:"warnings,omitempty"`
 	Findings []Finding       `json:"findings"`
 	RawOCR   json.RawMessage `json:"-"`
+	// TechLeadAnalysis 是多 agent 评审中 TechLead 步骤的输出。
+	// 存在时优先于 findings 驱动的 Analysis 推导。PR-10 引入。
+	TechLeadAnalysis *TechLeadAnalysis `json:"tech_lead_analysis,omitempty"`
+}
+
+// TechLeadAnalysis 描述多 agent 评审中 Tech Lead 步骤的总结。
+// 字段直接映射到 domain.Analysis 字段。
+type TechLeadAnalysis struct {
+	Summary         string   `json:"summary,omitempty"`
+	Risks           []string `json:"risks,omitempty"`
+	Recommendations []string `json:"recommendations,omitempty"`
 }
 
 type ScopeMetadata struct {

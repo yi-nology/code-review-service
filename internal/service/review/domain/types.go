@@ -53,7 +53,32 @@ type Response struct {
 	History  []Event   `json:"history,omitempty"`
 	Findings []Finding `json:"findings,omitempty"`
 	Error    string    `json:"error,omitempty"`
+	// Writeback 记录回写（PR/MR 评论发布）的结果。
+	// 当 Status == StatusSuccessWithPublishFailed 时，Status 字段为 success_with_publish_failed。
+	Writeback WritebackSummary `json:"writeback,omitempty"`
 }
+
+// WritebackSummary 描述回写到 git 平台的最终结果。
+// Status: "ok" / "skipped" / "failed" / "disabled"。
+type WritebackSummary struct {
+	Status    string `json:"status"`
+	Published int    `json:"published"`
+	Failed    int    `json:"failed"`
+	Skipped   bool   `json:"skipped"`
+	Error     string `json:"error,omitempty"`
+}
+
+// Writeback status 常量。
+const (
+	WritebackStatusDisabled = "disabled"
+	WritebackStatusSkipped  = "skipped"
+	WritebackStatusOK       = "ok"
+	WritebackStatusFailed   = "failed"
+)
+
+// StatusSuccessWithPublishFailed 是评审成功但评论回写失败时的 review 状态。
+// 用于把 PR-01 修复的「writeback 失败被吞」问题暴露给上游消费者。
+const StatusSuccessWithPublishFailed = "success_with_publish_failed"
 
 type Event struct {
 	Stage     string         `json:"stage"`

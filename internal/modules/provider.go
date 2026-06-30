@@ -8,6 +8,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 
 	"github.com/oekit/logx"
@@ -68,7 +69,7 @@ func syncGitPlatforms(ctx context.Context, repos *repository.RepoContainer, svc 
 	// 持久化 YAML/ENV 配置的平台到 DB（仅当不存在时）。
 	for name, pCfg := range yamlConfigs {
 		existing, err := repos.GitPlatform.Get(ctx, name, "default")
-		if err != nil && !errors.Is(err, repository.ErrNotFound) {
+		if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
 			logx.Errorf("init: get git platform from DB %s: %v", name, err)
 			continue
 		}

@@ -10,9 +10,9 @@ import (
 	"github.com/yi-nology/code-review-service/biz/handler/session_service"
 	"github.com/yi-nology/code-review-service/biz/handler/settings_service"
 	"github.com/yi-nology/code-review-service/biz/handler/stats_service"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/diagnostics"
-	"github.com/yi-nology/code-review-service/internal/service/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 	svcReview "github.com/yi-nology/code-review-service/internal/service/review"
@@ -45,33 +45,15 @@ func InitWebhookHandler(webhookSvc *webhook.Service, reviewSvc *svcReview.Servic
 	review_service.InitWebhookHandler(webhookSvc, reviewSvc, repos.GitPlatform)
 }
 
+// InitSettingsHandler 收口为 3 个参数：repos + gitMgr + *ocr.Registry。
+// 之前 14 个参数；OCR 子能力（tester/lister/checker/versioner/viewer/upgrader）
+// 全部从 *ocr.Registry 拿。
 func InitSettingsHandler(
 	repos *repository.RepoContainer,
 	gitMgr *gitProvider.GitProviderService,
-	tester *ocr.Tester,
-	providerLister *ocr.ProviderLister,
-	rulesChecker *ocr.RulesChecker,
-	versioner *ocr.Versioner,
-	viewerMgr *ocr.ViewerManager,
-	upgrader *ocr.Upgrader,
+	ocrReg *ocr.Registry,
 ) {
-	settings_service.InitHandler(
-		repos.OCRSettings,
-		repos.ProjectPolicy,
-		repos.GitPlatform,
-		repos.GlobalRules,
-		repos.OCRRulePackage,
-		repos.OCRToolPackage,
-		repos.ReviewerAgent,
-		repos.CustomProvider,
-		gitMgr,
-		tester,
-		providerLister,
-		rulesChecker,
-		versioner,
-		viewerMgr,
-		upgrader,
-	)
+	settings_service.InitHandler(repos, gitMgr, ocrReg)
 }
 
 func InitStatsHandler(repos *repository.RepoContainer) {

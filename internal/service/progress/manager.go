@@ -43,7 +43,9 @@ func NewProgressManager() *ProgressManager {
 	}
 }
 
-func (pm *ProgressManager) GetBroadcaster() *broadcaster {
+// GetBroadcaster 返回 Broadcaster 接口（PR-12 修复：原返回 unexported *broadcaster，
+// 现返回 Broadcaster 接口便于测试 mock）。
+func (pm *ProgressManager) GetBroadcaster() Broadcaster {
 	return pm.broadcaster
 }
 

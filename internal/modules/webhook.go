@@ -1,6 +1,7 @@
 package modules
 
 import (
+	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/webhook"
 
@@ -11,7 +12,7 @@ var WebhookModule = fx.Options(
 	fx.Provide(NewWebhookService),
 )
 
-func NewWebhookService(repos *repository.RepoContainer) *webhook.Service {
+func NewWebhookService(cfg *config.Config, repos *repository.RepoContainer) (*webhook.Service, error) {
 	return webhook.NewService(webhook.ServiceConfig{
 		Normalizers: map[string]webhook.Normalizer{
 			"github":       &webhook.GitHubNormalizer{},
@@ -23,5 +24,6 @@ func NewWebhookService(repos *repository.RepoContainer) *webhook.Service {
 		DeliveryRepo:       repos.WebhookDelivery,
 		ChangeRevisionRepo: repos.ChangeRevision,
 		MaxPayloadBytes:    1 << 20,
+		BotUsername:        cfg.Webhook.BotUsername,
 	})
 }

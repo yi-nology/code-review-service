@@ -10,6 +10,19 @@ import (
 )
 
 func BuildAnalysis(result domain.Result) domain.Analysis {
+	// PR-10：多 agent 路径下，TechLeadAnalysis 是更高层的总结，优先于 findings 推导。
+	if tla := result.TechLeadAnalysis; tla != nil {
+		analysis := domain.Analysis{
+			Overview:        tla.Summary,
+			Risks:           append([]string(nil), tla.Risks...),
+			Recommendations: append([]string(nil), tla.Recommendations...),
+		}
+		// TechLead 没产出 Overview 时回退到 findings 推导
+		if analysis.Overview == "" {
+			analysis.Overview = fmt.Sprintf("代码评审共审查 %d 个文件，发现 %d 个问题。", result.OCR.FilesReviewed, len(result.Findings))
+		}
+		return analysis
+	}
 	if analysis := analysisFromRawOCR(result.RawOCR, result); analysis.Overview != "" {
 		return analysis
 	}

@@ -58,12 +58,29 @@ func (r *ReviewRepo) GetByIdempotencyKey(ctx context.Context, key string) (*mode
 	return &review, nil
 }
 
-func (r *ReviewRepo) GetActiveByProviderRepo(ctx context.Context, provider, repo string) (*models.Review, error) {
+// GetActiveByProviderRepo 返回 (provider, repo) 下处于 queued/running 的最近一条 review。
+//
+// 关键修复（PR-02）：pullRequestID / mergeRequestIID 任一非空时，把 PR/MR 过滤推到 SQL，
+// 避免 service 层先全表扫再 JSONB unmarshal 导致的 TOCTOU。
+// PR-02 之前：service 端 unmarshal 整条 response JSONB 比较 pull_request_id；
+// PR-02 之后：单条 SQL 完成 (provider, repo, pr_or_mr, status) 四元组过滤。
+//
+// 当两个参数都为空时（scan 路径），仅按 (provider, repo, status) 过滤；
+// 这种情况的并发安全由 db.go 中 idx_reviews_active_change 部分唯一索引兜底，
+// 但需要 Scan 路径也在 PR/MR/SHA 维度做等价匹配（见 service.scanExecuteWithPolicy）。
+func (r *ReviewRepo) GetActiveByProviderRepo(ctx context.Context, provider, repo, pullRequestID, mergeRequestIID string) (*models.Review, error) {
 	var review models.Review
-	err := r.db.WithContext(ctx).
-		Where("provider = ? AND repo = ? AND status IN ?", provider, repo, []string{"queued", "running"}).
-		Order("created_at DESC").
-		First(&review).Error
+	db := r.db.WithContext(ctx).
+		Where("provider = ? AND repo = ? AND status IN ?", provider, repo, []string{"queued", "running"})
+
+	switch {
+	case pullRequestID != "":
+		db = db.Where("pull_request_id = ?", pullRequestID)
+	case mergeRequestIID != "":
+		db = db.Where("merge_request_iid = ?", mergeRequestIID)
+	}
+
+	err := db.Order("created_at DESC").First(&review).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return nil, repoerr.ErrNotFound

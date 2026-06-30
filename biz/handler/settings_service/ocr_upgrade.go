@@ -12,10 +12,10 @@ import (
 
 // CheckOCRUpdate 检查 ocr 二进制是否有新版本。
 func CheckOCRUpdate(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.ocrUpgrader, "OCR 升级") {
+	if !common.FeatureGuard(c, handlerInst.ocr.Upgrader(), "OCR 升级") {
 		return
 	}
-	info, err := handlerInst.ocrUpgrader.CheckUpdate(ctx)
+	info, err := handlerInst.ocr.Upgrader().CheckUpdate(ctx)
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -36,7 +36,7 @@ func CheckOCRUpdate(ctx context.Context, c *app.RequestContext) {
 
 // StartOCRUpgrade 触发 ocr 二进制在线升级（异步）。
 func StartOCRUpgrade(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.ocrUpgrader, "OCR 升级") {
+	if !common.FeatureGuard(c, handlerInst.ocr.Upgrader(), "OCR 升级") {
 		return
 	}
 	req, ok := common.Bind[modelSettings.StartOCRUpgradeReq](c)
@@ -47,7 +47,7 @@ func StartOCRUpgrade(ctx context.Context, c *app.RequestContext) {
 	if req.Version != nil {
 		version = *req.Version
 	}
-	status, err := handlerInst.ocrUpgrader.Upgrade(ctx, version)
+	status, err := handlerInst.ocr.Upgrader().Upgrade(ctx, version)
 	if err != nil {
 		if status != nil {
 			common.Fail(c, common.BizErr(409, err.Error()))
@@ -61,10 +61,10 @@ func StartOCRUpgrade(ctx context.Context, c *app.RequestContext) {
 
 // OCRUpgradeStatus 查询当前升级任务的状态。
 func OCRUpgradeStatus(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.ocrUpgrader, "OCR 升级") {
+	if !common.FeatureGuard(c, handlerInst.ocr.Upgrader(), "OCR 升级") {
 		return
 	}
-	status, err := handlerInst.ocrUpgrader.UpgradeStatus(ctx)
+	status, err := handlerInst.ocr.Upgrader().UpgradeStatus(ctx)
 	if err != nil {
 		common.Fail(c, err)
 		return

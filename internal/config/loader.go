@@ -1,8 +1,8 @@
 package config
 
 import (
-	"flag"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -13,13 +13,16 @@ import (
 	"github.com/oekit/tracing"
 )
 
-var env = flag.String("env", "local", "environment: local, dev, prod")
-
+// Load 加载配置。PR-19 修复：原实现用全局 var env = flag.String(...)，
+// 不可测试且 init 顺序敏感。改为显式接收 env 参数。
 func Load() *Config {
-	flag.Parse()
+	return LoadWithEnv("local")
+}
 
-	cfgFile := fmt.Sprintf("etc/config-%s.yaml", *env)
-	cfg, err := config.LoadBootstrap[Config](*env)
+// LoadWithEnv 用显式环境名加载配置（便于测试与 main.go 显式控制）。
+func LoadWithEnv(env string) *Config {
+	cfgFile := fmt.Sprintf("etc/config-%s.yaml", env)
+	cfg, err := config.LoadBootstrap[Config](env)
 	if err != nil {
 		if _, statErr := os.Stat(cfgFile); os.IsNotExist(statErr) {
 			logx.Warn("config file not found, using defaults", "file", cfgFile, "error", err)
@@ -43,9 +46,18 @@ func applyEnvOverrides(cfg *Config) {
 	if v := config.Get("REVIEW_TOKEN"); v != "" {
 		cfg.Auth.Token = v
 	}
+	// PR-19：AUTH_INSECURE 显式开关，允许 dev 环境空 token 启动
+	if v, ok := config.GetBool("AUTH_INSECURE"); ok {
+		cfg.Auth.Insecure = v
+	}
 	if v := config.Get("HTTP_ADDR"); v != "" {
-		if p, err := strconv.Atoi(strings.TrimPrefix(v, ":")); err == nil {
-			cfg.Port = p
+		// PR-19 修复：使用 net.SplitHostPort 明确端口解析，
+		// 同时支持 ":8080" / "0.0.0.0:8080" / "8080" 三种形式。
+		port, err := parsePort(v)
+		if err == nil {
+			cfg.Port = port
+		} else {
+			logx.Warnf("invalid HTTP_ADDR %q: %v", v, err)
 		}
 	}
 
@@ -191,4 +203,21 @@ func (c *Config) GetRateLimit() (rps, burst int) {
 		burst = defaultBurst
 	}
 	return rps, burst
+}
+
+// parsePort 支持 ":8080" / "0.0.0.0:8080" / "8080" 三种形式。
+// 非法输入返回 error。
+func parsePort(addr string) (int, error) {
+	if !strings.Contains(addr, ":") {
+		return strconv.Atoi(addr)
+	}
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return 0, err
+	}
+	if host == "" {
+		// ":8080" 形式
+		return strconv.Atoi(port)
+	}
+	return strconv.Atoi(port)
 }

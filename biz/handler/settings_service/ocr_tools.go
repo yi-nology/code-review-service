@@ -27,10 +27,10 @@ func RulesCheck(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, common.BadRequest("文件路径不能为空"))
 		return
 	}
-	if !common.FeatureGuard(c, handlerInst.rulesChecker, "规则检查") {
+	if !common.FeatureGuard(c, handlerInst.ocr.Checker(), "规则检查") {
 		return
 	}
-	result, err := handlerInst.rulesChecker.RulesCheck(ctx, req.Path)
+	result, err := handlerInst.ocr.Checker().RulesCheck(ctx, req.Path)
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -46,10 +46,10 @@ func RulesCheck(ctx context.Context, c *app.RequestContext) {
 }
 
 func OCRVersion(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.ocrVersioner, "OCR 版本查询") {
+	if !common.FeatureGuard(c, handlerInst.ocr.Versioner(), "OCR 版本查询") {
 		return
 	}
-	result, err := handlerInst.ocrVersioner.OCRVersion(ctx)
+	result, err := handlerInst.ocr.Versioner().OCRVersion(ctx)
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -68,10 +68,10 @@ func OCRVersion(ctx context.Context, c *app.RequestContext) {
 }
 
 func ViewerStatus(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.viewerMgr, "Viewer") {
+	if !common.FeatureGuard(c, handlerInst.ocr.Viewer(), "Viewer") {
 		return
 	}
-	result, err := handlerInst.viewerMgr.ViewerStatus(ctx)
+	result, err := handlerInst.ocr.Viewer().ViewerStatus(ctx)
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -91,11 +91,11 @@ func StartViewer(ctx context.Context, c *app.RequestContext) {
 	if !ok {
 		return
 	}
-	if !common.FeatureGuard(c, handlerInst.viewerMgr, "Viewer") {
+	if !common.FeatureGuard(c, handlerInst.ocr.Viewer(), "Viewer") {
 		return
 	}
 	addr := ptrx.Deref(req.Addr, "")
-	result, err := handlerInst.viewerMgr.StartViewer(ctx, addr)
+	result, err := handlerInst.ocr.Viewer().StartViewer(ctx, addr)
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -111,10 +111,10 @@ func StartViewer(ctx context.Context, c *app.RequestContext) {
 }
 
 func StopViewer(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.viewerMgr, "Viewer") {
+	if !common.FeatureGuard(c, handlerInst.ocr.Viewer(), "Viewer") {
 		return
 	}
-	result, err := handlerInst.viewerMgr.StopViewer(ctx)
+	result, err := handlerInst.ocr.Viewer().StopViewer(ctx)
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -154,10 +154,10 @@ func LocateViewerSession(ctx context.Context, c *app.RequestContext) {
 }
 
 func ListLLMProviders(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.providerLister, "LLM Provider 列表") {
+	if !common.FeatureGuard(c, handlerInst.ocr.Lister(), "LLM Provider 列表") {
 		return
 	}
-	providers, err := handlerInst.providerLister.ListLLMProviders(ctx)
+	providers, err := handlerInst.ocr.Lister().ListLLMProviders(ctx)
 	if err != nil {
 		common.Fail(c, err)
 		return

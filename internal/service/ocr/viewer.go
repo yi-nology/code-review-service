@@ -17,6 +17,7 @@ type ViewerManager struct {
 	addr     string
 	mu       sync.Mutex
 	done     chan struct{}
+	wg       sync.WaitGroup // PR-05：跟踪后台 cmd.Wait goroutine，避免 done 通道被覆盖时旧 goroutine 泄漏
 	binary   string
 	settings settingsSource
 	resolver *ConfigResolver
@@ -73,6 +74,19 @@ func (vm *ViewerManager) ViewerStatus(ctx context.Context) (*domain.ViewerStatus
 }
 
 func (vm *ViewerManager) StartViewer(ctx context.Context, addr string) (*domain.ViewerStatus, error) {
+	binary := vm.resolveBinary()
+	args := []string{"viewer"}
+	if addr != "" {
+		args = append(args, "--addr", addr)
+	} else {
+		addr = "localhost:5483"
+	}
+	return vm.StartViewerWithCommand(ctx, addr, binary, args)
+}
+
+// StartViewerWithCommand 用指定 binary/args 启动 viewer 进程。
+// 暴露出来用于测试（生产调用方仍用 StartViewer）。
+func (vm *ViewerManager) StartViewerWithCommand(ctx context.Context, addr, binary string, args []string) (*domain.ViewerStatus, error) {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 
@@ -89,15 +103,6 @@ func (vm *ViewerManager) StartViewer(ctx context.Context, addr string) (*domain.
 		}
 	}
 
-	binary := vm.resolveBinary()
-
-	args := []string{"viewer"}
-	if addr != "" {
-		args = append(args, "--addr", addr)
-	} else {
-		addr = "localhost:5483"
-	}
-
 	cmd := exec.Command(binary, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
@@ -105,11 +110,16 @@ func (vm *ViewerManager) StartViewer(ctx context.Context, addr string) (*domain.
 		return nil, fmt.Errorf("启动 Viewer 失败: %w", err)
 	}
 
+	// PR-05 修复：在覆盖 done 之前先 Wait 旧 goroutine 退出，
+	// 避免旧 done 通道被遗弃导致 cmd/process 关联对象无法 GC。
+	vm.wg.Wait()
 	vm.process = cmd
 	vm.addr = addr
 	vm.done = make(chan struct{})
 
+	vm.wg.Add(1)
 	async.GoSafe(func() {
+		defer vm.wg.Done()
 		_ = cmd.Wait()
 		close(vm.done)
 	})

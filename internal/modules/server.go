@@ -16,11 +16,13 @@ import (
 	"github.com/yi-nology/code-review-service/biz/router"
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/middleware"
+	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/readiness"
-	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/llm"
-	"github.com/yi-nology/code-review-service/internal/service/ocr"
+	svrocr "github.com/yi-nology/code-review-service/internal/service/ocr"
 	"github.com/yi-nology/code-review-service/swagger"
+
+	// 阶段 A 移除"
 
 	"github.com/oekit/hertz/health"
 	mw "github.com/oekit/middleware"
@@ -65,8 +67,13 @@ func RegisterGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 	h.Use(middleware.SecurityHeaders())
 }
 
-func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos *repository.RepoContainer, resolver *ocr.ConfigResolver, viewerMgr *ocr.ViewerManager, cfg *config.Config) {
+// RegisterRoutes 收口为 5 个参数：h + db + llmMetrics + *ocrcore.Registry + cfg。
+// 之前 7 个参数；repos/resolver/viewerMgr 全部从 *ocrcore.Registry 拿。
+func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, ocrReg *ocrcore.Registry, cfg *config.Config) {
 	logx.Infof("[routes] registering routes...")
+
+	repos := ocrReg.Repos()
+	resolver := mustGetResolver()
 
 	healthOpts := []health.Option{}
 	if sqlDB, err := db.DB(); err == nil {
@@ -108,7 +115,7 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, repos
 	registerSettingsExtraRoutes(h)
 	registerDiagnosticsRoutes(h)
 	registerFeedbackRoutes(h)
-	registerViewerProxyRoute(h, viewerMgr, cfg.Auth.Token)
+	registerViewerProxyRoute(h, ocrReg.Viewer().(*svrocr.ViewerManager), cfg.Auth.Token)
 }
 
 func registerReviewExtraRoutes(h *server.Hertz) {
@@ -133,11 +140,25 @@ func registerFeedbackRoutes(h *server.Hertz) {
 	h.POST("/api/v1/reviews/:id/findings/:index/feedback", feedbackHandler.UpsertFeedback)
 }
 
-func registerViewerProxyRoute(h *server.Hertz, viewerMgr *ocr.ViewerManager, authToken string) {
+func registerViewerProxyRoute(h *server.Hertz, viewerMgr *svrocr.ViewerManager, authToken string) {
 	h.GET("/api/v1/settings/ocr/viewer/proxy/*path", viewerProxyHandler(viewerMgr, authToken))
 }
 
-func viewerProxyHandler(viewerMgr *ocr.ViewerManager, authToken string) app.HandlerFunc {
+// mustGetResolver 是过渡期辅助：返回 modules 包级缓存的 resolver。
+// 阶段 A 改为 ocrReg.Resolver() 后此函数删除。
+var packageResolver *svrocr.ConfigResolver
+
+func mustGetResolver() *svrocr.ConfigResolver {
+	return packageResolver
+}
+
+// SetPackageResolver 由 modules/ocr.go 在 fx 启动时调用，注入 resolver 供 server.go 使用。
+// 这是 B5 阶段的过渡做法，阶段 A 删掉。
+func SetPackageResolver(r *svrocr.ConfigResolver) {
+	packageResolver = r
+}
+
+func viewerProxyHandler(viewerMgr *svrocr.ViewerManager, authToken string) app.HandlerFunc {
 	proxyClient := &http.Client{Timeout: 30 * time.Second}
 	const maxProxyBody = 10 << 20 // 10 MB
 

@@ -4,9 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/readiness"
-	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/service/ocr"
 
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
@@ -17,7 +16,12 @@ import (
 // 复用 health.go 的 llmEndpointCheck（轻量 TCP 拨号），失败时 logx.Errorf 告警。
 var LLMProbeModule = fx.Options(fx.Invoke(RegisterLLMProbe))
 
-func RegisterLLMProbe(lc fx.Lifecycle, repos *repository.RepoContainer, resolver *ocr.ConfigResolver) {
+// RegisterLLMProbe 收口为 2 个参数：lc + *ocr.Registry。
+// 之前 3 个参数（lc + repos + resolver）。
+func RegisterLLMProbe(lc fx.Lifecycle, ocrReg *ocr.Registry) {
+	repos := ocrReg.Repos()
+	resolver := mustGetResolver()
+
 	var probeCancel context.CancelFunc
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {

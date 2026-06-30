@@ -11,8 +11,8 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 
-	"github.com/oekit/logx"
 	"gorm.io/datatypes"
 )
 
@@ -36,9 +36,14 @@ type Service struct {
 	botUsername        string
 }
 
-func NewService(cfg ServiceConfig) *Service {
+func NewService(cfg ServiceConfig) (*Service, error) {
 	if cfg.MaxPayloadBytes <= 0 {
 		cfg.MaxPayloadBytes = 1 << 20
+	}
+	// PR-07 修复：botUsername 为空时启动阶段直接报错，
+	// 避免运行时静默放过 bot 自身的回声事件。
+	if cfg.BotUsername == "" {
+		return nil, fmt.Errorf("webhook service: BotUsername is required to ignore bot-sent webhooks; configure it to your bot's login/username (e.g. \"review-bot\")")
 	}
 	return &Service{
 		normalizers:        cfg.Normalizers,
@@ -46,7 +51,7 @@ func NewService(cfg ServiceConfig) *Service {
 		changeRevisionRepo: cfg.ChangeRevisionRepo,
 		maxPayloadBytes:    cfg.MaxPayloadBytes,
 		botUsername:        cfg.BotUsername,
-	}
+	}, nil
 }
 
 type HandleResult struct {
@@ -79,7 +84,7 @@ func (s *Service) HandleWebhook(ctx context.Context, provider, installationID st
 	payloadSHA256 := hex.EncodeToString(h[:])
 
 	existing, err := s.deliveryRepo.Get(ctx, provider, installationID, deliveryID)
-	if err != nil && !errors.Is(err, repository.ErrNotFound) {
+	if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
 		return nil, fmt.Errorf("check delivery: %w", err)
 	}
 	if existing != nil {
@@ -105,8 +110,9 @@ func (s *Service) HandleWebhook(ctx context.Context, provider, installationID st
 	_ = json.Unmarshal(rawBody, &payload)
 
 	if IsBotSender(provider, payload, s.botUsername) {
+		// PR-07 修复：MarkProcessed 错误不再 silent warn，回传给调用方。
 		if err := s.deliveryRepo.MarkProcessed(ctx, provider, installationID, deliveryID, "ignored", "bot sender"); err != nil {
-			logx.Warn("failed to mark delivery as ignored (bot sender)", "error", err)
+			return &HandleResult{Ignored: true}, fmt.Errorf("mark delivery as ignored (bot sender): %w", err)
 		}
 		return &HandleResult{Ignored: true}, nil
 	}
@@ -117,14 +123,14 @@ func (s *Service) HandleWebhook(ctx context.Context, provider, installationID st
 	}
 	if event == nil {
 		if err := s.deliveryRepo.MarkProcessed(ctx, provider, installationID, deliveryID, "ignored", ""); err != nil {
-			logx.Warn("failed to mark delivery as ignored (nil event)", "error", err)
+			return &HandleResult{Ignored: true}, fmt.Errorf("mark delivery as ignored (nil event): %w", err)
 		}
 		return &HandleResult{Ignored: true}, nil
 	}
 
 	if IsDraftEvent(provider, payload) {
 		if err := s.deliveryRepo.MarkProcessed(ctx, provider, installationID, deliveryID, "ignored", "draft PR"); err != nil {
-			logx.Warn("failed to mark delivery as ignored (draft PR)", "error", err)
+			return &HandleResult{Ignored: true}, fmt.Errorf("mark delivery as ignored (draft PR): %w", err)
 		}
 		return &HandleResult{Ignored: true}, nil
 	}

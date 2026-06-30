@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -86,6 +88,10 @@ func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace domain.Wor
 	toRef := workspace.HeadSHA
 	if fromRef == "" {
 		fromRef = "HEAD"
+	}
+
+	if lang := strings.TrimSpace(r.config.Language); lang != "" {
+		ensureOCRLanguage(r.config.Binary, lang)
 	}
 
 	args := []string{
@@ -193,4 +199,36 @@ func (r *OpenCodeReviewRunner) runOnce(ctx context.Context, workspace domain.Wor
 	}
 
 	return ParseOpenCodeReviewOutput(stdout.Bytes(), r.config.DefaultSeverity)
+}
+
+// ensureOCRLanguage 将 language 写入 ocr 二进制的配置文件（~/.opencodereview/config.json）。
+// ocr 二进制不读 OCR_LANGUAGE 环境变量，只读配置文件中的 language 字段，
+// 用于在 system prompt 末尾追加 "Always respond in <Language>." 指令。
+func ensureOCRLanguage(binary, language string) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	dir := filepath.Join(home, ".opencodereview")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return
+	}
+	path := filepath.Join(dir, "config.json")
+
+	var cfg map[string]any
+	if data, err := os.ReadFile(path); err == nil {
+		_ = json.Unmarshal(data, &cfg)
+	}
+	if cfg == nil {
+		cfg = make(map[string]any)
+	}
+	if cfg["language"] == language {
+		return
+	}
+	cfg["language"] = language
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(path, data, 0o644)
 }

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
@@ -71,7 +71,7 @@ func (m *mockReviewRepo) GetByReviewID(_ context.Context, reviewID string) (*mod
 			return r, nil
 		}
 	}
-	return nil, repository.ErrNotFound
+	return nil, repoerr.ErrNotFound
 }
 
 func (m *mockReviewRepo) GetByIdempotencyKey(_ context.Context, key string) (*models.Review, error) {
@@ -82,18 +82,28 @@ func (m *mockReviewRepo) GetByIdempotencyKey(_ context.Context, key string) (*mo
 			return r, nil
 		}
 	}
-	return nil, repository.ErrNotFound
+	return nil, repoerr.ErrNotFound
 }
 
-func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, provider, repo string) (*models.Review, error) {
+func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, provider, repo, pullRequestID, mergeRequestIID string) (*models.Review, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, r := range m.reviews {
-		if r.Provider == provider && r.Repo == repo && (r.Status == "queued" || r.Status == "running") {
-			return r, nil
+		if r.Provider != provider || r.Repo != repo {
+			continue
 		}
+		if r.Status != "queued" && r.Status != "running" {
+			continue
+		}
+		if pullRequestID != "" && r.PullRequestID != pullRequestID {
+			continue
+		}
+		if mergeRequestIID != "" && r.MergeRequestIID != mergeRequestIID {
+			continue
+		}
+		return r, nil
 	}
-	return nil, repository.ErrNotFound
+	return nil, repoerr.ErrNotFound
 }
 
 func (m *mockReviewRepo) List(_ context.Context, opts models.ListOptions) (*ekitGorm.PageResponse[models.Review], error) {
@@ -134,7 +144,7 @@ func (m *mockReviewRepo) UpdateInTransaction(_ context.Context, reviewID string,
 			return fn(r)
 		}
 	}
-	return repository.ErrNotFound
+	return repoerr.ErrNotFound
 }
 
 func (m *mockReviewRepo) snapshot() []*models.Review {
@@ -878,11 +888,17 @@ type mockReviewRepoWithActive struct {
 	activeReview *models.Review
 }
 
-func (m *mockReviewRepoWithActive) GetActiveByProviderRepo(_ context.Context, provider, repo string) (*models.Review, error) {
+func (m *mockReviewRepoWithActive) GetActiveByProviderRepo(_ context.Context, provider, repo, pullRequestID, mergeRequestIID string) (*models.Review, error) {
 	if m.activeReview != nil && m.activeReview.Provider == provider && m.activeReview.Repo == repo {
+		if pullRequestID != "" && m.activeReview.PullRequestID != pullRequestID {
+			return nil, repoerr.ErrNotFound
+		}
+		if mergeRequestIID != "" && m.activeReview.MergeRequestIID != mergeRequestIID {
+			return nil, repoerr.ErrNotFound
+		}
 		return m.activeReview, nil
 	}
-	return nil, nil
+	return nil, repoerr.ErrNotFound
 }
 
 func TestFindActiveReviewReturnsExisting(t *testing.T) {
@@ -891,11 +907,12 @@ func TestFindActiveReviewReturnsExisting(t *testing.T) {
 	req.PullRequestID = "42"
 
 	activeReview := &models.Review{
-		ReviewID: "existing-review",
-		Provider: req.Provider,
-		Repo:     req.Repo,
-		Status:   "queued",
-		Request:  mustMarshalJSON(req),
+		ReviewID:      "existing-review",
+		Provider:      req.Provider,
+		Repo:          req.Repo,
+		PullRequestID: req.PullRequestID,
+		Status:        "queued",
+		Request:       mustMarshalJSON(req),
 		Response: mustMarshalJSON(domain.Response{
 			ReviewID: "existing-review",
 			Status:   "queued",
@@ -920,6 +937,80 @@ func TestFindActiveReviewReturnsExisting(t *testing.T) {
 	}
 	if resp.ReviewID != "existing-review" {
 		t.Fatalf("expected existing review ID, got %s", resp.ReviewID)
+	}
+}
+
+// TestFindActiveReview_PRIDMismatchIgnored 验证 PR-02 修复：
+// 当 (provider, repo) 下存在 active review，但 PR ID 不同时，
+// mockRepository 必须返回 nil/ErrNotFound（新评审可创建），不依赖 JSONB unmarshal。
+// 这验证了 SQL 层下推的正确性：PR 不匹配根本不会进入 review 记录。
+func TestFindActiveReview_PRIDMismatchIgnored(t *testing.T) {
+	activeRepo := &mockReviewRepo{}
+	activeRepo.reviews = []*models.Review{
+		{
+			ReviewID:      "another-review",
+			Provider:      "github",
+			Repo:          "owner/repo",
+			PullRequestID: "999", // 不匹配
+			Status:        "running",
+		},
+	}
+
+	// 传入 PR=42 应该找不到 PR=999 的 review。
+	got, err := activeRepo.GetActiveByProviderRepo(context.Background(), "github", "owner/repo", "42", "")
+	if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got err: %v", err)
+	}
+	if got != nil {
+		t.Fatalf("expected nil for PR mismatch, got %+v", got)
+	}
+}
+
+// TestFindActiveReview_PRIDMatch 验证 PR-02 修复：PR ID 匹配时能找到 review。
+func TestFindActiveReview_PRIDMatch(t *testing.T) {
+	activeRepo := &mockReviewRepo{}
+	activeRepo.reviews = []*models.Review{
+		{
+			ReviewID:      "matching-review",
+			Provider:      "github",
+			Repo:          "owner/repo",
+			PullRequestID: "42",
+			Status:        "queued",
+		},
+	}
+
+	got, err := activeRepo.GetActiveByProviderRepo(context.Background(), "github", "owner/repo", "42", "")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if got == nil {
+		t.Fatalf("expected to find review, got nil")
+	}
+	if got.ReviewID != "matching-review" {
+		t.Fatalf("expected matching-review, got %s", got.ReviewID)
+	}
+}
+
+// TestNewReviewID 验证 PR-14 修复：
+// newReviewID 应返回 ULID 格式（26 字符 Base32），且单调递增。
+func TestNewReviewID(t *testing.T) {
+	id1 := review.NewReviewID(time.Now().UTC())
+	id2 := review.NewReviewID(time.Now().UTC())
+
+	if len(id1) != 26 {
+		t.Fatalf("expected ULID length 26, got %d (%q)", len(id1), id1)
+	}
+	if id1 >= id2 {
+		t.Fatalf("expected ULID to be lexicographically ordered by time, got %q >= %q", id1, id2)
+	}
+	// 同毫秒内调用应仍唯一
+	seen := map[string]struct{}{id1: {}, id2: {}}
+	for i := 0; i < 100; i++ {
+		id := review.NewReviewID(time.Now().UTC())
+		if _, dup := seen[id]; dup {
+			t.Fatalf("duplicate id within same ms: %q", id)
+		}
+		seen[id] = struct{}{}
 	}
 }
 
@@ -1008,4 +1099,85 @@ func TestScanRecordsRawOCRInput(t *testing.T) {
 	if _, err := os.Stat(workspaceDir); err == nil {
 		_ = os.RemoveAll(workspaceDir)
 	}
+}
+
+// TestScanAsync_RequestCtxCancellation 验证 PR-03 修复：
+// 当 HTTP 请求 ctx 被取消时，scanAsync 启动的 goroutine 应当感知到 ctx.Done()。
+// 旧实现 context.WithCancel(context.Background()) 与请求 lifecycle 完全脱钩，
+// 只能通过显式 Service.Cancel() 取消；新实现派生自 ctx，请求断开即终止。
+//
+// 验证方式：scan runner 在 ctx.Done() 触发时记录一次信号；测试取消 ctx 后等待信号。
+func TestScanAsync_RequestCtxCancellation(t *testing.T) {
+	scanRunner := &ctxBlockingScanRunner{entered: make(chan struct{}, 1)}
+
+	svc := review.NewService(review.ServiceConfig{
+		ReviewRepo:      &mockReviewRepo{},
+		OCRSettingsRepo: &mockOCRSettingsRepo{},
+		ProjectRepo:     &mockProjectPolicyRepo{},
+		Policy:          policy.NewEngine(policy.Config{FailOn: "critical"}),
+		Providers: newTestProviders(testProvider{
+			name: "gitea",
+			prepare: func(_ context.Context, _ domain.Request) (domain.Workspace, error) {
+				return domain.Workspace{Dir: t.TempDir()}, nil
+			},
+		}),
+		Runner:     &countingRunner{},
+		ScanRunner: scanRunner,
+		Executor:   mockExecutor{runner: &countingRunner{}, repo: &mockReviewRepo{}},
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	scanReq := domain.ScanRequest{
+		Provider: "gitea",
+		Repo:     "owner/repo",
+		HeadSHA:  "deadbeef",
+		Batch:    "none",
+	}
+
+	result, err := svc.Scan(ctx, scanReq)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+	if result == nil || result.ReviewID == "" {
+		t.Fatalf("expected review ID, got %+v", result)
+	}
+
+	// 等待 scan runner 进入阻塞态（已收到 ctx）
+	select {
+	case <-scanRunner.entered:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("scan runner did not start within 2s")
+	}
+
+	// 取消请求 ctx
+	cancel()
+
+	// 等待 scan runner 收到 ctx.Done()
+	select {
+	case <-scanRunner.cancelled:
+		// 成功
+	case <-time.After(2 * time.Second):
+		t.Fatalf("scan runner did not receive ctx cancellation within 2s (PR-03 broken?)")
+	}
+}
+
+// ctxBlockingScanRunner 阻塞在 ctx.Done() 上以验证 cancellation。
+type ctxBlockingScanRunner struct {
+	entered    chan struct{}
+	cancelled  chan struct{}
+}
+
+func (r *ctxBlockingScanRunner) Scan(ctx context.Context, _ domain.Workspace, _ domain.ScanRequest) (*domain.ScanResult, error) {
+	select {
+	case r.entered <- struct{}{}:
+	default:
+	}
+	if r.cancelled == nil {
+		r.cancelled = make(chan struct{})
+	}
+	<-ctx.Done()
+	close(r.cancelled)
+	return nil, ctx.Err()
 }

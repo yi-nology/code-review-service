@@ -8,13 +8,21 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/modules"
+	"github.com/yi-nology/code-review-service/internal/observability/redact"
 
 	"github.com/oekit/bootstrap"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 )
+
+func init() {
+	// PR-08 修复：把全局 logx 包装为自动脱敏 logger，
+	// 拦截 logx.Info/Warn/Error 与 %v %w 错误中的敏感字段（Bearer / api_key / sk- / ghp_ / ...）。
+	logx.SetDefault(redact.NewLogxLogger(logx.Default()))
+}
 
 func runApp(cfg *config.Config, app *bootstrap.App) error {
 	h := createServer(cfg)
@@ -64,5 +72,12 @@ func createServer(cfg *config.Config) *server.Hertz {
 	return server.Default(
 		server.WithHostPorts(fmt.Sprintf(":%d", cfg.Port)),
 		server.WithExitWaitTime(15*time.Second),
+		// PR-06 修复：显式配置 body 大小与超时，防止大文件 / 慢客户端 DoS。
+		// 16MB 足够容纳 settings PUT(rule package / tool package / custom provider)的最大合法负载；
+		// webhook 端点在 handler 层另有 MaxPayloadBytes 限制。
+		server.WithMaxRequestBodySize(16<<20),
+		server.WithReadTimeout(30*time.Second),
+		server.WithWriteTimeout(60*time.Second),
+		server.WithIdleTimeout(120*time.Second),
 	)
 }

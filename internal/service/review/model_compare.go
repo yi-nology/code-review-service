@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
@@ -78,7 +78,7 @@ func (s *Service) CompareModels(ctx context.Context, reviewID string, opts Model
 	projectPolicy := models.ProjectPolicy{FailOn: "critical"}
 	if s.projectRepo != nil {
 		policyRecord, err := s.projectRepo.GetByProviderRepo(ctx, record.Request.Provider, record.Request.Repo)
-		if err != nil && !errors.Is(err, repository.ErrNotFound) {
+		if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
 			return nil, true, err
 		}
 		if policyRecord != nil {

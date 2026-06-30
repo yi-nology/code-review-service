@@ -44,8 +44,7 @@ func registerWorkspaceCleaner(cfg *config.Config, lc fx.Lifecycle) {
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			cleaner.Stop()
-			return nil
+			return cleaner.Stop(ctx)
 		},
 	})
 }

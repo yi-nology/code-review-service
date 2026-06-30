@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -263,7 +264,9 @@ func (m *AgentManager) runAgents(ctx context.Context, agents []reviewAgent, ephe
 	}
 
 	if len(agentResults) == 0 {
-		return AggregatedResult{}, fmt.Errorf("all agents failed: %v", agentErrors)
+		// PR-09：使用 errors.Join 保留全部子错误的 Unwrap 链，
+		// 让上层 errors.Is / errors.As 可以枚举失败原因。
+		return AggregatedResult{}, fmt.Errorf("all %d agents failed: %w", len(agentErrors), errors.Join(agentErrors...))
 	}
 
 	aggregated := m.aggregator.Aggregate(agentResults)
