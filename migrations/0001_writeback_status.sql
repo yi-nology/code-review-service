@@ -1,0 +1,13 @@
+-- 0001_writeback_status.sql
+-- 记录评审状态新增值: success_with_publish_failed
+-- 业务语义：review 自身成功（runner/workflow 跑完），但 writeback（PR/MR 评论发布）失败。
+-- 在 review.Response.Writeback 字段落地失败摘要，resp.Status 改为 success_with_publish_failed。
+--
+-- 当前 reviews.status 列是 free-form text，无 CHECK 约束，
+-- 本文件仅作状态枚举文档；后续若加入 CHECK 约束，可参考：
+--   ALTER TABLE reviews DROP CONSTRAINT IF EXISTS reviews_status_check;
+--   ALTER TABLE reviews ADD CONSTRAINT reviews_status_check
+--     CHECK (status IN ('queued', 'running', 'success', 'success_with_publish_failed', 'failed', 'cancelled'));
+--
+-- 评审历史表的 stage 字段可包含 "writeback" 标识，message 写明失败原因。
+SELECT 1;
