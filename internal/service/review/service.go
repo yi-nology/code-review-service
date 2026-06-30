@@ -545,19 +545,23 @@ func (s *Service) scanAsync(ctx context.Context, req domain.ScanRequest) (*domai
 			defer func() { <-s.concurrencySem }()
 		}
 
-		s.runScanBackground(id, req, reporter)
+		// PR-03 修复：派生自 ctx，使得 HTTP 请求被取消时 scan goroutine 也能收到信号。
+		// 旧的 context.WithCancel(context.Background()) 与请求 lifecycle 完全脱钩，
+		// 只能依赖外部 Cancel() 显式调用。
+		scanCtx, cancel := context.WithCancel(ctx)
+		s.scanCancels.Store(id, cancel)
+		defer func() {
+			cancel()
+			s.scanCancels.Delete(id)
+		}()
+
+		s.runScanBackground(scanCtx, id, req, reporter)
 	})
 
 	return &domain.ScanResult{ReviewID: id}, nil
 }
 
-func (s *Service) runScanBackground(reviewID string, req domain.ScanRequest, reporter progress.ProgressReporter) {
-	scanCtx, cancel := context.WithCancel(context.Background())
-	s.scanCancels.Store(reviewID, cancel)
-	defer func() {
-		cancel()
-		s.scanCancels.Delete(reviewID)
-	}()
+func (s *Service) runScanBackground(scanCtx context.Context, reviewID string, req domain.ScanRequest, reporter progress.ProgressReporter) {
 	if reporter != nil {
 		scanCtx = progress.WithProgressReporter(scanCtx, reporter)
 		reporter.UpdatePhase(progress.PhaseContext, "active", 3, "准备仓库工作区...")

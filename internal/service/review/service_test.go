@@ -1077,3 +1077,84 @@ func TestScanRecordsRawOCRInput(t *testing.T) {
 		_ = os.RemoveAll(workspaceDir)
 	}
 }
+
+// TestScanAsync_RequestCtxCancellation 验证 PR-03 修复：
+// 当 HTTP 请求 ctx 被取消时，scanAsync 启动的 goroutine 应当感知到 ctx.Done()。
+// 旧实现 context.WithCancel(context.Background()) 与请求 lifecycle 完全脱钩，
+// 只能通过显式 Service.Cancel() 取消；新实现派生自 ctx，请求断开即终止。
+//
+// 验证方式：scan runner 在 ctx.Done() 触发时记录一次信号；测试取消 ctx 后等待信号。
+func TestScanAsync_RequestCtxCancellation(t *testing.T) {
+	scanRunner := &ctxBlockingScanRunner{entered: make(chan struct{}, 1)}
+
+	svc := review.NewService(review.ServiceConfig{
+		ReviewRepo:      &mockReviewRepo{},
+		OCRSettingsRepo: &mockOCRSettingsRepo{},
+		ProjectRepo:     &mockProjectPolicyRepo{},
+		Policy:          policy.NewEngine(policy.Config{FailOn: "critical"}),
+		Providers: newTestProviders(testProvider{
+			name: "gitea",
+			prepare: func(_ context.Context, _ domain.Request) (domain.Workspace, error) {
+				return domain.Workspace{Dir: t.TempDir()}, nil
+			},
+		}),
+		Runner:     &countingRunner{},
+		ScanRunner: scanRunner,
+		Executor:   mockExecutor{runner: &countingRunner{}, repo: &mockReviewRepo{}},
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	scanReq := domain.ScanRequest{
+		Provider: "gitea",
+		Repo:     "owner/repo",
+		HeadSHA:  "deadbeef",
+		Batch:    "none",
+	}
+
+	result, err := svc.Scan(ctx, scanReq)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+	if result == nil || result.ReviewID == "" {
+		t.Fatalf("expected review ID, got %+v", result)
+	}
+
+	// 等待 scan runner 进入阻塞态（已收到 ctx）
+	select {
+	case <-scanRunner.entered:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("scan runner did not start within 2s")
+	}
+
+	// 取消请求 ctx
+	cancel()
+
+	// 等待 scan runner 收到 ctx.Done()
+	select {
+	case <-scanRunner.cancelled:
+		// 成功
+	case <-time.After(2 * time.Second):
+		t.Fatalf("scan runner did not receive ctx cancellation within 2s (PR-03 broken?)")
+	}
+}
+
+// ctxBlockingScanRunner 阻塞在 ctx.Done() 上以验证 cancellation。
+type ctxBlockingScanRunner struct {
+	entered    chan struct{}
+	cancelled  chan struct{}
+}
+
+func (r *ctxBlockingScanRunner) Scan(ctx context.Context, _ domain.Workspace, _ domain.ScanRequest) (*domain.ScanResult, error) {
+	select {
+	case r.entered <- struct{}{}:
+	default:
+	}
+	if r.cancelled == nil {
+		r.cancelled = make(chan struct{})
+	}
+	<-ctx.Done()
+	close(r.cancelled)
+	return nil, ctx.Err()
+}
