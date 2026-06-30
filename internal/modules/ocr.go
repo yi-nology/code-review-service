@@ -35,6 +35,9 @@ var OCRModule = fx.Options(
 // 此函数在阶段 A 期间与原 7 个 NewOCR* 并存；阶段 A 完成 fx 切换后旧函数全部删除。
 //
 // 副作用：把 resolver 注入到 server.go 用的包级缓存（阶段 A 拆除）。
+//
+// 阶段 A15：dynamicRunner / fallback 暂保留 runner 包类型（迁移到 ocr.Runner 需同步改 resolver 等）。
+// ocrRunner 用 ocrcore.Runner（阶段 A12 完整化），与 dynamicRunner 共享同一实例作为 fallback 注入。
 func NewOCRRegistry(
 	cfg *config.Config,
 	repos *repository.RepoContainer,
@@ -57,6 +60,17 @@ func NewOCRRegistry(
 		NewOCRUpgrader(repos, resolver, versioner, cfg),
 		llmProvider,
 	).WithRunner(dynamicRunner, dynamicRunner, dynamicRunner)
+}
+
+// buildFallbackConfig（阶段 A15 末尾删除，当前未使用）。
+// 保留为迁移痕迹，证明 ocrcore.Fallback 的可行性。
+func buildFallbackConfig(cfg *config.Config) ocrcore.Config {
+	return ocrcore.Fallback{
+		Binary:          cfg.OCR.Binary,
+		Audience:        "human",
+		RulePath:        cfg.OCR.Rule,
+		DefaultSeverity: "major",
+	}.ToConfig()
 }
 
 func NewConfigResolver(repos *repository.RepoContainer, fallback *runner.OpenCodeReviewRunner) *svrocr.ConfigResolver {
