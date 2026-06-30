@@ -1,6 +1,7 @@
 package cleanup
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"time"
@@ -20,6 +21,7 @@ type WorkspaceCleaner struct {
 	interval   time.Duration
 	scanTicker *time.Ticker
 	stopCh     chan struct{}
+	doneCh     chan struct{}
 }
 
 type Option func(*WorkspaceCleaner)
@@ -39,6 +41,7 @@ func NewWorkspaceCleaner(maxAge time.Duration, opts ...Option) *WorkspaceCleaner
 		maxAge:   maxAge,
 		interval: defaultInterval,
 		stopCh:   make(chan struct{}),
+		doneCh:   make(chan struct{}),
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -46,24 +49,27 @@ func NewWorkspaceCleaner(maxAge time.Duration, opts ...Option) *WorkspaceCleaner
 	return c
 }
 
-// Start 启动清理：先立即清理一次，再按 interval 定期扫描。
+// Start 启动清理协程。PR-04 修复：
+// 旧实现会同步执行一次 cleanup()，阻塞 fx OnStart，/tmp 巨大时启动慢；
+// 新实现首次清理也放到 goroutine 中，Start 立即返回。
 func (c *WorkspaceCleaner) Start() {
 	logx.Infof("starting workspace cleaner, baseDir=%s, pattern=%s, maxAge=%v, interval=%v",
 		c.baseDir, c.pattern, c.maxAge, c.interval)
 
-	c.cleanup()
-
 	c.scanTicker = time.NewTicker(c.interval)
-	go func() {
-		for {
-			select {
-			case <-c.scanTicker.C:
-				c.cleanup()
-			case <-c.stopCh:
-				return
-			}
+	go c.loop()
+}
+
+func (c *WorkspaceCleaner) loop() {
+	defer close(c.doneCh)
+	for {
+		select {
+		case <-c.scanTicker.C:
+			c.cleanup()
+		case <-c.stopCh:
+			return
 		}
-	}()
+	}
 }
 
 func (c *WorkspaceCleaner) cleanup() {
@@ -108,10 +114,20 @@ func (c *WorkspaceCleaner) cleanup() {
 	}
 }
 
-func (c *WorkspaceCleaner) Stop() {
+// Stop 停止清理协程。PR-04 修复：阻塞直到 goroutine 退出，
+// 避免 fx OnStop 后续阶段（如 db 关闭）与清理循环产生资源竞争。
+// 当 ctx 超时时返回 ctx.Err()，调用方应自行决定是否重试或放弃。
+func (c *WorkspaceCleaner) Stop(ctx context.Context) error {
 	close(c.stopCh)
 	if c.scanTicker != nil {
 		c.scanTicker.Stop()
 	}
-	logx.Infof("workspace cleaner stopped")
+	select {
+	case <-c.doneCh:
+		logx.Infof("workspace cleaner stopped")
+		return nil
+	case <-ctx.Done():
+		logx.Warnf("workspace cleaner stop timed out: %v", ctx.Err())
+		return ctx.Err()
+	}
 }
