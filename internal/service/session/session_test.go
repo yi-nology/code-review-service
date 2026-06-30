@@ -33,7 +33,7 @@ func (m *mockSessionRepo) GetByID(_ context.Context, sessionID string) (*models.
 	}
 	s, ok := m.sessions[sessionID]
 	if !ok {
-		return nil, repository.ErrNotFound
+		return nil, repoerr.ErrNotFound
 	}
 	return s, nil
 }
@@ -54,7 +54,7 @@ func (m *mockSessionRepo) GetActiveByReviewID(_ context.Context, reviewID string
 			return s, nil
 		}
 	}
-	return nil, repository.ErrNotFound
+	return nil, repoerr.ErrNotFound
 }
 
 func (m *mockSessionRepo) Create(_ context.Context, session *models.ReviewSession) error {

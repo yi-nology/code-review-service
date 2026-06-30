@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
@@ -67,7 +67,7 @@ func (s *Service) updateStatus(ctx context.Context, id, status string) error {
 
 func (s *Service) updateWithRawOCR(ctx context.Context, id string, req domain.Request, response domain.Response, rawOCR json.RawMessage) error {
 	r, err := s.reviewRepo.GetByReviewID(ctx, id)
-	if err != nil && !errors.Is(err, repository.ErrNotFound) {
+	if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
 		return err
 	}
 	if r == nil {
@@ -125,7 +125,7 @@ func (s *Service) updateRequestSHAs(ctx context.Context, id string, req domain.R
 func (s *Service) updateWithOCRInput(ctx context.Context, id string, ocrInput domain.OCRInput) error {
 	r, err := s.reviewRepo.GetByReviewID(ctx, id)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repoerr.ErrNotFound) {
 			return fmt.Errorf("review not found: %s", id)
 		}
 		return err

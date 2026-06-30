@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/oekit/pkg/convert"
 	"github.com/oekit/pkg/mathx"
 	"github.com/oekit/pkg/ptrx"
@@ -37,7 +37,7 @@ func Fail(c *hertzApp.RequestContext, err error) {
 		mw.ErrorResp(c, bizErr.Code, bizErr.Message)
 		return
 	}
-	if errors.Is(err, repository.ErrNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, repoerr.ErrNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
 		mw.ErrorResp(c, 404, "resource not found")
 		return
 	}

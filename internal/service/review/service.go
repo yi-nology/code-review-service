@@ -17,6 +17,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitprovider "github.com/yi-nology/code-review-service/internal/service/provider"
@@ -36,8 +37,8 @@ var gitObjectIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{7,64}$`)
 var errIdempotencyKeyTooLong = mw.NewBadRequestError("idempotency key too long")
 
 var (
-	ErrNotFound     = repository.ErrNotFound
-	ErrInvalidState = repository.ErrInvalidState
+	ErrNotFound     = repoerr.ErrNotFound
+	ErrInvalidState = repoerr.ErrInvalidState
 )
 
 const (
@@ -187,7 +188,7 @@ func (s *Service) createReview(ctx context.Context, req domain.Request, idempote
 	if err := s.reviewRepo.Create(ctx, review); err != nil {
 		if idempotencyKey != "" && gormx.IsUniqueViolation(err) {
 			existing, getErr := s.reviewRepo.GetByIdempotencyKey(ctx, idempotencyKey)
-			if getErr != nil && !errors.Is(getErr, repository.ErrNotFound) {
+			if getErr != nil && !errors.Is(getErr, repoerr.ErrNotFound) {
 				return domain.Response{}, fmt.Errorf("idempotency recovery: %w", getErr)
 			}
 			if existing != nil {
@@ -230,7 +231,7 @@ func (s *Service) findActiveReview(ctx context.Context, req domain.Request) *dom
 	}
 	existing, err := s.reviewRepo.GetActiveByProviderRepo(ctx, req.Provider, req.Repo, req.PullRequestID, req.MergeRequestIID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repoerr.ErrNotFound) {
 			return nil
 		}
 		logx.CtxErrorf(ctx, "failed to query active review by provider=%s repo=%s: %v", req.Provider, req.Repo, err)
@@ -270,7 +271,7 @@ func queuedMessage(isWebhook bool) string {
 func (s *Service) Get(ctx context.Context, reviewID string) (domain.Record, bool, error) {
 	review, err := s.reviewRepo.GetByReviewID(ctx, reviewID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repoerr.ErrNotFound) {
 			return domain.Record{}, false, nil
 		}
 		return domain.Record{}, false, err
@@ -410,7 +411,7 @@ func (s *Service) Preview(ctx context.Context, req domain.Request) ([]string, er
 	projectPolicy := models.ProjectPolicy{FailOn: "critical"}
 	if s.projectRepo != nil {
 		policyRecord, err := s.projectRepo.GetByProviderRepo(ctx, req.Provider, req.Repo)
-		if err != nil && !errors.Is(err, repository.ErrNotFound) {
+		if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
 			logx.Warn("failed to get project policy, using default", "error", err)
 		}
 		if policyRecord != nil {
@@ -649,7 +650,7 @@ func (s *Service) scanExecuteWithPolicy(ctx context.Context, reviewID string, re
 	projectPolicy := models.ProjectPolicy{FailOn: "critical"}
 	if s.projectRepo != nil {
 		policyRecord, err := s.projectRepo.GetByProviderRepo(ctx, providerName, repo)
-		if err != nil && !errors.Is(err, repository.ErrNotFound) {
+		if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
 			logx.Warn("failed to get project policy, using default", "error", err)
 		}
 		if policyRecord != nil {
@@ -891,7 +892,7 @@ func (s *Service) Requeue(ctx context.Context, reviewID string) (domain.Response
 		return nil
 	})
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repoerr.ErrNotFound) {
 			return domain.Response{}, fmt.Errorf("%w: %s", ErrNotFound, reviewID)
 		}
 		return domain.Response{}, err
@@ -934,7 +935,7 @@ func (s *Service) Cancel(ctx context.Context, reviewID string) (domain.Response,
 		return nil
 	})
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repoerr.ErrNotFound) {
 			return domain.Response{}, fmt.Errorf("%w: %s", ErrNotFound, reviewID)
 		}
 		return domain.Response{}, err

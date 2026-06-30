@@ -71,7 +71,7 @@ func (m *mockReviewRepo) GetByReviewID(_ context.Context, reviewID string) (*mod
 			return r, nil
 		}
 	}
-	return nil, repository.ErrNotFound
+	return nil, repoerr.ErrNotFound
 }
 
 func (m *mockReviewRepo) GetByIdempotencyKey(_ context.Context, key string) (*models.Review, error) {
@@ -82,7 +82,7 @@ func (m *mockReviewRepo) GetByIdempotencyKey(_ context.Context, key string) (*mo
 			return r, nil
 		}
 	}
-	return nil, repository.ErrNotFound
+	return nil, repoerr.ErrNotFound
 }
 
 func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, provider, repo, pullRequestID, mergeRequestIID string) (*models.Review, error) {
@@ -103,7 +103,7 @@ func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, provider, re
 		}
 		return r, nil
 	}
-	return nil, repository.ErrNotFound
+	return nil, repoerr.ErrNotFound
 }
 
 func (m *mockReviewRepo) List(_ context.Context, opts models.ListOptions) (*ekitGorm.PageResponse[models.Review], error) {
@@ -144,7 +144,7 @@ func (m *mockReviewRepo) UpdateInTransaction(_ context.Context, reviewID string,
 			return fn(r)
 		}
 	}
-	return repository.ErrNotFound
+	return repoerr.ErrNotFound
 }
 
 func (m *mockReviewRepo) snapshot() []*models.Review {
@@ -891,14 +891,14 @@ type mockReviewRepoWithActive struct {
 func (m *mockReviewRepoWithActive) GetActiveByProviderRepo(_ context.Context, provider, repo, pullRequestID, mergeRequestIID string) (*models.Review, error) {
 	if m.activeReview != nil && m.activeReview.Provider == provider && m.activeReview.Repo == repo {
 		if pullRequestID != "" && m.activeReview.PullRequestID != pullRequestID {
-			return nil, repository.ErrNotFound
+			return nil, repoerr.ErrNotFound
 		}
 		if mergeRequestIID != "" && m.activeReview.MergeRequestIID != mergeRequestIID {
-			return nil, repository.ErrNotFound
+			return nil, repoerr.ErrNotFound
 		}
 		return m.activeReview, nil
 	}
-	return nil, repository.ErrNotFound
+	return nil, repoerr.ErrNotFound
 }
 
 func TestFindActiveReviewReturnsExisting(t *testing.T) {
@@ -958,7 +958,7 @@ func TestFindActiveReview_PRIDMismatchIgnored(t *testing.T) {
 
 	// 传入 PR=42 应该找不到 PR=999 的 review。
 	got, err := activeRepo.GetActiveByProviderRepo(context.Background(), "github", "owner/repo", "42", "")
-	if err != nil && !errors.Is(err, repository.ErrNotFound) {
+	if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got err: %v", err)
 	}
 	if got != nil {

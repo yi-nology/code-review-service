@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"gorm.io/datatypes"
@@ -16,7 +16,7 @@ import (
 
 func (s *Service) updateWithRawOCR(ctx context.Context, id string, req domain.Request, response domain.Response, rawOCR json.RawMessage) error {
 	review, err := s.reviewRepo.GetByReviewID(ctx, id)
-	if err != nil && !errors.Is(err, repository.ErrNotFound) {
+	if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
 		return err
 	}
 	if review == nil {

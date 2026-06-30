@@ -3,10 +3,12 @@ package repoerr
 import (
 	"errors"
 	"testing"
+
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 func TestErrorsAreDistinct(t *testing.T) {
-	errs := []error{ErrNotFound, ErrConflict, ErrInvalidState, ErrIdempotencyConflict, ErrUnsupportedProvider}
+	errs := []error{ErrNotFound, ErrConflict, ErrInvalidState, domain.ErrIdempotencyConflict, domain.ErrUnsupportedProvider}
 	for i, e1 := range errs {
 		for j, e2 := range errs {
 			if i == j {
@@ -27,8 +29,8 @@ func TestErrorsAreComparable(t *testing.T) {
 		{"ErrNotFound", ErrNotFound},
 		{"ErrConflict", ErrConflict},
 		{"ErrInvalidState", ErrInvalidState},
-		{"ErrIdempotencyConflict", ErrIdempotencyConflict},
-		{"ErrUnsupportedProvider", ErrUnsupportedProvider},
+		{"ErrIdempotencyConflict", domain.ErrIdempotencyConflict},
+		{"ErrUnsupportedProvider", domain.ErrUnsupportedProvider},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

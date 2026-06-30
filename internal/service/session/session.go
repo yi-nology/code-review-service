@@ -9,6 +9,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 	"github.com/oekit/logx"
@@ -25,7 +26,7 @@ func NewSessionService(repo repository.SessionRepository) *SessionService {
 
 func (s *SessionService) CreateSession(ctx context.Context, reviewID string, round int) (*models.ReviewSession, error) {
 	activeSession, err := s.repo.GetActiveByReviewID(ctx, reviewID)
-	if err != nil && !errors.Is(err, repository.ErrNotFound) {
+	if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
 		return nil, fmt.Errorf("check active session: %w", err)
 	}
 	if activeSession != nil {
@@ -51,7 +52,7 @@ func (s *SessionService) CreateSession(ctx context.Context, reviewID string, rou
 func (s *SessionService) GetSession(ctx context.Context, sessionID string) (*models.ReviewSession, error) {
 	session, err := s.repo.GetByID(ctx, sessionID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repoerr.ErrNotFound) {
 			return nil, fmt.Errorf("session not found: %s", sessionID)
 		}
 		return nil, err
@@ -62,7 +63,7 @@ func (s *SessionService) GetSession(ctx context.Context, sessionID string) (*mod
 func (s *SessionService) GetActiveSession(ctx context.Context, reviewID string) (*models.ReviewSession, error) {
 	session, err := s.repo.GetActiveByReviewID(ctx, reviewID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repoerr.ErrNotFound) {
 			return nil, nil
 		}
 		return nil, err
@@ -77,7 +78,7 @@ func (s *SessionService) GetSessionsByReview(ctx context.Context, reviewID strin
 func (s *SessionService) UpdatePhase(ctx context.Context, sessionID string, phase models.SessionPhase, progress float64) error {
 	session, err := s.repo.GetByID(ctx, sessionID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repoerr.ErrNotFound) {
 			return fmt.Errorf("session not found: %s", sessionID)
 		}
 		return fmt.Errorf("get session: %w", err)
@@ -135,7 +136,7 @@ func (s *SessionService) CompleteSession(ctx context.Context, sessionID string, 
 func (s *SessionService) FailSession(ctx context.Context, sessionID string, reason string) error {
 	session, err := s.repo.GetByID(ctx, sessionID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repoerr.ErrNotFound) {
 			return fmt.Errorf("session not found: %s", sessionID)
 		}
 		return fmt.Errorf("get session: %w", err)

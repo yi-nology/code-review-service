@@ -12,6 +12,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
@@ -152,7 +153,7 @@ func (s *Service) Execute(ctx context.Context, id string, req domain.Request, pr
 	projectPolicy := models.ProjectPolicy{FailOn: "critical"}
 	if s.projectRepo != nil {
 		p, err := s.projectRepo.GetByProviderRepo(ctx, req.Provider, req.Repo)
-		if err != nil && !errors.Is(err, repository.ErrNotFound) {
+		if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
 			logx.Warn("failed to get project policy, using default", "error", err)
 		}
 		if p != nil {
