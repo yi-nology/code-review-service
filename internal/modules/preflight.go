@@ -4,9 +4,8 @@ import (
 	"context"
 	"os/exec"
 
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/readiness"
-	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/service/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/oekit/logx"
@@ -19,10 +18,15 @@ import (
 // 之前启动完全不验证 OCR/LLM，首次评审才发现故障。
 var PreflightModule = fx.Options(fx.Invoke(RegisterPreflight))
 
-func RegisterPreflight(lc fx.Lifecycle, repos *repository.RepoContainer, resolver *ocr.ConfigResolver) {
+// RegisterPreflight 收口为 2 个参数：lc + *ocr.Registry。
+// 之前 3 个参数（lc + repos + resolver）；repos/resolver 都从 Registry 拿。
+func RegisterPreflight(lc fx.Lifecycle, ocrReg *ocr.Registry) {
+	repo := ocrReg.Repos()
+	resolver := mustGetResolver()
+
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			s, err := repos.OCRSettings.Get(ctx)
+			s, err := repo.OCRSettings.Get(ctx)
 			if err != nil {
 				logx.Errorf("[preflight] OCR 配置读取失败: %v", err)
 				return nil
@@ -46,7 +50,7 @@ func RegisterPreflight(lc fx.Lifecycle, repos *repository.RepoContainer, resolve
 				logx.Infof("[preflight] OCR 二进制就绪: %s", binary)
 			}
 
-			if err := readiness.LLMEndpointCheck(repos, resolver)(ctx); err != nil {
+			if err := readiness.LLMEndpointCheck(repo, resolver)(ctx); err != nil {
 				logx.Errorf("[preflight] LLM endpoint 检查失败: %v。评审将会失败，请检查 LLM 配置（URL/认证/网络）", err)
 			} else {
 				logx.Infof("[preflight] LLM endpoint 可达")

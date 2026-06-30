@@ -33,6 +33,8 @@ var OCRModule = fx.Options(
 
 // NewOCRRegistry 构造 *ocrcore.Registry 单一入口。
 // 此函数在阶段 A 期间与原 7 个 NewOCR* 并存；阶段 A 完成 fx 切换后旧函数全部删除。
+//
+// 副作用：把 resolver 注入到 server.go 用的包级缓存（阶段 A 拆除）。
 func NewOCRRegistry(
 	cfg *config.Config,
 	repos *repository.RepoContainer,
@@ -42,6 +44,8 @@ func NewOCRRegistry(
 	resolver *svrocr.ConfigResolver,
 	versioner *svrocr.Versioner,
 ) *ocrcore.Registry {
+	// 阶段 A 拆除：把 resolver 注入到 server.go 用的包级缓存
+	SetPackageResolver(resolver)
 	return ocrcore.New(
 		repos,
 		fallback,
