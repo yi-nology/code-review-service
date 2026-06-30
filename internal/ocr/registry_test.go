@@ -101,7 +101,7 @@ func (s *stubLLM) Available(_ context.Context) bool { return true }
 func makeRegistry() *Registry {
 	r := New(
 		stubRepository(),
-		nil, // fallback runner 不在 getter 路径上
+		Config{}, // fallback 不在 getter 路径上
 		&stubTester{},
 		&stubLister{},
 		&stubChecker{},
@@ -166,7 +166,7 @@ func TestRegistry_TesterDelegation(t *testing.T) {
 
 // TestRegistry_TesterErrorPropagated 验证底层 error 透传。
 func TestRegistry_TesterErrorPropagated(t *testing.T) {
-	r := New(stubRepository(), nil,
+	r := New(stubRepository(), Config{},
 		&stubTester{err: errors.New("boom")},
 		&stubLister{}, &stubChecker{}, &stubVersioner{},
 		&stubViewer{}, &stubUpgrader{}, &stubLLM{})
@@ -182,7 +182,7 @@ func TestRegistry_TesterErrorPropagated(t *testing.T) {
 // TestRegistry_ListerDelegation 验证 Lister 透传。
 func TestRegistry_ListerDelegation(t *testing.T) {
 	providers := []domain.LLMProvider{{Name: "openai", Protocol: "openai"}}
-	r := New(stubRepository(), nil,
+	r := New(stubRepository(), Config{},
 		&stubTester{},
 		&stubLister{providers: providers},
 		&stubChecker{}, &stubVersioner{},
@@ -198,7 +198,7 @@ func TestRegistry_ListerDelegation(t *testing.T) {
 
 // TestRegistry_CheckerDelegation 验证 Checker 透传。
 func TestRegistry_CheckerDelegation(t *testing.T) {
-	r := New(stubRepository(), nil,
+	r := New(stubRepository(), Config{},
 		&stubTester{}, &stubLister{},
 		&stubChecker{applicable: true},
 		&stubVersioner{}, &stubViewer{}, &stubUpgrader{}, &stubLLM{})
@@ -213,7 +213,7 @@ func TestRegistry_CheckerDelegation(t *testing.T) {
 
 // TestRegistry_VersionerDelegation 验证 Versioner 透传。
 func TestRegistry_VersionerDelegation(t *testing.T) {
-	r := New(stubRepository(), nil,
+	r := New(stubRepository(), Config{},
 		&stubTester{}, &stubLister{}, &stubChecker{},
 		&stubVersioner{v: "v1.2.3"},
 		&stubViewer{}, &stubUpgrader{}, &stubLLM{})
@@ -242,7 +242,7 @@ func (tripleRunner) Scan(_ context.Context, _ domain.Workspace, _ domain.ScanReq
 
 func TestRegistry_RunnerTripleInterfaces(t *testing.T) {
 	tr := tripleRunner{}
-	r := New(stubRepository(), nil,
+	r := New(stubRepository(), Config{},
 		&stubTester{}, &stubLister{}, &stubChecker{}, &stubVersioner{},
 		&stubViewer{}, &stubUpgrader{}, &stubLLM{},
 	).WithRunner(tr, tr, tr)
@@ -294,7 +294,7 @@ func TestRegistry_ImmutabilityAfterConstruction(t *testing.T) {
 // TestNew_NilSafety 验证 nil manager 时不 panic。
 // 设计上 getter 返回 nil，由调用方保证使用前已注入。
 func TestNew_NilSafety(t *testing.T) {
-	r := New(nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	r := New(nil, Config{}, nil, nil, nil, nil, nil, nil, nil)
 	if r == nil {
 		t.Fatalf("New returned nil")
 	}

@@ -36,22 +36,28 @@ var OCRModule = fx.Options(
 //
 // 副作用：把 resolver 注入到 server.go 用的包级缓存（阶段 A 拆除）。
 //
-// 阶段 A15：dynamicRunner / fallback 暂保留 runner 包类型（迁移到 ocr.Runner 需同步改 resolver 等）。
-// ocrRunner 用 ocrcore.Runner（阶段 A12 完整化），与 dynamicRunner 共享同一实例作为 fallback 注入。
+// 阶段 A15 part 3：完全改用 ocr.Runner / ocr.Config / ocr.Fallback。
+// 删除了 runner.OpenCodeReviewRunner / DynamicOpenCodeReviewRunner 依赖。
 func NewOCRRegistry(
 	cfg *config.Config,
 	repos *repository.RepoContainer,
 	llmProvider *llm.MetricsProvider,
-	dynamicRunner *runner.DynamicOpenCodeReviewRunner,
-	fallback *runner.OpenCodeReviewRunner,
+	ocrRunner *ocrcore.Runner,
 	resolver *svrocr.ConfigResolver,
 	versioner *svrocr.Versioner,
 ) *ocrcore.Registry {
 	// 阶段 A 拆除：把 resolver 注入到 server.go 用的包级缓存
 	SetPackageResolver(resolver)
+	// fallback config：用 ocr.Config（不再依赖 runner.OpenCodeReviewRunner）
+	fallbackConfig := ocrcore.Config{
+		Binary:          cfg.OCR.Binary,
+		Audience:        "human",
+		RulePath:        cfg.OCR.Rule,
+		DefaultSeverity: "major",
+	}
 	return ocrcore.New(
 		repos,
-		fallback,
+		fallbackConfig,
 		NewOCRTester(repos, resolver),
 		NewOCRProviderLister(repos, resolver),
 		NewOCRRulesChecker(repos, resolver),
@@ -59,7 +65,7 @@ func NewOCRRegistry(
 		NewOCRViewerManager(repos, resolver),
 		NewOCRUpgrader(repos, resolver, versioner, cfg),
 		llmProvider,
-	).WithRunner(dynamicRunner, dynamicRunner, dynamicRunner)
+	).WithRunner(ocrRunner, ocrRunner, ocrRunner)
 }
 
 // buildFallbackConfig（阶段 A15 末尾删除，当前未使用）。
@@ -73,8 +79,17 @@ func buildFallbackConfig(cfg *config.Config) ocrcore.Config {
 	}.ToConfig()
 }
 
-func NewConfigResolver(repos *repository.RepoContainer, fallback *runner.OpenCodeReviewRunner) *svrocr.ConfigResolver {
-	return svrocr.NewConfigResolver(repos.OCRSettings, fallback.Config(), repos.OCRToolPackage)
+// NewConfigResolver 阶段 A15 part 3：fallback 改用 ocr.Config。
+//
+// 注：svocr.ConfigResolver 内部仍需要 runner.OpenCodeReviewConfig 形式，
+// 阶段 A15 part 4 将 svocr 包整体删除，所有 manager 迁入 ocr 包。
+func NewConfigResolver(repos *repository.RepoContainer) *svrocr.ConfigResolver {
+	fallback := runner.OpenCodeReviewConfig{
+		Binary:          "ocr",
+		Audience:        "human",
+		DefaultSeverity: "major",
+	}
+	return svrocr.NewConfigResolver(repos.OCRSettings, fallback, repos.OCRToolPackage)
 }
 
 func NewOCRTester(repos *repository.RepoContainer, resolver *svrocr.ConfigResolver) *svrocr.Tester {

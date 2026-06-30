@@ -51,11 +51,10 @@ func TestNewOCRRegistry_FxTypeAssertions(t *testing.T) {
 // 确保旧 7 个构造函数签名与原 modules/ocr.go 完全一致，便于阶段 A 删除前不变。
 func TestLegacySignaturesStable(t *testing.T) {
 	repos := &repository.RepoContainer{}
-	fallback := runner.NewOpenCodeReviewRunner(runner.OpenCodeReviewConfig{Binary: "ocr"})
 
 	// 编译期断言
 	var (
-		_ = NewConfigResolver(repos, fallback)
+		_ = NewConfigResolver(repos)
 		_ = NewOCRTester
 		_ = NewOCRProviderLister
 		_ = NewOCRRulesChecker

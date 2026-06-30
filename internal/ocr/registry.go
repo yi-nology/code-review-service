@@ -18,7 +18,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-	"github.com/yi-nology/code-review-service/internal/service/runner"
 )
 
 // Registry 是 open-code-review 能力的注册中心，handler/模块一次性拿到所有子能力。
@@ -48,11 +47,11 @@ type Registry struct {
 // 仍保留 ocr.NewTester / ocr.NewVersioner 等老构造函数供模块按需 fx.Provide，
 // 但强烈推荐新代码直接拿 *Registry。
 //
-// 注：resolver 暂未注入到 Registry（OCRBinaryCheck 仍通过 repos + 旧 resolver 拿到）。
-// 阶段 A 统一迁入后此参数消失。
+// 阶段 A15 part 3：fallback 参数类型改为 ocr.Config（替代 *runner.OpenCodeReviewRunner），
+// 消除对 internal/service/runner 包的直接依赖。
 func New(
 	repos *repository.RepoContainer,
-	fallback *runner.OpenCodeReviewRunner,
+	fallback Config,
 	tester domain.LLMTester,
 	lister domain.LLMProviderLister,
 	checker domain.RulesChecker,
@@ -61,12 +60,10 @@ func New(
 	upgrader domain.OCRUpgrader,
 	llmProvider llm.Provider,
 ) *Registry {
-	// runner.NewDynamicOpenCodeReviewRunner 同时实现 domain.Runner / PreviewRunner / ScanRunner
-	// 由调用方预构造后注入；这里仅做 getter 转发。
-	_ = fallback
+	_ = fallback // 阶段 A15 part 4: 用 fallback 构造 default Runner
 	return &Registry{
 		repos:       repos,
-		runner:      nil, // 由模块侧把 DynamicOpenCodeReviewRunner 同时赋给三个 getter
+		runner:      nil, // 由 WithRunner 注入
 		previewer:   nil,
 		scanner:     nil,
 		tester:      tester,
