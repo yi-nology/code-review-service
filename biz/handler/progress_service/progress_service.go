@@ -13,6 +13,9 @@ import (
 	"github.com/hertz-contrib/websocket"
 )
 
+// ProgressWSHandler 通过 fx Provide 注入。
+// PR-16 修复：原实现用 var handlerInst 全局单例，测试无法 mock。
+// 改为 NewProgressHandler 构造器 + 方法接收者，router 改为 h.Method。
 var handlerInst *ProgressWSHandler
 
 type ProgressWSHandler struct {
@@ -20,8 +23,10 @@ type ProgressWSHandler struct {
 	upgrader        websocket.HertzUpgrader
 }
 
-func InitHandler(progressManager *progress.ProgressManager) {
-	handlerInst = &ProgressWSHandler{
+// NewProgressHandler 构造进度 WebSocket handler。
+// 通过 fx Provide 注入，可在测试中传入 mock 替换。
+func NewProgressHandler(progressManager *progress.ProgressManager) *ProgressWSHandler {
+	return &ProgressWSHandler{
 		progressManager: progressManager,
 		upgrader: websocket.HertzUpgrader{
 			// 仅允许同源连接，避免跨站 WebSocket 劫持（CSRF/CSWSH）。
@@ -31,6 +36,10 @@ func InitHandler(progressManager *progress.ProgressManager) {
 			WriteBufferSize: 1024,
 		},
 	}
+}
+
+func InitHandler(progressManager *progress.ProgressManager) {
+	handlerInst = NewProgressHandler(progressManager)
 }
 
 // sameOrigin 校验请求 Origin 与当前 Host 同源。
@@ -48,13 +57,19 @@ func sameOrigin(r *app.RequestContext) bool {
 }
 
 func HandleProgressWS(ctx context.Context, c *app.RequestContext) {
+	handlerInst.HandleProgressWSMethod(ctx, c)
+}
+
+// HandleProgressWSMethod 是 (h *ProgressWSHandler) 的方法实现，
+// 便于 fx Provide 注入后通过 h.HandleProgressWSMethod 调用。
+func (h *ProgressWSHandler) HandleProgressWSMethod(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelProgress.HandleProgressWSReq](c)
 	if !ok {
 		return
 	}
 
 	var conn *websocket.Conn
-	err := handlerInst.upgrader.Upgrade(c, func(ws *websocket.Conn) {
+	err := h.upgrader.Upgrade(c, func(ws *websocket.Conn) {
 		conn = ws
 	})
 	if err != nil {
@@ -63,7 +78,7 @@ func HandleProgressWS(ctx context.Context, c *app.RequestContext) {
 	}
 	defer func() { _ = conn.Close() }()
 
-	tracker := handlerInst.progressManager.GetTracker(req.ID)
+	tracker := h.progressManager.GetTracker(req.ID)
 	if tracker == nil {
 		_ = conn.WriteJSON(map[string]string{
 			"type":    "error",
@@ -74,7 +89,7 @@ func HandleProgressWS(ctx context.Context, c *app.RequestContext) {
 	}
 
 	roomID := tracker.GetRoomID()
-	broadcaster := handlerInst.progressManager.GetBroadcaster()
+	broadcaster := h.progressManager.GetBroadcaster()
 	broadcaster.Register(roomID, conn)
 	defer broadcaster.Unregister(roomID, conn)
 
@@ -100,12 +115,16 @@ func HandleProgressWS(ctx context.Context, c *app.RequestContext) {
 }
 
 func GetProgress(ctx context.Context, c *app.RequestContext) {
+	handlerInst.GetProgressMethod(ctx, c)
+}
+
+func (h *ProgressWSHandler) GetProgressMethod(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelProgress.GetProgressReq](c)
 	if !ok {
 		return
 	}
 
-	tracker := handlerInst.progressManager.GetTracker(req.ID)
+	tracker := h.progressManager.GetTracker(req.ID)
 	if tracker == nil {
 		common.Fail(c, common.NotFound("no active review found"))
 		return
@@ -116,12 +135,16 @@ func GetProgress(ctx context.Context, c *app.RequestContext) {
 }
 
 func GetActiveReviews(ctx context.Context, c *app.RequestContext) {
+	handlerInst.GetActiveReviewsMethod(ctx, c)
+}
+
+func (h *ProgressWSHandler) GetActiveReviewsMethod(ctx context.Context, c *app.RequestContext) {
 	_, ok := common.Bind[modelProgress.GetActiveReviewsReq](c)
 	if !ok {
 		return
 	}
 
-	trackers := handlerInst.progressManager.GetActiveTrackers()
+	trackers := h.progressManager.GetActiveTrackers()
 
 	reviews := make([]*modelProgress.ActiveReviewItem, 0, len(trackers))
 	for _, tracker := range trackers {
