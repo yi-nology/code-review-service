@@ -64,5 +64,12 @@ func createServer(cfg *config.Config) *server.Hertz {
 	return server.Default(
 		server.WithHostPorts(fmt.Sprintf(":%d", cfg.Port)),
 		server.WithExitWaitTime(15*time.Second),
+		// PR-06 修复：显式配置 body 大小与超时，防止大文件 / 慢客户端 DoS。
+		// 16MB 足够容纳 settings PUT(rule package / tool package / custom provider)的最大合法负载；
+		// webhook 端点在 handler 层另有 MaxPayloadBytes 限制。
+		server.WithMaxRequestBodySize(16<<20),
+		server.WithReadTimeout(30*time.Second),
+		server.WithWriteTimeout(60*time.Second),
+		server.WithIdleTimeout(120*time.Second),
 	)
 }
