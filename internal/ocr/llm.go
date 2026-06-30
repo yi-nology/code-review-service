@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/observability/redact"
+	"github.com/yi-nology/code-review-service/internal/service/llm"
 
 	"github.com/oekit/logx"
 )
@@ -32,21 +33,11 @@ type LLMProvider struct {
 	client   *http.Client
 }
 
-// LLMRequest 是 LLM 补全请求。
-type LLMRequest struct {
-	SystemPrompt string
-	UserPrompt   string
-	MaxTokens    int
-	JSONMode     bool
-}
+// LLMRequest 是 LLM 补全请求（type alias 到 llm.CompleteRequest，阶段 A15）。
+type LLMRequest = llm.CompleteRequest
 
-// LLMResponse 是 LLM 补全响应。
-type LLMResponse struct {
-	Content      string
-	InputTokens  int64
-	OutputTokens int64
-	FinishReason string
-}
+// LLMResponse 是 LLM 补全响应（type alias 到 llm.CompleteResponse）。
+type LLMResponse = llm.CompleteResponse
 
 // NewLLMProvider 构造 LLMProvider。
 func NewLLMProvider(settings Settings) *LLMProvider {
@@ -301,7 +292,12 @@ func (p *LLMProvider) CompleteJSON(ctx context.Context, req LLMRequest, out any)
 	return json.Unmarshal([]byte(resp.Content), out)
 }
 
-// LLMProviderAdapter 把 LLMProvider 适配到 llm.Provider 接口（兼容旧 caller）。
+// LLMProviderAdapter 把 LLMProvider 适配为 llm.Provider 接口。
+//
+// 由于阶段 A15 暂时保持 ocr.LLMRequest / ocr.LLMResponse 为独立类型（不依赖 llm 包，
+// 避免循环 import），adapter 必须显式声明方法签名以满足 llm.Provider 接口。
+//
+// 阶段 A15 末尾：llm 包删除后此 adapter 可删除。
 type LLMProviderAdapter struct {
 	inner *LLMProvider
 }
@@ -311,38 +307,24 @@ func WrapLLMProvider(p *LLMProvider) *LLMProviderAdapter {
 	return &LLMProviderAdapter{inner: p}
 }
 
-// Available 报告 LLM 是否已配置。
+// 显式声明方法以满足 llm.Provider 接口（避免 import 循环）。
+//
+// 注意：Complete 方法名故意与 llm.Provider.Complete 一致，
+// 这样 *LLMProviderAdapter 即可直接赋值给 llm.Provider 接口。
+// 类型转换在方法内完成（llmCompleteRequest <-> LLMRequest）。
+
+// Available 满足 llm.Provider.Available。
 func (a *LLMProviderAdapter) Available(ctx context.Context) bool {
 	return a.inner.Available(ctx)
 }
 
-// Complete 转发到内部 LLMProvider。
-func (a *LLMProviderAdapter) Complete(ctx context.Context, req CompleteRequest) (CompleteResponse, error) {
-	resp, err := a.inner.Complete(ctx, LLMRequest{
-		SystemPrompt: req.SystemPrompt,
-		UserPrompt:   req.UserPrompt,
-		MaxTokens:    req.MaxTokens,
-		JSONMode:     req.JSONMode,
-	})
+// Complete 满足 llm.Provider.Complete。
+func (a *LLMProviderAdapter) Complete(ctx context.Context, req llm.CompleteRequest) (llm.CompleteResponse, error) {
+	resp, err := a.inner.Complete(ctx, req)
 	if err != nil {
-		return CompleteResponse{}, err
+		return llm.CompleteResponse{}, err
 	}
-	return CompleteResponse{
-		Content:      resp.Content,
-		InputTokens:  resp.InputTokens,
-		OutputTokens: resp.OutputTokens,
-		FinishReason: resp.FinishReason,
-	}, nil
-}
-
-// CompleteJSON 转发到内部 LLMProvider。
-func (a *LLMProviderAdapter) CompleteJSON(ctx context.Context, req CompleteRequest, out any) error {
-	return a.inner.CompleteJSON(ctx, LLMRequest{
-		SystemPrompt: req.SystemPrompt,
-		UserPrompt:   req.UserPrompt,
-		MaxTokens:    req.MaxTokens,
-		JSONMode:     req.JSONMode,
-	}, out)
+	return resp, nil
 }
 
 // CompleteRequest / CompleteResponse 是 llm 包的兼容 type alias。
