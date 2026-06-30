@@ -2,7 +2,6 @@ package review
 
 import (
 	"context"
-	crypto_rand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -22,6 +21,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitprovider "github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+
+	"github.com/oklog/ulid/v2"
 
 	"github.com/oekit/concurrency/async"
 	mw "github.com/oekit/middleware"
@@ -984,8 +985,16 @@ func validate(req domain.Request) error {
 	return nil
 }
 
+// NewReviewID 生成 review 唯一 ID。
+// PR-14 修复：原实现用 32-bit crypto/rand + 日期前缀（"rv_20260630_xxx"），
+// 同一天内的实际熵只有 32 bit，且无单调递增性。
+// 改用 ULID（80 bit 熵 + 字典序 = 时间序），便于按 ID 排序做 range scan，
+// 外部链接也更短。
+func NewReviewID(now time.Time) string {
+	return ulid.Make().String()
+}
+
+// newReviewID 是 NewReviewID 的私有别名，保留以避免在 service.go 内部大量改调用点。
 func newReviewID(now time.Time) string {
-	b := make([]byte, 4)
-	_, _ = crypto_rand.Read(b)
-	return fmt.Sprintf("rv_%s_%x", now.Format("20060102"), b)
+	return NewReviewID(now)
 }

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
@@ -988,6 +988,29 @@ func TestFindActiveReview_PRIDMatch(t *testing.T) {
 	}
 	if got.ReviewID != "matching-review" {
 		t.Fatalf("expected matching-review, got %s", got.ReviewID)
+	}
+}
+
+// TestNewReviewID 验证 PR-14 修复：
+// newReviewID 应返回 ULID 格式（26 字符 Base32），且单调递增。
+func TestNewReviewID(t *testing.T) {
+	id1 := review.NewReviewID(time.Now().UTC())
+	id2 := review.NewReviewID(time.Now().UTC())
+
+	if len(id1) != 26 {
+		t.Fatalf("expected ULID length 26, got %d (%q)", len(id1), id1)
+	}
+	if id1 >= id2 {
+		t.Fatalf("expected ULID to be lexicographically ordered by time, got %q >= %q", id1, id2)
+	}
+	// 同毫秒内调用应仍唯一
+	seen := map[string]struct{}{id1: {}, id2: {}}
+	for i := 0; i < 100; i++ {
+		id := review.NewReviewID(time.Now().UTC())
+		if _, dup := seen[id]; dup {
+			t.Fatalf("duplicate id within same ms: %q", id)
+		}
+		seen[id] = struct{}{}
 	}
 }
 
