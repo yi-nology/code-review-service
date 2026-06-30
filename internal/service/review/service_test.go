@@ -85,13 +85,23 @@ func (m *mockReviewRepo) GetByIdempotencyKey(_ context.Context, key string) (*mo
 	return nil, repository.ErrNotFound
 }
 
-func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, provider, repo string) (*models.Review, error) {
+func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, provider, repo, pullRequestID, mergeRequestIID string) (*models.Review, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, r := range m.reviews {
-		if r.Provider == provider && r.Repo == repo && (r.Status == "queued" || r.Status == "running") {
-			return r, nil
+		if r.Provider != provider || r.Repo != repo {
+			continue
 		}
+		if r.Status != "queued" && r.Status != "running" {
+			continue
+		}
+		if pullRequestID != "" && r.PullRequestID != pullRequestID {
+			continue
+		}
+		if mergeRequestIID != "" && r.MergeRequestIID != mergeRequestIID {
+			continue
+		}
+		return r, nil
 	}
 	return nil, repository.ErrNotFound
 }
@@ -878,11 +888,17 @@ type mockReviewRepoWithActive struct {
 	activeReview *models.Review
 }
 
-func (m *mockReviewRepoWithActive) GetActiveByProviderRepo(_ context.Context, provider, repo string) (*models.Review, error) {
+func (m *mockReviewRepoWithActive) GetActiveByProviderRepo(_ context.Context, provider, repo, pullRequestID, mergeRequestIID string) (*models.Review, error) {
 	if m.activeReview != nil && m.activeReview.Provider == provider && m.activeReview.Repo == repo {
+		if pullRequestID != "" && m.activeReview.PullRequestID != pullRequestID {
+			return nil, repository.ErrNotFound
+		}
+		if mergeRequestIID != "" && m.activeReview.MergeRequestIID != mergeRequestIID {
+			return nil, repository.ErrNotFound
+		}
 		return m.activeReview, nil
 	}
-	return nil, nil
+	return nil, repository.ErrNotFound
 }
 
 func TestFindActiveReviewReturnsExisting(t *testing.T) {
@@ -891,11 +907,12 @@ func TestFindActiveReviewReturnsExisting(t *testing.T) {
 	req.PullRequestID = "42"
 
 	activeReview := &models.Review{
-		ReviewID: "existing-review",
-		Provider: req.Provider,
-		Repo:     req.Repo,
-		Status:   "queued",
-		Request:  mustMarshalJSON(req),
+		ReviewID:      "existing-review",
+		Provider:      req.Provider,
+		Repo:          req.Repo,
+		PullRequestID: req.PullRequestID,
+		Status:        "queued",
+		Request:       mustMarshalJSON(req),
 		Response: mustMarshalJSON(domain.Response{
 			ReviewID: "existing-review",
 			Status:   "queued",
@@ -920,6 +937,57 @@ func TestFindActiveReviewReturnsExisting(t *testing.T) {
 	}
 	if resp.ReviewID != "existing-review" {
 		t.Fatalf("expected existing review ID, got %s", resp.ReviewID)
+	}
+}
+
+// TestFindActiveReview_PRIDMismatchIgnored 验证 PR-02 修复：
+// 当 (provider, repo) 下存在 active review，但 PR ID 不同时，
+// mockRepository 必须返回 nil/ErrNotFound（新评审可创建），不依赖 JSONB unmarshal。
+// 这验证了 SQL 层下推的正确性：PR 不匹配根本不会进入 review 记录。
+func TestFindActiveReview_PRIDMismatchIgnored(t *testing.T) {
+	activeRepo := &mockReviewRepo{}
+	activeRepo.reviews = []*models.Review{
+		{
+			ReviewID:      "another-review",
+			Provider:      "github",
+			Repo:          "owner/repo",
+			PullRequestID: "999", // 不匹配
+			Status:        "running",
+		},
+	}
+
+	// 传入 PR=42 应该找不到 PR=999 的 review。
+	got, err := activeRepo.GetActiveByProviderRepo(context.Background(), "github", "owner/repo", "42", "")
+	if err != nil && !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound, got err: %v", err)
+	}
+	if got != nil {
+		t.Fatalf("expected nil for PR mismatch, got %+v", got)
+	}
+}
+
+// TestFindActiveReview_PRIDMatch 验证 PR-02 修复：PR ID 匹配时能找到 review。
+func TestFindActiveReview_PRIDMatch(t *testing.T) {
+	activeRepo := &mockReviewRepo{}
+	activeRepo.reviews = []*models.Review{
+		{
+			ReviewID:      "matching-review",
+			Provider:      "github",
+			Repo:          "owner/repo",
+			PullRequestID: "42",
+			Status:        "queued",
+		},
+	}
+
+	got, err := activeRepo.GetActiveByProviderRepo(context.Background(), "github", "owner/repo", "42", "")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if got == nil {
+		t.Fatalf("expected to find review, got nil")
+	}
+	if got.ReviewID != "matching-review" {
+		t.Fatalf("expected matching-review, got %s", got.ReviewID)
 	}
 }
 

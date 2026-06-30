@@ -49,7 +49,7 @@ func (noopReviewRepo) GetByReviewID(context.Context, string) (*models.Review, er
 func (noopReviewRepo) GetByIdempotencyKey(context.Context, string) (*models.Review, error) {
 	return nil, repository.ErrNotFound
 }
-func (noopReviewRepo) GetActiveByProviderRepo(context.Context, string, string) (*models.Review, error) {
+func (noopReviewRepo) GetActiveByProviderRepo(context.Context, string, string, string, string) (*models.Review, error) {
 	return nil, repository.ErrNotFound
 }
 func (noopReviewRepo) List(context.Context, models.ListOptions) (*ekitGorm.PageResponse[models.Review], error) {

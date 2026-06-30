@@ -219,25 +219,21 @@ func (s *Service) createReview(ctx context.Context, req domain.Request, idempote
 	return s.Executor.Execute(ctx, id, req, provider, nil)
 }
 
+// findActiveReview 查找同一 (provider, repo, PR/MR) 的 active review。
+//
+// PR-02 修复：把 PR/MR 过滤推下 SQL（见 GetActiveByProviderRepo 实现），
+// 避免原先 unmarshal 整条 response JSONB 的开销与 TOCTOU 风险。
+// 仅在有 PR/MR 时才查找；scan 路径（两者都为空）返回 nil。
 func (s *Service) findActiveReview(ctx context.Context, req domain.Request) *domain.Response {
-	hasPR := req.PullRequestID != "" || req.MergeRequestIID != ""
-	if !hasPR {
+	if req.PullRequestID == "" && req.MergeRequestIID == "" {
 		return nil
 	}
-	existing, err := s.reviewRepo.GetActiveByProviderRepo(ctx, req.Provider, req.Repo)
+	existing, err := s.reviewRepo.GetActiveByProviderRepo(ctx, req.Provider, req.Repo, req.PullRequestID, req.MergeRequestIID)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil
 		}
 		logx.CtxErrorf(ctx, "failed to query active review by provider=%s repo=%s: %v", req.Provider, req.Repo, err)
-		return nil
-	}
-	var existingReq domain.Request
-	if err := json.Unmarshal(existing.Request, &existingReq); err != nil {
-		logx.CtxWarnf(ctx, "failed to decode active review request: %v", err)
-		return nil
-	}
-	if existingReq.PullRequestID != req.PullRequestID || existingReq.MergeRequestIID != req.MergeRequestIID {
 		return nil
 	}
 	var resp domain.Response
