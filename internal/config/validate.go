@@ -5,13 +5,19 @@ import (
 	"strings"
 )
 
-// CurrentEnv returns the environment selected by the -env flag.
+// CurrentEnv returns the environment selected by the caller.
+// PR-19 修复：原实现依赖全局 var env，删除后改为参数化。
+// main.go 通过 LoadWithEnv 显式传入；测试可注入任意值。
 func CurrentEnv() string {
-	if env == nil {
-		return "local"
-	}
-	return strings.TrimSpace(*env)
+	return currentEnv
 }
+
+// SetCurrentEnv 注入当前环境名（仅 main 启动时调用一次）。
+func SetCurrentEnv(env string) {
+	currentEnv = strings.TrimSpace(env)
+}
+
+var currentEnv = "local"
 
 // Validate checks runtime configuration that should fail fast before fx starts.
 func (c *Config) Validate(environment string) error {
@@ -47,6 +53,18 @@ func (c *Config) Validate(environment string) error {
 		}
 		if token == "dev-token" {
 			problems = append(problems, "REVIEW_TOKEN/auth.token must not use dev-token in prod")
+		}
+		// PR-19 修复：prod 严禁 AUTH_INSECURE=true，
+		// 防止"忘配 token 全开放"部署事故。
+		if c.Auth.Insecure {
+			problems = append(problems, "AUTH_INSECURE must not be true in prod")
+		}
+	} else {
+		// dev / local：空 token 启动需显式 AUTH_INSECURE=true
+		if strings.TrimSpace(c.Auth.Token) == "" && !c.Auth.Insecure {
+			problems = append(problems,
+				"REVIEW_TOKEN/auth.token is empty in "+environment+
+					"; set AUTH_INSECURE=true to allow insecure startup (dev only)")
 		}
 	}
 

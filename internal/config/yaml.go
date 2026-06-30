@@ -30,6 +30,9 @@ type RateLimitConfig struct {
 
 type AuthConfig struct {
 	Token string `yaml:"token"`
+	// Insecure 显式允许空 Token 启动（仅 dev 环境）。
+	// 生产环境（prod）下 Insecure=true 仍会启动失败。
+	Insecure bool `yaml:"insecure"`
 }
 
 type DatabaseConfig struct {

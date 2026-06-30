@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"time"
@@ -12,7 +13,13 @@ import (
 const defaultShutdownTimeout = 30 * time.Second
 
 func main() {
-	cfg := config.Load()
+	// PR-19 修复：原实现把 flag.String("env", ...) 放在包级全局变量，
+	// init 顺序敏感、测试时 flag.Parse 互相干扰。改为 main 显式注册。
+	env := flag.String("env", "local", "environment: local, dev, prod")
+	flag.Parse()
+
+	config.SetCurrentEnv(*env)
+	cfg := config.LoadWithEnv(*env)
 	if err := cfg.Validate(config.CurrentEnv()); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
