@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/yi-nology/code-review-service/internal/config"
+	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/llm"
@@ -37,7 +38,7 @@ func TestNewOCRRegistry_ConstructsSuccessfully(t *testing.T) {
 	// 仅做编译期断言：函数签名与 fx 期望一致
 	var (
 		_ *llm.MetricsProvider
-		_ *runner.DynamicOpenCodeReviewRunner
+		_ *ocrcore.Runner
 		_ = NewOCRRegistry
 	)
 }

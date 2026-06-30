@@ -21,27 +21,6 @@ import (
 	"github.com/oekit/pkg/convert"
 )
 
-func (r *DynamicOpenCodeReviewRunner) Scan(ctx context.Context, workspace domain.Workspace, req domain.ScanRequest) (*domain.ScanResult, error) {
-	s, err := r.settings.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("读取 OCR 配置失败: %w", err)
-	}
-	enabled := s.Enabled
-	if workspace.OCR.Enabled != nil {
-		enabled = *workspace.OCR.Enabled
-	}
-	if !enabled {
-		return nil, fmt.Errorf("代码评审未启用，请先在 OCR 配置页面启用并测试模型连接")
-	}
-
-	cfg := r.buildConfig(s, workspace.OCR)
-	if strings.TrimSpace(cfg.ToolsPath) == "" && strings.TrimSpace(cfg.ToolsConfig) == "" {
-		cfg.ToolsConfig = DefaultToolConfig(r.toolPackages, "scan")
-	}
-	ocr := &OpenCodeReviewRunner{config: cfg}
-	return ocr.Scan(ctx, workspace, req)
-}
-
 func (r *OpenCodeReviewRunner) Scan(ctx context.Context, workspace domain.Workspace, req domain.ScanRequest) (*domain.ScanResult, error) {
 	if strings.TrimSpace(workspace.Dir) == "" {
 		return nil, fmt.Errorf("open-code-review scan requires a checked out workspace")
@@ -367,4 +346,3 @@ func cleanPreviewFiles(values []string) []string {
 }
 
 var _ domain.ScanRunner = (*OpenCodeReviewRunner)(nil)
-var _ domain.ScanRunner = (*DynamicOpenCodeReviewRunner)(nil)

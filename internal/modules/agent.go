@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/config"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/runner"
@@ -89,7 +90,7 @@ func syncAgentManager(ctx context.Context, cfg *config.Config, repos *repository
 		llmLanguage = ocrSettings.Language
 	}
 
-	runnerFactory := agent.NewOCRRunnerFactory(runner.OpenCodeReviewConfig{
+	runnerFactory := agent.NewOCRRunnerFactory(ocr.Config{
 		Binary:          cfg.OCR.Binary,
 		RulePath:        cfg.OCR.Rule,
 		DefaultSeverity: "major",
