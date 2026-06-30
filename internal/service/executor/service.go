@@ -281,10 +281,19 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req domain
 	for _, ar := range result.AgentResults {
 		workflowTokens += ar.TokensUsed
 	}
+	var tla *domain.TechLeadAnalysis
+	if result.TechLeadAnalysis != nil {
+		tla = &domain.TechLeadAnalysis{
+			Summary:         result.TechLeadAnalysis.Summary,
+			Risks:           result.TechLeadAnalysis.Risks,
+			Recommendations: result.TechLeadAnalysis.Recommendations,
+		}
+	}
 	dummyResult := domain.Result{
-		Summary:  result.FinalReport.Summary,
-		Findings: findings,
-		Scope:    scope,
+		Summary:           result.FinalReport.Summary,
+		Findings:          findings,
+		Scope:             scope,
+		TechLeadAnalysis:  tla,
 		OCR: domain.OCRMetadata{
 			Engine:        "workflow",
 			Status:        review.OCRStatusSuccess,
@@ -300,17 +309,10 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req domain
 	report.Complete = true
 	report.Generated = true
 
-	analysis := domain.Analysis{
-		Overview: result.FinalReport.Summary,
-	}
-	// B2：把 Tech Lead 分析映射进 domain.Analysis（前端已读该字段）
-	if result.TechLeadAnalysis != nil {
-		if result.TechLeadAnalysis.Summary != "" {
-			analysis.Overview = result.TechLeadAnalysis.Summary
-		}
-		analysis.Risks = result.TechLeadAnalysis.Risks
-		analysis.Recommendations = result.TechLeadAnalysis.Recommendations
-	}
+	// PR-10 修复：复用 review.BuildAnalysis 推导 Analysis，与 runner 路径保持一致。
+	// 之前手写 domain.Analysis{Overview: result.FinalReport.Summary} 会丢失
+	// RootCause / Recommendations 等基于 findings 的字段，UI 上一直空着。
+	analysis := review.BuildAnalysis(dummyResult)
 
 	// workflow FinalReport 已含门禁结论（GatePassed/GateReason，对应 Verdict 如 REQUEST_CHANGES），
 	// 直接采用以与最终报告同步；不再用 review-service policy 重算（会和 workflow 结论冲突）。
