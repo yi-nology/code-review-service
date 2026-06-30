@@ -6,11 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/observability/redact"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+
+	"github.com/oekit/logx"
 )
 
 // settingsSource 复用 repository 的 OCRSettings 访问（与 runner/dynamic.go 同模式）。
@@ -172,25 +176,63 @@ func (p *DynamicProvider) completeAnthropic(ctx context.Context, s *models.OCRSe
 	})
 }
 
+// doHTTP 执行 LLM HTTP 请求。
+//
+// PR-22 修复：
+//   - 5xx / 429 错误响应：snippet 在放入错误前走 redact.String 脱敏
+//     （PR-08 全局 logx 拦截已覆盖日志，此处覆盖 error.Error() 路径，
+//     让 errors.Is / errors.As 链路也安全）
+//   - 5xx / 429：最多重试 1 次，指数退避 1s + jitter；
+//     4xx 不重试（参数错误，重试无意义）
 func (p *DynamicProvider) doHTTP(httpReq *http.Request, parse func([]byte) (CompleteResponse, error)) (CompleteResponse, error) {
-	resp, err := p.client.Do(httpReq)
-	if err != nil {
-		return CompleteResponse{}, fmt.Errorf("llm http call failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
+	const maxAttempts = 2
+	var lastResp CompleteResponse
+	var lastErr error
 
-	raw, readErr := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		snippet := strings.TrimSpace(string(raw))
-		if len(snippet) > 500 {
-			snippet = snippet[:500]
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt > 0 {
+			// 指数退避 1s + jitter（0~250ms）
+			backoff := time.Second + time.Duration(rand.Intn(250))*time.Millisecond
+			select {
+			case <-httpReq.Context().Done():
+				return CompleteResponse{}, httpReq.Context().Err()
+			case <-time.After(backoff):
+			}
 		}
-		return CompleteResponse{}, fmt.Errorf("llm http %d: %s", resp.StatusCode, snippet)
+
+		resp, err := p.client.Do(httpReq)
+		if err != nil {
+			// 网络层错误：可重试
+			lastErr = fmt.Errorf("llm http call failed: %w", err)
+			continue
+		}
+
+		raw, readErr := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+		_ = resp.Body.Close()
+
+		if readErr != nil {
+			lastErr = fmt.Errorf("llm response read failed: %w", readErr)
+			continue
+		}
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			snippet := strings.TrimSpace(string(raw))
+			if len(snippet) > 500 {
+				snippet = snippet[:500]
+			}
+			// 5xx / 429 可重试
+			retryable := resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests
+			lastErr = fmt.Errorf("llm http %d: %s", resp.StatusCode, redact.String(snippet))
+			if !retryable {
+				return CompleteResponse{}, lastErr
+			}
+			logx.Warnf("llm http %d (attempt %d/%d), retrying: %s", resp.StatusCode, attempt+1, maxAttempts, lastErr)
+			continue
+		}
+
+		return parse(raw)
 	}
-	if readErr != nil {
-		return CompleteResponse{}, fmt.Errorf("llm response read failed: %w", readErr)
-	}
-	return parse(raw)
+	return lastResp, lastErr
 }
 
 // ensureChatCompletionsPath 兼容两种配置约定：用户可填 base URL（如 .../compatible-mode/v1）
