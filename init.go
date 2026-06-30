@@ -8,13 +8,21 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/modules"
+	"github.com/yi-nology/code-review-service/internal/observability/redact"
 
 	"github.com/oekit/bootstrap"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/logx"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 )
+
+func init() {
+	// PR-08 修复：把全局 logx 包装为自动脱敏 logger，
+	// 拦截 logx.Info/Warn/Error 与 %v %w 错误中的敏感字段（Bearer / api_key / sk- / ghp_ / ...）。
+	logx.SetDefault(redact.NewLogxLogger(logx.Default()))
+}
 
 func runApp(cfg *config.Config, app *bootstrap.App) error {
 	h := createServer(cfg)
