@@ -7,7 +7,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/executor"
-	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
@@ -57,7 +56,7 @@ type ExecutorDeps struct {
 	ProgressManager *progress.ProgressManager
 	Workflow        *workflow.ReviewWorkflow
 	AgentManager    *agent.AgentManager
-	LLMMetrics      *llm.Metrics
+	LLMMetrics      *ocr.Metrics
 }
 
 func NewExecutorService(deps ExecutorDeps) *executor.Service {

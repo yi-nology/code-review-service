@@ -18,7 +18,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/middleware"
 	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/readiness"
-	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/swagger"
 
 	// 阶段 A 移除"
@@ -68,7 +67,7 @@ func RegisterGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 
 // RegisterRoutes 收口为 5 个参数：h + db + llmMetrics + *ocrcore.Registry + cfg。
 // 之前 7 个参数；repos/resolver/viewerMgr 全部从 *ocrcore.Registry 拿。
-func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, ocrReg *ocrcore.Registry, cfg *config.Config) {
+func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *ocrcore.Metrics, ocrReg *ocrcore.Registry, cfg *config.Config) {
 	logx.Infof("[routes] registering routes...")
 
 	repos := ocrReg.Repos()
