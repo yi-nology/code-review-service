@@ -19,7 +19,7 @@ import (
 	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/readiness"
 	"github.com/yi-nology/code-review-service/internal/service/llm"
-	svrocr "github.com/yi-nology/code-review-service/internal/service/ocr"
+	svocrr "github.com/yi-nology/code-review-service/internal/service/ocr"
 	"github.com/yi-nology/code-review-service/swagger"
 
 	// 阶段 A 移除"
@@ -115,7 +115,7 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, ocrRe
 	registerSettingsExtraRoutes(h)
 	registerDiagnosticsRoutes(h)
 	registerFeedbackRoutes(h)
-	registerViewerProxyRoute(h, ocrReg.Viewer().(*svrocr.ViewerManager), cfg.Auth.Token)
+	registerViewerProxyRoute(h, ocrReg.Viewer().(*ocrcore.Viewer), cfg.Auth.Token)
 }
 
 func registerReviewExtraRoutes(h *server.Hertz) {
@@ -140,25 +140,25 @@ func registerFeedbackRoutes(h *server.Hertz) {
 	h.POST("/api/v1/reviews/:id/findings/:index/feedback", feedbackHandler.UpsertFeedback)
 }
 
-func registerViewerProxyRoute(h *server.Hertz, viewerMgr *svrocr.ViewerManager, authToken string) {
+func registerViewerProxyRoute(h *server.Hertz, viewerMgr *ocrcore.Viewer, authToken string) {
 	h.GET("/api/v1/settings/ocr/viewer/proxy/*path", viewerProxyHandler(viewerMgr, authToken))
 }
 
 // mustGetResolver 是过渡期辅助：返回 modules 包级缓存的 resolver。
 // 阶段 A 改为 ocrReg.Resolver() 后此函数删除。
-var packageResolver *svrocr.ConfigResolver
+var packageResolver *svocrr.ConfigResolver
 
-func mustGetResolver() *svrocr.ConfigResolver {
+func mustGetResolver() *svocrr.ConfigResolver {
 	return packageResolver
 }
 
 // SetPackageResolver 由 modules/ocr.go 在 fx 启动时调用，注入 resolver 供 server.go 使用。
 // 这是 B5 阶段的过渡做法，阶段 A 删掉。
-func SetPackageResolver(r *svrocr.ConfigResolver) {
+func SetPackageResolver(r *svocrr.ConfigResolver) {
 	packageResolver = r
 }
 
-func viewerProxyHandler(viewerMgr *svrocr.ViewerManager, authToken string) app.HandlerFunc {
+func viewerProxyHandler(viewerMgr *ocrcore.Viewer, authToken string) app.HandlerFunc {
 	proxyClient := &http.Client{Timeout: 30 * time.Second}
 	const maxProxyBody = 10 << 20 // 10 MB
 
@@ -177,7 +177,7 @@ func viewerProxyHandler(viewerMgr *svrocr.ViewerManager, authToken string) app.H
 			c.SetStatusCode(http.StatusServiceUnavailable)
 			return
 		}
-		status := viewerMgr.Status()
+		status, _ := viewerMgr.ViewerStatus(ctx)
 		if !status.Running || status.Addr == "" {
 			c.SetStatusCode(http.StatusServiceUnavailable)
 			_, _ = c.WriteString("OCR viewer is not running")
