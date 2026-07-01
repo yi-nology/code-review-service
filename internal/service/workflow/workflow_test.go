@@ -7,7 +7,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
-	"github.com/yi-nology/code-review-service/internal/service/llm"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 )
@@ -207,7 +207,7 @@ func TestReviewWorkflow(t *testing.T) {
 		agentManager,
 		sessionService,
 		progressManager,
-		llm.NewNoopProvider(),
+		ocr.NewNoopProvider(),
 		WorkflowConfig{
 			EnableDiscussion:   true,
 			EnableRequirements: true,

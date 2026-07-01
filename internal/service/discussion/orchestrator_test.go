@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/yi-nology/code-review-service/internal/service/llm"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 )
 
 // TestRunDiscussionDegradedWithNoopProvider 验证 LLM 不可用时自动降级到模板逻辑：
 // 不报错、不产出新发现（NewFindings 为空），但仍产出 consensus/disagreement 聚合。
 func TestRunDiscussionDegradedWithNoopProvider(t *testing.T) {
-	o := NewOrchestrator(DefaultDiscussionConfig(), llm.NewNoopProvider())
+	o := NewOrchestrator(DefaultDiscussionConfig(), ocr.NewNoopProvider())
 
 	findings := []Finding{
 		{ID: "f1", Severity: "critical", Path: "a.go", Line: 1, EndLine: 1, Body: "严重 bug", Agents: []string{"a1"}},
@@ -38,7 +38,7 @@ func TestRunDiscussionDegradedWithNoopProvider(t *testing.T) {
 func TestRunDiscussionSkipsWhenDisabled(t *testing.T) {
 	cfg := DefaultDiscussionConfig()
 	cfg.Enabled = false
-	o := NewOrchestrator(cfg, llm.NewNoopProvider())
+	o := NewOrchestrator(cfg, ocr.NewNoopProvider())
 
 	result, err := o.RunDiscussion(context.Background(), nil, []string{"a1"}, nil)
 	if err != nil {
@@ -51,7 +51,7 @@ func TestRunDiscussionSkipsWhenDisabled(t *testing.T) {
 
 // TestRunDiscussionTooFewAgents 验证 agent 数不足时跳过。
 func TestRunDiscussionTooFewAgents(t *testing.T) {
-	o := NewOrchestrator(DefaultDiscussionConfig(), llm.NewNoopProvider())
+	o := NewOrchestrator(DefaultDiscussionConfig(), ocr.NewNoopProvider())
 
 	result, err := o.RunDiscussion(context.Background(), nil, []string{"only-one"}, nil)
 	if err != nil {

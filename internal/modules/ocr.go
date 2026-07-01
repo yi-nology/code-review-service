@@ -2,9 +2,8 @@ package modules
 
 import (
 	"github.com/yi-nology/code-review-service/internal/config"
-	ocrcore 	"github.com/yi-nology/code-review-service/internal/ocr"
+	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/service/llm"
 
 	"go.uber.org/fx"
 )
@@ -30,12 +29,11 @@ var OCRModule = fx.Options(
 func NewOCRRegistry(
 	cfg *config.Config,
 	repos *repository.RepoContainer,
-	llmProvider *llm.MetricsProvider,
+	llmProvider *ocrcore.MetricsProvider,
 	ocrRunner *ocrcore.Runner,
 	resolver *ocrcore.ConfigResolver,
 	versioner *ocrcore.Versioner,
 ) *ocrcore.Registry {
-	SetPackageResolver(resolver)
 	fallbackConfig := ocrcore.Config{
 		Binary:          cfg.OCR.Binary,
 		Audience:        "human",
@@ -45,6 +43,7 @@ func NewOCRRegistry(
 	return ocrcore.New(
 		repos,
 		fallbackConfig,
+		resolver,
 		NewOCRTester(repos, resolver),
 		NewOCRProviderLister(repos, resolver),
 		NewOCRRulesChecker(repos, resolver),

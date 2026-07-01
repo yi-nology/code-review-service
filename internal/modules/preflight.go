@@ -21,7 +21,7 @@ var PreflightModule = fx.Options(fx.Invoke(RegisterPreflight))
 // 之前 3 个参数（lc + repos + resolver）；repos/resolver 都从 Registry 拿。
 func RegisterPreflight(lc fx.Lifecycle, ocrReg *ocr.Registry) {
 	repo := ocrReg.Repos()
-	resolver := mustGetResolver()
+	resolver := ocrReg.Resolver()
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {

@@ -16,7 +16,6 @@ package ocr
 
 import (
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
@@ -29,6 +28,8 @@ import (
 type Registry struct {
 	repos *repository.RepoContainer
 
+	resolver *ConfigResolver
+
 	runner    domain.Runner
 	previewer domain.PreviewRunner
 	scanner   domain.ScanRunner
@@ -39,7 +40,7 @@ type Registry struct {
 	viewer    domain.ViewerManager
 	upgrader  domain.OCRUpgrader
 
-	llmProvider llm.Provider
+	llmProvider Provider
 }
 
 // New 从已构造的子 manager 构造 Registry。
@@ -52,17 +53,19 @@ type Registry struct {
 func New(
 	repos *repository.RepoContainer,
 	fallback Config,
+	resolver *ConfigResolver,
 	tester domain.LLMTester,
 	lister domain.LLMProviderLister,
 	checker domain.RulesChecker,
 	versioner domain.OCRVersioner,
 	viewer domain.ViewerManager,
 	upgrader domain.OCRUpgrader,
-	llmProvider llm.Provider,
+	llmProvider Provider,
 ) *Registry {
 	_ = fallback // 阶段 A15 part 4: 用 fallback 构造 default Runner
 	return &Registry{
 		repos:       repos,
+		resolver:    resolver,
 		runner:      nil, // 由 WithRunner 注入
 		previewer:   nil,
 		scanner:     nil,
@@ -116,7 +119,11 @@ func (r *Registry) Viewer() domain.ViewerManager { return r.viewer }
 func (r *Registry) Upgrader() domain.OCRUpgrader { return r.upgrader }
 
 // LLM 返回统一 LLM Provider，供 discussion / tech-lead 等阶段直接调用。
-func (r *Registry) LLM() llm.Provider { return r.llmProvider }
+func (r *Registry) LLM() Provider { return r.llmProvider }
+
+// Resolver 返回 ConfigResolver。
+// 阶段 A+10：删除 modules.SetPackageResolver 过渡机制后，所有消费者通过此 getter 获取 resolver。
+func (r *Registry) Resolver() *ConfigResolver { return r.resolver }
 
 // Settings 暴露 OCRSettingsRepository，方便 readiness / health 调用。
 func (r *Registry) Settings() repository.OCRSettingsRepository { return r.repos.OCRSettings }

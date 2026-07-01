@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/discussion"
-	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/requirements"
 	"github.com/yi-nology/code-review-service/internal/service/scoring"
@@ -82,7 +82,7 @@ func (s *changeAnalysisStep) Run(ctx context.Context, req workflow.Request, sess
 // analysisStep Phase 3: Tech Lead 分析（B2）——总结变更、识别风险
 type analysisStep struct {
 	sessionService sessionService
-	llmProvider    llm.Provider
+	llmProvider    ocr.Provider
 	config         WorkflowConfig
 }
 
@@ -152,7 +152,7 @@ func (s *analysisStep) runTechLeadAnalysis(ctx context.Context, rs *ReviewSessio
 	sb.WriteString("\n" + returnHint)
 
 	var analysis TechLeadAnalysis
-	if err := llm.CompleteJSON(ctx, s.llmProvider, llm.CompleteRequest{
+	if err := ocr.CompleteJSON(ctx, s.llmProvider, ocr.CompleteRequest{
 		SystemPrompt: systemPrompt,
 		UserPrompt:   sb.String(),
 		MaxTokens:    2048,
@@ -303,7 +303,7 @@ func (s *discussionStep) Run(ctx context.Context, req workflow.Request, sess wor
 type synthesisStep struct {
 	sessionService     sessionService
 	enableRequirements bool
-	llmProvider        llm.Provider
+	llmProvider        ocr.Provider
 }
 
 func (s *synthesisStep) Run(ctx context.Context, req workflow.Request, sess workflow.Session) error {

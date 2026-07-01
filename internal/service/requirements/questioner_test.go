@@ -4,14 +4,14 @@ import (
 	"context"
 	"testing"
 
-	"github.com/yi-nology/code-review-service/internal/service/llm"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 )
 
 // TestGenerateClarifyingQuestionsDegraded 验证 LLM 不可用时返回 nil（降级，不阻塞主流程）。
 func TestGenerateClarifyingQuestionsDegraded(t *testing.T) {
 	qs := GenerateClarifyingQuestions(
 		context.Background(),
-		llm.NewNoopProvider(),
+		ocr.NewNoopProvider(),
 		[]string{"每秒最多 100 请求"},
 		[]Finding{{ID: "1", Severity: "major", Path: "a.go", Title: "x"}},
 	)
@@ -24,7 +24,7 @@ func TestGenerateClarifyingQuestionsDegraded(t *testing.T) {
 func TestGenerateClarifyingQuestionsSkipsWhenNoReqs(t *testing.T) {
 	qs := GenerateClarifyingQuestions(
 		context.Background(),
-		llm.NewNoopProvider(),
+		ocr.NewNoopProvider(),
 		nil,
 		nil,
 	)

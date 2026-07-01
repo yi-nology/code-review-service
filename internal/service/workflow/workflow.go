@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/discussion"
-	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/oekit/logx"
 	"github.com/oekit/workflow"
@@ -19,7 +19,7 @@ type ReviewWorkflow struct {
 	sessionService  sessionService
 	progressManager *progress.ProgressManager
 	discussionOrch  *discussion.Orchestrator
-	llmProvider     llm.Provider
+	llmProvider     ocr.Provider
 	config          WorkflowConfig
 }
 
@@ -54,7 +54,7 @@ func NewReviewWorkflow(
 	agentManager *agent.AgentManager,
 	sessionService sessionService,
 	progressManager *progress.ProgressManager,
-	llmProvider llm.Provider,
+	llmProvider ocr.Provider,
 	config WorkflowConfig,
 ) *ReviewWorkflow {
 	return &ReviewWorkflow{
