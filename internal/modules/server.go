@@ -18,7 +18,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/middleware"
 	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/readiness"
-	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/swagger"
 
 	// 阶段 A 移除"
@@ -68,11 +67,11 @@ func RegisterGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 
 // RegisterRoutes 收口为 5 个参数：h + db + llmMetrics + *ocrcore.Registry + cfg。
 // 之前 7 个参数；repos/resolver/viewerMgr 全部从 *ocrcore.Registry 拿。
-func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *llm.Metrics, ocrReg *ocrcore.Registry, cfg *config.Config) {
+func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *ocrcore.Metrics, ocrReg *ocrcore.Registry, cfg *config.Config) {
 	logx.Infof("[routes] registering routes...")
 
 	repos := ocrReg.Repos()
-	resolver := mustGetResolver()
+	resolver := ocrReg.Resolver()
 
 	healthOpts := []health.Option{}
 	if sqlDB, err := db.DB(); err == nil {
@@ -141,20 +140,6 @@ func registerFeedbackRoutes(h *server.Hertz) {
 
 func registerViewerProxyRoute(h *server.Hertz, viewerMgr *ocrcore.Viewer, authToken string) {
 	h.GET("/api/v1/settings/ocr/viewer/proxy/*path", viewerProxyHandler(viewerMgr, authToken))
-}
-
-// mustGetResolver 是过渡期辅助：返回 modules 包级缓存的 resolver。
-// 阶段 A 改为 ocrReg.Resolver() 后此函数删除。
-var packageResolver *ocrcore.ConfigResolver
-
-func mustGetResolver() *ocrcore.ConfigResolver {
-	return packageResolver
-}
-
-// SetPackageResolver 由 modules/ocr.go 在 fx 启动时调用，注入 resolver 供 server.go 使用。
-// 这是 B5 阶段的过渡做法，阶段 A 删掉。
-func SetPackageResolver(r *ocrcore.ConfigResolver) {
-	packageResolver = r
 }
 
 func viewerProxyHandler(viewerMgr *ocrcore.Viewer, authToken string) app.HandlerFunc {

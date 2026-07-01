@@ -20,7 +20,7 @@ var LLMProbeModule = fx.Options(fx.Invoke(RegisterLLMProbe))
 // 之前 3 个参数（lc + repos + resolver）。
 func RegisterLLMProbe(lc fx.Lifecycle, ocrReg *ocr.Registry) {
 	repos := ocrReg.Repos()
-	resolver := mustGetResolver()
+	resolver := ocrReg.Resolver()
 
 	var probeCancel context.CancelFunc
 	lc.Append(fx.Hook{

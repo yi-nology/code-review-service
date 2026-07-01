@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/service/llm"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/oekit/logx"
 )
 
@@ -18,7 +18,7 @@ type ClarifyingQuestion struct {
 
 // GenerateClarifyingQuestions 基于 requirements 歧义、范围边界、缺失验收标准、边缘场景，
 // 用 LLM 生成结构化澄清问题（阶段 4）。LLM 不可用时返回空切片（降级）。
-func GenerateClarifyingQuestions(ctx context.Context, provider llm.Provider, reqs []string, findings []Finding) []ClarifyingQuestion {
+func GenerateClarifyingQuestions(ctx context.Context, provider ocr.Provider, reqs []string, findings []Finding) []ClarifyingQuestion {
 	if provider == nil || !provider.Available(ctx) || len(reqs) == 0 {
 		return nil
 	}
@@ -53,7 +53,7 @@ func GenerateClarifyingQuestions(ctx context.Context, provider llm.Provider, req
 	sb.WriteString("\n请返回澄清问题 JSON 数组。若无值得澄清的问题，返回 []。")
 
 	var questions []ClarifyingQuestion
-	if err := llm.CompleteJSON(ctx, provider, llm.CompleteRequest{
+	if err := ocr.CompleteJSON(ctx, provider, ocr.CompleteRequest{
 		SystemPrompt: systemPrompt,
 		UserPrompt:   sb.String(),
 		MaxTokens:    2048,

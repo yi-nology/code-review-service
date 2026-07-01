@@ -43,13 +43,13 @@ OCR Core 重构分 3 个阶段、共 26 个 commit 完成：
 
 | 指标 | 数值 |
 |---|---|
-| 总 commit 数 | 26 |
-| 新增文件 | 25 |
-| 修改文件 | 30 |
+| 总 commit 数 | 27 |
+| 新增文件 | 27 |
+| 修改文件 | 35 |
 | 删除文件 | 17（5 runner + 11 ocr + 1 llm） |
-| 新增单测 | 60+ |
-| 全量包测试 | 25/25 全绿 |
-| `internal/ocr` 总 LOC | 3314（含测试） |
+| 新增单测 | 65+ |
+| 全量包测试 | 26/26 全绿 |
+| `internal/ocr` 总 LOC | ~3800（含测试） |
 
 ## 3. internal/ocr 包结构（最终态）
 
@@ -86,21 +86,24 @@ internal/ocr/                          # 核心包（24 个文件）
 | `internal/service/runner/` | ~2000 | ❌ 全部删除 |
 | `internal/ocr/adapter/legacy.go` | 9 | ❌ 删除（占位文件） |
 
-## 5. 阶段 A+10 末尾的剩余工作（可选）
+## 5. 阶段 A+10 末尾的收尾工作（已全部完成）
 
-1. **彻底合并 `internal/service/llm` 包**到 ocr
-   - 当前保留：errors.go / json_helper.go / metrics.go / noop.go / presets.go / provider.go
-   - llm.Provider / llm.CompleteRequest 是 type alias 指向 ocr
-   - 完成后 ocr 包可对外提供独立 LLM API
+1. **彻底合并 `internal/service/llm` 包**到 ocr ✅
+   - Provider / CompleteRequest / CompleteJSON / ErrNotConfigured / NoopProvider / MetricsProvider / Presets → ocr 包
+   - consumers 改用 ocr 类型（discussion / workflow / requirements）
 
-2. **清理 `modules.SetPackageResolver` 过渡机制**
-   - 当前：resolver 注入到包级缓存供 server.go 用
-   - 后续：resolver 通过 `ocr.Registry.Resolver()` getter 暴露
+2. **清理 `modules.SetPackageResolver` 过渡机制** ✅
+   - resolver 通过 `ocr.Registry.Resolver()` getter 暴露
+   - server.go / probe.go / preflight.go 通过 ocrReg.Resolver() 获取
+   - 删除 packageResolver 包级变量 + SetPackageResolver + mustGetResolver
 
-3. **拆分 domain/interfaces.go 真正分离**（现为 type alias 阶段）
-   - ocr 包直接定义 OCR 接口，删除 ocr_aliases.go
+3. **拆分 domain/interfaces.go 真正分离** ✅
+   - ocr 包直接定义 OCR 接口（LLMTester / LLMProviderLister / RulesChecker / OCRVersioner / ViewerManager / OCRUpgrader）
+   - 删除 type alias → 正式接口定义
 
-这些不是阻塞项，可以作为后续 PR 推进。
+剩余可选工作：
+- 彻底删除 internal/service/llm 包（当前仅保留 errors.go / json_helper.go / metrics_test.go / provider_test.go）
+- ocr 包测试覆盖率达 80%+（当前 60+ 测试，覆盖率约 65%）
 
 ## 6. 验收
 

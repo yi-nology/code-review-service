@@ -15,7 +15,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
-	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
@@ -38,7 +37,7 @@ type Service struct {
 	progressMgr     *progress.ProgressManager
 	workflow        *workflow.ReviewWorkflow
 	agentManager    *agent.AgentManager
-	llmMetrics      *llm.Metrics
+	llmMetrics      *ocr.Metrics
 
 	// running tracks currently executing reviews for cancellation support
 	runningMu sync.Mutex
@@ -56,7 +55,7 @@ type Config struct {
 	ProgressMgr     *progress.ProgressManager
 	Workflow        *workflow.ReviewWorkflow
 	AgentManager    *agent.AgentManager
-	LLMMetrics      *llm.Metrics
+	LLMMetrics      *ocr.Metrics
 }
 
 func NewService(cfg Config) *Service {
@@ -351,7 +350,7 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req domain.R
 	s.appendHistory(ctx, id, "ocr", "running", "code review model invoked", nil)
 	result, err := s.runner.Run(ctx, workspace)
 	if err != nil {
-		// #7：runner 路径也计入 llm.Metrics，让 /debug/llm/metrics 反映真实 OCR 调用（原仅 workflow 路径统计）
+		// #7：runner 路径也计入 ocr.Metrics，让 /debug/llm/metrics 反映真实 OCR 调用（原仅 workflow 路径统计）
 		if s.llmMetrics != nil {
 			s.llmMetrics.Calls.Add(1)
 			s.llmMetrics.Failures.Add(1)

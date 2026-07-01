@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/service/llm"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/slicex"
@@ -15,12 +15,12 @@ import (
 // Orchestrator manages the discussion process.
 type Orchestrator struct {
 	config   DiscussionConfig
-	provider llm.Provider // B1: LLM 驱动真讨论；nil 或不可用时降级到模板逻辑
+	provider ocr.Provider // B1: LLM 驱动真讨论；nil 或不可用时降级到模板逻辑
 }
 
 // NewOrchestrator creates a new discussion orchestrator.
 // provider 为 LLM 调用抽象；传 nil 或不可用时自动降级到模板逻辑，保证可用。
-func NewOrchestrator(config DiscussionConfig, provider llm.Provider) *Orchestrator {
+func NewOrchestrator(config DiscussionConfig, provider ocr.Provider) *Orchestrator {
 	return &Orchestrator{config: config, provider: provider}
 }
 
@@ -62,7 +62,7 @@ func (o *Orchestrator) RunDiscussion(ctx context.Context, findings []Finding, ag
 // 所有 findings 集中表态（AGREE/CHALLENGE/CONNECT），并可 SURFACE 新发现。
 func (o *Orchestrator) runLLMDiscourse(ctx context.Context, findings []Finding, agents []string, requirements []string) ([]discussionEntry, []Finding, error) {
 	if o.provider == nil || !o.provider.Available(ctx) {
-		return nil, nil, llm.ErrNotConfigured
+		return nil, nil, ocr.ErrNotConfigured
 	}
 
 	var allEntries []discussionEntry
@@ -73,7 +73,7 @@ func (o *Orchestrator) runLLMDiscourse(ctx context.Context, findings []Finding, 
 		userPrompt := buildDiscourseUserPrompt(findings, agentName, requirements)
 
 		var items []llmDiscussionItem
-		err := llm.CompleteJSON(ctx, o.provider, llm.CompleteRequest{
+		err := ocr.CompleteJSON(ctx, o.provider, ocr.CompleteRequest{
 			SystemPrompt: systemPrompt,
 			UserPrompt:   userPrompt,
 			MaxTokens:    4096,

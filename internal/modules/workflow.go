@@ -2,8 +2,8 @@ package modules
 
 import (
 	"github.com/yi-nology/code-review-service/internal/config"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
-	"github.com/yi-nology/code-review-service/internal/service/llm"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/session"
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
@@ -20,7 +20,7 @@ func NewReviewWorkflow(
 	agentMgr *agent.AgentManager,
 	sessionSvc *session.SessionService,
 	progressMgr *progress.ProgressManager,
-	llmProvider llm.Provider,
+	llmProvider ocr.Provider,
 ) *workflow.ReviewWorkflow {
 	wfCfg := workflow.WorkflowConfig{
 		EnableDiscussion:   cfg.Agents.Discussion.Enabled,

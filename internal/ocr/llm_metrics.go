@@ -1,4 +1,4 @@
-package llm
+package ocr
 
 import (
 	"context"
@@ -6,19 +6,18 @@ import (
 	"time"
 )
 
-// Metrics 统计 LLM 调用的可观测指标（阶段 6）。线程安全，零依赖。
-// 所有计数用 atomic，可在 prometheus/日志/调试端点中直接快照读取。
+// Metrics 统计 LLM 调用的可观测指标。线程安全，零依赖。
 type Metrics struct {
-	Calls        atomic.Int64 // 总 Complete 调用次数
-	Successes    atomic.Int64 // 成功次数
-	Failures     atomic.Int64 // 失败次数（含超时、HTTP 错误、解析失败）
-	Unavailable  atomic.Int64 // Available 返回 false 的次数（降级触发点）
-	InputTokens  atomic.Int64 // 累计输入 token
-	OutputTokens atomic.Int64 // 累计输出 token
-	TotalLatency atomic.Int64 // 累计耗时（纳秒）
+	Calls        atomic.Int64
+	Successes    atomic.Int64
+	Failures     atomic.Int64
+	Unavailable  atomic.Int64
+	InputTokens  atomic.Int64
+	OutputTokens atomic.Int64
+	TotalLatency atomic.Int64
 }
 
-// Snapshot 返回当前指标的只读快照。
+// MetricsSnapshot 返回当前指标的只读快照。
 type MetricsSnapshot struct {
 	Calls        int64   `json:"calls"`
 	Successes    int64   `json:"successes"`
@@ -54,15 +53,13 @@ func (m *Metrics) Snapshot() MetricsSnapshot {
 	}
 }
 
-// MetricsProvider 包装另一个 Provider 并统计调用指标（阶段 6）。
-// 通过包装 DynamicProvider 实现：所有 LLM 调用必经此处，可统一观测。
+// MetricsProvider 包装另一个 Provider 并统计调用指标。
 type MetricsProvider struct {
 	inner Provider
 	m     *Metrics
 }
 
 // NewMetricsProvider 创建带指标统计的 Provider，返回包装器与指标对象。
-// 指标对象可注入 handler/stats 供运行时观测。
 func NewMetricsProvider(inner Provider) (*MetricsProvider, *Metrics) {
 	if inner == nil {
 		inner = NewNoopProvider()

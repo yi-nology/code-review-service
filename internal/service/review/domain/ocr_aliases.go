@@ -1,48 +1,42 @@
 package domain
 
-// 本文件保留旧 OCR 接口的 type alias，阶段 A+7 完整迁移后删除。
-
 import "context"
 
-// LLMTester 旧接口保留为 alias（阶段 A：ocr 包新 Tester 已实现）。
-type LLMTester = ocrLLMTester
+// 本文件定义 OCR 管理接口。
+//
+// 阶段 A+10：从 type alias 升级为正式接口定义。
+// ocr 包的 manager（Tester / Versioner / Lister / Checker / Viewer / Upgrader）
+// 实现这些接口。
 
-// LLMProviderLister 旧接口保留为 alias。
-type LLMProviderLister = ocrLLMProviderLister
-
-// RulesChecker 旧接口保留为 alias。
-type RulesChecker = ocrRulesChecker
-
-// OCRVersioner 旧接口保留为 alias。
-type OCRVersioner = ocrOCRVersioner
-
-// ViewerManager 旧接口保留为 alias。
-type ViewerManager = ocrViewerManager
-
-// OCRUpgrader 旧接口保留为 alias。
-type OCRUpgrader = ocrOCRUpgrader
-
-// 以下定义是为兼容编译而保留（实际类型由 internal/ocr 包定义）。
-// 阶段 A+7 完整迁移后会改为正式的 interface 声明。
-
-type ocrLLMTester interface {
+// LLMTester 是 LLM 连通性测试器接口。
+type LLMTester interface {
 	TestLLM(ctx context.Context) (*LLMTestResult, error)
 }
-type ocrLLMProviderLister interface {
+
+// LLMProviderLister 列出可用 LLM provider。
+type LLMProviderLister interface {
 	ListLLMProviders(ctx context.Context) ([]LLMProvider, error)
 }
-type ocrRulesChecker interface {
+
+// RulesChecker 检查规则文件。
+type RulesChecker interface {
 	RulesCheck(ctx context.Context, path string) (*RulesCheckResult, error)
 }
-type ocrOCRVersioner interface {
+
+// OCRVersioner 获取 OCR 版本。
+type OCRVersioner interface {
 	OCRVersion(ctx context.Context) (*OCRVersion, error)
 }
-type ocrViewerManager interface {
+
+// ViewerManager 管理 OCR viewer 进程。
+type ViewerManager interface {
 	ViewerStatus(ctx context.Context) (*ViewerStatus, error)
 	StartViewer(ctx context.Context, addr string) (*ViewerStatus, error)
 	StopViewer(ctx context.Context) (*ViewerStatus, error)
 }
-type ocrOCRUpgrader interface {
+
+// OCRUpgrader 管理 OCR 在线升级。
+type OCRUpgrader interface {
 	CheckUpdate(ctx context.Context) (*OCRUpdateInfo, error)
 	Upgrade(ctx context.Context, targetVersion string) (*OCRUpgradeStatus, error)
 	UpgradeStatus(ctx context.Context) (*OCRUpgradeStatus, error)

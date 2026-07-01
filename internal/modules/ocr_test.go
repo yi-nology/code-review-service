@@ -8,14 +8,13 @@ import (
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
-	"github.com/yi-nology/code-review-service/internal/service/llm"
 )
 
-// stubLLMProvider 实现 llm.Provider（用于 fx 注入）。
+// stubLLMProvider 实现 ocr.Provider（用于 fx 注入）。
 type stubLLMProvider struct{}
 
-func (stubLLMProvider) Complete(_ context.Context, _ llm.CompleteRequest) (llm.CompleteResponse, error) {
-	return llm.CompleteResponse{Content: "ok"}, nil
+func (stubLLMProvider) Complete(_ context.Context, _ ocr.CompleteRequest) (ocr.CompleteResponse, error) {
+	return ocr.CompleteResponse{Content: "ok"}, nil
 }
 func (stubLLMProvider) Available(_ context.Context) bool { return true }
 
@@ -33,7 +32,7 @@ func TestNewOCRRegistry_ConstructsSuccessfully(t *testing.T) {
 
 	// 仅做编译期断言：函数签名与 fx 期望一致
 	var (
-		_ *llm.MetricsProvider
+		_ *ocr.MetricsProvider
 		_ *ocr.Runner
 		_ = NewOCRRegistry
 	)
