@@ -370,6 +370,8 @@ golangci-lint run ./...
 │   ├── config/           # 配置加载与校验
 │   ├── middleware/        # HTTP 中间件（认证 / 限流 / 安全头）
 │   ├── modules/          # uber/fx 依赖注入模块
+│   ├── observability/    # 可观测性（日志脱敏、redex 等）
+│   ├── ocr/              # ★ OCR 核心包（所有 open-code-review 能力的统一入口）
 │   ├── readiness/        # 健康就绪检查器（DB / OCR 二进制 / LLM endpoint）
 │   ├── repository/       # 数据访问层接口和实现（postgres）
 │   ├── vcs/              # Git 操作封装
@@ -377,15 +379,12 @@ golangci-lint run ./...
 │       ├── agent/        # 多 Agent 管理
 │       ├── discussion/   # Agent 讨论编排
 │       ├── executor/     # 评审执行器（单 runner / 工作流分流）
-│       ├── llm/          # 进程内 LLM 客户端
-│       ├── ocr/          # OCR 二进制生命周期（升级 / 测试 / 视图）
 │       ├── policy/       # 质量门禁策略
 │       ├── progress/     # 进度追踪 + WebSocket 广播
 │       ├── provider/     # Git 平台适配
 │       ├── requirements/ # 需求解析
 │       ├── review/       # 评审核心逻辑（Service / Worker / 报告构建）
 │       │   └── domain/   # 纯领域类型与接口（Request/Response/Result/Finding/...）
-│       ├── runner/       # OCR 运行器（子进程封装 + 配置合并）
 │       ├── scoring/      # 评分计算（纯函数）
 │       ├── session/      # 会话管理
 │       ├── stats/        # 统计分析
@@ -395,3 +394,35 @@ golangci-lint run ./...
 │       └── writeback/    # 评论回写
 └── swagger/              # Swagger UI
 ```
+
+### `internal/ocr` 核心包
+
+所有 open-code-review 能力的统一入口（阶段 A+10 完整化）：
+
+```
+internal/ocr/
+├── client.go              # Client 主入口
+├── config.go              # Config + Fallback + BuildConfig（配置合并单一真相）
+├── settings.go            # Settings 接口 + SettingsData + SettingsSnapshot
+├── settings_adapter.go    # models.OCRSettingsRepository 适配器
+├── llm.go                 # LLMProvider + Adapter（OpenAI / Anthropic 协议）
+├── llm_types.go           # Provider / CompleteRequest / NoopProvider / Presets
+├── llm_metrics.go         # Metrics / MetricsProvider
+├── runner.go              # Runner（实现 domain.Runner/Preview/Scan）
+├── scanner.go             # Preview + Scan 独立文件
+├── managers.go            # 7 个 manager：Versioner/Lister/Checker/Viewer/Upgrader
+├── tester.go              # Tester + ConfigResolver
+├── factory.go             # Factory.CreateRunner
+├── command.go             # Run / CommandSpec / CommandResult（公共 exec 入口）
+├── reasoning.go           # ResolveExtraBody 完整实现
+├── helpers.go             # firstNonBlank / firstPositive
+├── registry.go            # Registry（通过 Registry 聚合所有能力）
+└── internal/              # exec 公共原语
+    └── command.go
+```
+
+**关键设计：**
+- `Config + Settings` 分离：`Config` 是合并后的运行时配置，`Settings` 是配置源抽象
+- `BuildConfig` 是合并的单一实现（overrides > settings > fallback > defaults）
+- `internal.Run(ctx, CommandSpec)` 是统一的 exec 入口（三段式 SIGTERM → KillGrace → SIGKILL）
+- `domain/ocr_aliases.go` 正式定义 OCR 管理接口（LLMTester / LLMProviderLister / RulesChecker / OCRVersioner / ViewerManager / OCRUpgrader）
