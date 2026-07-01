@@ -2,10 +2,9 @@ package modules
 
 import (
 	"github.com/yi-nology/code-review-service/internal/config"
-	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
+	ocrcore 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/llm"
-	"github.com/yi-nology/code-review-service/internal/service/runner"
 
 	"go.uber.org/fx"
 )
@@ -101,4 +100,4 @@ func NewOCRUpgrader(repos *repository.RepoContainer, resolver *ocrcore.ConfigRes
 }
 
 // _ 避免 unused import
-var _ = runner.OpenCodeReviewConfig{}
+var _ = struct{}{}

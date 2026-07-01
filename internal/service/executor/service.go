@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
@@ -19,7 +20,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-	"github.com/yi-nology/code-review-service/internal/service/runner"
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
 	"github.com/yi-nology/code-review-service/internal/vcs"
 
@@ -500,13 +500,13 @@ func (s *Service) recordFailure(ctx context.Context, id string, req domain.Reque
 // 让前端/排障能一眼区分是「二进制缺失 / 超时 / 子进程退出（LLM/DNS/解析）」。
 // 非 runner 路径的错误（repository/scope/workflow stage）返回空。
 func classifyReviewErrorType(err error) string {
-	if runner.IsBinaryMissing(err) {
+	if ocr.IsBinaryMissing(err) {
 		return "binary_missing"
 	}
-	if runner.IsTimeout(err) {
+	if ocr.IsTimeout(err) {
 		return "timeout"
 	}
-	if runner.IsExit(err) {
+	if ocr.IsExit(err) {
 		return "exit"
 	}
 	return ""
