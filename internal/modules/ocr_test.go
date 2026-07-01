@@ -5,12 +5,10 @@ import (
 	"testing"
 
 	"github.com/yi-nology/code-review-service/internal/config"
-	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/llm"
-	"github.com/yi-nology/code-review-service/internal/service/ocr"
-	"github.com/yi-nology/code-review-service/internal/service/runner"
 )
 
 // stubLLMProvider 实现 llm.Provider（用于 fx 注入）。
@@ -31,14 +29,12 @@ func TestNewOCRRegistry_ConstructsSuccessfully(t *testing.T) {
 	// 注意：以下对象大多数为 nil，因为我们的目的只是验证 fx 注入路径打通，
 	// 实际能力在 ocr 包单测里覆盖。
 	repos := &repository.RepoContainer{}
-	fallback := runner.NewOpenCodeReviewRunner(runner.OpenCodeReviewConfig{Binary: "ocr"})
 	_ = repos
-	_ = fallback
 
 	// 仅做编译期断言：函数签名与 fx 期望一致
 	var (
 		_ *llm.MetricsProvider
-		_ *ocrcore.Runner
+		_ *ocr.Runner
 		_ = NewOCRRegistry
 	)
 }
@@ -62,7 +58,6 @@ func TestLegacySignaturesStable(t *testing.T) {
 		_ = NewOCRVersioner
 		_ = NewOCRViewerManager
 		_ = NewOCRUpgrader
-		_ runner.OpenCodeReviewConfig
 		_ *ocr.Tester
 		_ models.OCRSettings
 	)

@@ -8,9 +8,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/llm"
-	"github.com/yi-nology/code-review-service/internal/service/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-	"github.com/yi-nology/code-review-service/internal/service/runner"
 )
 
 // stubRepository 是不依赖 DB 的最小 RepoContainer。
@@ -306,6 +304,4 @@ func TestNew_NilSafety(t *testing.T) {
 var (
 	_ = stubRepository
 	_ = (*models.OCRSettings)(nil)
-	_ runner.OpenCodeReviewConfig
-	_ = ocr.Tester{}
 )

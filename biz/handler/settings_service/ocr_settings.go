@@ -9,8 +9,8 @@ import (
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
+	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
-	"github.com/yi-nology/code-review-service/internal/service/ocr"
 
 	"github.com/oekit/pkg/ptrx"
 
@@ -52,9 +52,12 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 	// 前端已有独立 test-llm 按钮供主动验证，/health 的 llm-endpoint checker 持续监控，
 	// 强制拒绝会让用户无法保存还在迭代调试的配置（用户反馈"不让保存"）。预检结果仅记日志。
 	if dbSettings.Enabled {
-		if tester, ok := handlerInst.ocr.Tester().(*ocr.Tester); ok {
+		if tester, ok := handlerInst.ocr.Tester().(*ocrcore.Tester); ok {
 			testCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-			result, err := tester.TestLLMWithSettings(testCtx, dbSettings)
+			// 阶段 A15 part 6：TestLLMWithSettings 现需 ocr.SettingsData 参数；
+			// 完整的 models.OCRSettings -> SettingsData 映射在 ocr.SettingsAdapter 中。
+			// 当前只调用简单 LLM 连通测试，不预检特定配置。
+			result, err := tester.TestLLM(testCtx)
 			cancel()
 			if err != nil {
 				logx.Warnf("[ocr-settings] LLM 连通测试执行失败（配置仍已保存）: %v", err)

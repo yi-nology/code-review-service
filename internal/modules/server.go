@@ -19,7 +19,6 @@ import (
 	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/readiness"
 	"github.com/yi-nology/code-review-service/internal/service/llm"
-	svocrr "github.com/yi-nology/code-review-service/internal/service/ocr"
 	"github.com/yi-nology/code-review-service/swagger"
 
 	// 阶段 A 移除"
@@ -146,15 +145,15 @@ func registerViewerProxyRoute(h *server.Hertz, viewerMgr *ocrcore.Viewer, authTo
 
 // mustGetResolver 是过渡期辅助：返回 modules 包级缓存的 resolver。
 // 阶段 A 改为 ocrReg.Resolver() 后此函数删除。
-var packageResolver *svocrr.ConfigResolver
+var packageResolver *ocrcore.ConfigResolver
 
-func mustGetResolver() *svocrr.ConfigResolver {
+func mustGetResolver() *ocrcore.ConfigResolver {
 	return packageResolver
 }
 
 // SetPackageResolver 由 modules/ocr.go 在 fx 启动时调用，注入 resolver 供 server.go 使用。
 // 这是 B5 阶段的过渡做法，阶段 A 删掉。
-func SetPackageResolver(r *svocrr.ConfigResolver) {
+func SetPackageResolver(r *ocrcore.ConfigResolver) {
 	packageResolver = r
 }
 
