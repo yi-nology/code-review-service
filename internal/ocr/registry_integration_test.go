@@ -12,7 +12,7 @@ import (
 // TestRegistry_LLMAvailableAndComplete 验证 LLM 能力的完整调用链。
 // 该测试不需要真实 DB：所有 manager 用 stub。
 func TestRegistry_LLMAvailableAndComplete(t *testing.T) {
-	r := New(nil, nil,
+	r := New(nil, Config{},
 		&stubTester{},
 		&stubLister{},
 		&stubChecker{applicable: true},
@@ -45,7 +45,7 @@ func TestRegistry_LLMAvailableAndComplete(t *testing.T) {
 // TestRegistry_AllDomainInterfaces 验证每个 getter 满足对应的 domain interface。
 // 该测试在编译期保证接口契约正确（interface assertion 在编译失败时报错）。
 func TestRegistry_AllDomainInterfaces(t *testing.T) {
-	r := New(nil, nil,
+	r := New(nil, Config{},
 		&stubTester{}, &stubLister{}, &stubChecker{}, &stubVersioner{},
 		&stubViewer{}, &stubUpgrader{}, &stubLLM{},
 	)
@@ -70,7 +70,7 @@ func TestRegistry_AllDomainInterfaces(t *testing.T) {
 // TestRegistry_GettersAreImmutable 验证构造后 getter 返回的引用是稳定的。
 // 这保证业务侧持有 getter 引用后，registry 后续操作不会替换底层实现。
 func TestRegistry_GettersAreImmutable(t *testing.T) {
-	r := New(nil, nil,
+	r := New(nil, Config{},
 		&stubTester{}, &stubLister{}, &stubChecker{}, &stubVersioner{},
 		&stubViewer{}, &stubUpgrader{}, &stubLLM{},
 	)

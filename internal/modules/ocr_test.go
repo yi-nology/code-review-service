@@ -5,11 +5,10 @@ import (
 	"testing"
 
 	"github.com/yi-nology/code-review-service/internal/config"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/llm"
-	"github.com/yi-nology/code-review-service/internal/service/ocr"
-	"github.com/yi-nology/code-review-service/internal/service/runner"
 )
 
 // stubLLMProvider 实现 llm.Provider（用于 fx 注入）。
@@ -30,14 +29,12 @@ func TestNewOCRRegistry_ConstructsSuccessfully(t *testing.T) {
 	// 注意：以下对象大多数为 nil，因为我们的目的只是验证 fx 注入路径打通，
 	// 实际能力在 ocr 包单测里覆盖。
 	repos := &repository.RepoContainer{}
-	fallback := runner.NewOpenCodeReviewRunner(runner.OpenCodeReviewConfig{Binary: "ocr"})
 	_ = repos
-	_ = fallback
 
 	// 仅做编译期断言：函数签名与 fx 期望一致
 	var (
 		_ *llm.MetricsProvider
-		_ *runner.DynamicOpenCodeReviewRunner
+		_ *ocr.Runner
 		_ = NewOCRRegistry
 	)
 }
@@ -51,18 +48,16 @@ func TestNewOCRRegistry_FxTypeAssertions(t *testing.T) {
 // 确保旧 7 个构造函数签名与原 modules/ocr.go 完全一致，便于阶段 A 删除前不变。
 func TestLegacySignaturesStable(t *testing.T) {
 	repos := &repository.RepoContainer{}
-	fallback := runner.NewOpenCodeReviewRunner(runner.OpenCodeReviewConfig{Binary: "ocr"})
 
 	// 编译期断言
 	var (
-		_ = NewConfigResolver(repos, fallback)
+		_ = NewConfigResolver(repos)
 		_ = NewOCRTester
 		_ = NewOCRProviderLister
 		_ = NewOCRRulesChecker
 		_ = NewOCRVersioner
 		_ = NewOCRViewerManager
 		_ = NewOCRUpgrader
-		_ runner.OpenCodeReviewConfig
 		_ *ocr.Tester
 		_ models.OCRSettings
 	)

@@ -6,7 +6,6 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/readiness"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/oekit/logx"
 	"go.uber.org/fx"
@@ -36,7 +35,7 @@ func RegisterPreflight(lc fx.Lifecycle, ocrReg *ocr.Registry) {
 				return nil
 			}
 
-			cfg, err := resolver.Resolve(domain.OCROverrides{})
+			cfg, err := resolver.Resolve(ctx, ocr.OCROverrides{})
 			if err != nil {
 				logx.Warnf("[preflight] OCR 配置解析失败: %v", err)
 			}

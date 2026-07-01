@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/service/runner"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	mw "github.com/oekit/middleware"
 )
 
@@ -15,9 +15,9 @@ func TestMapReviewErrorMapsRunnerErrors(t *testing.T) {
 		err  error
 		code int
 	}{
-		{name: "binary missing", err: &runner.BinaryMissingError{Binary: "ocr", Err: errors.New("not found")}, code: 400},
-		{name: "timeout", err: &runner.TimeoutError{Timeout: time.Minute}, code: 504},
-		{name: "exit", err: &runner.ExitError{Stderr: "llm gateway failed", Err: errors.New("exit status 1")}, code: 502},
+		{name: "binary missing", err: &ocr.BinaryMissingError{Binary: "ocr", Err: errors.New("not found")}, code: 400},
+		{name: "timeout", err: &ocr.TimeoutError{Timeout: time.Minute}, code: 504},
+		{name: "exit", err: &ocr.ExitError{Stderr: "llm gateway failed", Err: errors.New("exit status 1")}, code: 502},
 	}
 
 	for _, tt := range tests {

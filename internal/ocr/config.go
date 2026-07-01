@@ -73,6 +73,12 @@ func Defaults() Fallback {
 	}
 }
 
+// ToConfig 把 Fallback 转成 Config（覆盖基础字段，其它字段为零值）。
+// 测试与简易启动路径用。
+func (f Fallback) ToConfig() Config {
+	return BuildConfig(&SettingsData{}, OCROverrides{}, f, nil)
+}
+
 // Validate 校验 Config 的完整性。
 func (c Config) Validate() error {
 	if c.Binary == "" {

@@ -12,10 +12,10 @@ import (
 	modelPlatform "github.com/yi-nology/code-review-service/biz/model/platform"
 	modelReview "github.com/yi-nology/code-review-service/biz/model/review"
 	svcApp "github.com/yi-nology/code-review-service/internal/app"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-	"github.com/yi-nology/code-review-service/internal/service/runner"
 
 	"github.com/oekit/pkg/convert"
 	"github.com/oekit/pkg/mathx"
@@ -433,11 +433,11 @@ func mapReviewError(err error) error {
 		return common.BizErr(422, err.Error())
 	case errors.Is(err, domain.ErrIdempotencyConflict):
 		return common.BizErr(409, err.Error())
-	case runner.IsBinaryMissing(err):
+	case ocr.IsBinaryMissing(err):
 		return common.BizErr(400, err.Error())
-	case runner.IsTimeout(err):
+	case ocr.IsTimeout(err):
 		return common.BizErr(504, err.Error())
-	case runner.IsExit(err):
+	case ocr.IsExit(err):
 		return common.BizErr(502, err.Error())
 	default:
 		return err

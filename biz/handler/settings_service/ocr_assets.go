@@ -5,14 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -447,18 +446,22 @@ func dryRunToolConfig(ctx context.Context, raw json.RawMessage) (string, error) 
 	return strings.TrimSpace(output), nil
 }
 
+// runDryRunCommand 阶段 A9 改为通过 ocr.Run 统一 exec 入口。
+// 取代直接 exec.CommandContext 硬编码 + 自管 SIGKILL 三段式。
 func runDryRunCommand(parent context.Context, dir, name string, args ...string) (string, error) {
-	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Dir = dir
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	output, err := cmd.CombinedOutput()
-	if ctx.Err() != nil && cmd.Process != nil {
-		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	res, err := ocr.InternalRun(parent, ocr.CommandSpec{
+		Binary:  name,
+		Args:    args,
+		Dir:     dir,
+		Timeout: 15 * time.Second,
+	})
+	text := strings.TrimSpace(string(res.Stdout))
+	if res.Stderr != nil {
+		stderrText := strings.TrimSpace(string(res.Stderr))
+		if stderrText != "" && text == "" {
+			text = stderrText
+		}
 	}
-	text := strings.TrimSpace(string(output))
 	if err != nil {
 		if text == "" {
 			text = err.Error()

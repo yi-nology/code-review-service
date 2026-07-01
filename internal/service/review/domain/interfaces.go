@@ -2,6 +2,10 @@ package domain
 
 import "context"
 
+// 本文件是评审核心接口（review.go 风格），不含 OCR 管理接口。
+// OCR 管理接口（LLMTester/Lister/Checker/Versioner/Viewer/Upgrader）
+// 见 ocr_aliases.go，由 internal/ocr 包实现。
+
 // Providers 提供 git 平台 Provider 的查找。
 type Providers interface {
 	Get(name string) (Provider, bool)
@@ -34,32 +38,4 @@ type PreviewRunner interface {
 
 type ScanRunner interface {
 	Scan(ctx context.Context, workspace Workspace, req ScanRequest) (*ScanResult, error)
-}
-
-type LLMTester interface {
-	TestLLM(ctx context.Context) (*LLMTestResult, error)
-}
-
-type LLMProviderLister interface {
-	ListLLMProviders(ctx context.Context) ([]LLMProvider, error)
-}
-
-type RulesChecker interface {
-	RulesCheck(ctx context.Context, path string) (*RulesCheckResult, error)
-}
-
-type OCRVersioner interface {
-	OCRVersion(ctx context.Context) (*OCRVersion, error)
-}
-
-type ViewerManager interface {
-	ViewerStatus(ctx context.Context) (*ViewerStatus, error)
-	StartViewer(ctx context.Context, addr string) (*ViewerStatus, error)
-	StopViewer(ctx context.Context) (*ViewerStatus, error)
-}
-
-type OCRUpgrader interface {
-	CheckUpdate(ctx context.Context) (*OCRUpdateInfo, error)
-	Upgrade(ctx context.Context, targetVersion string) (*OCRUpgradeStatus, error)
-	UpgradeStatus(ctx context.Context) (*OCRUpgradeStatus, error)
 }

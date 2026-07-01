@@ -15,11 +15,8 @@ import (
 
 	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	svrocr "github.com/yi-nology/code-review-service/internal/service/ocr"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/oekit/hertz/health"
-	"github.com/oekit/logx"
 	"gorm.io/gorm"
 )
 
@@ -40,7 +37,7 @@ func DBCheck(db *gorm.DB) health.HealthChecker {
 // OCRBinaryCheck 检查 OCR 二进制是否存在于 PATH。
 // 轻量（exec.LookPath 不 fork），用于 /health 就绪探针。
 // 二进制缺失会让所有评审失败，因此作为就绪条件。
-func OCRBinaryCheck(repos *repository.RepoContainer, resolver *svrocr.ConfigResolver) health.HealthChecker {
+func OCRBinaryCheck(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver) health.HealthChecker {
 	return func(ctx context.Context) error {
 		s, err := repos.OCRSettings.Get(ctx)
 		if err != nil || s == nil || !s.Enabled {
@@ -48,10 +45,10 @@ func OCRBinaryCheck(repos *repository.RepoContainer, resolver *svrocr.ConfigReso
 		}
 		// 配置读取失败（如首次启动尚未配置）时用默认 binary 检查，
 		// 不应阻断就绪探针——配置问题由 preflight 与日志反映。
-		cfg, err := resolver.Resolve(domain.OCROverrides{})
-		if err != nil {
-			logx.Warnf("[readiness] failed to resolve OCR config: %v", err)
-		}
+		settings := ocrcore.NewSettingsAdapter(repos.OCRSettings)
+		data, _ := settings.Get(ctx)
+		cfg, _ := resolver.Resolve(ctx, ocrcore.OCROverrides{})
+		_ = data
 		binary := cfg.Binary
 		if binary == "" {
 			binary = "ocr"
@@ -65,7 +62,7 @@ func OCRBinaryCheck(repos *repository.RepoContainer, resolver *svrocr.ConfigReso
 
 // LLMEndpointCheck 对配置的 LLM endpoint 做轻量 TCP 拨号（不带认证、不发请求体），
 // 仅验证 DNS 解析与端口可达。OCR 未启用或未配置 URL 时跳过。
-func LLMEndpointCheck(repos *repository.RepoContainer, resolver *svrocr.ConfigResolver) health.HealthChecker {
+func LLMEndpointCheck(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver) health.HealthChecker {
 	return func(ctx context.Context) error {
 		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
@@ -74,7 +71,9 @@ func LLMEndpointCheck(repos *repository.RepoContainer, resolver *svrocr.ConfigRe
 		if err != nil || s == nil || !s.Enabled {
 			return nil
 		}
-		cfg := resolver.ResolveFromSettings(s, domain.OCROverrides{})
+		settings := ocrcore.NewSettingsAdapter(repos.OCRSettings)
+		data, _ := settings.Get(ctx)
+		cfg := resolver.ResolveFromSettings(data, ocrcore.OCROverrides{})
 		if cfg.URL == "" {
 			return nil
 		}
@@ -110,7 +109,7 @@ func LLMEndpointCheck(repos *repository.RepoContainer, resolver *svrocr.ConfigRe
 //
 // 阶段 A 完整迁移后，OCRBinaryCheck / LLMEndpointCheck 这两个老函数可删除，
 // 所有调用点改为 RegistryOCRHealthChecks(reg)。
-func RegistryOCRHealthChecks(reg *ocrcore.Registry, resolver *svrocr.ConfigResolver) []health.HealthChecker {
+func RegistryOCRHealthChecks(reg *ocrcore.Registry, resolver *ocrcore.ConfigResolver) []health.HealthChecker {
 	return []health.HealthChecker{
 		OCRBinaryCheck(reg.Repos(), resolver),
 		LLMEndpointCheck(reg.Repos(), resolver),

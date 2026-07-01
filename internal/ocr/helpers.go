@@ -36,14 +36,4 @@ func backgroundCtx() context.Context {
 	return context.Background()
 }
 
-// ResolveExtraBody 解析 reasoning extra body 配置。
-//
-// 阶段 A：从 runner.ResolveExtraBody 迁移；签名保持一致，
-// 等阶段 A+1 把 reasoning 逻辑也搬入本包时再替换为内联实现。
-func ResolveExtraBody(extraBody, reasoningMode string, reasoningBudget int, provider string) string {
-	// 占位实现：阶段 A 仅保持签名一致，完整实现留给 A+1。
-	_ = reasoningMode
-	_ = reasoningBudget
-	_ = provider
-	return extraBody
-}
+// ResolveExtraBody 已在 reasoning.go 中定义并实现（阶段 A15 part 9 完整化）。

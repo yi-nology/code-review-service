@@ -12,7 +12,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 	svcReview "github.com/yi-nology/code-review-service/internal/service/review"
-	"github.com/yi-nology/code-review-service/internal/service/runner"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
 
@@ -50,7 +50,7 @@ type ExecutorDeps struct {
 	fx.In
 
 	Repos           *repository.RepoContainer
-	OcrRunner       *runner.DynamicOpenCodeReviewRunner
+	OcrRunner       *ocr.Runner
 	WritebackOrch   *writeback.Orchestrator
 	WritebackPub    *writeback.WritebackPublisherAdapter
 	PolicyEngine    *policy.Engine
@@ -84,7 +84,7 @@ type ReviewServiceDeps struct {
 	SessionRepo     repository.SessionRepository
 	GitProviderSvc  *gitProvider.GitProviderService
 	GitProviders    *gitProvider.GitProviderProviders
-	OcrRunner       *runner.DynamicOpenCodeReviewRunner
+	OcrRunner       *ocr.Runner
 	ProgressManager *progress.ProgressManager
 	PolicyEngine    *policy.Engine
 	ExecutorSvc     *executor.Service

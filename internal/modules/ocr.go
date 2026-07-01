@@ -2,26 +2,21 @@ package modules
 
 import (
 	"github.com/yi-nology/code-review-service/internal/config"
-	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
+	ocrcore 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/llm"
-	svrocr "github.com/yi-nology/code-review-service/internal/service/ocr"
-	"github.com/yi-nology/code-review-service/internal/service/runner"
 
 	"go.uber.org/fx"
 )
 
 // OCRModule 提供所有 open-code-review 能力。
 //
-// B 阶段（当前）：保留原 7 个 fx.Provide 兼容旧 consumer；
-// 同时新增 1 个 fx.Provide(ocrcore.New) 让新代码可注入 *ocrcore.Registry。
-//
-// 阶段 A（后续 PR）：旧 fx.Provide 全部删除，所有 consumer 改用 *ocrcore.Registry。
+// 阶段 A15：完全改用 ocrcore.*（替代 svocr.* + runner.OpenCodeReviewConfig）。
 var OCRModule = fx.Options(
-	// 新增：单一入口
+	// 单一入口
 	fx.Provide(NewOCRRegistry),
 
-	// 保留：旧 consumer 依赖（含 handler/server/preflight/probe/readiness 等）
+	// 旧 7 个 fx.Provide 阶段 A15 末尾删除
 	fx.Provide(NewConfigResolver),
 	fx.Provide(NewOCRTester),
 	fx.Provide(NewOCRProviderLister),
@@ -32,23 +27,24 @@ var OCRModule = fx.Options(
 )
 
 // NewOCRRegistry 构造 *ocrcore.Registry 单一入口。
-// 此函数在阶段 A 期间与原 7 个 NewOCR* 并存；阶段 A 完成 fx 切换后旧函数全部删除。
-//
-// 副作用：把 resolver 注入到 server.go 用的包级缓存（阶段 A 拆除）。
 func NewOCRRegistry(
 	cfg *config.Config,
 	repos *repository.RepoContainer,
 	llmProvider *llm.MetricsProvider,
-	dynamicRunner *runner.DynamicOpenCodeReviewRunner,
-	fallback *runner.OpenCodeReviewRunner,
-	resolver *svrocr.ConfigResolver,
-	versioner *svrocr.Versioner,
+	ocrRunner *ocrcore.Runner,
+	resolver *ocrcore.ConfigResolver,
+	versioner *ocrcore.Versioner,
 ) *ocrcore.Registry {
-	// 阶段 A 拆除：把 resolver 注入到 server.go 用的包级缓存
 	SetPackageResolver(resolver)
+	fallbackConfig := ocrcore.Config{
+		Binary:          cfg.OCR.Binary,
+		Audience:        "human",
+		RulePath:        cfg.OCR.Rule,
+		DefaultSeverity: "major",
+	}
 	return ocrcore.New(
 		repos,
-		fallback,
+		fallbackConfig,
 		NewOCRTester(repos, resolver),
 		NewOCRProviderLister(repos, resolver),
 		NewOCRRulesChecker(repos, resolver),
@@ -56,33 +52,52 @@ func NewOCRRegistry(
 		NewOCRViewerManager(repos, resolver),
 		NewOCRUpgrader(repos, resolver, versioner, cfg),
 		llmProvider,
-	).WithRunner(dynamicRunner, dynamicRunner, dynamicRunner)
+	).WithRunner(ocrRunner, ocrRunner, ocrRunner)
 }
 
-func NewConfigResolver(repos *repository.RepoContainer, fallback *runner.OpenCodeReviewRunner) *svrocr.ConfigResolver {
-	return svrocr.NewConfigResolver(repos.OCRSettings, fallback.Config(), repos.OCRToolPackage)
+// NewConfigResolver 阶段 A15 part 6：fallback 改用 ocr.Fallback。
+func NewConfigResolver(repos *repository.RepoContainer) *ocrcore.ConfigResolver {
+	fallback := ocrcore.Fallback{
+		Binary:          "ocr",
+		Audience:        "human",
+		DefaultSeverity: "major",
+	}
+	return ocrcore.NewConfigResolver(
+		ocrcore.NewSettingsAdapter(repos.OCRSettings),
+		fallback,
+		nil, // TODO: implement ocr.ToolSettings adapter for repos.OCRToolPackage
+	)
 }
 
-func NewOCRTester(repos *repository.RepoContainer, resolver *svrocr.ConfigResolver) *svrocr.Tester {
-	return svrocr.NewTester(repos.OCRSettings, resolver)
+func NewOCRTester(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver) *ocrcore.Tester {
+	return ocrcore.NewTester(ocrcore.NewSettingsAdapter(repos.OCRSettings), resolver)
 }
 
-func NewOCRProviderLister(repos *repository.RepoContainer, resolver *svrocr.ConfigResolver) *svrocr.ProviderLister {
-	return svrocr.NewProviderLister(repos.OCRSettings, resolver)
+func NewOCRProviderLister(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver) *ocrcore.ProviderLister {
+	return ocrcore.NewProviderLister(ocrcore.NewSettingsAdapter(repos.OCRSettings), resolver)
 }
 
-func NewOCRRulesChecker(repos *repository.RepoContainer, resolver *svrocr.ConfigResolver) *svrocr.RulesChecker {
-	return svrocr.NewRulesChecker(repos.OCRSettings, repos.GlobalRules, resolver)
+func NewOCRRulesChecker(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver) *ocrcore.RulesChecker {
+	return ocrcore.NewRulesChecker(ocrcore.NewSettingsAdapter(repos.OCRSettings), nil, resolver)
 }
 
-func NewOCRVersioner(repos *repository.RepoContainer, resolver *svrocr.ConfigResolver) *svrocr.Versioner {
-	return svrocr.NewVersioner(repos.OCRSettings, resolver)
+func NewOCRVersioner(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver) *ocrcore.Versioner {
+	return ocrcore.NewVersioner(ocrcore.NewSettingsAdapter(repos.OCRSettings), resolver)
 }
 
-func NewOCRViewerManager(repos *repository.RepoContainer, resolver *svrocr.ConfigResolver) *svrocr.ViewerManager {
-	return svrocr.NewViewerManager(repos.OCRSettings, resolver)
+func NewOCRViewerManager(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver) *ocrcore.Viewer {
+	return ocrcore.NewViewer(ocrcore.NewSettingsAdapter(repos.OCRSettings), resolver)
 }
 
-func NewOCRUpgrader(repos *repository.RepoContainer, resolver *svrocr.ConfigResolver, versioner *svrocr.Versioner, cfg *config.Config) *svrocr.Upgrader {
-	return svrocr.NewUpgrader(repos.OCRSettings, resolver, versioner, cfg.OCR.UpgradeInstallDir, cfg.OCR.GitHubRepo)
+func NewOCRUpgrader(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver, versioner *ocrcore.Versioner, cfg *config.Config) *ocrcore.Upgrader {
+	return ocrcore.NewUpgrader(
+		ocrcore.NewSettingsAdapter(repos.OCRSettings),
+		resolver,
+		versioner,
+		cfg.OCR.UpgradeInstallDir,
+		cfg.OCR.GitHubRepo,
+	)
 }
+
+// _ 避免 unused import
+var _ = struct{}{}

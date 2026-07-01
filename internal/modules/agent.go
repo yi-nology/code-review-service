@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/config"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
-	"github.com/yi-nology/code-review-service/internal/service/runner"
 
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
@@ -78,7 +78,7 @@ func syncAgentManager(ctx context.Context, cfg *config.Config, repos *repository
 		if mode == "" {
 			mode = "light"
 		}
-		reasoningExtraBody = runner.ResolveExtraBody(string(ocrSettings.ExtraBody), mode, ocrSettings.ReasoningBudget, ocrSettings.Provider)
+		reasoningExtraBody = ocr.ResolveExtraBody(string(ocrSettings.ExtraBody), mode, ocrSettings.ReasoningBudget, ocrSettings.Provider)
 		if ocrSettings.TimeoutMinutes > 0 {
 			ocrTimeoutMinutes = ocrSettings.TimeoutMinutes
 		}
@@ -89,7 +89,7 @@ func syncAgentManager(ctx context.Context, cfg *config.Config, repos *repository
 		llmLanguage = ocrSettings.Language
 	}
 
-	runnerFactory := agent.NewOCRRunnerFactory(runner.OpenCodeReviewConfig{
+	runnerFactory := agent.NewOCRRunnerFactory(ocr.Config{
 		Binary:          cfg.OCR.Binary,
 		RulePath:        cfg.OCR.Rule,
 		DefaultSeverity: "major",
