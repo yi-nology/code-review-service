@@ -119,24 +119,6 @@ func Run(ctx context.Context, spec CommandSpec) (*CommandResult, error) {
 	}, waitErr
 }
 
-// RunLegacyAdapter 把 internal.Run 包装成 ocr.LegacyRunner 期待的签名，
-// 让 runner.OpenCodeReviewRunner 通过 RunLegacyAdapter 接入 ocr.Runner。
-//
-// 阶段 A+3 删除（legacy runner 包彻底被吸收）。
-type RunLegacyAdapter func(ctx context.Context, spec CommandSpec) (*CommandResult, error)
-
-// Adapter 返回一个 ocr.legacyRunner 接口的实现，调用 adapter 完成 exec。
-// 由于 ocr.legacyRunner 在 ocr 包内私有，这里用闭包传递 cfg。
-func (a RunLegacyAdapter) Exec(ctx context.Context, binary string, args, env []string, dir string, timeout time.Duration) (*CommandResult, error) {
-	return a(ctx, CommandSpec{
-		Binary:  binary,
-		Args:    args,
-		Env:     env,
-		Dir:     dir,
-		Timeout: timeout,
-	})
-}
-
 // exitCodeFromErr 提取 ExitError 的退出码。
 func exitCodeFromErr(err error) int {
 	if err == nil {

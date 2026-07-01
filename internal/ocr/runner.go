@@ -35,15 +35,7 @@ import (
 //
 // 阶段 A12：完整吸收 runner/runner.go + runner/preview.go + runner/scan.go 业务逻辑。
 type Runner struct {
-	cfg    Config
-	legacy legacyRunner // 兼容层：阶段 A+12 后删除
-}
-
-// legacyRunner 是阶段 A 兼容层接口（删除 runner 包后此接口删除）。
-type legacyRunner interface {
-	RunWithConfig(ctx context.Context, workspace domain.Workspace, cfg Config) (domain.Result, error)
-	PreviewWithConfig(ctx context.Context, workspace domain.Workspace, cfg Config) (*domain.PreviewResult, error)
-	ScanWithConfig(ctx context.Context, workspace domain.Workspace, req domain.ScanRequest, cfg Config) (*domain.ScanResult, error)
+	cfg Config
 }
 
 // Compile-time assertions
@@ -56,11 +48,6 @@ var (
 // NewRunner 从 Config 构造 Runner。
 func NewRunner(cfg Config) *Runner {
 	return &Runner{cfg: cfg}
-}
-
-// NewRunnerWithLegacy 构造带 legacy 委托的 Runner（兼容期使用）。
-func NewRunnerWithLegacy(cfg Config, legacy legacyRunner) *Runner {
-	return &Runner{cfg: cfg, legacy: legacy}
 }
 
 // Cfg 返回当前 Config。
@@ -84,9 +71,6 @@ const defaultOCRMaxRetries = 0
 //   - stderr 行级回调（用于 progress 解析）
 //   - JSON 输出解析
 func (r *Runner) Run(ctx context.Context, workspace domain.Workspace) (domain.Result, error) {
-	if r.legacy != nil {
-		return r.legacy.RunWithConfig(ctx, workspace, r.cfg)
-	}
 	if strings.TrimSpace(workspace.Dir) == "" {
 		return domain.Result{}, fmt.Errorf("open-code-review requires a checked out workspace")
 	}

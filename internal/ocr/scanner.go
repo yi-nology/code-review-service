@@ -20,9 +20,6 @@ import (
 //
 // 调 "ocr scan --preview" 子进程，返回将参与评审的文件列表。
 func (r *Runner) Preview(ctx context.Context, workspace domain.Workspace) (*domain.PreviewResult, error) {
-	if r.legacy != nil {
-		return r.legacy.PreviewWithConfig(ctx, workspace, r.cfg)
-	}
 	if strings.TrimSpace(workspace.Dir) == "" {
 		return nil, fmt.Errorf("需要已检出的工作区")
 	}
@@ -88,10 +85,6 @@ func (r *Runner) Preview(ctx context.Context, workspace domain.Workspace) (*doma
 // 调 "ocr scan" 子进程（不带 --preview），返回全量扫描结果。
 // 支持 batch / paths / exclude / background / tools 等参数。
 func (r *Runner) Scan(ctx context.Context, workspace domain.Workspace, req domain.ScanRequest) (*domain.ScanResult, error) {
-	if r.legacy != nil {
-		return r.legacy.ScanWithConfig(ctx, workspace, req, r.cfg)
-	}
-
 	args := []string{
 		"scan",
 		"--repo", workspace.Dir,
