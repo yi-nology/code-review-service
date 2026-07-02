@@ -22,7 +22,7 @@ import (
 
 	// 阶段 A 移除"
 
-	"github.com/oekit/hertz/health"
+	"github.com/oekit/hertz"
 	mw "github.com/oekit/middleware"
 	emetrics "github.com/oekit/metrics"
 
@@ -73,22 +73,22 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *ocrcore.Metrics, o
 	repos := ocrReg.Repos()
 	resolver := ocrReg.Resolver()
 
-	healthOpts := []health.Option{}
+	healthOpts := []hertz.Option{}
 	if sqlDB, err := db.DB(); err == nil {
-		healthOpts = append(healthOpts, health.WithCheckers(health.DBChecker(sqlDB)))
+		healthOpts = append(healthOpts, hertz.WithCheckers(hertz.DBChecker(sqlDB)))
 	}
 	healthOpts = append(healthOpts,
-		health.WithCheckers(health.NamedChecker("ocr-binary", readiness.OCRBinaryCheck(repos, resolver))),
-		health.WithCheckers(health.NamedChecker("llm-endpoint", readiness.LLMEndpointCheck(repos, resolver))),
+		hertz.WithCheckers(hertz.NamedChecker("ocr-binary", readiness.OCRBinaryCheck(repos, resolver))),
+		hertz.WithCheckers(hertz.NamedChecker("llm-endpoint", readiness.LLMEndpointCheck(repos, resolver))),
 	)
-	health.RegisterBasicRoutes(h, healthOpts...)
+	hertz.RegisterBasicRoutes(h, healthOpts...)
 
 	// /healthz /readyz：k8s 探针常用路径（auth skip 白名单已含），复用就绪检查。
 	// 之前这些路径未注册导致 k8s probe 404。
-	probeHandler := health.NewHealthHandler(
-		health.NamedChecker("db", readiness.DBCheck(db)),
-		health.NamedChecker("ocr-binary", readiness.OCRBinaryCheck(repos, resolver)),
-		health.NamedChecker("llm-endpoint", readiness.LLMEndpointCheck(repos, resolver)),
+	probeHandler := hertz.NewHealthHandler(
+		hertz.NamedChecker("db", readiness.DBCheck(db)),
+		hertz.NamedChecker("ocr-binary", readiness.OCRBinaryCheck(repos, resolver)),
+		hertz.NamedChecker("llm-endpoint", readiness.LLMEndpointCheck(repos, resolver)),
 	)
 	h.GET("/healthz", probeHandler)
 	h.GET("/readyz", probeHandler)

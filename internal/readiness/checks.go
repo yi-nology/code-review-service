@@ -16,13 +16,13 @@ import (
 	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 
-	"github.com/oekit/hertz/health"
+	"github.com/oekit/hertz"
 	"gorm.io/gorm"
 )
 
-// DBCheck 检查数据库连通性。返回 health.HealthChecker（exported 函数类型），
-// 以便用 health.NamedCheckers 变参展开，绕开 ekit health.namedChecker 跨包不可命名的问题。
-func DBCheck(db *gorm.DB) health.HealthChecker {
+// DBCheck 检查数据库连通性。返回 hertz.HealthChecker（exported 函数类型），
+// 以便用 hertz.NamedCheckers 变参展开，绕开 ekit health.namedChecker 跨包不可命名的问题。
+func DBCheck(db *gorm.DB) hertz.HealthChecker {
 	return func(ctx context.Context) error {
 		ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 		defer cancel()
@@ -37,7 +37,7 @@ func DBCheck(db *gorm.DB) health.HealthChecker {
 // OCRBinaryCheck 检查 OCR 二进制是否存在于 PATH。
 // 轻量（exec.LookPath 不 fork），用于 /health 就绪探针。
 // 二进制缺失会让所有评审失败，因此作为就绪条件。
-func OCRBinaryCheck(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver) health.HealthChecker {
+func OCRBinaryCheck(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver) hertz.HealthChecker {
 	return func(ctx context.Context) error {
 		s, err := repos.OCRSettings.Get(ctx)
 		if err != nil || s == nil || !s.Enabled {
@@ -62,7 +62,7 @@ func OCRBinaryCheck(repos *repository.RepoContainer, resolver *ocrcore.ConfigRes
 
 // LLMEndpointCheck 对配置的 LLM endpoint 做轻量 TCP 拨号（不带认证、不发请求体），
 // 仅验证 DNS 解析与端口可达。OCR 未启用或未配置 URL 时跳过。
-func LLMEndpointCheck(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver) health.HealthChecker {
+func LLMEndpointCheck(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver) hertz.HealthChecker {
 	return func(ctx context.Context) error {
 		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
@@ -109,8 +109,8 @@ func LLMEndpointCheck(repos *repository.RepoContainer, resolver *ocrcore.ConfigR
 //
 // 阶段 A 完整迁移后，OCRBinaryCheck / LLMEndpointCheck 这两个老函数可删除，
 // 所有调用点改为 RegistryOCRHealthChecks(reg)。
-func RegistryOCRHealthChecks(reg *ocrcore.Registry, resolver *ocrcore.ConfigResolver) []health.HealthChecker {
-	return []health.HealthChecker{
+func RegistryOCRHealthChecks(reg *ocrcore.Registry, resolver *ocrcore.ConfigResolver) []hertz.HealthChecker {
+	return []hertz.HealthChecker{
 		OCRBinaryCheck(reg.Repos(), resolver),
 		LLMEndpointCheck(reg.Repos(), resolver),
 	}

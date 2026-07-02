@@ -7,6 +7,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/oekit/pkg/convert"
+	bizerrors "github.com/oekit/pkg/errors"
 	"github.com/oekit/pkg/mathx"
 	"github.com/oekit/pkg/ptrx"
 
@@ -32,7 +33,7 @@ func Fail(c *hertzApp.RequestContext, err error) {
 		mw.ErrorResp(c, appErr.Code, appErr.Message)
 		return
 	}
-	var bizErr *mw.BizError
+	var bizErr *bizerrors.BizError
 	if errors.As(err, &bizErr) {
 		mw.ErrorResp(c, bizErr.Code, bizErr.Message)
 		return
@@ -64,15 +65,15 @@ func Success(c *hertzApp.RequestContext, data any) {
 }
 
 func BadRequest(msg string) error {
-	return mw.NewBadRequestError(msg)
+	return bizerrors.NewBadRequestError(msg)
 }
 
 func NotFound(msg string) error {
-	return mw.NewNotFoundError(msg)
+	return bizerrors.NewNotFoundError(msg)
 }
 
 func BizErr(code int, msg string) error {
-	return mw.NewBizError(code, msg)
+	return bizerrors.NewBizError(code, msg)
 }
 
 func PageParams(pageStr, pageSizeStr string) (int, int) {
