@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/observability/redact"
@@ -25,11 +26,59 @@ import (
 //   - 5xx / 429 自动重试 1 次（指数退避 1s + jitter）
 //   - 4xx 不重试
 //   - 错误消息 redact 脱敏（Bearer / api_key / sk- / ghp_ 等）
+//   - settings 缓存：避免每次 Available/Complete 都读 DB
+//   - HTTP 连接池：Transport 配置 MaxIdleConns/IdleConnTimeout
 //
 // 取代 internal/service/llm/openai.go（282 LOC）。
 type LLMProvider struct {
 	settings Settings
 	client   *http.Client
+
+	// settings 缓存：避免高频热路径（Available/Complete）每次都读 DB
+	// 缓存有效期 30s，期间直接返回缓存值
+	settingsCacheMu sync.RWMutex
+	settingsCache   *llmSettingsCache
+}
+
+// settingsCache 缓存 settings.Get() 结果（避免高频热路径如 Available 每次都读 DB）。
+// 缓存有效期 30s（OCR 设置变更频率极低）。
+type llmSettingsCache struct {
+	data     *SettingsData
+	expireAt time.Time
+}
+
+const llmSettingsCacheTTL = 30 * time.Second
+
+// getSettingsCached 优先从缓存读，缓存过期则回源。
+// 线程安全：使用 sync.RWMutex 保护缓存。
+func (p *LLMProvider) getSettingsCached(ctx context.Context) (*SettingsData, error) {
+	// 快速路径：读锁
+	p.settingsCacheMu.RLock()
+	cached := p.settingsCache
+	if cached != nil && time.Now().Before(cached.expireAt) && cached.data != nil {
+		data := cached.data
+		p.settingsCacheMu.RUnlock()
+		return data, nil
+	}
+	p.settingsCacheMu.RUnlock()
+
+	// 慢速路径：回源 + 写锁
+	data, err := p.settings.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	p.settingsCacheMu.Lock()
+	p.settingsCache = &llmSettingsCache{data: data, expireAt: time.Now().Add(llmSettingsCacheTTL)}
+	p.settingsCacheMu.Unlock()
+	return data, nil
+}
+
+// Reset 清除 settings 缓存。
+// 阶段 A+1：settings API 更新后调用此方法强制下次重新加载。
+func (p *LLMProvider) Reset() {
+	p.settingsCacheMu.Lock()
+	p.settingsCache = nil
+	p.settingsCacheMu.Unlock()
 }
 
 // LLMRequest / LLMResponse 是 CompleteRequest / CompleteResponse 的别名（兼容旧调用方）。
@@ -40,13 +89,21 @@ type LLMResponse = CompleteResponse
 func NewLLMProvider(settings Settings) *LLMProvider {
 	return &LLMProvider{
 		settings: settings,
-		client:   &http.Client{Timeout: 5 * time.Minute},
+		client: &http.Client{
+			Timeout: 5 * time.Minute,
+			Transport: &http.Transport{
+				MaxIdleConns:        100, // 默认 100 个空闲连接
+				MaxIdleConnsPerHost: 20,  // 每个 host 20 个（OpenAI/Anthropic 共享）
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
 	}
 }
 
 // Available 报告 LLM 是否已配置可用。
+// 性能优化：通过 settings 缓存避免每次调用都读 DB（30s 缓存有效期）。
 func (p *LLMProvider) Available(ctx context.Context) bool {
-	data, err := p.settings.Get(ctx)
+	data, err := p.getSettingsCached(ctx)
 	if err != nil || data == nil {
 		return false
 	}
@@ -54,8 +111,9 @@ func (p *LLMProvider) Available(ctx context.Context) bool {
 }
 
 // Complete 执行一次补全。
+// 性能优化：通过 settings 缓存避免每次调用都读 DB（30s 缓存有效期）。
 func (p *LLMProvider) Complete(ctx context.Context, req LLMRequest) (LLMResponse, error) {
-	data, err := p.settings.Get(ctx)
+	data, err := p.getSettingsCached(ctx)
 	if err != nil {
 		return LLMResponse{}, fmt.Errorf("读取 LLM 配置失败: %w", err)
 	}
