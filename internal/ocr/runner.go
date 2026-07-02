@@ -131,6 +131,11 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 		ensureOCRLanguage(r.cfg.Binary, lang)
 	}
 
+	audience := r.cfg.Audience
+	if audience == "" {
+		audience = "human"
+	}
+
 	args := []string{
 		"review",
 		"--repo", workspace.Dir,
@@ -140,7 +145,7 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 		"--concurrency", convert.IntToStr(r.cfg.Concurrency),
 		"--max-git-procs", convert.IntToStr(r.cfg.MaxGitProcs),
 		"--timeout", convert.IntToStr(r.cfg.TimeoutMinutes),
-		"--audience", r.cfg.Audience,
+		"--audience", audience,
 	}
 	rulePath := r.cfg.RulePath
 	if strings.TrimSpace(workspace.RulePath) != "" {
@@ -339,35 +344,124 @@ func IsExit(err error) bool {
 	return errors.As(err, &e)
 }
 
-// parseOpenCodeReviewOutput 解析 ocr review 命令的 JSON 输出。
-// 阶段 A12 占位：完整解析逻辑从 runner/textparse.go 迁移。
+// parseOpenCodeReviewOutput 解析 `ocr review --format json` 的 JSON 输出。
+//
+// OCR 输出结构：
+//
+//	{
+//	  "status": "success",
+//	  "summary": {
+//	    "files_reviewed": 1, "comments": 3,
+//	    "total_tokens": 23474, "input_tokens": 21694, "output_tokens": 1780,
+//	    "elapsed": "35s"
+//	  },
+//	  "tool_calls": { "total": 5, "by_tool": { "code_search": 1, ... } },
+//	  "comments": [
+//	    { "path", "content", "suggestion_code", "existing_code", "start_line", "end_line" }
+//	  ]
+//	}
+//
+// comments 映射为 domain.Finding；summary 映射为 OCRMetadata。
+// OCR 不输出 severity，统一用 defaultSeverity（上层归一化）。
 func parseOpenCodeReviewOutput(data []byte, defaultSeverity string) domain.Result {
 	if len(data) == 0 {
 		return domain.Result{Summary: "ocr 评审未产生输出"}
 	}
-	// 简化版：只填充 Summary 和 DefaultSeverity
+
 	var payload struct {
-		Summary     string `json:"summary"`
-		ProjectSummary string `json:"project_summary"`
+		Status  string `json:"status"`
+		Summary struct {
+			FilesReviewed int    `json:"files_reviewed"`
+			Comments      int    `json:"comments"`
+			TotalTokens   int64  `json:"total_tokens"`
+			InputTokens   int64  `json:"input_tokens"`
+			OutputTokens  int64  `json:"output_tokens"`
+			Elapsed       string `json:"elapsed"`
+		} `json:"summary"`
+		ToolCalls *domain.ToolCallsMetadata `json:"tool_calls"`
+		Comments  []struct {
+			Path           string `json:"path"`
+			Content        string `json:"content"`
+			SuggestionCode string `json:"suggestion_code"`
+			ExistingCode   string `json:"existing_code"`
+			StartLine      int    `json:"start_line"`
+			EndLine        int    `json:"end_line"`
+		} `json:"comments"`
 	}
+
 	if err := json.Unmarshal(data, &payload); err != nil {
-		// fallback：把 stdout 当 summary
+		// 非 JSON 输出（如纯文本错误）：保留原文当 summary，便于排障。
 		return domain.Result{
 			Summary: strings.TrimSpace(string(data)),
-			OCR:     domain.OCRMetadata{Engine: "open-code-review", Status: "success"},
+			OCR:     domain.OCRMetadata{Engine: "open-code-review", Status: "parse_error"},
 		}
 	}
-	if payload.Summary == "" {
-		payload.Summary = payload.ProjectSummary
+
+	severity := strings.TrimSpace(defaultSeverity)
+	if severity == "" {
+		severity = "major"
 	}
+
+	findings := make([]domain.Finding, 0, len(payload.Comments))
+	for _, c := range payload.Comments {
+		line := c.StartLine
+		if line <= 0 {
+			line = c.EndLine
+		}
+		findings = append(findings, domain.Finding{
+			Severity:       severity,
+			Path:           c.Path,
+			Line:           line,
+			StartLine:      c.StartLine,
+			EndLine:        c.EndLine,
+			Title:          findingTitle(c.Content),
+			Body:           c.Content,
+			ExistingCode:   c.ExistingCode,
+			SuggestionCode: c.SuggestionCode,
+			Suggestion:     c.SuggestionCode,
+		})
+	}
+
+	commentCount := payload.Summary.Comments
+	if commentCount == 0 {
+		commentCount = len(findings)
+	}
+	summary := fmt.Sprintf("ocr 评审完成：%d 条评论，%d 个文件", commentCount, payload.Summary.FilesReviewed)
+
 	return domain.Result{
-		Summary: payload.Summary,
+		Summary:  summary,
+		Findings: findings,
 		OCR: domain.OCRMetadata{
-			Engine: "open-code-review",
-			Status: "success",
+			Engine:        "open-code-review",
+			Status:        payload.Status,
+			FilesReviewed: int64(payload.Summary.FilesReviewed),
+			Comments:      int64(commentCount),
+			TotalTokens:   payload.Summary.TotalTokens,
+			InputTokens:   payload.Summary.InputTokens,
+			OutputTokens:  payload.Summary.OutputTokens,
+			Elapsed:       payload.Summary.Elapsed,
+			ToolCalls:     payload.ToolCalls,
 		},
-		// defaultSeverity 用于上层 Report 推导；Result 不直接持有此字段
 	}
+}
+
+// findingTitle 从 OCR comment 的完整内容中提取一个简短标题。
+func findingTitle(content string) string {
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return ""
+	}
+	title := content
+	for _, sep := range []string{"\n", "。", "；", "：", ":", ".", ";", "，"} {
+		if idx := strings.Index(content, sep); idx > 0 {
+			title = strings.TrimSpace(content[:idx])
+			break
+		}
+	}
+	if r := []rune(title); len(r) > 80 {
+		title = string(r[:80]) + "…"
+	}
+	return title
 }
 
 // ensureOCRLanguage 将 language 写入 ~/.opencodereview/config.json。

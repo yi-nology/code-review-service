@@ -23,7 +23,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/oekit/concurrency/async"
-	mw "github.com/oekit/middleware"
+	bizerrors "github.com/oekit/pkg/errors"
 
 	"github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 	"github.com/oekit/logx"
@@ -33,7 +33,7 @@ import (
 
 var gitObjectIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{7,64}$`)
 
-var errIdempotencyKeyTooLong = mw.NewBadRequestError("idempotency key too long")
+var errIdempotencyKeyTooLong = bizerrors.NewBadRequestError("idempotency key too long")
 
 var (
 	ErrNotFound     = repoerr.ErrNotFound
@@ -852,38 +852,38 @@ func scanPolicyFindings(findings []domain.Finding) []policy.Finding {
 
 func validate(req domain.Request) error {
 	if strings.TrimSpace(req.Provider) == "" {
-		return mw.NewBadRequestError("provider is required")
+		return bizerrors.NewBadRequestError("provider is required")
 	}
 	if strings.TrimSpace(req.Repo) == "" {
-		return mw.NewBadRequestError("repo is required")
+		return bizerrors.NewBadRequestError("repo is required")
 	}
 
 	hasPR := strings.TrimSpace(req.PullRequestID) != "" || strings.TrimSpace(req.MergeRequestIID) != ""
 
 	if !hasPR {
 		if strings.TrimSpace(req.BaseSHA) == "" {
-			return mw.NewBadRequestError("base_sha is required when pull_request_id or merge_request_iid is not provided")
+			return bizerrors.NewBadRequestError("base_sha is required when pull_request_id or merge_request_iid is not provided")
 		}
 		if strings.TrimSpace(req.HeadSHA) == "" {
-			return mw.NewBadRequestError("head_sha is required when pull_request_id or merge_request_iid is not provided")
+			return bizerrors.NewBadRequestError("head_sha is required when pull_request_id or merge_request_iid is not provided")
 		}
 		if !gitObjectIDPattern.MatchString(req.BaseSHA) {
-			return mw.NewBadRequestError("base_sha must be a 7-64 character hexadecimal Git object ID")
+			return bizerrors.NewBadRequestError("base_sha must be a 7-64 character hexadecimal Git object ID")
 		}
 		if !gitObjectIDPattern.MatchString(req.HeadSHA) {
-			return mw.NewBadRequestError("head_sha must be a 7-64 character hexadecimal Git object ID")
+			return bizerrors.NewBadRequestError("head_sha must be a 7-64 character hexadecimal Git object ID")
 		}
 	}
 
 	if hasPR {
 		if req.PullRequestID != "" {
 			if _, err := strconv.Atoi(strings.TrimSpace(req.PullRequestID)); err != nil {
-				return mw.NewBadRequestError("pull_request_id must be a valid number")
+				return bizerrors.NewBadRequestError("pull_request_id must be a valid number")
 			}
 		}
 		if req.MergeRequestIID != "" {
 			if _, err := strconv.Atoi(strings.TrimSpace(req.MergeRequestIID)); err != nil {
-				return mw.NewBadRequestError("merge_request_iid must be a valid number")
+				return bizerrors.NewBadRequestError("merge_request_iid must be a valid number")
 			}
 		}
 	}

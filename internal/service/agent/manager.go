@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -312,7 +313,14 @@ func (m *AgentManager) runParallel(ctx context.Context, agents []reviewAgent, wo
 				})
 			}
 
+			// 进度心跳：OCR review 是不透明长任务，没有真实完成度信号。
+			// 按已耗时用渐近曲线推算一个平滑递增、渐近 95% 的伪进度，
+			// 让前端进度条从 0% 平滑爬升，完成回调再置 100%，避免长时间卡 0%。
+			progCtx, progCancel := context.WithCancel(context.Background())
+			go m.emitAgentProgress(progCtx, agent.Name(), callback, time.Now())
+
 			result, err := m.runSingleAgent(ctx, agent, workspace)
+			progCancel()
 			if err != nil {
 				logx.Errorf("agent %s failed: %v", agent.Name(), err)
 				if callback != nil {
@@ -370,4 +378,40 @@ func (m *AgentManager) runSingleAgent(ctx context.Context, agent reviewAgent, wo
 	logx.Infof("agent %s completed in %v with %d findings", agent.Name(), result.Duration, len(result.Findings))
 
 	return result, nil
+}
+
+// emitAgentProgress 周期性地用渐近曲线推算 agent 进度并回调。
+// OCR review 没有真实的完成度信号，因此用「已耗时 → 渐近曲线」推算一个平滑递增、
+// 渐近 95% 的伪进度，避免前端长时间卡 0% 再跳 100%。完成回调负责置 100%。
+func (m *AgentManager) emitAgentProgress(ctx context.Context, name string, callback func(AgentStatus), start time.Time) {
+	if callback == nil {
+		return
+	}
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			elapsed := time.Since(start)
+			callback(AgentStatus{
+				Name:     name,
+				Status:   "running",
+				Progress: estimateAgentProgress(elapsed),
+				Message:  fmt.Sprintf("reviewing (%s)", elapsed.Round(time.Second)),
+			})
+		}
+	}
+}
+
+// estimateAgentProgress 按经过时间用渐近曲线推算进度（0–95%）。
+// 曲线在 ~90s 时约 50%、~4min 时约 88%，渐近 95% 但永不达到 100%（100% 留给完成回调）。
+func estimateAgentProgress(elapsed time.Duration) float64 {
+	const maxP, tau = 95.0, 90.0
+	secs := elapsed.Seconds()
+	if secs <= 0 {
+		return 0
+	}
+	return maxP * (1 - math.Exp(-secs/tau))
 }

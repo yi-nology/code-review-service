@@ -3,7 +3,9 @@ package ocr
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
@@ -67,7 +69,7 @@ func NewTester(settings Settings, resolver *ConfigResolver) *Tester {
 	return &Tester{settings: settings, resolver: resolver}
 }
 
-// TestLLM 实现 domain.LLMTester。
+// TestLLM 实现 domain.LLMTester：真实执行 `<binary> llm test` 并解析退出码与输出。
 func (t *Tester) TestLLM(ctx context.Context) (*domain.LLMTestResult, error) {
 	data, err := t.settings.Get(ctx)
 	if err != nil {
@@ -78,16 +80,80 @@ func (t *Tester) TestLLM(ctx context.Context) (*domain.LLMTestResult, error) {
 	}
 
 	cfg := t.resolver.ResolveFromSettings(data, OCROverrides{})
-	_ = cfg // 阶段 A 占位；阶段 A+3 用 cfg.Binary / cfg.Env 调 internal.Run
-
-	// 阶段 A：仍委托 legacy runner 调 ocr llm test；
-	// 阶段 A+3 改为直接用 internal.Run 调 "ocr llm test" 子命令。
-	return &domain.LLMTestResult{Success: true, Message: "连接测试成功（阶段 A 占位）"}, nil
+	return t.runLLMTest(ctx, cfg), nil
 }
 
 // TestLLMWithSettings 对指定的（尚未入库的）配置执行 LLM 连通测试。
-func (t *Tester) TestLLMWithSettings(_ context.Context, _ *SettingsData) (*domain.LLMTestResult, error) {
-	return &domain.LLMTestResult{Success: true, Message: "TestLLMWithSettings 阶段 A 占位"}, nil
+func (t *Tester) TestLLMWithSettings(ctx context.Context, s *SettingsData) (*domain.LLMTestResult, error) {
+	if s == nil {
+		return &domain.LLMTestResult{Success: false, Message: "OCR 配置为空"}, nil
+	}
+	cfg := t.resolver.ResolveFromSettings(s, OCROverrides{})
+	return t.runLLMTest(ctx, cfg), nil
+}
+
+// runLLMTest 执行 `<binary> llm test`：退出码 0 视为连通成功，非 0 视为失败。
+// LLM 端点、模型、Token 通过 Config.AppendEnv 注入（与 review 子命令一致），
+// 避免读取宿主 ~/.opencodereview/config.json 造成环境差异。
+func (t *Tester) runLLMTest(ctx context.Context, cfg Config) *domain.LLMTestResult {
+	binary := strings.TrimSpace(cfg.Binary)
+	if binary == "" {
+		binary = "ocr"
+	}
+	res, err := InternalRun(ctx, CommandSpec{
+		Binary:  binary,
+		Args:    []string{"llm", "test"},
+		Env:     cfg.AppendEnv(os.Environ()),
+		Timeout: 60 * time.Second,
+	})
+	if err != nil && res == nil {
+		return &domain.LLMTestResult{Success: false, Message: fmt.Sprintf("执行 %s llm test 失败: %v", binary, err)}
+	}
+
+	stdout := strings.TrimSpace(string(res.Stdout))
+	stderr := strings.TrimSpace(string(res.Stderr))
+
+	if res.ExitCode == 0 {
+		return &domain.LLMTestResult{Success: true, Message: formatLLMTestSuccess(stdout)}
+	}
+
+	detail := strings.TrimSpace(strings.TrimPrefix(stderr, "Error:"))
+	if detail == "" {
+		detail = strings.TrimSpace(strings.TrimPrefix(stdout, "Error:"))
+	}
+	if res.TimedOut {
+		if detail == "" {
+			detail = "连接测试超时（60s）"
+		} else {
+			detail = "连接测试超时（60s）：" + detail
+		}
+	}
+	if detail == "" {
+		detail = fmt.Sprintf("%s llm test 退出码 %d", binary, res.ExitCode)
+	}
+	return &domain.LLMTestResult{Success: false, Message: detail}
+}
+
+// formatLLMTestSuccess 从 `ocr llm test` 成功输出中提取简洁的成功提示。
+// 输出示例：
+//
+//	Source: OCR environment
+//	URL:    https://token-plan-cn.xiaomimimo.com/v1
+//	Model:  mimo-v2.5-pro
+//	我是 open-code-review ...
+//	✓ Connection test successful
+func formatLLMTestSuccess(stdout string) string {
+	model := ""
+	for _, line := range strings.Split(stdout, "\n") {
+		line = strings.TrimSpace(line)
+		if model == "" && strings.HasPrefix(line, "Model:") {
+			model = strings.TrimSpace(strings.TrimPrefix(line, "Model:"))
+		}
+	}
+	if model != "" {
+		return "连接测试成功（" + model + "）"
+	}
+	return "连接测试成功"
 }
 
 // SettingsData 上 enabled 判定（private helper，外部用 Enabled 字段更清晰）。

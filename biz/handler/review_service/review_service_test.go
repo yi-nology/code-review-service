@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/ocr"
-	mw "github.com/oekit/middleware"
+	bizerrors "github.com/oekit/pkg/errors"
 )
 
 func TestMapReviewErrorMapsRunnerErrors(t *testing.T) {
@@ -23,9 +23,9 @@ func TestMapReviewErrorMapsRunnerErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mapped := mapReviewError(tt.err)
-			appErr, ok := mapped.(*mw.BizError)
+			appErr, ok := mapped.(*bizerrors.BizError)
 			if !ok {
-				t.Fatalf("mapReviewError() = %T, want *mw.BizError", mapped)
+				t.Fatalf("mapReviewError() = %T, want *bizerrors.BizError", mapped)
 			}
 			if appErr.Code != tt.code {
 				t.Fatalf("code = %d, want %d", appErr.Code, tt.code)

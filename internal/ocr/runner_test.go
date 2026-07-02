@@ -60,13 +60,15 @@ func TestRunner_DirectScan_BinaryMissing(t *testing.T) {
 	}
 }
 
-// TestRunner_DirectRun_ShScript 验证 Run 能真实执行 sh 命令。
+// TestRunner_DirectRun_ShScript 验证 Run 能真实执行 sh 命令并解析真实 OCR JSON 输出。
 func TestRunner_DirectRun_ShScript(t *testing.T) {
-	// 写一个 sh 脚本，模拟 ocr review 输出
+	// 写一个 sh 脚本，模拟 ocr review 的真实 --format json 输出。
 	tmpDir := t.TempDir()
 	scriptPath := filepath.Join(tmpDir, "fake-ocr")
 	script := `#!/bin/sh
-echo '{"summary":"test summary from fake ocr"}'
+cat <<'EOF'
+{"status":"success","summary":{"files_reviewed":1,"comments":1,"total_tokens":42,"input_tokens":30,"output_tokens":12,"elapsed":"1s"},"comments":[{"path":"main.go","content":"fake finding body","suggestion_code":"x = 1","existing_code":"x = 0","start_line":5,"end_line":5}]}
+EOF
 `
 	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
@@ -74,6 +76,7 @@ echo '{"summary":"test summary from fake ocr"}'
 
 	cfg := Defaults().ToConfig()
 	cfg.Binary = scriptPath
+	cfg.DefaultSeverity = "major"
 	r := NewRunner(cfg)
 
 	ws := domain.Workspace{Dir: tmpDir}
@@ -81,11 +84,17 @@ echo '{"summary":"test summary from fake ocr"}'
 	if err != nil {
 		t.Fatalf("Run err: %v", err)
 	}
-	if result.Summary != "test summary from fake ocr" {
-		t.Errorf("expected Summary='test summary from fake ocr', got %q", result.Summary)
+	if len(result.Findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(result.Findings))
+	}
+	if result.Findings[0].Path != "main.go" || result.Findings[0].StartLine != 5 {
+		t.Errorf("unexpected finding: %+v", result.Findings[0])
 	}
 	if result.OCR.Engine != "open-code-review" {
 		t.Errorf("expected engine=open-code-review, got %q", result.OCR.Engine)
+	}
+	if result.OCR.Status != "success" || result.OCR.TotalTokens != 42 {
+		t.Errorf("unexpected OCR metadata: %+v", result.OCR)
 	}
 }
 

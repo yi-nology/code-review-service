@@ -54,6 +54,7 @@ func convertOCRSettings(m *models.OCRSettings) *SettingsData {
 		Binary:                 m.Binary,
 		Audience:               m.Audience,
 		URL:                    m.URL,
+		Model:                  m.ModelName,
 		ModelName:              m.ModelName,
 		AuthToken:              m.AuthToken,
 		AuthHeader:             m.AuthHeader,

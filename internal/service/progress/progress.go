@@ -93,7 +93,37 @@ func (p *ReviewProgress) UpdateAgentStatus(agentName, status string, progress fl
 	p.AgentStatus[agentName] = AgentStatus{
 		Name: agentName, Status: status, Progress: progress, Message: message,
 	}
+	// 并行审查阶段：用各 agent 的平均进度驱动该阶段进度条，
+	// 避免阶段进度长时间卡 0%（仅 agent 进度在涨）。
+	if p.Phase == PhaseReviews && len(p.AgentStatus) > 0 {
+		agg := p.aggregateAgentProgress()
+		p.Progress = agg
+		p.setPhaseProgress(PhaseReviews, agg)
+	}
 	p.UpdatedAt = time.Now()
+}
+
+// aggregateAgentProgress 返回所有 agent 进度的算术平均值。
+// 所有 agent 完成时为 100，否则 < 100（阶段完成回调负责最终置 100）。
+func (p *ReviewProgress) aggregateAgentProgress() float64 {
+	if len(p.AgentStatus) == 0 {
+		return 0
+	}
+	var sum float64
+	for _, a := range p.AgentStatus {
+		sum += a.Progress
+	}
+	return sum / float64(len(p.AgentStatus))
+}
+
+// setPhaseProgress 更新指定阶段的进度数值（不改变其状态）。
+func (p *ReviewProgress) setPhaseProgress(phase Phase, progress float64) {
+	for i, ph := range p.Phases {
+		if ph.Name == string(phase) {
+			p.Phases[i].Progress = progress
+			return
+		}
+	}
 }
 
 func (p *ReviewProgress) SetError(err string) {

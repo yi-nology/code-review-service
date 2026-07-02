@@ -71,21 +71,28 @@ func NewReviewWorkflow(
 func (w *ReviewWorkflow) RunReview(ctx context.Context, request ReviewRequest) (*ReviewResult, error) {
 	startTime := time.Now()
 
+	// 计算本轮轮次：requeue/重审时应递增（基于已有 session 的最大轮次）。
+	// GetNextRound 不可用时回退到调用方指定的 request.Round。
+	round := request.Round
+	if r, err := w.sessionService.GetNextRound(ctx, request.ReviewID); err == nil && r > 0 {
+		round = r
+	}
+
 	// Create session
-	session, err := w.sessionService.CreateSession(ctx, request.ReviewID, request.Round)
+	session, err := w.sessionService.CreateSession(ctx, request.ReviewID, round)
 	if err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 
 	// Create progress tracker
-	tracker := w.progressManager.CreateTracker(request.ReviewID, session.SessionID, request.Round)
+	tracker := w.progressManager.CreateTracker(request.ReviewID, session.SessionID, round)
 	defer w.progressManager.RemoveTracker(request.ReviewID)
 
 	// Build review session
 	rs := &ReviewSession{
 		ReviewID:  request.ReviewID,
 		SessionID: session.SessionID,
-		Round:     request.Round,
+		Round:     round,
 		Request:   request,
 		StartTime: startTime,
 		Tracker:   tracker,
@@ -102,7 +109,7 @@ func (w *ReviewWorkflow) RunReview(ctx context.Context, request ReviewRequest) (
 	// Build result
 	result := &ReviewResult{
 		SessionID: session.SessionID,
-		Round:     request.Round,
+		Round:     round,
 		Duration:  time.Since(startTime),
 	}
 
