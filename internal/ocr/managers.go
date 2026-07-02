@@ -3,6 +3,7 @@ package ocr
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
@@ -20,7 +21,13 @@ func NewVersioner(settings Settings, resolver *ConfigResolver) *Versioner {
 	return &Versioner{settings: settings, resolver: resolver}
 }
 
-// OCRVersion 实现 domain.OCRVersioner。
+// OCRVersion 实现 domain.OCRVersioner：真实执行 `<binary> --version` 并解析输出。
+//
+// 预期输出：
+//
+//	open-code-review v1.6.4 (3f41551) darwin/arm64
+//	built at: 2026-06-26T13:24:22Z
+//	https://github.com/alibaba/open-code-review
 func (v *Versioner) OCRVersion(ctx context.Context) (*domain.OCRVersion, error) {
 	data, err := v.settings.Get(ctx)
 	if err != nil {
@@ -28,15 +35,41 @@ func (v *Versioner) OCRVersion(ctx context.Context) (*domain.OCRVersion, error) 
 	}
 	binary := resolveBinaryFrom(adaptSettings(data), v.resolver.fallback)
 
-	// 阶段 A 占位：解析 "open-code-review vX.Y.Z (commit) darwin/amd64 built at: ..." 格式
-	// 阶段 A+3 改为 internal.Run 真实执行
-	_ = binary
-	return &domain.OCRVersion{
-		Version:   "stage-a-placeholder",
-		Commit:    "",
-		Platform:  "",
-		BuildTime: "",
-	}, nil
+	stdout, stderr, err := Run(ctx, binary, "--version")
+	if err != nil {
+		return nil, fmt.Errorf("执行 %s --version 失败: %w; stderr: %s",
+			binary, err, strings.TrimSpace(string(stderr)))
+	}
+	return parseOCRVersion(stdout), nil
+}
+
+// ocrVersionRe 匹配 `ocr --version` 第一行的 "version (commit) platform"。
+var ocrVersionRe = regexp.MustCompile(`(v\d+\.\d+\.\d+(?:[-.\w]*)?)\s*\(([0-9a-fA-F]+)\)\s+(\S+)`)
+
+// parseOCRVersion 解析 `ocr --version` 输出。
+func parseOCRVersion(out []byte) *domain.OCRVersion {
+	ver := &domain.OCRVersion{}
+	text := strings.TrimSpace(string(out))
+	if text == "" {
+		return ver
+	}
+	lines := strings.Split(text, "\n")
+
+	if len(lines) > 0 {
+		if m := ocrVersionRe.FindStringSubmatch(strings.TrimSpace(lines[0])); m != nil {
+			ver.Version = m[1]
+			ver.Commit = m[2]
+			ver.Platform = m[3]
+		}
+	}
+	for _, line := range lines[1:] {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "built at:") {
+			ver.BuildTime = strings.TrimSpace(strings.TrimPrefix(line, "built at:"))
+			break
+		}
+	}
+	return ver
 }
 
 // ProviderLister 实现 domain.LLMProviderLister（吸收 ocr/provider_lister.go）。

@@ -167,6 +167,9 @@ func applyEnvOverrides(cfg *Config) {
 	if v, ok := config.GetInt("RATE_LIMIT_BURST"); ok {
 		cfg.RateLimit.Burst = v
 	}
+	if v := config.Get("WEBHOOK_BOT_USERNAME"); v != "" {
+		cfg.Webhook.BotUsername = v
+	}
 }
 
 func (c *Config) GetWorkerPollInterval() time.Duration {

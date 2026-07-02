@@ -520,6 +520,7 @@ func generateFinalReport(
 // 测试可通过 mock 实现该接口。
 type sessionService interface {
 	CreateSession(ctx context.Context, reviewID string, round int) (*models.ReviewSession, error)
+	GetNextRound(ctx context.Context, reviewID string) (int, error)
 	UpdatePhase(ctx context.Context, sessionID string, phase models.SessionPhase, progress float64) error
 	UpdateAgentResults(ctx context.Context, sessionID string, agentResults []models.AgentResultData) error
 	UpdateDiscussion(ctx context.Context, sessionID string, discussion models.DiscussionData) error

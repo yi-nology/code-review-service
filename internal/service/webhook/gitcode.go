@@ -12,7 +12,17 @@ import (
 	"github.com/oekit/pkg/convert"
 )
 
-type GitCodeNormalizer struct{}
+type GitCodeNormalizer struct {
+	// providers 仅为构造签名统一保留；gitcode 的 payload 为 GitLab 风格，
+	// 而 SDK gitcode backend 期望 Gitea 风格，二者不兼容，因此 Normalize
+	// 仍走手写解析，不使用 providers。
+	providers ProviderGetter
+}
+
+// NewGitCodeNormalizer 构造一个 GitCode normalizer。
+func NewGitCodeNormalizer(providers ProviderGetter) *GitCodeNormalizer {
+	return &GitCodeNormalizer{providers: providers}
+}
 
 func (n *GitCodeNormalizer) Normalize(rawBody []byte, eventType string) (*ChangeEvent, error) {
 	if eventType == "Push Hook" {

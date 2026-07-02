@@ -7,6 +7,11 @@ port: 8081
 auth:
   token: "dev-token"
 
+# Webhook 配置
+# bot_username 用于识别本服务自身发出的 PR/MR 评论，避免 webhook 回声自循环。
+webhook:
+  bot_username: "review-bot"
+
 # 数据库配置
 database:
   dsn: "${DATABASE_URL:postgres://review_service:review_service@localhost:5432/review_service?sslmode=disable}"
