@@ -13,6 +13,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 
+	"github.com/oekit/logx"
 	"gorm.io/datatypes"
 )
 
@@ -107,7 +108,11 @@ func (s *Service) HandleWebhook(ctx context.Context, provider, installationID st
 	}
 
 	var payload map[string]any
-	_ = json.Unmarshal(rawBody, &payload)
+	if err := json.Unmarshal(rawBody, &payload); err != nil {
+		// 签名已验证，body 必为平台原始报文。解析失败不阻断（Normalize 会用自己的解析报错），
+		// 但此前被静默吞掉，畸形 payload 会被误判为「非 bot」继续流转。此处记录告警便于诊断。
+		logx.Warnf("webhook payload is not valid JSON for provider=%s delivery=%s: %v", provider, deliveryID, err)
+	}
 
 	if IsBotSender(provider, payload, s.botUsername) {
 		// PR-07 修复：MarkProcessed 错误不再 silent warn，回传给调用方。

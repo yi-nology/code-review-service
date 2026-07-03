@@ -76,6 +76,9 @@ type ServiceConfig struct {
 	ScanRunner      domain.ScanRunner
 	ProgressManager *progress.ProgressManager
 	Executor        Executor
+	// Concurrency 限制同时进行的 review 数（worker 与 scan 共享）。
+	// <=0 表示不限制。在构造期一次性创建信号量，避免运行期懒初始化导致的数据竞争。
+	Concurrency int
 }
 
 type Service struct {
@@ -99,7 +102,7 @@ type Service struct {
 }
 
 func NewService(cfg ServiceConfig) *Service {
-	return &Service{
+	s := &Service{
 		reviewRepo:      cfg.ReviewRepo,
 		ocrSettingsRepo: cfg.OCRSettingsRepo,
 		projectRepo:     cfg.ProjectRepo,
@@ -114,6 +117,34 @@ func NewService(cfg ServiceConfig) *Service {
 		ScanRunner:      cfg.ScanRunner,
 		progressManager: cfg.ProgressManager,
 		Executor:        cfg.Executor,
+	}
+	// 构造期一次性创建并发信号量，消除运行期懒初始化的数据竞争。
+	// nil 表示不限制（Concurrency<=0）。
+	if cfg.Concurrency > 0 {
+		s.concurrencySem = make(chan struct{}, cfg.Concurrency)
+		logx.Infof("review concurrency limit=%d (worker & scan shared)", cfg.Concurrency)
+	}
+	return s
+}
+
+// acquireConcurrency 获取并发槽，支持 ctx 取消。
+// 信号量为 nil（未配置限制）时直接放行。
+// 返回 false 表示等待期间 ctx 已取消，调用方应中止并清理。
+func (s *Service) acquireConcurrency(ctx context.Context) bool {
+	if s.concurrencySem == nil {
+		return true
+	}
+	select {
+	case s.concurrencySem <- struct{}{}:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+func (s *Service) releaseConcurrency() {
+	if s.concurrencySem != nil {
+		<-s.concurrencySem
 	}
 }
 
@@ -540,10 +571,12 @@ func (s *Service) scanAsync(ctx context.Context, req domain.ScanRequest) (*domai
 			}
 		}()
 
-		if s.concurrencySem != nil {
-			s.concurrencySem <- struct{}{}
-			defer func() { <-s.concurrencySem }()
+		// 获取并发槽：可被 ctx 取消，避免停机时阻塞发送导致 Shutdown 超时死锁。
+		if !s.acquireConcurrency(ctx) {
+			logx.Warnf("scan %s cancelled while waiting for concurrency slot", id)
+			return
 		}
+		defer s.releaseConcurrency()
 
 		// PR-03 修复：派生自 ctx，使得 HTTP 请求被取消时 scan goroutine 也能收到信号。
 		// 旧的 context.WithCancel(context.Background()) 与请求 lifecycle 完全脱钩，

@@ -142,6 +142,21 @@ func registerViewerProxyRoute(h *server.Hertz, viewerMgr *ocrcore.Viewer, authTo
 	h.GET("/api/v1/settings/ocr/viewer/proxy/*path", viewerProxyHandler(viewerMgr, authToken))
 }
 
+// proxiedResponseHeaders 是 viewer 反向代理允许转发给客户端的上游响应头白名单。
+// 刻意排除 Set-Cookie / Location / Server / Transfer-Encoding 等，避免响应头注入。
+var proxiedResponseHeaders = []string{
+	"Content-Type",
+	"Content-Length",
+	"Content-Encoding",
+	"Content-Language",
+	"Cache-Control",
+	"ETag",
+	"Last-Modified",
+	"Expires",
+	"Pragma",
+	"Vary",
+}
+
 func viewerProxyHandler(viewerMgr *ocrcore.Viewer, authToken string) app.HandlerFunc {
 	proxyClient := &http.Client{Timeout: 30 * time.Second}
 	const maxProxyBody = 10 << 20 // 10 MB
@@ -161,8 +176,11 @@ func viewerProxyHandler(viewerMgr *ocrcore.Viewer, authToken string) app.Handler
 			c.SetStatusCode(http.StatusServiceUnavailable)
 			return
 		}
-		status, _ := viewerMgr.ViewerStatus(ctx)
-		if !status.Running || status.Addr == "" {
+		status, statusErr := viewerMgr.ViewerStatus(ctx)
+		if statusErr != nil {
+			logx.Warnf("viewer proxy: get viewer status failed: %v", statusErr)
+		}
+		if statusErr != nil || !status.Running || status.Addr == "" {
 			c.SetStatusCode(http.StatusServiceUnavailable)
 			_, _ = c.WriteString("OCR viewer is not running")
 			return
@@ -190,9 +208,13 @@ func viewerProxyHandler(viewerMgr *ocrcore.Viewer, authToken string) app.Handler
 			return
 		}
 		defer resp.Body.Close()
-		for key, values := range resp.Header {
-			if len(values) > 0 {
-				c.Response.Header.Set(key, values[0])
+		// 仅转发安全的响应头：此前原样拷贝上游全部响应头，
+		// Set-Cookie / Location / Server 等会被注入到客户端（响应头注入）。
+		for _, key := range proxiedResponseHeaders {
+			if values := resp.Header.Values(key); len(values) > 0 {
+				for _, v := range values {
+					c.Response.Header.Add(key, v)
+				}
 			}
 		}
 		// 强制允许同源 iframe 嵌入，覆盖上游可能返回的限制头。

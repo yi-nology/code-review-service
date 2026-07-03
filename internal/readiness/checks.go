@@ -17,6 +17,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository"
 
 	"github.com/oekit/hertz"
+	"github.com/oekit/logx"
 	"gorm.io/gorm"
 )
 
@@ -45,9 +46,16 @@ func OCRBinaryCheck(repos *repository.RepoContainer, resolver *ocrcore.ConfigRes
 		}
 		// 配置读取失败（如首次启动尚未配置）时用默认 binary 检查，
 		// 不应阻断就绪探针——配置问题由 preflight 与日志反映。
+		// 但此前错误被静默吞掉，DB 配置层故障时仍报 ready，首条评审才暴露。改为记录告警。
 		settings := ocrcore.NewSettingsAdapter(repos.OCRSettings)
-		data, _ := settings.Get(ctx)
-		cfg, _ := resolver.Resolve(ctx, ocrcore.OCROverrides{})
+		data, settingsErr := settings.Get(ctx)
+		if settingsErr != nil {
+			logx.Warnf("readiness: read OCR settings failed, using default binary: %v", settingsErr)
+		}
+		cfg, resolveErr := resolver.Resolve(ctx, ocrcore.OCROverrides{})
+		if resolveErr != nil {
+			logx.Warnf("readiness: resolve OCR config failed, using default binary: %v", resolveErr)
+		}
 		_ = data
 		binary := cfg.Binary
 		if binary == "" {
@@ -72,7 +80,10 @@ func LLMEndpointCheck(repos *repository.RepoContainer, resolver *ocrcore.ConfigR
 			return nil
 		}
 		settings := ocrcore.NewSettingsAdapter(repos.OCRSettings)
-		data, _ := settings.Get(ctx)
+		data, settingsErr := settings.Get(ctx)
+		if settingsErr != nil {
+			logx.Warnf("readiness: read OCR settings failed for LLM probe: %v", settingsErr)
+		}
 		cfg := resolver.ResolveFromSettings(data, ocrcore.OCROverrides{})
 		if cfg.URL == "" {
 			return nil

@@ -17,6 +17,7 @@ import (
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 	svcReview "github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/session"
+	"github.com/yi-nology/code-review-service/internal/service/suggestion"
 	statsSvc "github.com/yi-nology/code-review-service/internal/service/stats"
 	"github.com/yi-nology/code-review-service/internal/service/webhook"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
@@ -25,6 +26,7 @@ import (
 )
 
 var HandlerModule = fx.Options(
+	fx.Provide(NewSuggestionService),
 	fx.Invoke(InitReviewHandler),
 	fx.Invoke(InitWebhookHandler),
 	fx.Invoke(InitSettingsHandler),
@@ -37,8 +39,15 @@ var HandlerModule = fx.Options(
 	fx.Invoke(InitFeedbackHandler),
 )
 
-func InitReviewHandler(reviewSvc *svcReview.Service, gitMgr *gitProvider.GitProviderService) {
-	review_service.InitHandler(reviewSvc, gitMgr)
+func InitReviewHandler(reviewSvc *svcReview.Service, gitMgr *gitProvider.GitProviderService, suggestionSvc *suggestion.Service) {
+	review_service.InitHandler(reviewSvc, gitMgr, suggestionSvc)
+}
+
+// NewSuggestionService 构造评审建议补丁服务（#8 拆分：从 review.Service 抽离）。
+// 依赖窄接口：reviewSvc 提供 Get（满足 suggestion.ReviewFetcher），
+// providers 满足 domain.Providers，gitMgr 满足 suggestion.GitTokenSource。
+func NewSuggestionService(reviewSvc *svcReview.Service, providers *gitProvider.GitProviderProviders, gitMgr *gitProvider.GitProviderService) *suggestion.Service {
+	return suggestion.NewService(reviewSvc, providers, gitMgr)
 }
 
 func InitWebhookHandler(webhookSvc *webhook.Service, reviewSvc *svcReview.Service, repos *repository.RepoContainer) {

@@ -16,6 +16,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/service/suggestion"
 
 	"github.com/oekit/pkg/convert"
 	"github.com/oekit/pkg/mathx"
@@ -33,14 +34,16 @@ var handlerInst *ReviewHandler
 var webhookInst *WebhookHandler
 
 type ReviewHandler struct {
-	reviewSvc svcApp.ReviewService
-	gitMgr    svcApp.GitProviderManager
+	reviewSvc    svcApp.ReviewService
+	gitMgr       svcApp.GitProviderManager
+	suggestionSvc *suggestion.Service
 }
 
-func InitHandler(svc svcApp.ReviewService, gitMgr svcApp.GitProviderManager) {
+func InitHandler(svc svcApp.ReviewService, gitMgr svcApp.GitProviderManager, suggestionSvc *suggestion.Service) {
 	handlerInst = &ReviewHandler{
-		reviewSvc: svc,
-		gitMgr:    gitMgr,
+		reviewSvc:     svc,
+		gitMgr:        gitMgr,
+		suggestionSvc: suggestionSvc,
 	}
 }
 

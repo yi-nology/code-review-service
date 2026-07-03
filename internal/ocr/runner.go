@@ -7,10 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -177,8 +177,8 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 	env = r.cfg.AppendEnv(env)
 	cmd.Env = env
 
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
+	stdout := newCappedBuffer(maxSubprocessOutput)
+	cmd.Stdout = stdout
 
 	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {
@@ -283,14 +283,90 @@ func appendToolsArgs(args []string, cfg Config) ([]string, func(), error) {
 }
 
 // parseOCRProgress 从 stderr 一行文本中解析 OCR 进度并通过 reporter 上报。
+// OCR CLI 输出形如 "progress: 50% phase=context"。
+// 此前该函数是空桩（_ = reporter），导致 WS 进度 UI 拿不到 OCR 子步骤进度。
 func parseOCRProgress(line string, reporter progress.ProgressReporter) {
-	// 简化实现：阶段 A12 把 runner.parseOCRProgress 完整内联
-	if strings.HasPrefix(line, "progress:") {
-		// 形如 "progress: 50% phase=context"
-		// 阶段 A+12 完整实现
-		_ = reporter
+	const prefix = "progress:"
+	if !strings.HasPrefix(line, prefix) {
+		return
 	}
+	rest := strings.TrimSpace(line[len(prefix):])
+	fields := strings.Fields(rest)
+
+	var pct float64
+	var phaseName string
+	for _, f := range fields {
+		switch {
+		case strings.HasSuffix(f, "%"):
+			if v, err := strconv.ParseFloat(strings.TrimSuffix(f, "%"), 64); err == nil {
+				pct = v
+			}
+		case strings.HasPrefix(f, "phase="):
+			phaseName = strings.TrimPrefix(f, "phase=")
+		}
+	}
+
+	// 归一化百分比，防止异常输入。
+	if pct < 0 {
+		pct = 0
+	} else if pct > 100 {
+		pct = 100
+	}
+
+	// 已知 phase 名与 progress.Phase 常量一致，直接映射以驱动前端阶段切换。
+	if _, ok := knownOCRPhases[phaseName]; ok {
+		reporter.UpdatePhase(progress.Phase(phaseName), "active", pct, "ocr: "+rest)
+		return
+	}
+	reporter.ReportProgress("ocr: "+rest, pct)
 }
+
+// knownOCRPhases 列出 progress.Phase 体系支持的阶段名（见 progress/types.go）。
+var knownOCRPhases = map[string]struct{}{
+	"context":        {},
+	"change_context": {},
+	"analysis":       {},
+	"reviews":        {},
+	"aggregation":    {},
+	"discourse":      {},
+	"synthesis":      {},
+	"complete":       {},
+}
+
+// maxSubprocessOutput 限制单个 OCR 子进程 stdout/stderr 的内存上限，
+// 防止健谈/失控的二进制把内存撑爆（OOM）。正常 JSON 输出远小于此。
+const maxSubprocessOutput = 64 << 20 // 64 MB
+
+// cappedBuffer 是带容量上限的 bytes.Buffer：超过 cap 后丢弃后续写入并记录一次告警，
+// 作为 exec.Cmd 的 Stdout/Stdout 捕获器，限制输出内存占用。
+type cappedBuffer struct {
+	buf    bytes.Buffer
+	cap    int
+	capped bool
+}
+
+func newCappedBuffer(capBytes int) *cappedBuffer {
+	return &cappedBuffer{cap: capBytes}
+}
+
+func (b *cappedBuffer) Write(p []byte) (int, error) {
+	if b.capped {
+		return len(p), nil
+	}
+	room := b.cap - b.buf.Len()
+	if len(p) >= room {
+		if room > 0 {
+			b.buf.Write(p[:room])
+		}
+		b.capped = true
+		logx.Warnf("ocr subprocess output exceeded %d bytes cap, further output discarded", b.cap)
+		return len(p), nil
+	}
+	return b.buf.Write(p)
+}
+
+func (b *cappedBuffer) Bytes() []byte  { return b.buf.Bytes() }
+func (b *cappedBuffer) String() string { return b.buf.String() }
 
 // classifyExitError 把 cmd.Wait 的失败归类为 TimeoutError 或 ExitError。
 func classifyExitError(ctx context.Context, runErr error, timeout time.Duration, stderr string) error {
@@ -464,21 +540,37 @@ func findingTitle(content string) string {
 	return title
 }
 
+// ocrConfigMu 保护 ~/.opencodereview/config.json 的读-改-写。
+// 此前并发评审/agent 各自 read-modify-write 同一文件，不同 language 互相覆盖
+// 甚至写出损坏的 JSON。加锁后串行化，避免丢失更新与撕裂写。
+// 注意：锁只保证不损坏，不同 language 的并发评审仍会「最后写入者胜」——
+// 彻底解决需改为按评审传入 language（CLI flag/env），属更大改造。
+var ocrConfigMu sync.Mutex
+
 // ensureOCRLanguage 将 language 写入 ~/.opencodereview/config.json。
 func ensureOCRLanguage(binary, language string) {
+	if language == "" {
+		return
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return
 	}
 	dir := filepath.Join(home, ".opencodereview")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
+		logx.Warnf("ensureOCRLanguage: create config dir %q failed: %v", dir, err)
 		return
 	}
 	path := filepath.Join(dir, "config.json")
 
+	ocrConfigMu.Lock()
+	defer ocrConfigMu.Unlock()
+
 	var cfg map[string]any
 	if data, err := os.ReadFile(path); err == nil {
-		_ = json.Unmarshal(data, &cfg)
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			logx.Warnf("ensureOCRLanguage: parse existing config %q failed, will overwrite: %v", path, err)
+		}
 	}
 	if cfg == nil {
 		cfg = make(map[string]any)
@@ -491,8 +583,7 @@ func ensureOCRLanguage(binary, language string) {
 	if err != nil {
 		return
 	}
-	_ = os.WriteFile(path, data, 0o644)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		logx.Warnf("ensureOCRLanguage: write config %q failed: %v", path, err)
+	}
 }
-
-// 防止 unused import 警告
-var _ = io.Discard

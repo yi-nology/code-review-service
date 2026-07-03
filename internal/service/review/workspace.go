@@ -16,6 +16,7 @@ func ApplyProjectScope(ctx context.Context, workspace domain.Workspace, ignorePa
 	if err != nil {
 		return domain.Workspace{}, fmt.Errorf("open repo: %w", err)
 	}
+	defer func() { _ = git.Close() }()
 	changed, err := git.DiffNameOnly(ctx, workspace.BaseSHA, workspace.HeadSHA)
 	if err != nil {
 		return domain.Workspace{}, fmt.Errorf("list changed files: %w", err)

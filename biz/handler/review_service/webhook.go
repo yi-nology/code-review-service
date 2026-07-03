@@ -138,8 +138,16 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 		return
 	}
 
-	_ = h.webhookSvc.RecordRevision(ctx, event, resp.ReviewID)
-	_ = h.webhookSvc.MarkDeliveryProcessed(ctx, req.Provider, req.Installation, deliveryID, "accepted", "")
+	// review 已创建成功，后续落库失败不应回滚已创建的评审（避免重复评审），
+	// 但此前错误被 _ = 丢弃，交付行会卡在 received、修订追踪静默丢失。改为记录告警。
+	if err := h.webhookSvc.RecordRevision(ctx, event, resp.ReviewID); err != nil {
+		logx.Error("record change revision failed after webhook review created",
+			"provider", req.Provider, "review_id", resp.ReviewID, "error", err)
+	}
+	if err := h.webhookSvc.MarkDeliveryProcessed(ctx, req.Provider, req.Installation, deliveryID, "accepted", ""); err != nil {
+		logx.Error("mark delivery as accepted failed",
+			"provider", req.Provider, "delivery_id", deliveryID, "error", err)
+	}
 
 	c.JSON(202, &modelWebhook.HandleWebhookResp{
 		Status:   "accepted",

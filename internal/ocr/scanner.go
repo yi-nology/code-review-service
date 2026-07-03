@@ -1,14 +1,12 @@
 package ocr
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"syscall"
 
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
@@ -45,9 +43,10 @@ func (r *Runner) Preview(ctx context.Context, workspace domain.Workspace) (*doma
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Env = r.cfg.AppendEnv(os.Environ())
 
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	stdout := newCappedBuffer(maxSubprocessOutput)
+	stderr := newCappedBuffer(maxSubprocessOutput)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 
 	if err := cmd.Start(); err != nil {
 		return nil, &BinaryMissingError{Binary: r.cfg.Binary, Err: err}
@@ -118,9 +117,10 @@ func (r *Runner) Scan(ctx context.Context, workspace domain.Workspace, req domai
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Env = r.cfg.AppendEnv(os.Environ())
 
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	stdout := newCappedBuffer(maxSubprocessOutput)
+	stderr := newCappedBuffer(maxSubprocessOutput)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 
 	if err := cmd.Start(); err != nil {
 		return nil, &BinaryMissingError{Binary: r.cfg.Binary, Err: err}
@@ -153,7 +153,3 @@ func (r *Runner) Scan(ctx context.Context, workspace domain.Workspace, req domai
 	return &out, nil
 }
 
-// 防止 unused import 警告
-var (
-	_ sync.Mutex
-)

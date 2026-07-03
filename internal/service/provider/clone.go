@@ -47,7 +47,12 @@ func cloneAndResolvePR(
 	}
 
 	if targetBranch != "" {
-		_ = git.Fetch(ctx, targetBranch+":"+targetBranch)
+		// 获取 base 分支是后续 MergeBase / base SHA 解析的前提。失败时不中断
+		//（有些场景 base 可由 SHA 直接解析），但此前被静默吞掉，
+		// base 解析错误会产生对照错误 diff 基线的评审。记录告警便于诊断。
+		if err := git.Fetch(ctx, targetBranch+":"+targetBranch); err != nil {
+			logx.Warnf("fetch target branch %q failed, base SHA resolution may be inaccurate: %v", targetBranch, err)
+		}
 	}
 
 	headRef := "pr-" + convert.IntToStr(prNumber)

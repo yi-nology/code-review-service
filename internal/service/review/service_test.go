@@ -150,8 +150,14 @@ func (m *mockReviewRepo) UpdateInTransaction(_ context.Context, reviewID string,
 func (m *mockReviewRepo) snapshot() []*models.Review {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	// 返回值的深拷贝而非原始指针：async scan goroutine 会在锁外通过
+	// UpdateInTransaction 就地改写这些对象，若 snapshot 只复制指针切片，
+	// 测试 goroutine 读取字段时与异步写并发会造成数据竞争（race）。
 	out := make([]*models.Review, len(m.reviews))
-	copy(out, m.reviews)
+	for i, r := range m.reviews {
+		clone := *r
+		out[i] = &clone
+	}
 	return out
 }
 

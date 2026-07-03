@@ -105,5 +105,6 @@ func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 		ScanRunner:      deps.OcrRunner,
 		ProgressManager: deps.ProgressManager,
 		Executor:        deps.ExecutorSvc,
+		Concurrency:     deps.Config.Review.WorkerConcurrency,
 	})
 }

@@ -68,50 +68,51 @@ func (h *ProgressWSHandler) HandleProgressWSMethod(ctx context.Context, c *app.R
 		return
 	}
 
-	var conn *websocket.Conn
-	err := h.upgrader.Upgrade(c, func(ws *websocket.Conn) {
-		conn = ws
+	err := h.upgrader.Upgrade(c, func(conn *websocket.Conn) {
+		// 整个会话逻辑必须在 Upgrade 回调内执行：回调在独立 goroutine 运行，
+		// conn 作为参数保证非 nil 且仅在此 goroutine 访问，消除此前
+		// 「回调写 conn + 主 goroutine 读 conn」的数据竞争与 nil panic。
+		defer func() {
+			_ = conn.Close()
+			logx.Infof("websocket client disconnected for review: %s", req.ID)
+		}()
+
+		tracker := h.progressManager.GetTracker(req.ID)
+		if tracker == nil {
+			_ = conn.WriteJSON(map[string]string{
+				"type":    "error",
+				"error":   "no active review found",
+				"message": "No active review found for this ID",
+			})
+			return
+		}
+
+		roomID := tracker.GetRoomID()
+		broadcaster := h.progressManager.GetBroadcaster()
+		broadcaster.Register(roomID, conn)
+		defer broadcaster.Unregister(roomID, conn)
+
+		progress := tracker.GetProgress()
+		if err := conn.WriteJSON(progress); err != nil {
+			logx.Errorf("failed to send initial progress: %v", err)
+			return
+		}
+
+		logx.Infof("websocket client connected for review: %s", req.ID)
+
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
+					logx.Errorf("websocket error: %v", err)
+				}
+				return
+			}
+		}
 	})
 	if err != nil {
 		logx.Errorf("failed to upgrade websocket connection: %v", err)
 		return
 	}
-	defer func() { _ = conn.Close() }()
-
-	tracker := h.progressManager.GetTracker(req.ID)
-	if tracker == nil {
-		_ = conn.WriteJSON(map[string]string{
-			"type":    "error",
-			"error":   "no active review found",
-			"message": "No active review found for this ID",
-		})
-		return
-	}
-
-	roomID := tracker.GetRoomID()
-	broadcaster := h.progressManager.GetBroadcaster()
-	broadcaster.Register(roomID, conn)
-	defer broadcaster.Unregister(roomID, conn)
-
-	progress := tracker.GetProgress()
-	if err := conn.WriteJSON(progress); err != nil {
-		logx.Errorf("failed to send initial progress: %v", err)
-		return
-	}
-
-	logx.Infof("websocket client connected for review: %s", req.ID)
-
-	for {
-		_, _, err := conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
-				logx.Errorf("websocket error: %v", err)
-			}
-			break
-		}
-	}
-
-	logx.Infof("websocket client disconnected for review: %s", req.ID)
 }
 
 func GetProgress(ctx context.Context, c *app.RequestContext) {

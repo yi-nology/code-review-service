@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/oekit/pkg/slicex"
 )
@@ -31,9 +32,16 @@ func formatIntEnv(key string, v int) string {
 	return key + "=" + strconv.Itoa(v)
 }
 
-// backgroundCtx 返回独立 ctx（用于 tools 查询等与请求 ctx 解耦的场景）。
+// backgroundCtx 返回与请求 ctx 解耦、但带超时的 ctx（用于 tools 查询等不应被请求取消打断的场景）。
+// 此前返回裸 context.Background() 无 deadline，DB/LLM 查询可能无限期堆积。
+// 15s 足够覆盖 tools 配置查询；ctx 到期时回收 timer，避免 lostcancel。
 func backgroundCtx() context.Context {
-	return context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	go func() {
+		<-ctx.Done()
+		cancel()
+	}()
+	return ctx
 }
 
 // ResolveExtraBody 已在 reasoning.go 中定义并实现（阶段 A15 part 9 完整化）。

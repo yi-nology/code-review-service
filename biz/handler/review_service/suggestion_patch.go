@@ -9,8 +9,8 @@ import (
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	gitprovider "github.com/yi-nology/code-review-service/internal/service/provider"
-	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/service/suggestion"
 	"github.com/yi-nology/code-review-service/internal/service/types"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -57,7 +57,7 @@ func CheckSuggestionPatch(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, common.BadRequest(err.Error()))
 		return
 	}
-	result, found, err := handlerInst.reviewSvc.CheckSuggestionPatch(ctx, id, indexes)
+	result, found, err := handlerInst.suggestionSvc.CheckSuggestionPatch(ctx, id, indexes)
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -103,7 +103,7 @@ func ApplySuggestionPatch(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, common.BadRequest(err.Error()))
 		return
 	}
-	result, found, err := handlerInst.reviewSvc.ApplySuggestionPatch(ctx, id, review.SuggestionPatchApplyOptions{
+	result, found, err := handlerInst.suggestionSvc.ApplySuggestionPatch(ctx, id, suggestion.SuggestionPatchApplyOptions{
 		Indexes: req.FindingIndexes,
 		Branch:  req.Branch,
 		Push:    req.Push || req.CreateCR,
@@ -177,27 +177,27 @@ func resolveReviewTargetBranch(ctx context.Context, req domain.Request, owner, r
 	return strings.TrimSpace(cr.TargetBranch)
 }
 
-func buildSuggestionPatchPreview(ctx context.Context, c *app.RequestContext) (review.SuggestionPatchPreview, bool) {
+func buildSuggestionPatchPreview(ctx context.Context, c *app.RequestContext) (suggestion.SuggestionPatchPreview, bool) {
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {
 		common.Fail(c, common.BadRequest("review id 不能为空"))
-		return review.SuggestionPatchPreview{}, false
+		return suggestion.SuggestionPatchPreview{}, false
 	}
 	record, found, err := handlerInst.reviewSvc.Get(ctx, id)
 	if err != nil {
 		common.Fail(c, err)
-		return review.SuggestionPatchPreview{}, false
+		return suggestion.SuggestionPatchPreview{}, false
 	}
 	if !found {
 		common.Fail(c, common.NotFound("review not found"))
-		return review.SuggestionPatchPreview{}, false
+		return suggestion.SuggestionPatchPreview{}, false
 	}
 	indexes, err := parseFindingIndexes(c.Query("finding_indexes"), len(record.Response.Findings))
 	if err != nil {
 		common.Fail(c, common.BadRequest(err.Error()))
-		return review.SuggestionPatchPreview{}, false
+		return suggestion.SuggestionPatchPreview{}, false
 	}
-	return review.BuildSuggestionPatch(record.ID, record.Response.Findings, indexes), true
+	return suggestion.BuildSuggestionPatch(record.ID, record.Response.Findings, indexes), true
 }
 
 func validateFindingIndexes(indexes []int, total int) error {

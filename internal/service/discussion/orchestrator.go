@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/types"
+	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/slicex"
 )
@@ -60,69 +62,106 @@ func (o *Orchestrator) RunDiscussion(ctx context.Context, findings []Finding, ag
 
 // runLLMDiscourse 用 LLM 驱动真讨论（B1）。每个 agent 一次调用，对该 agent 未提交的
 // 所有 findings 集中表态（AGREE/CHALLENGE/CONNECT），并可 SURFACE 新发现。
+//
+// 各 agent 的 LLM 调用彼此独立，并行执行以避免 N 个 agent 延迟线性叠加；
+// 结果按 agent 顺序回填以保持条目顺序稳定。
 func (o *Orchestrator) runLLMDiscourse(ctx context.Context, findings []Finding, agents []string, requirements []string) ([]discussionEntry, []Finding, error) {
 	if o.provider == nil || !o.provider.Available(ctx) {
 		return nil, nil, ocr.ErrNotConfigured
 	}
 
+	type agentResult struct {
+		entries     []discussionEntry
+		newFindings []Finding
+		err         error
+	}
+	results := make([]agentResult, len(agents))
+
+	var wg sync.WaitGroup
+	for i, agentName := range agents {
+		i, agentName := i, agentName
+		wg.Add(1)
+		async.GoSafe(func() {
+			defer wg.Done()
+			entries, newFindings, err := o.discourseForAgent(ctx, findings, agentName, requirements)
+			results[i] = agentResult{entries: entries, newFindings: newFindings, err: err}
+		})
+	}
+	wg.Wait()
+
 	var allEntries []discussionEntry
 	var newFindings []Finding
-
-	for _, agentName := range agents {
-		systemPrompt := buildDiscourseSystemPrompt(agentName)
-		userPrompt := buildDiscourseUserPrompt(findings, agentName, requirements)
-
-		var items []llmDiscussionItem
-		err := ocr.CompleteJSON(ctx, o.provider, ocr.CompleteRequest{
-			SystemPrompt: systemPrompt,
-			UserPrompt:   userPrompt,
-			MaxTokens:    4096,
-		}, &items)
-		if err != nil {
-			logx.Warnf("LLM discourse for agent %s failed: %v", agentName, err)
+	failed := 0
+	for _, r := range results {
+		if r.err != nil {
+			failed++
+			logx.Warnf("LLM discourse for an agent failed: %v", r.err)
 			continue // 单个 agent 失败不阻塞其他 agent
 		}
-
-		for _, item := range items {
-			// SURFACE 新发现（B1 关键：之前 NewFindings 永远为空）
-			if item.Response == string(responseSurface) || item.FindingID == "SURFACE" {
-				body := item.Content
-				if strings.TrimSpace(item.Evidence) != "" {
-					body = fmt.Sprintf("%s\n\n证据: %s", item.Content, item.Evidence)
-				}
-				newFindings = append(newFindings, Finding{
-					ID:         types.GenerateID(),
-					Severity:   "major",
-					Category:   "discussion_surface",
-					Title:      truncate(item.Content, 120),
-					Body:       body,
-					Confidence: normalizeConfidence(item.Confidence),
-					Agents:     []string{agentName},
-				})
-				continue
-			}
-
-			resp := responseType(item.Response)
-			if resp != responseAgree && resp != responseChallenge && resp != responseConnect {
-				continue
-			}
-			allEntries = append(allEntries, discussionEntry{
-				ID:         types.GenerateID(),
-				AgentName:  agentName,
-				FindingID:  item.FindingID,
-				Response:   resp,
-				Content:    item.Content,
-				Evidence:   item.Evidence,
-				Confidence: normalizeConfidence(item.Confidence),
-				CreatedAt:  time.Now(),
-			})
-		}
+		allEntries = append(allEntries, r.entries...)
+		newFindings = append(newFindings, r.newFindings...)
+	}
+	if failed > 0 {
+		logx.Warnf("LLM discourse: %d/%d agents failed", failed, len(agents))
 	}
 
 	if len(allEntries) == 0 && len(newFindings) == 0 {
 		return nil, nil, fmt.Errorf("llm discourse produced no usable entries")
 	}
 	return allEntries, newFindings, nil
+}
+
+// discourseForAgent 调用 LLM 完成单个 agent 的讨论表态，返回其产出的条目与新发现。
+func (o *Orchestrator) discourseForAgent(ctx context.Context, findings []Finding, agentName string, requirements []string) ([]discussionEntry, []Finding, error) {
+	systemPrompt := buildDiscourseSystemPrompt(agentName)
+	userPrompt := buildDiscourseUserPrompt(findings, agentName, requirements)
+
+	var items []llmDiscussionItem
+	if err := ocr.CompleteJSON(ctx, o.provider, ocr.CompleteRequest{
+		SystemPrompt: systemPrompt,
+		UserPrompt:   userPrompt,
+		MaxTokens:    4096,
+	}, &items); err != nil {
+		return nil, nil, err
+	}
+
+	var entries []discussionEntry
+	var newFindings []Finding
+	for _, item := range items {
+		// SURFACE 新发现（B1 关键：之前 NewFindings 永远为空）
+		if item.Response == string(responseSurface) || item.FindingID == "SURFACE" {
+			body := item.Content
+			if strings.TrimSpace(item.Evidence) != "" {
+				body = fmt.Sprintf("%s\n\n证据: %s", item.Content, item.Evidence)
+			}
+			newFindings = append(newFindings, Finding{
+				ID:         types.GenerateID(),
+				Severity:   "major",
+				Category:   "discussion_surface",
+				Title:      truncate(item.Content, 120),
+				Body:       body,
+				Confidence: normalizeConfidence(item.Confidence),
+				Agents:     []string{agentName},
+			})
+			continue
+		}
+
+		resp := responseType(item.Response)
+		if resp != responseAgree && resp != responseChallenge && resp != responseConnect {
+			continue
+		}
+		entries = append(entries, discussionEntry{
+			ID:         types.GenerateID(),
+			AgentName:  agentName,
+			FindingID:  item.FindingID,
+			Response:   resp,
+			Content:    item.Content,
+			Evidence:   item.Evidence,
+			Confidence: normalizeConfidence(item.Confidence),
+			CreatedAt:  time.Now(),
+		})
+	}
+	return entries, newFindings, nil
 }
 
 // fallbackEntries 是降级路径：LLM 不可用时用模板逻辑生成讨论条目。

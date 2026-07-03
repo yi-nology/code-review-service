@@ -267,8 +267,12 @@ func (p *LLMProvider) doHTTP(httpReq *http.Request, parse func([]byte) (LLMRespo
 			continue
 		}
 
-		raw, readErr := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
-		_ = resp.Body.Close()
+		raw, readErr := func() (raw []byte, readErr error) {
+			// 用闭包 + defer 保证 ReadAll panic 时 resp.Body 仍被关闭，
+			// 且作用域限定在单次重试，不会跨重试累积未关闭连接。
+			defer func() { _ = resp.Body.Close() }()
+			return io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+		}()
 
 		if readErr != nil {
 			lastErr = fmt.Errorf("llm response read failed: %w", readErr)

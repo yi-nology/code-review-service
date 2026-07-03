@@ -317,10 +317,16 @@ func (m *AgentManager) runParallel(ctx context.Context, agents []reviewAgent, wo
 			// 按已耗时用渐近曲线推算一个平滑递增、渐近 95% 的伪进度，
 			// 让前端进度条从 0% 平滑爬升，完成回调再置 100%，避免长时间卡 0%。
 			progCtx, progCancel := context.WithCancel(context.Background())
-			go m.emitAgentProgress(progCtx, agent.Name(), callback, time.Now())
+			// defer 保证 runSingleAgent panic 时也能取消 progCtx。
+			// progCtx 派生自 Background 永不过期，不取消则心跳 goroutine + context 永久泄漏。
+			defer progCancel()
+			// 用 async.GoSafe 而非裸 go，避免心跳 goroutine 内 panic 直接打挂整个进程。
+			async.GoSafe(func() {
+				m.emitAgentProgress(progCtx, agent.Name(), callback, time.Now())
+			})
 
 			result, err := m.runSingleAgent(ctx, agent, workspace)
-			progCancel()
+			progCancel() // 正常路径立即停止心跳（cancel 幂等，defer 兜底）
 			if err != nil {
 				logx.Errorf("agent %s failed: %v", agent.Name(), err)
 				if callback != nil {

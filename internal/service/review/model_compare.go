@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/oekit/concurrency/async"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
@@ -86,11 +89,20 @@ func (s *Service) CompareModels(ctx context.Context, reviewID string, opts Model
 		}
 	}
 
-	result := &ModelCompareResult{ReviewID: record.ID, Candidates: make([]ModelCompareCandidateRun, 0, len(opts.Candidates))}
-	for _, candidate := range opts.Candidates {
-		result.Candidates = append(result.Candidates, s.runModelCandidate(ctx, provider, record.Request, projectPolicy, candidate))
+	// 各 candidate 的 OCR 运行彼此独立（各自 clone 工作区 + LLM 调用），
+	// 并行执行以避免 N 个候选模型延迟线性叠加。结果按索引回填保持顺序稳定。
+	runs := make([]ModelCompareCandidateRun, len(opts.Candidates))
+	var wg sync.WaitGroup
+	for i, candidate := range opts.Candidates {
+		i, candidate := i, candidate
+		wg.Add(1)
+		async.GoSafe(func() {
+			defer wg.Done()
+			runs[i] = s.runModelCandidate(ctx, provider, record.Request, projectPolicy, candidate)
+		})
 	}
-	return result, true, nil
+	wg.Wait()
+	return &ModelCompareResult{ReviewID: record.ID, Candidates: runs}, true, nil
 }
 
 func (s *Service) runModelCandidate(ctx context.Context, provider domain.Provider, req domain.Request, projectPolicy models.ProjectPolicy, candidate ModelCompareCandidate) ModelCompareCandidateRun {

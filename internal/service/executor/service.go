@@ -208,6 +208,7 @@ func (s *Service) Execute(ctx context.Context, id string, req domain.Request, pr
 	// 如果 diff 为空但有 workspace 目录和 SHA，尝试从 git 计算 diff
 	if strings.TrimSpace(workspace.Diff) == "" && workspace.Dir != "" && workspace.BaseSHA != "" && workspace.HeadSHA != "" {
 		if git, gitErr := vcs.Open(workspace.Dir, ""); gitErr == nil {
+			defer func() { _ = git.Close() }()
 			if diff, diffErr := git.Diff(ctx, workspace.BaseSHA, workspace.HeadSHA); diffErr == nil && len(diff) > 0 {
 				workspace.Diff = diff
 				logx.Infof("recovered empty diff from git for review %s (%d bytes)", id, len(diff))
