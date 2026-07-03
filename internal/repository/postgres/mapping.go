@@ -5,6 +5,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/domain/feedback"
 	"github.com/yi-nology/code-review-service/internal/domain/llmprovider"
+	"github.com/yi-nology/code-review-service/internal/domain/ocrasset"
 	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/domain/platform"
 	"github.com/yi-nology/code-review-service/internal/domain/reviewer"
@@ -351,5 +352,87 @@ func ocrSettingsToDomain(m models.OCRSettings) ocrsettings.Settings {
 		TelemetryContentLogging: m.TelemetryContentLogging,
 		ContextWindow:           m.ContextWindow,
 		MaxOutputTokens:         m.MaxOutputTokens,
+	}
+}
+
+// ---- ocr rule package ----
+
+func rulePackageToModel(p *ocrasset.RulePackage) models.OCRRulePackage {
+	return models.OCRRulePackage{
+		Model:       gormModel(p.ID),
+		Name:        p.Name,
+		Description: p.Description,
+		Languages:   dataTypeJSON(p.Languages),
+		Tags:        dataTypeJSON(p.Tags),
+		Includes:    dataTypeJSON(p.Includes),
+		Excludes:    dataTypeJSON(p.Excludes),
+		Rules:       dataTypeJSON(p.Rules),
+		Enabled:     p.Enabled,
+		ProjectRefs: dataTypeJSON(p.ProjectRefs),
+		BuiltIn:     p.BuiltIn,
+	}
+}
+
+func rulePackageToDomain(m models.OCRRulePackage) ocrasset.RulePackage {
+	return ocrasset.RulePackage{
+		ID:          m.ID,
+		Name:        m.Name,
+		Description: m.Description,
+		Languages:   rawJSON(m.Languages),
+		Tags:        rawJSON(m.Tags),
+		Includes:    rawJSON(m.Includes),
+		Excludes:    rawJSON(m.Excludes),
+		Rules:       rawJSON(m.Rules),
+		Enabled:     m.Enabled,
+		ProjectRefs: rawJSON(m.ProjectRefs),
+		BuiltIn:     m.BuiltIn,
+	}
+}
+
+func rulePackageVersionToDomain(m models.OCRRulePackageVersion) ocrasset.RulePackageVersion {
+	return ocrasset.RulePackageVersion{
+		ID:        m.ID,
+		PackageID: m.PackageID,
+		Version:   m.Version,
+		Snapshot:  rawJSON(m.Snapshot),
+		CreatedAt: m.CreatedAt,
+	}
+}
+
+// ---- ocr tool package ----
+
+func toolPackageToModel(p *ocrasset.ToolPackage) models.OCRToolPackage {
+	return models.OCRToolPackage{
+		Model:       gormModel(p.ID),
+		Name:        p.Name,
+		Description: p.Description,
+		ScanType:    p.ScanType,
+		Config:      dataTypeJSON(p.Config),
+		Enabled:     p.Enabled,
+		ProjectRefs: dataTypeJSON(p.ProjectRefs),
+		BuiltIn:     p.BuiltIn,
+	}
+}
+
+func toolPackageToDomain(m models.OCRToolPackage) ocrasset.ToolPackage {
+	return ocrasset.ToolPackage{
+		ID:          m.ID,
+		Name:        m.Name,
+		Description: m.Description,
+		ScanType:    m.ScanType,
+		Config:      rawJSON(m.Config),
+		Enabled:     m.Enabled,
+		ProjectRefs: rawJSON(m.ProjectRefs),
+		BuiltIn:     m.BuiltIn,
+	}
+}
+
+func toolPackageVersionToDomain(m models.OCRToolPackageVersion) ocrasset.ToolPackageVersion {
+	return ocrasset.ToolPackageVersion{
+		ID:        m.ID,
+		PackageID: m.PackageID,
+		Version:   m.Version,
+		Snapshot:  rawJSON(m.Snapshot),
+		CreatedAt: m.CreatedAt,
 	}
 }

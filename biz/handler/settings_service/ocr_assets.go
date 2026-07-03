@@ -12,11 +12,9 @@ import (
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	"github.com/yi-nology/code-review-service/internal/ocr"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/domain/ocrasset"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 type rulePackageDTO struct {
@@ -144,7 +142,7 @@ func ListRulePackageVersions(ctx context.Context, c *app.RequestContext) {
 	}
 	resp := make([]assetVersionDTO, 0, len(items))
 	for i := range items {
-		var snapshot models.OCRRulePackage
+		var snapshot ocrasset.RulePackage
 		_ = json.Unmarshal(items[i].Snapshot, &snapshot)
 		resp = append(resp, assetVersionDTO{Version: items[i].Version, CreatedAt: items[i].CreatedAt, Snapshot: dbRulePackageToDTO(&snapshot)})
 	}
@@ -265,7 +263,7 @@ func ListToolPackageVersions(ctx context.Context, c *app.RequestContext) {
 	}
 	resp := make([]assetVersionDTO, 0, len(items))
 	for i := range items {
-		var snapshot models.OCRToolPackage
+		var snapshot ocrasset.ToolPackage
 		_ = json.Unmarshal(items[i].Snapshot, &snapshot)
 		resp = append(resp, assetVersionDTO{Version: items[i].Version, CreatedAt: items[i].CreatedAt, Snapshot: dbToolPackageToDTO(&snapshot)})
 	}
@@ -321,7 +319,7 @@ func ValidateToolPackage(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, resp)
 }
 
-func dtoToRulePackage(req rulePackageDTO) (*models.OCRRulePackage, error) {
+func dtoToRulePackage(req rulePackageDTO) (*ocrasset.RulePackage, error) {
 	if strings.TrimSpace(req.Name) == "" {
 		return nil, fmt.Errorf("规则包名称不能为空")
 	}
@@ -333,8 +331,8 @@ func dtoToRulePackage(req rulePackageDTO) (*models.OCRRulePackage, error) {
 			return nil, fmt.Errorf("第 %d 条规则缺少 path 或 rule", i+1)
 		}
 	}
-	return &models.OCRRulePackage{
-		Model:       gorm.Model{ID: req.ID},
+	return &ocrasset.RulePackage{
+		ID:          req.ID,
 		Name:        strings.TrimSpace(req.Name),
 		Description: strings.TrimSpace(req.Description),
 		Languages:   marshalJSON(req.Languages),
@@ -348,7 +346,7 @@ func dtoToRulePackage(req rulePackageDTO) (*models.OCRRulePackage, error) {
 	}, nil
 }
 
-func dtoToToolPackage(req toolPackageDTO) (*models.OCRToolPackage, error) {
+func dtoToToolPackage(req toolPackageDTO) (*ocrasset.ToolPackage, error) {
 	if strings.TrimSpace(req.Name) == "" {
 		return nil, fmt.Errorf("工具包名称不能为空")
 	}
@@ -364,12 +362,12 @@ func dtoToToolPackage(req toolPackageDTO) (*models.OCRToolPackage, error) {
 	default:
 		return nil, fmt.Errorf("scan_type 仅支持 all、diff、scan")
 	}
-	return &models.OCRToolPackage{
-		Model:       gorm.Model{ID: req.ID},
+	return &ocrasset.ToolPackage{
+		ID:          req.ID,
 		Name:        strings.TrimSpace(req.Name),
 		Description: strings.TrimSpace(req.Description),
 		ScanType:    scanType,
-		Config:      datatypes.JSON(req.Config),
+		Config:      json.RawMessage(req.Config),
 		Enabled:     req.Enabled,
 		ProjectRefs: marshalJSON(req.ProjectRefs),
 		BuiltIn:     req.BuiltIn,
@@ -471,7 +469,7 @@ func runDryRunCommand(parent context.Context, dir, name string, args ...string) 
 	return text, nil
 }
 
-func dbRulePackageToDTO(pkg *models.OCRRulePackage) rulePackageDTO {
+func dbRulePackageToDTO(pkg *ocrasset.RulePackage) rulePackageDTO {
 	var rules []map[string]string
 	var languages, tags, includes, excludes, refs []string
 	unmarshalJSON(pkg.Rules, &rules)
@@ -487,7 +485,7 @@ func dbRulePackageToDTO(pkg *models.OCRRulePackage) rulePackageDTO {
 	}
 }
 
-func dbToolPackageToDTO(pkg *models.OCRToolPackage) toolPackageDTO {
+func dbToolPackageToDTO(pkg *ocrasset.ToolPackage) toolPackageDTO {
 	var refs []string
 	unmarshalJSON(pkg.ProjectRefs, &refs)
 	return toolPackageDTO{
@@ -549,11 +547,11 @@ func defaultToolPackages() []toolPackageDTO {
 	}
 }
 
-func marshalJSON(v any) datatypes.JSON {
+func marshalJSON(v any) json.RawMessage {
 	if v == nil {
 		return nil
 	}
-	return datatypes.JSON(mustMarshalJSON(v))
+	return json.RawMessage(mustMarshalJSON(v))
 }
 
 func unmarshalJSON(raw []byte, out any) {

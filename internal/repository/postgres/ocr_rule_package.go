@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/yi-nology/code-review-service/internal/domain/ocrasset"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	"gorm.io/datatypes"
@@ -20,25 +21,33 @@ func NewOCRRulePackageRepo(db *gormLib.DB) *OCRRulePackageRepo {
 	return &OCRRulePackageRepo{db: db}
 }
 
-func (r *OCRRulePackageRepo) List(ctx context.Context) ([]models.OCRRulePackage, error) {
+func (r *OCRRulePackageRepo) List(ctx context.Context) ([]ocrasset.RulePackage, error) {
 	var items []models.OCRRulePackage
-	err := r.db.WithContext(ctx).Order("built_in DESC, name ASC").Find(&items).Error
-	return items, err
-}
-
-func (r *OCRRulePackageRepo) GetByID(ctx context.Context, id uint) (*models.OCRRulePackage, error) {
-	var item models.OCRRulePackage
-	if err := r.db.WithContext(ctx).First(&item, id).Error; err != nil {
+	if err := r.db.WithContext(ctx).Order("built_in DESC, name ASC").Find(&items).Error; err != nil {
 		return nil, err
 	}
-	return &item, nil
+	out := make([]ocrasset.RulePackage, len(items))
+	for i, m := range items {
+		out[i] = rulePackageToDomain(m)
+	}
+	return out, nil
 }
 
-func (r *OCRRulePackageRepo) Save(ctx context.Context, pkg *models.OCRRulePackage) error {
+func (r *OCRRulePackageRepo) GetByID(ctx context.Context, id uint) (*ocrasset.RulePackage, error) {
+	var m models.OCRRulePackage
+	if err := r.db.WithContext(ctx).First(&m, id).Error; err != nil {
+		return nil, err
+	}
+	d := rulePackageToDomain(m)
+	return &d, nil
+}
+
+func (r *OCRRulePackageRepo) Save(ctx context.Context, pkg *ocrasset.RulePackage) error {
+	m := rulePackageToModel(pkg)
 	return r.db.WithContext(ctx).Transaction(func(tx *gormLib.DB) error {
-		if pkg.ID != 0 {
+		if m.ID != 0 {
 			var existing models.OCRRulePackage
-			if err := tx.First(&existing, pkg.ID).Error; err == nil {
+			if err := tx.First(&existing, m.ID).Error; err == nil {
 				if err := createRulePackageVersion(ctx, tx, &existing); err != nil {
 					return err
 				}
@@ -46,7 +55,7 @@ func (r *OCRRulePackageRepo) Save(ctx context.Context, pkg *models.OCRRulePackag
 				return err
 			}
 		}
-		return tx.Save(pkg).Error
+		return tx.Save(&m).Error
 	})
 }
 
@@ -54,13 +63,19 @@ func (r *OCRRulePackageRepo) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&models.OCRRulePackage{}, id).Error
 }
 
-func (r *OCRRulePackageRepo) ListVersions(ctx context.Context, id uint) ([]models.OCRRulePackageVersion, error) {
+func (r *OCRRulePackageRepo) ListVersions(ctx context.Context, id uint) ([]ocrasset.RulePackageVersion, error) {
 	var items []models.OCRRulePackageVersion
-	err := r.db.WithContext(ctx).Where("package_id = ?", id).Order("version DESC").Find(&items).Error
-	return items, err
+	if err := r.db.WithContext(ctx).Where("package_id = ?", id).Order("version DESC").Find(&items).Error; err != nil {
+		return nil, err
+	}
+	out := make([]ocrasset.RulePackageVersion, len(items))
+	for i, m := range items {
+		out[i] = rulePackageVersionToDomain(m)
+	}
+	return out, nil
 }
 
-func (r *OCRRulePackageRepo) RestoreVersion(ctx context.Context, id uint, version int) (*models.OCRRulePackage, error) {
+func (r *OCRRulePackageRepo) RestoreVersion(ctx context.Context, id uint, version int) (*ocrasset.RulePackage, error) {
 	var restored models.OCRRulePackage
 	err := r.db.WithContext(ctx).Transaction(func(tx *gormLib.DB) error {
 		var current models.OCRRulePackage
@@ -85,7 +100,8 @@ func (r *OCRRulePackageRepo) RestoreVersion(ctx context.Context, id uint, versio
 	if err != nil {
 		return nil, err
 	}
-	return &restored, nil
+	d := rulePackageToDomain(restored)
+	return &d, nil
 }
 
 func createRulePackageVersion(ctx context.Context, tx *gormLib.DB, pkg *models.OCRRulePackage) error {

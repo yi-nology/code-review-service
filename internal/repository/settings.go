@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/yi-nology/code-review-service/internal/domain/ocrasset"
 	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/domain/rules"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
@@ -26,19 +27,19 @@ type GlobalRulesRepository interface {
 }
 
 type OCRRulePackageRepository interface {
-	List(ctx context.Context) ([]models.OCRRulePackage, error)
-	GetByID(ctx context.Context, id uint) (*models.OCRRulePackage, error)
-	Save(ctx context.Context, pkg *models.OCRRulePackage) error
+	List(ctx context.Context) ([]ocrasset.RulePackage, error)
+	GetByID(ctx context.Context, id uint) (*ocrasset.RulePackage, error)
+	Save(ctx context.Context, pkg *ocrasset.RulePackage) error
 	Delete(ctx context.Context, id uint) error
-	ListVersions(ctx context.Context, id uint) ([]models.OCRRulePackageVersion, error)
-	RestoreVersion(ctx context.Context, id uint, version int) (*models.OCRRulePackage, error)
+	ListVersions(ctx context.Context, id uint) ([]ocrasset.RulePackageVersion, error)
+	RestoreVersion(ctx context.Context, id uint, version int) (*ocrasset.RulePackage, error)
 }
 
 type OCRToolPackageRepository interface {
-	List(ctx context.Context) ([]models.OCRToolPackage, error)
-	GetByID(ctx context.Context, id uint) (*models.OCRToolPackage, error)
-	Save(ctx context.Context, pkg *models.OCRToolPackage) error
+	List(ctx context.Context) ([]ocrasset.ToolPackage, error)
+	GetByID(ctx context.Context, id uint) (*ocrasset.ToolPackage, error)
+	Save(ctx context.Context, pkg *ocrasset.ToolPackage) error
 	Delete(ctx context.Context, id uint) error
-	ListVersions(ctx context.Context, id uint) ([]models.OCRToolPackageVersion, error)
-	RestoreVersion(ctx context.Context, id uint, version int) (*models.OCRToolPackage, error)
+	ListVersions(ctx context.Context, id uint) ([]ocrasset.ToolPackageVersion, error)
+	RestoreVersion(ctx context.Context, id uint, version int) (*ocrasset.ToolPackage, error)
 }
