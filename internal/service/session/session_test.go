@@ -2,19 +2,19 @@ package session
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	dsession "github.com/yi-nology/code-review-service/internal/domain/session"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
-	"gorm.io/datatypes"
 )
 
 // mockSessionRepo 实现 repository.SessionRepository，用于单元测试
 type mockSessionRepo struct {
-	sessions  map[string]*models.ReviewSession   // sessionID -> session
-	byReview  map[string][]*models.ReviewSession // reviewID -> sessions
+	sessions  map[string]*dsession.Session   // sessionID -> session
+	byReview  map[string][]*dsession.Session // reviewID -> sessions
 	getErr    error
 	createErr error
 	updateErr error
@@ -22,12 +22,12 @@ type mockSessionRepo struct {
 
 func newMockSessionRepo() *mockSessionRepo {
 	return &mockSessionRepo{
-		sessions: make(map[string]*models.ReviewSession),
-		byReview: make(map[string][]*models.ReviewSession),
+		sessions: make(map[string]*dsession.Session),
+		byReview: make(map[string][]*dsession.Session),
 	}
 }
 
-func (m *mockSessionRepo) GetByID(_ context.Context, sessionID string) (*models.ReviewSession, error) {
+func (m *mockSessionRepo) GetByID(_ context.Context, sessionID string) (*dsession.Session, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -38,26 +38,26 @@ func (m *mockSessionRepo) GetByID(_ context.Context, sessionID string) (*models.
 	return s, nil
 }
 
-func (m *mockSessionRepo) GetByReviewID(_ context.Context, reviewID string) ([]*models.ReviewSession, error) {
+func (m *mockSessionRepo) GetByReviewID(_ context.Context, reviewID string) ([]*dsession.Session, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
 	return m.byReview[reviewID], nil
 }
 
-func (m *mockSessionRepo) GetActiveByReviewID(_ context.Context, reviewID string) (*models.ReviewSession, error) {
+func (m *mockSessionRepo) GetActiveByReviewID(_ context.Context, reviewID string) (*dsession.Session, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
 	for _, s := range m.sessions {
-		if s.ReviewID == reviewID && s.Status == string(models.SessionStatusActive) {
+		if s.ReviewID == reviewID && s.Status == string(dsession.StatusActive) {
 			return s, nil
 		}
 	}
 	return nil, repoerr.ErrNotFound
 }
 
-func (m *mockSessionRepo) Create(_ context.Context, session *models.ReviewSession) error {
+func (m *mockSessionRepo) Create(_ context.Context, session *dsession.Session) error {
 	if m.createErr != nil {
 		return m.createErr
 	}
@@ -66,7 +66,7 @@ func (m *mockSessionRepo) Create(_ context.Context, session *models.ReviewSessio
 	return nil
 }
 
-func (m *mockSessionRepo) Update(_ context.Context, session *models.ReviewSession) error {
+func (m *mockSessionRepo) Update(_ context.Context, session *dsession.Session) error {
 	if m.updateErr != nil {
 		return m.updateErr
 	}
@@ -95,24 +95,24 @@ func (m *mockSessionRepo) UpdateStatus(_ context.Context, sessionID string, stat
 	return nil
 }
 
-func (m *mockSessionRepo) UpdateAgentResults(_ context.Context, _ string, _ interface{}) error {
+func (m *mockSessionRepo) UpdateAgentResults(_ context.Context, _ string, _ []dsession.AgentResultData) error {
 	return m.updateErr
 }
 
-func (m *mockSessionRepo) UpdateDiscussion(_ context.Context, _ string, _ interface{}) error {
+func (m *mockSessionRepo) UpdateDiscussion(_ context.Context, _ string, _ dsession.DiscussionData) error {
 	return m.updateErr
 }
 
-func (m *mockSessionRepo) UpdateFinalReport(_ context.Context, _ string, _ interface{}) error {
+func (m *mockSessionRepo) UpdateFinalReport(_ context.Context, _ string, _ dsession.FinalReportData) error {
 	return m.updateErr
 }
 
-func (m *mockSessionRepo) Complete(_ context.Context, sessionID string, _ interface{}) error {
+func (m *mockSessionRepo) Complete(_ context.Context, sessionID string, _ dsession.FinalReportData) error {
 	if m.updateErr != nil {
 		return m.updateErr
 	}
 	if s, ok := m.sessions[sessionID]; ok {
-		s.Status = string(models.SessionStatusCompleted)
+		s.Status = string(dsession.StatusCompleted)
 	}
 	return nil
 }
@@ -125,19 +125,19 @@ func (m *mockSessionRepo) CancelActiveByReviewID(_ context.Context, _ string) er
 	return nil
 }
 
-func (m *mockSessionRepo) List(_ context.Context, _, _ int) (*gormx.PageResponse[models.ReviewSession], error) {
+func (m *mockSessionRepo) List(_ context.Context, _, _ int) (*gormx.PageResponse[dsession.Session], error) {
 	return nil, nil
 }
 
-func newTestSession(reviewID, sessionID, status, phase string) *models.ReviewSession {
-	return &models.ReviewSession{
+func newTestSession(reviewID, sessionID, status, phase string) *dsession.Session {
+	return &dsession.Session{
 		SessionID: sessionID,
 		ReviewID:  reviewID,
 		Round:     1,
 		Phase:     phase,
 		Status:    status,
 		Progress:  0,
-		Metadata:  datatypes.JSON([]byte("{}")),
+		Metadata:  json.RawMessage([]byte("{}")),
 	}
 }
 
@@ -157,10 +157,10 @@ func TestCreateSession_Success(t *testing.T) {
 	if session.Round != 1 {
 		t.Errorf("expected round 1, got %d", session.Round)
 	}
-	if session.Status != string(models.SessionStatusActive) {
+	if session.Status != string(dsession.StatusActive) {
 		t.Errorf("expected status active, got %s", session.Status)
 	}
-	if session.Phase != string(models.SessionPhaseContext) {
+	if session.Phase != string(dsession.PhaseContext) {
 		t.Errorf("expected phase context, got %s", session.Phase)
 	}
 }
@@ -168,7 +168,7 @@ func TestCreateSession_Success(t *testing.T) {
 func TestCreateSession_AlreadyHasActiveSession(t *testing.T) {
 	repo := newMockSessionRepo()
 	// 预先创建一个 active session
-	repo.sessions["existing"] = newTestSession("review-1", "existing", string(models.SessionStatusActive), string(models.SessionPhaseContext))
+	repo.sessions["existing"] = newTestSession("review-1", "existing", string(dsession.StatusActive), string(dsession.PhaseContext))
 
 	svc := NewSessionService(repo)
 	_, err := svc.CreateSession(context.Background(), "review-1", 1)
@@ -227,7 +227,7 @@ func TestCreateSession_CreateFails(t *testing.T) {
 
 func TestGetSession_Success(t *testing.T) {
 	repo := newMockSessionRepo()
-	repo.sessions["s1"] = newTestSession("review-1", "s1", string(models.SessionStatusActive), string(models.SessionPhaseContext))
+	repo.sessions["s1"] = newTestSession("review-1", "s1", string(dsession.StatusActive), string(dsession.PhaseContext))
 
 	svc := NewSessionService(repo)
 	session, err := svc.GetSession(context.Background(), "s1")
@@ -270,7 +270,7 @@ func TestGetSession_OtherError(t *testing.T) {
 
 func TestGetActiveSession_Success(t *testing.T) {
 	repo := newMockSessionRepo()
-	repo.sessions["s1"] = newTestSession("review-1", "s1", string(models.SessionStatusActive), string(models.SessionPhaseContext))
+	repo.sessions["s1"] = newTestSession("review-1", "s1", string(dsession.StatusActive), string(dsession.PhaseContext))
 
 	svc := NewSessionService(repo)
 	session, err := svc.GetActiveSession(context.Background(), "review-1")
@@ -316,14 +316,14 @@ func TestGetActiveSession_OtherError(t *testing.T) {
 
 func TestUpdatePhase_Success(t *testing.T) {
 	repo := newMockSessionRepo()
-	repo.sessions["s1"] = newTestSession("review-1", "s1", string(models.SessionStatusActive), string(models.SessionPhaseContext))
+	repo.sessions["s1"] = newTestSession("review-1", "s1", string(dsession.StatusActive), string(dsession.PhaseContext))
 
 	svc := NewSessionService(repo)
-	err := svc.UpdatePhase(context.Background(), "s1", models.SessionPhaseChangeContext, 50)
+	err := svc.UpdatePhase(context.Background(), "s1", dsession.PhaseChangeContext, 50)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if repo.sessions["s1"].Phase != string(models.SessionPhaseChangeContext) {
+	if repo.sessions["s1"].Phase != string(dsession.PhaseChangeContext) {
 		t.Errorf("expected phase change_context, got %s", repo.sessions["s1"].Phase)
 	}
 }
@@ -332,7 +332,7 @@ func TestUpdatePhase_SessionNotFound(t *testing.T) {
 	repo := newMockSessionRepo()
 	svc := NewSessionService(repo)
 
-	err := svc.UpdatePhase(context.Background(), "nonexistent", models.SessionPhaseChangeContext, 50)
+	err := svc.UpdatePhase(context.Background(), "nonexistent", dsession.PhaseContext, 50)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -343,11 +343,11 @@ func TestUpdatePhase_SessionNotFound(t *testing.T) {
 
 func TestUpdatePhase_InvalidTransition(t *testing.T) {
 	repo := newMockSessionRepo()
-	repo.sessions["s1"] = newTestSession("review-1", "s1", string(models.SessionStatusActive), string(models.SessionPhaseContext))
+	repo.sessions["s1"] = newTestSession("review-1", "s1", string(dsession.StatusActive), string(dsession.PhaseContext))
 
 	svc := NewSessionService(repo)
 	// context → synthesis 是无效跳转（需要经过 change_context → analysis → reviews → aggregation）
-	err := svc.UpdatePhase(context.Background(), "s1", models.SessionPhaseSynthesis, 100)
+	err := svc.UpdatePhase(context.Background(), "s1", dsession.PhaseSynthesis, 100)
 	if err == nil {
 		t.Fatal("expected error for invalid phase transition")
 	}
@@ -359,23 +359,23 @@ func TestUpdatePhase_InvalidTransition(t *testing.T) {
 
 func TestUpdatePhase_AllValidTransitions(t *testing.T) {
 	transitions := []struct {
-		from models.SessionPhase
-		to   models.SessionPhase
+		from string
+		to   string
 	}{
-		{models.SessionPhaseContext, models.SessionPhaseChangeContext},
-		{models.SessionPhaseChangeContext, models.SessionPhaseAnalysis},
-		{models.SessionPhaseAnalysis, models.SessionPhaseReviews},
-		{models.SessionPhaseReviews, models.SessionPhaseAggregation},
-		{models.SessionPhaseAggregation, models.SessionPhaseDiscussion},
-		{models.SessionPhaseAggregation, models.SessionPhaseSynthesis},
-		{models.SessionPhaseDiscussion, models.SessionPhaseSynthesis},
-		{models.SessionPhaseSynthesis, models.SessionPhaseComplete},
+		{dsession.PhaseContext, dsession.PhaseChangeContext},
+		{dsession.PhaseChangeContext, dsession.PhaseAnalysis},
+		{dsession.PhaseAnalysis, dsession.PhaseReviews},
+		{dsession.PhaseReviews, dsession.PhaseAggregation},
+		{dsession.PhaseAggregation, dsession.PhaseDiscussion},
+		{dsession.PhaseAggregation, dsession.PhaseSynthesis},
+		{dsession.PhaseDiscussion, dsession.PhaseSynthesis},
+		{dsession.PhaseSynthesis, dsession.PhaseComplete},
 	}
 
 	for _, tt := range transitions {
 		t.Run(string(tt.from)+"->"+string(tt.to), func(t *testing.T) {
 			repo := newMockSessionRepo()
-			repo.sessions["s1"] = newTestSession("review-1", "s1", string(models.SessionStatusActive), string(tt.from))
+			repo.sessions["s1"] = newTestSession("review-1", "s1", string(dsession.StatusActive), string(tt.from))
 
 			svc := NewSessionService(repo)
 			err := svc.UpdatePhase(context.Background(), "s1", tt.to, 50)
@@ -390,14 +390,14 @@ func TestUpdatePhase_AllValidTransitions(t *testing.T) {
 
 func TestFailSession_Success(t *testing.T) {
 	repo := newMockSessionRepo()
-	repo.sessions["s1"] = newTestSession("review-1", "s1", string(models.SessionStatusActive), string(models.SessionPhaseContext))
+	repo.sessions["s1"] = newTestSession("review-1", "s1", string(dsession.StatusActive), string(dsession.PhaseContext))
 
 	svc := NewSessionService(repo)
 	err := svc.FailSession(context.Background(), "s1", "review execution failed")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if repo.sessions["s1"].Status != string(models.SessionStatusFailed) {
+	if repo.sessions["s1"].Status != string(dsession.StatusFailed) {
 		t.Errorf("expected status failed, got %s", repo.sessions["s1"].Status)
 	}
 }
@@ -432,9 +432,9 @@ func TestGetNextRound_NoSessions(t *testing.T) {
 
 func TestGetNextRound_MultipleSessions(t *testing.T) {
 	repo := newMockSessionRepo()
-	repo.byReview["review-1"] = []*models.ReviewSession{
-		newTestSession("review-1", "s1", string(models.SessionStatusCompleted), string(models.SessionPhaseComplete)),
-		newTestSession("review-1", "s2", string(models.SessionStatusCompleted), string(models.SessionPhaseComplete)),
+	repo.byReview["review-1"] = []*dsession.Session{
+		newTestSession("review-1", "s1", string(dsession.StatusCompleted), string(dsession.PhaseContext)),
+		newTestSession("review-1", "s2", string(dsession.StatusCompleted), string(dsession.PhaseContext)),
 	}
 	repo.byReview["review-1"][0].Round = 1
 	repo.byReview["review-1"][1].Round = 2
@@ -453,22 +453,22 @@ func TestGetNextRound_MultipleSessions(t *testing.T) {
 
 func TestIsValidPhaseTransition(t *testing.T) {
 	tests := []struct {
-		from, to models.SessionPhase
+		from, to string
 		want     bool
 	}{
-		{models.SessionPhaseContext, models.SessionPhaseChangeContext, true},
-		{models.SessionPhaseContext, models.SessionPhaseAnalysis, false},
-		{models.SessionPhaseContext, models.SessionPhaseSynthesis, false},
-		{models.SessionPhaseChangeContext, models.SessionPhaseAnalysis, true},
-		{models.SessionPhaseAnalysis, models.SessionPhaseReviews, true},
-		{models.SessionPhaseReviews, models.SessionPhaseAggregation, true},
-		{models.SessionPhaseAggregation, models.SessionPhaseDiscussion, true},
-		{models.SessionPhaseAggregation, models.SessionPhaseSynthesis, true},
-		{models.SessionPhaseDiscussion, models.SessionPhaseSynthesis, true},
-		{models.SessionPhaseSynthesis, models.SessionPhaseComplete, true},
-		{models.SessionPhaseComplete, models.SessionPhaseContext, false},
-		{models.SessionPhaseComplete, models.SessionPhaseSynthesis, false},
-		{"unknown", models.SessionPhaseContext, false},
+		{dsession.PhaseContext, dsession.PhaseChangeContext, true},
+		{dsession.PhaseContext, dsession.PhaseAnalysis, false},
+		{dsession.PhaseContext, dsession.PhaseReviews, false},
+		{dsession.PhaseChangeContext, dsession.PhaseAnalysis, true},
+		{dsession.PhaseAnalysis, dsession.PhaseReviews, true},
+		{dsession.PhaseReviews, dsession.PhaseAggregation, true},
+		{dsession.PhaseAggregation, dsession.PhaseDiscussion, true},
+		{dsession.PhaseAggregation, dsession.PhaseSynthesis, true},
+		{dsession.PhaseDiscussion, dsession.PhaseSynthesis, true},
+		{dsession.PhaseSynthesis, dsession.PhaseComplete, true},
+		{dsession.PhaseComplete, dsession.PhaseContext, false},
+		{dsession.PhaseComplete, dsession.PhaseSynthesis, false},
+		{"unknown", dsession.PhaseContext, false},
 	}
 
 	for _, tt := range tests {

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/ocr"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	dsession "github.com/yi-nology/code-review-service/internal/domain/session"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/discussion"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
@@ -71,7 +71,7 @@ func (s *changeAnalysisStep) Run(ctx context.Context, req workflow.Request, sess
 	}
 	rs.Tracker.UpdatePhase(progress.PhaseChangeContext, "active", 0, "Analyzing git diff and understanding changes")
 
-	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, models.SessionPhaseChangeContext, 50); err != nil {
+	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, dsession.PhaseChangeContext, 50); err != nil {
 		logx.Errorf("update session phase failed: %v", err)
 	}
 
@@ -99,7 +99,7 @@ func (s *analysisStep) Run(ctx context.Context, req workflow.Request, sess workf
 		logx.Infof("tech lead analysis produced: %d risks, %d recommendations", len(analysis.Risks), len(analysis.Recommendations))
 	}
 
-	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, models.SessionPhaseAnalysis, 50); err != nil {
+	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, dsession.PhaseAnalysis, 50); err != nil {
 		logx.Errorf("update session phase failed: %v", err)
 	}
 
@@ -193,7 +193,7 @@ func (s *parallelReviewsStep) Run(ctx context.Context, req workflow.Request, ses
 	}
 	rs.Tracker.UpdatePhase(progress.PhaseReviews, "active", 0, "Running multiple review agents in parallel")
 
-	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, models.SessionPhaseReviews, 0); err != nil {
+	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, dsession.PhaseReviews, 0); err != nil {
 		logx.Errorf("update session phase failed: %v", err)
 	}
 
@@ -242,7 +242,7 @@ func (s *aggregationStep) Run(ctx context.Context, req workflow.Request, sess wo
 	}
 	rs.Tracker.UpdatePhase(progress.PhaseAggregation, "active", 0, "Merging findings from multiple agents")
 
-	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, models.SessionPhaseAggregation, 50); err != nil {
+	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, dsession.PhaseAggregation, 50); err != nil {
 		logx.Errorf("update session phase failed: %v", err)
 	}
 
@@ -271,7 +271,7 @@ func (s *discussionStep) Run(ctx context.Context, req workflow.Request, sess wor
 
 	rs.Tracker.UpdatePhase(progress.PhaseDiscussion, "active", 0, "Agents debating and validating findings")
 
-	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, models.SessionPhaseDiscussion, 0); err != nil {
+	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, dsession.PhaseDiscussion, 0); err != nil {
 		logx.Errorf("update session phase failed: %v", err)
 	}
 
@@ -313,7 +313,7 @@ func (s *synthesisStep) Run(ctx context.Context, req workflow.Request, sess work
 	}
 	rs.Tracker.UpdatePhase(progress.PhaseSynthesis, "active", 0, "Producing final prioritized review")
 
-	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, models.SessionPhaseSynthesis, 0); err != nil {
+	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, dsession.PhaseSynthesis, 0); err != nil {
 		logx.Errorf("update session phase failed: %v", err)
 	}
 
@@ -344,7 +344,7 @@ func (s *synthesisStep) Run(ctx context.Context, req workflow.Request, sess work
 		rs.FinalReport = &report
 
 		// 更新 session（持久化完整报告，阶段 4/B2）
-		finalReportData := models.FinalReportData{
+		finalReportData := dsession.FinalReportData{
 			Verdict:     report.Verdict,
 			Summary:     report.Summary,
 			Score:       report.Score,
@@ -355,15 +355,15 @@ func (s *synthesisStep) Run(ctx context.Context, req workflow.Request, sess work
 			Suggestions: toFindingDataSlice(report.Suggestions),
 		}
 		if len(report.ClarifyingQuestions) > 0 {
-			finalReportData.ClarifyingQuestions = make([]models.ClarifyingQuestionData, len(report.ClarifyingQuestions))
+			finalReportData.ClarifyingQuestions = make([]dsession.ClarifyingQuestionData, len(report.ClarifyingQuestions))
 			for i, q := range report.ClarifyingQuestions {
-				finalReportData.ClarifyingQuestions[i] = models.ClarifyingQuestionData{
+				finalReportData.ClarifyingQuestions[i] = dsession.ClarifyingQuestionData{
 					Category: q.Category, Question: q.Question, Context: q.Context,
 				}
 			}
 		}
 		if rs.TechLeadAnalysis != nil {
-			finalReportData.TechLeadAnalysis = &models.TechLeadAnalysisData{
+			finalReportData.TechLeadAnalysis = &dsession.TechLeadAnalysisData{
 				Summary:         rs.TechLeadAnalysis.Summary,
 				Risks:           rs.TechLeadAnalysis.Risks,
 				Recommendations: rs.TechLeadAnalysis.Recommendations,
@@ -391,7 +391,7 @@ func (s *completeStep) Run(ctx context.Context, req workflow.Request, sess workf
 	rs.Tracker.UpdatePhase(progress.PhaseComplete, "active", 0, "Review completed")
 
 	if rs.FinalReport != nil {
-		finalReportData := models.FinalReportData{
+		finalReportData := dsession.FinalReportData{
 			Verdict:    rs.FinalReport.Verdict,
 			Summary:    rs.FinalReport.Summary,
 			Score:      rs.FinalReport.Score,
@@ -434,14 +434,14 @@ func toWorkflowQuestions(qs []requirements.ClarifyingQuestion) []ClarifyingQuest
 	return out
 }
 
-// toFindingDataSlice 把 agent.Finding 转为 models.FindingData（持久化到 session）。
-func toFindingDataSlice(findings []agent.Finding) []models.FindingData {
+// toFindingDataSlice 把 agent.Finding 转为 dsession.FindingData（持久化到 session）。
+func toFindingDataSlice(findings []agent.Finding) []dsession.FindingData {
 	if len(findings) == 0 {
 		return nil
 	}
-	out := make([]models.FindingData, len(findings))
+	out := make([]dsession.FindingData, len(findings))
 	for i, f := range findings {
-		out[i] = models.FindingData{
+		out[i] = dsession.FindingData{
 			ID: f.ID, Severity: f.Severity, Category: f.Category,
 			Path: f.Path, Line: f.Line, EndLine: f.EndLine,
 			Title: f.Title, Body: f.Body, Suggestion: f.Suggestion,
@@ -519,13 +519,13 @@ func generateFinalReport(
 // 自然满足此接口（Go 隐式接口），无需在 session 包内显式声明。
 // 测试可通过 mock 实现该接口。
 type sessionService interface {
-	CreateSession(ctx context.Context, reviewID string, round int) (*models.ReviewSession, error)
+	CreateSession(ctx context.Context, reviewID string, round int) (*dsession.Session, error)
 	GetNextRound(ctx context.Context, reviewID string) (int, error)
-	UpdatePhase(ctx context.Context, sessionID string, phase models.SessionPhase, progress float64) error
-	UpdateAgentResults(ctx context.Context, sessionID string, agentResults []models.AgentResultData) error
-	UpdateDiscussion(ctx context.Context, sessionID string, discussion models.DiscussionData) error
-	UpdateFinalReport(ctx context.Context, sessionID string, finalReport models.FinalReportData) error
-	CompleteSession(ctx context.Context, sessionID string, finalReport models.FinalReportData) error
+	UpdatePhase(ctx context.Context, sessionID string, phase string, progress float64) error
+	UpdateAgentResults(ctx context.Context, sessionID string, agentResults []dsession.AgentResultData) error
+	UpdateDiscussion(ctx context.Context, sessionID string, discussion dsession.DiscussionData) error
+	UpdateFinalReport(ctx context.Context, sessionID string, finalReport dsession.FinalReportData) error
+	CompleteSession(ctx context.Context, sessionID string, finalReport dsession.FinalReportData) error
 	FailSession(ctx context.Context, sessionID string, reason string) error
 }
 

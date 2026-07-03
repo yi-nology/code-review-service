@@ -7,13 +7,12 @@ import (
 	"fmt"
 	"time"
 
+	dsession "github.com/yi-nology/code-review-service/internal/domain/session"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 	"github.com/oekit/logx"
-	"gorm.io/datatypes"
 )
 
 type SessionService struct {
@@ -24,7 +23,7 @@ func NewSessionService(repo repository.SessionRepository) *SessionService {
 	return &SessionService{repo: repo}
 }
 
-func (s *SessionService) CreateSession(ctx context.Context, reviewID string, round int) (*models.ReviewSession, error) {
+func (s *SessionService) CreateSession(ctx context.Context, reviewID string, round int) (*dsession.Session, error) {
 	activeSession, err := s.repo.GetActiveByReviewID(ctx, reviewID)
 	if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
 		return nil, fmt.Errorf("check active session: %w", err)
@@ -33,75 +32,75 @@ func (s *SessionService) CreateSession(ctx context.Context, reviewID string, rou
 		return nil, fmt.Errorf("review %s already has an active session: %s", reviewID, activeSession.SessionID)
 	}
 
-	session := &models.ReviewSession{
+	sess := &dsession.Session{
 		SessionID: types.GenerateID(),
 		ReviewID:  reviewID,
 		Round:     round,
-		Phase:     string(models.SessionPhaseContext),
-		Status:    string(models.SessionStatusActive),
+		Phase:     dsession.PhaseContext,
+		Status:    dsession.StatusActive,
 		Progress:  0,
-		Metadata:  datatypes.JSON([]byte("{}")),
+		Metadata:  json.RawMessage([]byte("{}")),
 	}
-	if err := s.repo.Create(ctx, session); err != nil {
+	if err := s.repo.Create(ctx, sess); err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}
-	logx.Infof("created session %s for review %s (round %d)", session.SessionID, reviewID, round)
-	return session, nil
+	logx.Infof("created session %s for review %s (round %d)", sess.SessionID, reviewID, round)
+	return sess, nil
 }
 
-func (s *SessionService) GetSession(ctx context.Context, sessionID string) (*models.ReviewSession, error) {
-	session, err := s.repo.GetByID(ctx, sessionID)
+func (s *SessionService) GetSession(ctx context.Context, sessionID string) (*dsession.Session, error) {
+	sess, err := s.repo.GetByID(ctx, sessionID)
 	if err != nil {
 		if errors.Is(err, repoerr.ErrNotFound) {
 			return nil, fmt.Errorf("session not found: %s", sessionID)
 		}
 		return nil, err
 	}
-	return session, nil
+	return sess, nil
 }
 
-func (s *SessionService) GetActiveSession(ctx context.Context, reviewID string) (*models.ReviewSession, error) {
-	session, err := s.repo.GetActiveByReviewID(ctx, reviewID)
+func (s *SessionService) GetActiveSession(ctx context.Context, reviewID string) (*dsession.Session, error) {
+	sess, err := s.repo.GetActiveByReviewID(ctx, reviewID)
 	if err != nil {
 		if errors.Is(err, repoerr.ErrNotFound) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return session, nil
+	return sess, nil
 }
 
-func (s *SessionService) GetSessionsByReview(ctx context.Context, reviewID string) ([]*models.ReviewSession, error) {
+func (s *SessionService) GetSessionsByReview(ctx context.Context, reviewID string) ([]*dsession.Session, error) {
 	return s.repo.GetByReviewID(ctx, reviewID)
 }
 
-func (s *SessionService) UpdatePhase(ctx context.Context, sessionID string, phase models.SessionPhase, progress float64) error {
-	session, err := s.repo.GetByID(ctx, sessionID)
+func (s *SessionService) UpdatePhase(ctx context.Context, sessionID string, phase string, progress float64) error {
+	sess, err := s.repo.GetByID(ctx, sessionID)
 	if err != nil {
 		if errors.Is(err, repoerr.ErrNotFound) {
 			return fmt.Errorf("session not found: %s", sessionID)
 		}
 		return fmt.Errorf("get session: %w", err)
 	}
-	if !isValidPhaseTransition(models.SessionPhase(session.Phase), phase) {
-		return fmt.Errorf("invalid phase transition from %s to %s", session.Phase, phase)
+	if !isValidPhaseTransition(sess.Phase, phase) {
+		return fmt.Errorf("invalid phase transition from %s to %s", sess.Phase, phase)
 	}
-	if err := s.repo.UpdatePhase(ctx, sessionID, string(phase), progress); err != nil {
+	if err := s.repo.UpdatePhase(ctx, sessionID, phase, progress); err != nil {
 		return fmt.Errorf("update phase: %w", err)
 	}
 	logx.Infof("session %s phase updated to %s (progress: %.1f%%)", sessionID, phase, progress)
 	return nil
 }
 
-func (s *SessionService) UpdateStatus(ctx context.Context, sessionID string, status models.SessionStatus) error {
-	if err := s.repo.UpdateStatus(ctx, sessionID, string(status)); err != nil {
+func (s *SessionService) UpdateStatus(ctx context.Context, sessionID string, status string) error {
+	if err := s.repo.UpdateStatus(ctx, sessionID, status); err != nil {
 		return fmt.Errorf("update status: %w", err)
 	}
 	logx.Infof("session %s status updated to %s", sessionID, status)
 	return nil
 }
 
-func (s *SessionService) UpdateAgentResults(ctx context.Context, sessionID string, agentResults []models.AgentResultData) error {
+func (s *SessionService) UpdateAgentResults(ctx context.Context, sessionID string, agentResults []dsession.AgentResultData) error {
 	if err := s.repo.UpdateAgentResults(ctx, sessionID, agentResults); err != nil {
 		return fmt.Errorf("update agent results: %w", err)
 	}
@@ -109,7 +108,7 @@ func (s *SessionService) UpdateAgentResults(ctx context.Context, sessionID strin
 	return nil
 }
 
-func (s *SessionService) UpdateDiscussion(ctx context.Context, sessionID string, discussion models.DiscussionData) error {
+func (s *SessionService) UpdateDiscussion(ctx context.Context, sessionID string, discussion dsession.DiscussionData) error {
 	if err := s.repo.UpdateDiscussion(ctx, sessionID, discussion); err != nil {
 		return fmt.Errorf("update discussion: %w", err)
 	}
@@ -117,7 +116,7 @@ func (s *SessionService) UpdateDiscussion(ctx context.Context, sessionID string,
 	return nil
 }
 
-func (s *SessionService) UpdateFinalReport(ctx context.Context, sessionID string, finalReport models.FinalReportData) error {
+func (s *SessionService) UpdateFinalReport(ctx context.Context, sessionID string, finalReport dsession.FinalReportData) error {
 	if err := s.repo.UpdateFinalReport(ctx, sessionID, finalReport); err != nil {
 		return fmt.Errorf("update final report: %w", err)
 	}
@@ -125,7 +124,7 @@ func (s *SessionService) UpdateFinalReport(ctx context.Context, sessionID string
 	return nil
 }
 
-func (s *SessionService) CompleteSession(ctx context.Context, sessionID string, finalReport models.FinalReportData) error {
+func (s *SessionService) CompleteSession(ctx context.Context, sessionID string, finalReport dsession.FinalReportData) error {
 	if err := s.repo.Complete(ctx, sessionID, finalReport); err != nil {
 		return fmt.Errorf("complete session: %w", err)
 	}
@@ -134,7 +133,7 @@ func (s *SessionService) CompleteSession(ctx context.Context, sessionID string, 
 }
 
 func (s *SessionService) FailSession(ctx context.Context, sessionID string, reason string) error {
-	session, err := s.repo.GetByID(ctx, sessionID)
+	sess, err := s.repo.GetByID(ctx, sessionID)
 	if err != nil {
 		if errors.Is(err, repoerr.ErrNotFound) {
 			return fmt.Errorf("session not found: %s", sessionID)
@@ -142,8 +141,8 @@ func (s *SessionService) FailSession(ctx context.Context, sessionID string, reas
 		return fmt.Errorf("get session: %w", err)
 	}
 	metadata := make(map[string]interface{})
-	if session.Metadata != nil {
-		if err := json.Unmarshal(session.Metadata, &metadata); err != nil {
+	if sess.Metadata != nil {
+		if err := json.Unmarshal(sess.Metadata, &metadata); err != nil {
 			return fmt.Errorf("unmarshal metadata: %w", err)
 		}
 	}
@@ -153,8 +152,8 @@ func (s *SessionService) FailSession(ctx context.Context, sessionID string, reas
 	if err != nil {
 		return fmt.Errorf("marshal metadata: %w", err)
 	}
-	if err := s.repo.Update(ctx, &models.ReviewSession{
-		SessionID: sessionID, Status: string(models.SessionStatusFailed), Metadata: metadataJSON,
+	if err := s.repo.Update(ctx, &dsession.Session{
+		SessionID: sessionID, Status: dsession.StatusFailed, Metadata: metadataJSON,
 	}); err != nil {
 		return fmt.Errorf("fail session: %w", err)
 	}
@@ -163,7 +162,7 @@ func (s *SessionService) FailSession(ctx context.Context, sessionID string, reas
 }
 
 func (s *SessionService) CancelSession(ctx context.Context, sessionID string) error {
-	if err := s.repo.UpdateStatus(ctx, sessionID, string(models.SessionStatusCancelled)); err != nil {
+	if err := s.repo.UpdateStatus(ctx, sessionID, dsession.StatusCancelled); err != nil {
 		return fmt.Errorf("cancel session: %w", err)
 	}
 	logx.Infof("session %s cancelled", sessionID)
@@ -179,14 +178,14 @@ func (s *SessionService) GetNextRound(ctx context.Context, reviewID string) (int
 		return 1, nil
 	}
 	maxRound := 0
-	for _, s := range sessions {
-		if s.Round > maxRound {
-			maxRound = s.Round
+	for _, sess := range sessions {
+		if sess.Round > maxRound {
+			maxRound = sess.Round
 		}
 	}
 	return maxRound + 1, nil
 }
 
-func (s *SessionService) ListSessions(ctx context.Context, page, pageSize int) (*gormx.PageResponse[models.ReviewSession], error) {
+func (s *SessionService) ListSessions(ctx context.Context, page, pageSize int) (*gormx.PageResponse[dsession.Session], error) {
 	return s.repo.List(ctx, page, pageSize)
 }

@@ -6,14 +6,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/domain/session"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 
-	"gorm.io/datatypes"
 )
 
-func newSession(reviewID string, round int) *models.ReviewSession {
-	return &models.ReviewSession{
+func newSession(reviewID string, round int) *session.Session {
+	return &session.Session{
 		ReviewID: reviewID,
 		Round:    round,
 	}
@@ -31,11 +30,11 @@ func TestSessionRepo_CreateAndGetByID(t *testing.T) {
 	if s.SessionID == "" {
 		t.Fatal("Create should auto-generate SessionID")
 	}
-	if s.Status != string(models.SessionStatusActive) {
-		t.Fatalf("default status = %q, want %q", s.Status, models.SessionStatusActive)
+	if s.Status != string(session.StatusActive) {
+		t.Fatalf("default status = %q, want %q", s.Status, session.StatusActive)
 	}
-	if s.Phase != string(models.SessionPhaseContext) {
-		t.Fatalf("default phase = %q, want %q", s.Phase, models.SessionPhaseContext)
+	if s.Phase != string(session.PhaseContext) {
+		t.Fatalf("default phase = %q, want %q", s.Phase, session.PhaseContext)
 	}
 
 	got, err := repo.GetByID(ctx, s.SessionID)
@@ -94,7 +93,7 @@ func TestSessionRepo_GetActiveByReviewID(t *testing.T) {
 	if err := repo.Create(ctx, completed); err != nil {
 		t.Fatalf("Create completed: %v", err)
 	}
-	if err := repo.UpdateStatus(ctx, completed.SessionID, string(models.SessionStatusCompleted)); err != nil {
+	if err := repo.UpdateStatus(ctx, completed.SessionID, string(session.StatusCompleted)); err != nil {
 		t.Fatalf("mark completed: %v", err)
 	}
 
@@ -107,7 +106,7 @@ func TestSessionRepo_GetActiveByReviewID(t *testing.T) {
 	}
 
 	// 全部完成后应 NotFound。
-	if err := repo.UpdateStatus(ctx, active.SessionID, string(models.SessionStatusCompleted)); err != nil {
+	if err := repo.UpdateStatus(ctx, active.SessionID, string(session.StatusCompleted)); err != nil {
 		t.Fatalf("complete active: %v", err)
 	}
 	if _, err := repo.GetActiveByReviewID(ctx, "rev-a"); !errors.Is(err, repoerr.ErrNotFound) {
@@ -127,9 +126,9 @@ func TestSessionRepo_JSONBPayloads(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	agentResults := []map[string]any{{"agent": "security", "findings": 3}}
-	discussion := map[string]any{"consensus": 2, "disagreements": 1}
-	finalReport := map[string]any{"summary": "ok", "score": 90}
+	agentResults := []session.AgentResultData{{AgentName: "security", Summary: "ok"}}
+	discussion := session.DiscussionData{ID: "d1", Round: 1, Summary: "discussed"}
+	finalReport := session.FinalReportData{Summary: "ok", Score: 90}
 
 	if err := repo.UpdateAgentResults(ctx, s.SessionID, agentResults); err != nil {
 		t.Fatalf("UpdateAgentResults: %v", err)
@@ -147,7 +146,7 @@ func TestSessionRepo_JSONBPayloads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByID: %v", err)
 	}
-	if got.Status != string(models.SessionStatusCompleted) {
+	if got.Status != string(session.StatusCompleted) {
 		t.Fatalf("status = %q, want completed", got.Status)
 	}
 	if got.Progress != 100 {
@@ -175,19 +174,19 @@ func TestSessionRepo_UpdatePhaseAndStatus(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	if err := repo.UpdatePhase(ctx, s.SessionID, string(models.SessionPhaseAnalysis), 55.5); err != nil {
+	if err := repo.UpdatePhase(ctx, s.SessionID, string(session.PhaseAnalysis), 55.5); err != nil {
 		t.Fatalf("UpdatePhase: %v", err)
 	}
 	got, _ := repo.GetByID(ctx, s.SessionID)
-	if got.Phase != string(models.SessionPhaseAnalysis) || got.Progress != 55.5 {
+	if got.Phase != string(session.PhaseAnalysis) || got.Progress != 55.5 {
 		t.Fatalf("phase/progress not updated: phase=%q progress=%v", got.Phase, got.Progress)
 	}
 
-	if err := repo.UpdateStatus(ctx, s.SessionID, string(models.SessionStatusCancelled)); err != nil {
+	if err := repo.UpdateStatus(ctx, s.SessionID, string(session.StatusCancelled)); err != nil {
 		t.Fatalf("UpdateStatus: %v", err)
 	}
 	got, _ = repo.GetByID(ctx, s.SessionID)
-	if got.Status != string(models.SessionStatusCancelled) {
+	if got.Status != string(session.StatusCancelled) {
 		t.Fatalf("status = %q, want cancelled", got.Status)
 	}
 }
@@ -212,7 +211,7 @@ func TestSessionRepo_CancelActiveByReviewID(t *testing.T) {
 	}
 	sessions, _ := repo.GetByReviewID(ctx, "rev-c")
 	for _, s := range sessions {
-		if s.Status != string(models.SessionStatusCancelled) {
+		if s.Status != string(session.StatusCancelled) {
 			t.Fatalf("session %s status = %q, want cancelled", s.SessionID, s.Status)
 		}
 	}
@@ -232,7 +231,7 @@ func TestSessionRepo_Update(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 	s.Progress = 80
-	s.AgentResults = datatypes.JSON([]byte(`{"agents":["a","b"]}`))
+	s.AgentResults = json.RawMessage([]byte(`{"agents":["a","b"]}`))
 	if err := repo.Update(ctx, s); err != nil {
 		t.Fatalf("Update: %v", err)
 	}

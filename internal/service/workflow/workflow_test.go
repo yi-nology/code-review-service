@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	dsession "github.com/yi-nology/code-review-service/internal/domain/session"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
@@ -17,18 +17,18 @@ var _ sessionService = (*MockSessionService)(nil)
 
 // MockSessionService is a mock implementation of session.Service
 type MockSessionService struct {
-	sessions map[string]*models.ReviewSession
+	sessions map[string]*dsession.Session
 }
 
 func NewMockSessionService() *MockSessionService {
 	return &MockSessionService{
-		sessions: make(map[string]*models.ReviewSession),
+		sessions: make(map[string]*dsession.Session),
 	}
 }
 
-func (m *MockSessionService) CreateSession(ctx context.Context, reviewID string, round int) (*models.ReviewSession, error) {
+func (m *MockSessionService) CreateSession(ctx context.Context, reviewID string, round int) (*dsession.Session, error) {
 	sessionID := "test-session-id"
-	session := &models.ReviewSession{
+	session := &dsession.Session{
 		SessionID: sessionID,
 		ReviewID:  reviewID,
 		Round:     round,
@@ -40,14 +40,14 @@ func (m *MockSessionService) CreateSession(ctx context.Context, reviewID string,
 	return session, nil
 }
 
-func (m *MockSessionService) GetSession(ctx context.Context, sessionID string) (*models.ReviewSession, error) {
+func (m *MockSessionService) GetSession(ctx context.Context, sessionID string) (*dsession.Session, error) {
 	if session, ok := m.sessions[sessionID]; ok {
 		return session, nil
 	}
 	return nil, nil
 }
 
-func (m *MockSessionService) GetActiveSession(ctx context.Context, reviewID string) (*models.ReviewSession, error) {
+func (m *MockSessionService) GetActiveSession(ctx context.Context, reviewID string) (*dsession.Session, error) {
 	for _, session := range m.sessions {
 		if session.ReviewID == reviewID && session.Status == "active" {
 			return session, nil
@@ -56,8 +56,8 @@ func (m *MockSessionService) GetActiveSession(ctx context.Context, reviewID stri
 	return nil, nil
 }
 
-func (m *MockSessionService) GetSessionsByReview(ctx context.Context, reviewID string) ([]*models.ReviewSession, error) {
-	var sessions []*models.ReviewSession
+func (m *MockSessionService) GetSessionsByReview(ctx context.Context, reviewID string) ([]*dsession.Session, error) {
+	var sessions []*dsession.Session
 	for _, session := range m.sessions {
 		if session.ReviewID == reviewID {
 			sessions = append(sessions, session)
@@ -66,7 +66,7 @@ func (m *MockSessionService) GetSessionsByReview(ctx context.Context, reviewID s
 	return sessions, nil
 }
 
-func (m *MockSessionService) UpdatePhase(ctx context.Context, sessionID string, phase models.SessionPhase, progress float64) error {
+func (m *MockSessionService) UpdatePhase(ctx context.Context, sessionID string, phase string, progress float64) error {
 	if session, ok := m.sessions[sessionID]; ok {
 		session.Phase = string(phase)
 		session.Progress = progress
@@ -74,26 +74,26 @@ func (m *MockSessionService) UpdatePhase(ctx context.Context, sessionID string, 
 	return nil
 }
 
-func (m *MockSessionService) UpdateStatus(ctx context.Context, sessionID string, status models.SessionStatus) error {
+func (m *MockSessionService) UpdateStatus(ctx context.Context, sessionID string, status string) error {
 	if session, ok := m.sessions[sessionID]; ok {
 		session.Status = string(status)
 	}
 	return nil
 }
 
-func (m *MockSessionService) UpdateAgentResults(ctx context.Context, sessionID string, agentResults []models.AgentResultData) error {
+func (m *MockSessionService) UpdateAgentResults(ctx context.Context, sessionID string, agentResults []dsession.AgentResultData) error {
 	return nil
 }
 
-func (m *MockSessionService) UpdateDiscussion(ctx context.Context, sessionID string, discussion models.DiscussionData) error {
+func (m *MockSessionService) UpdateDiscussion(ctx context.Context, sessionID string, discussion dsession.DiscussionData) error {
 	return nil
 }
 
-func (m *MockSessionService) UpdateFinalReport(ctx context.Context, sessionID string, finalReport models.FinalReportData) error {
+func (m *MockSessionService) UpdateFinalReport(ctx context.Context, sessionID string, finalReport dsession.FinalReportData) error {
 	return nil
 }
 
-func (m *MockSessionService) CompleteSession(ctx context.Context, sessionID string, finalReport models.FinalReportData) error {
+func (m *MockSessionService) CompleteSession(ctx context.Context, sessionID string, finalReport dsession.FinalReportData) error {
 	if session, ok := m.sessions[sessionID]; ok {
 		session.Status = "completed"
 		now := time.Now()
@@ -120,12 +120,12 @@ func (m *MockSessionService) GetNextRound(ctx context.Context, reviewID string) 
 	return 1, nil
 }
 
-func (m *MockSessionService) ListSessions(ctx context.Context, page, pageSize int) (*gormx.PageResponse[models.ReviewSession], error) {
-	var sessions []models.ReviewSession
+func (m *MockSessionService) ListSessions(ctx context.Context, page, pageSize int) (*gormx.PageResponse[dsession.Session], error) {
+	var sessions []dsession.Session
 	for _, session := range m.sessions {
 		sessions = append(sessions, *session)
 	}
-	return &gormx.PageResponse[models.ReviewSession]{
+	return &gormx.PageResponse[dsession.Session]{
 		List:  sessions,
 		Total: int64(len(sessions)),
 		Page:  page,

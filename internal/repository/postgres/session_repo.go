@@ -2,14 +2,17 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/session"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	ekitGorm "github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 	"github.com/oekit/pkg/pagination"
 	"github.com/oekit/pkg/uidgen"
+	"gorm.io/datatypes"
 	gormLib "gorm.io/gorm"
 )
 
@@ -24,63 +27,88 @@ func NewPostgresSessionRepository(db *gormLib.DB) *PostgresSessionRepository {
 }
 
 // Create creates a new session
-func (r *PostgresSessionRepository) Create(ctx context.Context, session *models.ReviewSession) error {
-	if session.SessionID == "" {
-		session.SessionID = uidgen.UUID()
+func (r *PostgresSessionRepository) Create(ctx context.Context, s *session.Session) error {
+	m := sessionToModel(s)
+	if m.SessionID == "" {
+		m.SessionID = uidgen.UUID()
 	}
-	if session.Status == "" {
-		session.Status = string(models.SessionStatusActive)
+	if m.Status == "" {
+		m.Status = session.StatusActive
 	}
-	if session.Phase == "" {
-		session.Phase = string(models.SessionPhaseContext)
+	if m.Phase == "" {
+		m.Phase = session.PhaseContext
 	}
-	return r.db.WithContext(ctx).Create(session).Error
+	if err := r.db.WithContext(ctx).Create(&m).Error; err != nil {
+		return err
+	}
+	// 回填生成的 SessionID 与默认值给调用方。
+	s.SessionID = m.SessionID
+	s.Status = m.Status
+	s.Phase = m.Phase
+	return nil
 }
 
 // GetByID returns a session by ID
-func (r *PostgresSessionRepository) GetByID(ctx context.Context, sessionID string) (*models.ReviewSession, error) {
-	var session models.ReviewSession
+func (r *PostgresSessionRepository) GetByID(ctx context.Context, sessionID string) (*session.Session, error) {
+	var m models.ReviewSession
 	err := r.db.WithContext(ctx).
 		Where("session_id = ?", sessionID).
-		First(&session).Error
+		First(&m).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return nil, repoerr.ErrNotFound
 		}
 		return nil, err
 	}
-	return &session, nil
+	d := sessionToDomain(m)
+	return &d, nil
 }
 
 // GetByReviewID returns sessions for a review
-func (r *PostgresSessionRepository) GetByReviewID(ctx context.Context, reviewID string) ([]*models.ReviewSession, error) {
-	var sessions []*models.ReviewSession
-	err := r.db.WithContext(ctx).
+func (r *PostgresSessionRepository) GetByReviewID(ctx context.Context, reviewID string) ([]*session.Session, error) {
+	var ms []models.ReviewSession
+	if err := r.db.WithContext(ctx).
 		Where("review_id = ?", reviewID).
 		Order("round DESC, created_at DESC").
-		Find(&sessions).Error
-	return sessions, err
+		Find(&ms).Error; err != nil {
+		return nil, err
+	}
+	out := make([]*session.Session, len(ms))
+	for i, m := range ms {
+		d := sessionToDomain(m)
+		out[i] = &d
+	}
+	return out, nil
 }
 
 // GetActiveByReviewID returns the active session for a review
-func (r *PostgresSessionRepository) GetActiveByReviewID(ctx context.Context, reviewID string) (*models.ReviewSession, error) {
-	var session models.ReviewSession
+func (r *PostgresSessionRepository) GetActiveByReviewID(ctx context.Context, reviewID string) (*session.Session, error) {
+	var m models.ReviewSession
 	err := r.db.WithContext(ctx).
-		Where("review_id = ? AND status = ?", reviewID, models.SessionStatusActive).
+		Where("review_id = ? AND status = ?", reviewID, session.StatusActive).
 		Order("round DESC").
-		First(&session).Error
+		First(&m).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return nil, repoerr.ErrNotFound
 		}
 		return nil, err
 	}
-	return &session, nil
+	d := sessionToDomain(m)
+	return &d, nil
 }
 
-// Update updates a session
-func (r *PostgresSessionRepository) Update(ctx context.Context, session *models.ReviewSession) error {
-	return r.db.WithContext(ctx).Save(session).Error
+// Update updates a session. 按 SessionID 定位现有行（domain Session 不携带 gorm 自增 ID），
+// 保留主键与 CreatedAt 后整体 Save，避免 ID=0 时误创建重复行。
+func (r *PostgresSessionRepository) Update(ctx context.Context, s *session.Session) error {
+	var existing models.ReviewSession
+	if err := r.db.WithContext(ctx).Where("session_id = ?", s.SessionID).First(&existing).Error; err != nil {
+		return err
+	}
+	m := sessionToModel(s)
+	m.ID = existing.ID
+	m.CreatedAt = existing.CreatedAt
+	return r.db.WithContext(ctx).Save(&m).Error
 }
 
 // UpdatePhase updates the phase of a session
@@ -103,38 +131,54 @@ func (r *PostgresSessionRepository) UpdateStatus(ctx context.Context, sessionID 
 }
 
 // UpdateAgentResults updates the agent results of a session
-func (r *PostgresSessionRepository) UpdateAgentResults(ctx context.Context, sessionID string, agentResults interface{}) error {
+func (r *PostgresSessionRepository) UpdateAgentResults(ctx context.Context, sessionID string, agentResults []session.AgentResultData) error {
+	data, err := json.Marshal(agentResults)
+	if err != nil {
+		return err
+	}
 	return r.db.WithContext(ctx).
 		Model(&models.ReviewSession{}).
 		Where("session_id = ?", sessionID).
-		Update("agent_results", agentResults).Error
+		Update("agent_results", datatypes.JSON(data)).Error
 }
 
 // UpdateDiscussion updates the discussion of a session
-func (r *PostgresSessionRepository) UpdateDiscussion(ctx context.Context, sessionID string, discussion interface{}) error {
+func (r *PostgresSessionRepository) UpdateDiscussion(ctx context.Context, sessionID string, discussion session.DiscussionData) error {
+	data, err := json.Marshal(discussion)
+	if err != nil {
+		return err
+	}
 	return r.db.WithContext(ctx).
 		Model(&models.ReviewSession{}).
 		Where("session_id = ?", sessionID).
-		Update("discussion", discussion).Error
+		Update("discussion", datatypes.JSON(data)).Error
 }
 
 // UpdateFinalReport updates the final report of a session
-func (r *PostgresSessionRepository) UpdateFinalReport(ctx context.Context, sessionID string, finalReport interface{}) error {
+func (r *PostgresSessionRepository) UpdateFinalReport(ctx context.Context, sessionID string, finalReport session.FinalReportData) error {
+	data, err := json.Marshal(finalReport)
+	if err != nil {
+		return err
+	}
 	return r.db.WithContext(ctx).
 		Model(&models.ReviewSession{}).
 		Where("session_id = ?", sessionID).
-		Update("final_report", finalReport).Error
+		Update("final_report", datatypes.JSON(data)).Error
 }
 
 // Complete marks a session as completed
-func (r *PostgresSessionRepository) Complete(ctx context.Context, sessionID string, finalReport interface{}) error {
+func (r *PostgresSessionRepository) Complete(ctx context.Context, sessionID string, finalReport session.FinalReportData) error {
 	now := time.Now()
+	data, err := json.Marshal(finalReport)
+	if err != nil {
+		return err
+	}
 	return r.db.WithContext(ctx).
 		Model(&models.ReviewSession{}).
 		Where("session_id = ?", sessionID).
 		Updates(map[string]interface{}{
-			"status":       models.SessionStatusCompleted,
-			"final_report": finalReport,
+			"status":       session.StatusCompleted,
+			"final_report": datatypes.JSON(data),
 			"completed_at": now,
 			"progress":     100,
 		}).Error
@@ -148,22 +192,31 @@ func (r *PostgresSessionRepository) Delete(ctx context.Context, sessionID string
 }
 
 // CancelActiveByReviewID cancels all active sessions for a review.
-// This is called during Requeue to clean up orphaned sessions from prior
-// executions (e.g. process killed mid-flight, session never closed).
 func (r *PostgresSessionRepository) CancelActiveByReviewID(ctx context.Context, reviewID string) error {
 	return r.db.WithContext(ctx).
 		Model(&models.ReviewSession{}).
-		Where("review_id = ? AND status = ?", reviewID, models.SessionStatusActive).
-		Update("status", models.SessionStatusCancelled).Error
+		Where("review_id = ? AND status = ?", reviewID, session.StatusActive).
+		Update("status", session.StatusCancelled).Error
 }
 
 // List returns sessions with pagination
-func (r *PostgresSessionRepository) List(ctx context.Context, page, pageSize int) (*ekitGorm.PageResponse[models.ReviewSession], error) {
-	return ekitGorm.Paginate[models.ReviewSession](
+func (r *PostgresSessionRepository) List(ctx context.Context, page, pageSize int) (*ekitGorm.PageResponse[session.Session], error) {
+	resp, err := ekitGorm.Paginate[models.ReviewSession](
 		r.db.WithContext(ctx).Model(&models.ReviewSession{}),
 		pagination.NewPageRequest(page, pageSize),
 		func(db *gormLib.DB) *gormLib.DB {
 			return db.Order("created_at DESC")
 		},
 	)
+	if err != nil {
+		return nil, err
+	}
+	out := &ekitGorm.PageResponse[session.Session]{
+		List:  make([]session.Session, len(resp.List)),
+		Total: resp.Total,
+	}
+	for i, m := range resp.List {
+		out.List[i] = sessionToDomain(m)
+	}
+	return out, nil
 }

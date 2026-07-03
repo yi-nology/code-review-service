@@ -7,7 +7,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelSession "github.com/yi-nology/code-review-service/biz/model/session"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	dsession "github.com/yi-nology/code-review-service/internal/domain/session"
 
 	"github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 	"github.com/oekit/pkg/convert"
@@ -20,20 +20,20 @@ import (
 var handlerInst *SessionHandler
 
 type SessionService interface {
-	GetSessionsByReview(ctx context.Context, reviewID string) ([]*models.ReviewSession, error)
-	GetSession(ctx context.Context, sessionID string) (*models.ReviewSession, error)
-	GetActiveSession(ctx context.Context, reviewID string) (*models.ReviewSession, error)
+	GetSessionsByReview(ctx context.Context, reviewID string) ([]*dsession.Session, error)
+	GetSession(ctx context.Context, sessionID string) (*dsession.Session, error)
+	GetActiveSession(ctx context.Context, reviewID string) (*dsession.Session, error)
 	GetNextRound(ctx context.Context, reviewID string) (int, error)
-	CreateSession(ctx context.Context, reviewID string, round int) (*models.ReviewSession, error)
-	UpdatePhase(ctx context.Context, sessionID string, phase models.SessionPhase, progress float64) error
-	UpdateStatus(ctx context.Context, sessionID string, status models.SessionStatus) error
-	UpdateAgentResults(ctx context.Context, sessionID string, agentResults []models.AgentResultData) error
-	UpdateDiscussion(ctx context.Context, sessionID string, discussion models.DiscussionData) error
-	UpdateFinalReport(ctx context.Context, sessionID string, finalReport models.FinalReportData) error
-	CompleteSession(ctx context.Context, sessionID string, finalReport models.FinalReportData) error
+	CreateSession(ctx context.Context, reviewID string, round int) (*dsession.Session, error)
+	UpdatePhase(ctx context.Context, sessionID string, phase string, progress float64) error
+	UpdateStatus(ctx context.Context, sessionID string, status string) error
+	UpdateAgentResults(ctx context.Context, sessionID string, agentResults []dsession.AgentResultData) error
+	UpdateDiscussion(ctx context.Context, sessionID string, discussion dsession.DiscussionData) error
+	UpdateFinalReport(ctx context.Context, sessionID string, finalReport dsession.FinalReportData) error
+	CompleteSession(ctx context.Context, sessionID string, finalReport dsession.FinalReportData) error
 	FailSession(ctx context.Context, sessionID string, reason string) error
 	CancelSession(ctx context.Context, sessionID string) error
-	ListSessions(ctx context.Context, page, pageSize int) (*gormx.PageResponse[models.ReviewSession], error)
+	ListSessions(ctx context.Context, page, pageSize int) (*gormx.PageResponse[dsession.Session], error)
 }
 
 type SessionHandler struct {
@@ -63,7 +63,7 @@ type sessionInfo struct {
 	UpdatedAt    time.Time       `json:"updated_at"`
 }
 
-func toSessionInfo(s models.ReviewSession) sessionInfo {
+func toSessionInfo(s dsession.Session) sessionInfo {
 	info := sessionInfo{
 		SessionID: s.SessionID, ReviewID: s.ReviewID, Round: s.Round,
 		Phase: s.Phase, Status: s.Status, Progress: s.Progress,
@@ -206,7 +206,7 @@ func UpdateSessionPhase(ctx context.Context, c *app.RequestContext) {
 	}
 
 	progress := ptrx.Deref(req.Progress, 0)
-	if err := handlerInst.sessionService.UpdatePhase(ctx, req.SessionID, models.SessionPhase(req.Phase), progress); err != nil {
+	if err := handlerInst.sessionService.UpdatePhase(ctx, req.SessionID, req.Phase, progress); err != nil {
 		logx.Errorf("update session phase failed: %v", err)
 		common.Fail(c, err)
 		return
@@ -223,7 +223,7 @@ func UpdateSessionStatus(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	if err := handlerInst.sessionService.UpdateStatus(ctx, req.SessionID, models.SessionStatus(req.Status)); err != nil {
+	if err := handlerInst.sessionService.UpdateStatus(ctx, req.SessionID, req.Status); err != nil {
 		logx.Errorf("update session status failed: %v", err)
 		common.Fail(c, err)
 		return
@@ -240,7 +240,7 @@ func UpdateSessionAgentResults(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	var agentResults []models.AgentResultData
+	var agentResults []dsession.AgentResultData
 	if err := json.Unmarshal([]byte(req.AgentResults), &agentResults); err != nil {
 		common.Fail(c, common.BadRequest("invalid agent_results format"))
 		return
@@ -263,7 +263,7 @@ func UpdateSessionDiscussion(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	var discussion models.DiscussionData
+	var discussion dsession.DiscussionData
 	if err := json.Unmarshal([]byte(req.Discussion), &discussion); err != nil {
 		common.Fail(c, common.BadRequest("invalid discussion format"))
 		return
@@ -286,7 +286,7 @@ func UpdateSessionFinalReport(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	var finalReport models.FinalReportData
+	var finalReport dsession.FinalReportData
 	if err := json.Unmarshal([]byte(req.FinalReport), &finalReport); err != nil {
 		common.Fail(c, common.BadRequest("invalid final_report format"))
 		return
@@ -309,7 +309,7 @@ func CompleteSession(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	var finalReport models.FinalReportData
+	var finalReport dsession.FinalReportData
 	if err := json.Unmarshal([]byte(req.FinalReport), &finalReport); err != nil {
 		common.Fail(c, common.BadRequest("invalid final_report format"))
 		return

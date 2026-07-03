@@ -12,6 +12,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/domain/reviewer"
 	"github.com/yi-nology/code-review-service/internal/domain/revision"
 	"github.com/yi-nology/code-review-service/internal/domain/rules"
+	"github.com/yi-nology/code-review-service/internal/domain/session"
 	domainWebhook "github.com/yi-nology/code-review-service/internal/domain/webhook"
 	"github.com/yi-nology/code-review-service/internal/domain/writeback"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
@@ -497,5 +498,43 @@ func projectPolicyToDomain(m models.ProjectPolicy) projectpolicy.ProjectPolicy {
 		OCRTelemetryExporter:       m.OCRTelemetryExporter,
 		OCRTelemetryOTLPEndpoint:   m.OCRTelemetryOTLPEndpoint,
 		OCRTelemetryContentLogging: m.OCRTelemetryContentLogging,
+	}
+}
+
+// ---- session ----
+
+func sessionToModel(s *session.Session) models.ReviewSession {
+	return models.ReviewSession{
+		SessionID:    s.SessionID,
+		ReviewID:     s.ReviewID,
+		Round:        s.Round,
+		Phase:        s.Phase,
+		Status:       s.Status,
+		Progress:     s.Progress,
+		AgentResults: dataTypeJSON(s.AgentResults),
+		Discussion:   dataTypeJSON(s.Discussion),
+		FinalReport:  dataTypeJSON(s.FinalReport),
+		Requirements: dataTypeJSON(s.Requirements),
+		Metadata:     dataTypeJSON(s.Metadata),
+		CompletedAt:  s.CompletedAt,
+	}
+}
+
+func sessionToDomain(m models.ReviewSession) session.Session {
+	return session.Session{
+		SessionID:    m.SessionID,
+		ReviewID:     m.ReviewID,
+		Round:        m.Round,
+		Phase:        m.Phase,
+		Status:       m.Status,
+		Progress:     m.Progress,
+		AgentResults: rawJSON(m.AgentResults),
+		Discussion:   rawJSON(m.Discussion),
+		FinalReport:  rawJSON(m.FinalReport),
+		Requirements: rawJSON(m.Requirements),
+		Metadata:     rawJSON(m.Metadata),
+		CompletedAt:  m.CompletedAt,
+		CreatedAt:    m.CreatedAt,
+		UpdatedAt:    m.UpdatedAt,
 	}
 }
