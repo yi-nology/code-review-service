@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/writeback"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	ekitGorm "github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 )
@@ -23,12 +24,13 @@ type ReviewRepository interface {
 	UpdateInTransaction(ctx context.Context, reviewID string, fn func(review *models.Review) error) error
 }
 
+// WritebackItemRepository 已迁移为 domain 类型（#6）：不再依赖 postgres/models。
 type WritebackItemRepository interface {
-	Create(ctx context.Context, item *models.WritebackItem) error
+	Create(ctx context.Context, item *writeback.Item) error
 	UpdateStatus(ctx context.Context, reviewID, findingKey, kind, status, externalID, providerURL, lastErr string) error
 	IncrementAttempts(ctx context.Context, reviewID, findingKey, kind string) error
-	ListByReview(ctx context.Context, reviewID string) ([]models.WritebackItem, error)
-	ListRetryable(ctx context.Context, limit int) ([]models.WritebackItem, error)
-	ListRecent(ctx context.Context, reviewID, status string, limit int) ([]models.WritebackItem, error)
+	ListByReview(ctx context.Context, reviewID string) ([]writeback.Item, error)
+	ListRetryable(ctx context.Context, limit int) ([]writeback.Item, error)
+	ListRecent(ctx context.Context, reviewID string, status string, limit int) ([]writeback.Item, error)
 	CountByStatus(ctx context.Context, since time.Time) (map[string]int64, error)
 }

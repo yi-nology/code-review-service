@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/domain/reviewer"
 	"github.com/oekit/logx"
 )
 
@@ -34,7 +34,7 @@ func NewAgentLoader(agentManager *AgentManager, factory reviewRunnerFactory, tim
 }
 
 // LoadFromDB loads agents from database and registers them
-func (l *AgentLoader) LoadFromDB(ctx context.Context, agents []models.ReviewerAgent) error {
+func (l *AgentLoader) LoadFromDB(ctx context.Context, agents []reviewer.Agent) error {
 	if len(agents) == 0 {
 		logx.Info("no agents found in database, using default single agent")
 		return nil

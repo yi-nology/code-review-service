@@ -46,10 +46,16 @@ func TestMain(m *testing.M) {
 // 按状态跨行查询的方法对脏数据敏感）。
 func resetTables(t *testing.T) {
 	t.Helper()
+	if err := truncateTables(t, reviewTables...); err != nil {
+		t.Fatalf("truncate tables: %v", err)
+	}
+}
+
+// truncateTables 清空指定表，用于需要清理 reviewTables 之外表的测试。
+func truncateTables(t *testing.T, tables ...string) error {
+	t.Helper()
 	if testDB == nil {
 		t.Skip("testDB not initialized (docker unavailable)")
 	}
-	if err := testutil.Truncate(testDB, reviewTables...); err != nil {
-		t.Fatalf("truncate tables: %v", err)
-	}
+	return testutil.Truncate(testDB, tables...)
 }

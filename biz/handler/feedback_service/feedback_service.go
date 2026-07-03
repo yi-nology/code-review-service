@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
+	"github.com/yi-nology/code-review-service/internal/domain/feedback"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	"github.com/cloudwego/hertz/pkg/app"
 )
@@ -62,7 +62,7 @@ func UpsertFeedback(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, common.BadRequest("invalid finding index"))
 		return
 	}
-	item := &models.FindingFeedback{
+	item := &feedback.Feedback{
 		ReviewID:     c.Param("id"),
 		FindingIndex: int(index),
 		Status:       status,

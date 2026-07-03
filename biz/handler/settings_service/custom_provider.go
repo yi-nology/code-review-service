@@ -2,16 +2,16 @@ package settings_service
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/domain/llmprovider"
 
 	"github.com/oekit/pkg/ptrx"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"gorm.io/datatypes"
 )
 
 func ListCustomProviders(ctx context.Context, c *app.RequestContext) {
@@ -43,14 +43,14 @@ func CreateCustomProvider(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, common.BadRequest("Protocol 不能为空"))
 		return
 	}
-	p := &models.CustomProvider{
+	p := &llmprovider.Custom{
 		Name: req.Name, Protocol: req.Protocol,
 		URL: ptrx.Deref(req.URL, ""), APIKey: ptrx.Deref(req.APIKey, ""),
 		ModelName: ptrx.Deref(req.Model, ""), AuthHeader: ptrx.Deref(req.AuthHeader, ""),
 		Enabled: ptrx.Deref(req.Enabled, true),
 	}
 	if req.ExtraBody != nil && *req.ExtraBody != "" {
-		p.ExtraBody = datatypes.JSON(*req.ExtraBody)
+		p.ExtraBody = json.RawMessage(*req.ExtraBody)
 	}
 	if err := handlerInst.customProvider.Create(ctx, p); err != nil {
 		common.Fail(c, err)
@@ -88,7 +88,7 @@ func UpdateCustomProvider(ctx context.Context, c *app.RequestContext) {
 		existing.AuthHeader = *req.AuthHeader
 	}
 	if req.ExtraBody != nil && *req.ExtraBody != "" {
-		existing.ExtraBody = datatypes.JSON(*req.ExtraBody)
+		existing.ExtraBody = json.RawMessage(*req.ExtraBody)
 	}
 	if req.Enabled != nil {
 		existing.Enabled = *req.Enabled
@@ -112,7 +112,7 @@ func DeleteCustomProvider(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelSettings.DeleteCustomProviderResp{})
 }
 
-func dbCustomProviderToAPI(p *models.CustomProvider) *modelSettings.CustomProvider {
+func dbCustomProviderToAPI(p *llmprovider.Custom) *modelSettings.CustomProvider {
 	if p == nil {
 		return nil
 	}

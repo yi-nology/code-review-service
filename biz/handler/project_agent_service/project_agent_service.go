@@ -5,8 +5,8 @@ import (
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelProjectAgent "github.com/yi-nology/code-review-service/biz/model/project_agent"
+	"github.com/yi-nology/code-review-service/internal/domain/reviewer"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/oekit/pkg/slicex"
 
 	"github.com/oekit/logx"
@@ -50,12 +50,12 @@ func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	enabledMap := make(map[uint]models.ProjectAgent)
+	enabledMap := make(map[uint]reviewer.ProjectAssignment)
 	for _, pa := range projectAgents {
 		enabledMap[pa.AgentID] = pa
 	}
 
-	agents := slicex.Map(allAgents, func(a models.ReviewerAgent) *modelProjectAgent.ProjectAgentConfig {
+	agents := slicex.Map(allAgents, func(a reviewer.Agent) *modelProjectAgent.ProjectAgentConfig {
 		agent := &modelProjectAgent.ProjectAgentConfig{
 			AgentID:         common.SafeInt64(a.ID),
 			Name:            a.Name,
@@ -94,7 +94,7 @@ func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	pa := &models.ProjectAgent{
+	pa := &reviewer.ProjectAssignment{
 		Provider: req.Provider,
 		Repo:     req.Repo,
 		AgentID:  common.SafeUint(req.AgentID),
@@ -126,7 +126,7 @@ func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
 	}
 
 	for _, agentReq := range req.Agents {
-		pa := &models.ProjectAgent{
+		pa := &reviewer.ProjectAssignment{
 			Provider: req.Provider,
 			Repo:     req.Repo,
 			AgentID:  common.SafeUint(agentReq.AgentID),

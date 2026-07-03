@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	domainplatform "github.com/yi-nology/code-review-service/internal/domain/platform"
 	"github.com/oekit/logx"
 
 	"github.com/yi-nology/git-platform-sdk/provider"
@@ -280,7 +280,7 @@ func (s *GitProviderService) GetSupportedPlatforms() []string {
 	return platforms
 }
 
-func (s *GitProviderService) AddOrUpdateFromDB(p *models.GitPlatform) error {
+func (s *GitProviderService) AddOrUpdateFromDB(p *domainplatform.Platform) error {
 	// SkipTLS 通过 gitbackend 的 InsecureSkipTLS 选项 per-request 传递给 git 子进程，
 	// 不再污染全局 os.Environ（历史上曾用 os.Setenv("GIT_SSL_NO_VERIFY") 导致
 	// 配过一个自签名平台后所有平台 clone 都跳过 TLS 校验）。
@@ -293,7 +293,7 @@ func (s *GitProviderService) AddOrUpdateFromDB(p *models.GitPlatform) error {
 	return s.AddOrUpdate(p.Provider, cfg)
 }
 
-func (s *GitProviderService) TestWithToken(ctx context.Context, platform, baseURL, token string, skipTLS bool) (*models.GitTestResult, error) {
+func (s *GitProviderService) TestWithToken(ctx context.Context, platform, baseURL, token string, skipTLS bool) (*domainplatform.TestResult, error) {
 	cfg := provider.Config{
 		Platform: provider.Platform(platform),
 		BaseURL:  baseURL,
@@ -302,14 +302,14 @@ func (s *GitProviderService) TestWithToken(ctx context.Context, platform, baseUR
 	}
 	p, err := provider.NewProvider(cfg)
 	if err != nil {
-		return &models.GitTestResult{Connected: false, Platform: platform, Message: fmt.Sprintf("初始化失败: %v", err)}, nil
+		return &domainplatform.TestResult{Connected: false, Platform: platform, Message: fmt.Sprintf("初始化失败: %v", err)}, nil
 	}
 	result, connErr := p.TestConnection(ctx)
 	if connErr != nil {
 		//nolint:nilerr // Connection test failures are represented in the response payload.
-		return &models.GitTestResult{Connected: false, Platform: platform, Message: connErr.Error()}, nil
+		return &domainplatform.TestResult{Connected: false, Platform: platform, Message: connErr.Error()}, nil
 	}
-	return &models.GitTestResult{
+	return &domainplatform.TestResult{
 		Connected: result.Connected,
 		Platform:  platform,
 		UserName:  result.UserName,

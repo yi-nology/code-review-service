@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/yi-nology/code-review-service/internal/domain/llmprovider"
+	"github.com/yi-nology/code-review-service/internal/domain/reviewer"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 )
 
@@ -400,7 +402,7 @@ func TestDBReviewerAgentToAPI(t *testing.T) {
 	})
 
 	t.Run("valid agent converts correctly", func(t *testing.T) {
-		input := &models.ReviewerAgent{
+		input := &reviewer.Agent{
 			Name:        "security",
 			DisplayName: "Security Reviewer",
 			Description: "Reviews for security issues",
@@ -429,7 +431,7 @@ func TestDBCustomProviderToAPI(t *testing.T) {
 	})
 
 	t.Run("API key is masked", func(t *testing.T) {
-		input := &models.CustomProvider{
+		input := &llmprovider.Custom{
 			Name:      "custom",
 			Protocol:  "openai",
 			APIKey:    "sk-test-" + strings.Repeat("x", 20), //nolint:gosec // test data

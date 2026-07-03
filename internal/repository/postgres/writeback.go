@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/writeback"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	gormLib "gorm.io/gorm"
@@ -18,13 +19,14 @@ func NewWritebackItemRepo(db *gormLib.DB) *WritebackItemRepo {
 	return &WritebackItemRepo{db: db}
 }
 
-func (r *WritebackItemRepo) Create(ctx context.Context, item *models.WritebackItem) error {
+func (r *WritebackItemRepo) Create(ctx context.Context, item *writeback.Item) error {
+	m := writebackToModel(item)
 	return r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "review_id"}, {Name: "finding_key"}, {Name: "kind"}},
 			DoNothing: true,
 		}).
-		Create(item).Error
+		Create(&m).Error
 }
 
 func (r *WritebackItemRepo) UpdateStatus(ctx context.Context, reviewID, findingKey, kind, status, externalID, providerURL, lastErr string) error {
@@ -55,25 +57,37 @@ func (r *WritebackItemRepo) IncrementAttempts(ctx context.Context, reviewID, fin
 		UpdateColumn("attempts", gormLib.Expr("attempts + 1")).Error
 }
 
-func (r *WritebackItemRepo) ListByReview(ctx context.Context, reviewID string) ([]models.WritebackItem, error) {
+func (r *WritebackItemRepo) ListByReview(ctx context.Context, reviewID string) ([]writeback.Item, error) {
 	var items []models.WritebackItem
-	err := r.db.WithContext(ctx).
+	if err := r.db.WithContext(ctx).
 		Where("review_id = ?", reviewID).
-		Find(&items).Error
-	return items, err
+		Find(&items).Error; err != nil {
+		return nil, err
+	}
+	out := make([]writeback.Item, len(items))
+	for i, m := range items {
+		out[i] = writebackToDomain(m)
+	}
+	return out, nil
 }
 
-func (r *WritebackItemRepo) ListRetryable(ctx context.Context, limit int) ([]models.WritebackItem, error) {
+func (r *WritebackItemRepo) ListRetryable(ctx context.Context, limit int) ([]writeback.Item, error) {
 	var items []models.WritebackItem
-	err := r.db.WithContext(ctx).
+	if err := r.db.WithContext(ctx).
 		Where("status IN ? AND attempts < ?", []string{"pending", "failed"}, 5).
 		Order("published_at").
 		Limit(limit).
-		Find(&items).Error
-	return items, err
+		Find(&items).Error; err != nil {
+		return nil, err
+	}
+	out := make([]writeback.Item, len(items))
+	for i, m := range items {
+		out[i] = writebackToDomain(m)
+	}
+	return out, nil
 }
 
-func (r *WritebackItemRepo) ListRecent(ctx context.Context, reviewID, status string, limit int) ([]models.WritebackItem, error) {
+func (r *WritebackItemRepo) ListRecent(ctx context.Context, reviewID, status string, limit int) ([]writeback.Item, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
@@ -85,8 +99,14 @@ func (r *WritebackItemRepo) ListRecent(ctx context.Context, reviewID, status str
 		db = db.Where("status = ?", status)
 	}
 	var items []models.WritebackItem
-	err := db.Order("COALESCE(published_at, 'epoch'::timestamp) DESC, id DESC").Limit(limit).Find(&items).Error
-	return items, err
+	if err := db.Order("COALESCE(published_at, 'epoch'::timestamp) DESC, id DESC").Limit(limit).Find(&items).Error; err != nil {
+		return nil, err
+	}
+	out := make([]writeback.Item, len(items))
+	for i, m := range items {
+		out[i] = writebackToDomain(m)
+	}
+	return out, nil
 }
 
 func (r *WritebackItemRepo) CountByStatus(ctx context.Context, since time.Time) (map[string]int64, error) {

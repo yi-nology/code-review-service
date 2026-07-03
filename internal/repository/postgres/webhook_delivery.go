@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	domainWebhook "github.com/yi-nology/code-review-service/internal/domain/webhook"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 
@@ -20,26 +21,28 @@ func NewWebhookDeliveryRepo(db *gormLib.DB) *WebhookDeliveryRepo {
 	return &WebhookDeliveryRepo{db: db}
 }
 
-func (r *WebhookDeliveryRepo) Create(ctx context.Context, d *models.WebhookDelivery) error {
+func (r *WebhookDeliveryRepo) Create(ctx context.Context, d *domainWebhook.Delivery) error {
+	m := deliveryToModel(d)
 	return r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "provider"}, {Name: "installation_id"}, {Name: "delivery_id"}},
 			DoNothing: true,
 		}).
-		Create(d).Error
+		Create(&m).Error
 }
 
-func (r *WebhookDeliveryRepo) Get(ctx context.Context, provider, installationID, deliveryID string) (*models.WebhookDelivery, error) {
-	var d models.WebhookDelivery
+func (r *WebhookDeliveryRepo) Get(ctx context.Context, provider, installationID, deliveryID string) (*domainWebhook.Delivery, error) {
+	var m models.WebhookDelivery
 	err := r.db.WithContext(ctx).
 		Where("provider = ? AND installation_id = ? AND delivery_id = ?", provider, installationID, deliveryID).
-		First(&d).Error
+		First(&m).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return nil, repoerr.ErrNotFound
 		}
 		return nil, err
 	}
+	d := deliveryToDomain(m)
 	return &d, nil
 }
 
@@ -58,7 +61,7 @@ func (r *WebhookDeliveryRepo) MarkProcessed(ctx context.Context, provider, insta
 		Updates(updates).Error
 }
 
-func (r *WebhookDeliveryRepo) ListRecent(ctx context.Context, provider, status string, limit int) ([]models.WebhookDelivery, error) {
+func (r *WebhookDeliveryRepo) ListRecent(ctx context.Context, provider, status string, limit int) ([]domainWebhook.Delivery, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
@@ -70,8 +73,14 @@ func (r *WebhookDeliveryRepo) ListRecent(ctx context.Context, provider, status s
 		db = db.Where("status = ?", status)
 	}
 	var items []models.WebhookDelivery
-	err := db.Order("received_at DESC").Limit(limit).Find(&items).Error
-	return items, err
+	if err := db.Order("received_at DESC").Limit(limit).Find(&items).Error; err != nil {
+		return nil, err
+	}
+	out := make([]domainWebhook.Delivery, len(items))
+	for i, m := range items {
+		out[i] = deliveryToDomain(m)
+	}
+	return out, nil
 }
 
 func (r *WebhookDeliveryRepo) CountByStatus(ctx context.Context, since time.Time) (map[string]int64, error) {

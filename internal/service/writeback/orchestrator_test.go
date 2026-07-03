@@ -5,15 +5,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	wbitem "github.com/yi-nology/code-review-service/internal/domain/writeback"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 type mockWritebackItemRepo struct {
-	items []models.WritebackItem
+	items []wbitem.Item
 }
 
-func (m *mockWritebackItemRepo) Create(_ context.Context, item *models.WritebackItem) error {
+func (m *mockWritebackItemRepo) Create(_ context.Context, item *wbitem.Item) error {
 	for _, existing := range m.items {
 		if existing.ReviewID == item.ReviewID && existing.FindingKey == item.FindingKey && existing.Kind == item.Kind {
 			return nil
@@ -48,15 +48,15 @@ func (m *mockWritebackItemRepo) IncrementAttempts(_ context.Context, reviewID, f
 	return nil
 }
 
-func (m *mockWritebackItemRepo) ListByReview(context.Context, string) ([]models.WritebackItem, error) {
+func (m *mockWritebackItemRepo) ListByReview(context.Context, string) ([]wbitem.Item, error) {
 	return m.items, nil
 }
 
-func (m *mockWritebackItemRepo) ListRetryable(context.Context, int) ([]models.WritebackItem, error) {
+func (m *mockWritebackItemRepo) ListRetryable(context.Context, int) ([]wbitem.Item, error) {
 	return m.items, nil
 }
 
-func (m *mockWritebackItemRepo) ListRecent(context.Context, string, string, int) ([]models.WritebackItem, error) {
+func (m *mockWritebackItemRepo) ListRecent(context.Context, string, string, int) ([]wbitem.Item, error) {
 	return m.items, nil
 }
 
@@ -116,13 +116,13 @@ func defaultWritebackResult(review Review) Result {
 	return result
 }
 
-func findWritebackItem(items []models.WritebackItem, key, kind string) (models.WritebackItem, bool) {
+func findWritebackItem(items []wbitem.Item, key, kind string) (wbitem.Item, bool) {
 	for _, item := range items {
 		if item.FindingKey == key && item.Kind == kind {
 			return item, true
 		}
 	}
-	return models.WritebackItem{}, false
+	return wbitem.Item{}, false
 }
 
 func testFindingKey() string {
@@ -213,7 +213,7 @@ func TestPublishFallsBackToProviderReviewID(t *testing.T) {
 }
 
 func TestPublishUpdatesExistingWritebackItemOnRetry(t *testing.T) {
-	repo := &mockWritebackItemRepo{items: []models.WritebackItem{{
+	repo := &mockWritebackItemRepo{items: []wbitem.Item{{
 		ReviewID:   "review-service-1",
 		FindingKey: testFindingKey(),
 		Kind:       "inline",
@@ -255,7 +255,7 @@ func TestPublishUpdatesExistingWritebackItemOnRetry(t *testing.T) {
 }
 
 func TestPublishSkipsAlreadyPublishedInlineComment(t *testing.T) {
-	repo := &mockWritebackItemRepo{items: []models.WritebackItem{{
+	repo := &mockWritebackItemRepo{items: []wbitem.Item{{
 		ReviewID:   "review-service-1",
 		FindingKey: testFindingKey(),
 		Kind:       "inline",
@@ -294,7 +294,7 @@ func TestPublishSkipsAlreadyPublishedInlineComment(t *testing.T) {
 }
 
 func TestPublishSkipsWhenSummaryAndInlineAlreadyPublished(t *testing.T) {
-	repo := &mockWritebackItemRepo{items: []models.WritebackItem{
+	repo := &mockWritebackItemRepo{items: []wbitem.Item{
 		{ReviewID: "review-service-1", FindingKey: summaryFindingKey, Kind: "summary", Status: "published", Attempts: 1},
 		{ReviewID: "review-service-1", FindingKey: testFindingKey(), Kind: "inline", Status: "published", Attempts: 1},
 	}}
@@ -329,7 +329,7 @@ func TestPublishSkipsWhenSummaryAndInlineAlreadyPublished(t *testing.T) {
 }
 
 func TestPublishWithForceRepublishesAlreadyPublishedItems(t *testing.T) {
-	repo := &mockWritebackItemRepo{items: []models.WritebackItem{
+	repo := &mockWritebackItemRepo{items: []wbitem.Item{
 		{ReviewID: "review-service-1", FindingKey: summaryFindingKey, Kind: "summary", Status: "published", Attempts: 1},
 		{ReviewID: "review-service-1", FindingKey: testFindingKey(), Kind: "inline", Status: "published", Attempts: 1},
 	}}
@@ -372,7 +372,7 @@ func TestPublishWithForceRepublishesAlreadyPublishedItems(t *testing.T) {
 }
 
 func TestStatusSummarizesWritebackItems(t *testing.T) {
-	repo := &mockWritebackItemRepo{items: []models.WritebackItem{
+	repo := &mockWritebackItemRepo{items: []wbitem.Item{
 		{ReviewID: "r1", FindingKey: "a", Kind: "inline", Status: "published", Attempts: 1},
 		{ReviewID: "r1", FindingKey: "b", Kind: "inline", Status: "failed", Attempts: 2, LastError: "bad"},
 		{ReviewID: "r1", FindingKey: "c", Kind: "inline", Status: "downgraded", Attempts: 1},

@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/revision"
+	domainWebhook "github.com/yi-nology/code-review-service/internal/domain/webhook"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 
 	"github.com/oekit/logx"
-	"gorm.io/datatypes"
 )
 
 // ErrSignatureMismatch 表示 webhook 签名校验失败。
@@ -92,14 +92,14 @@ func (s *Service) HandleWebhook(ctx context.Context, provider, installationID st
 		return &HandleResult{Duplicate: true}, nil
 	}
 
-	delivery := &models.WebhookDelivery{
+	delivery := &domainWebhook.Delivery{
 		Provider:       provider,
 		InstallationID: installationID,
 		DeliveryID:     deliveryID,
 		EventType:      eventType,
 		Action:         "received",
 		PayloadSHA256:  payloadSHA256,
-		Payload:        datatypes.JSON(rawBody),
+		Payload:        json.RawMessage(rawBody),
 		Status:         "received",
 		ReceivedAt:     time.Now().UTC(),
 	}
@@ -146,7 +146,7 @@ func (s *Service) HandleWebhook(ctx context.Context, provider, installationID st
 }
 
 func (s *Service) RecordRevision(ctx context.Context, event *ChangeEvent, reviewID string) error {
-	return s.changeRevisionRepo.Upsert(ctx, &models.ChangeRevision{
+	return s.changeRevisionRepo.Upsert(ctx, &revision.Change{
 		Provider:       event.Provider,
 		InstallationID: event.InstallationID,
 		RepositoryID:   event.RepositoryID,

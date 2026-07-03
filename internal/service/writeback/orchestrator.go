@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	wbitem "github.com/yi-nology/code-review-service/internal/domain/writeback"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/types"
 
@@ -71,7 +71,7 @@ func (o *Orchestrator) PublishWithOptions(ctx context.Context, req domain.Reques
 		HeadSHA:    req.HeadSHA,
 	}
 	serviceReviewID := strings.TrimSpace(req.ReviewID)
-	existingItems := map[string]models.WritebackItem{}
+	existingItems := map[string]wbitem.Item{}
 	if serviceReviewID != "" && o.itemRepo != nil {
 		items, err := o.itemRepo.ListByReview(ctx, serviceReviewID)
 		if err != nil {
@@ -176,7 +176,7 @@ func (o *Orchestrator) PublishWithOptions(ctx context.Context, req domain.Reques
 
 	published, failed := 0, 0
 	if serviceReviewID != "" && o.itemRepo != nil && strings.TrimSpace(summaryBody) != "" {
-		if err := o.itemRepo.Create(ctx, &models.WritebackItem{
+		if err := o.itemRepo.Create(ctx, &wbitem.Item{
 			ReviewID:   serviceReviewID,
 			FindingKey: summaryFindingKey,
 			Kind:       "summary",
@@ -207,7 +207,7 @@ func (o *Orchestrator) PublishWithOptions(ctx context.Context, req domain.Reques
 		if o.itemRepo == nil {
 			continue
 		}
-		if err := o.itemRepo.Create(ctx, &models.WritebackItem{
+		if err := o.itemRepo.Create(ctx, &wbitem.Item{
 			ReviewID:   serviceReviewID,
 			FindingKey: cr.Key,
 			Kind:       "inline",
@@ -238,7 +238,7 @@ func writebackItemKey(findingKey, kind string) string {
 	return kind + "\x00" + findingKey
 }
 
-func isPublishedWritebackItem(item models.WritebackItem) bool {
+func isPublishedWritebackItem(item wbitem.Item) bool {
 	return item.Status == "published" || item.Status == "downgraded"
 }
 

@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/domain/platform"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
@@ -22,9 +22,9 @@ type ReviewService interface {
 }
 
 type GitProviderManager interface {
-	AddOrUpdateFromDB(p *models.GitPlatform) error
+	AddOrUpdateFromDB(p *platform.Platform) error
 	Remove(name string)
-	TestWithToken(ctx context.Context, platform, baseURL, token string, skipTLS bool) (*models.GitTestResult, error)
+	TestWithToken(ctx context.Context, platform, baseURL, token string, skipTLS bool) (*platform.TestResult, error)
 	HasProvider(platform string) bool
 	ListRepos(ctx context.Context, platform string, opts provider.ListRepoOptions) ([]*provider.PlatformRepo, error)
 	ListBranches(ctx context.Context, platform, owner, repo string) ([]*provider.PlatformBranch, error)

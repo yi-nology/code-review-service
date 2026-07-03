@@ -6,8 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/webhook"
+	"github.com/yi-nology/code-review-service/internal/domain/writeback"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 )
 
 type Service struct {
@@ -30,8 +31,8 @@ type Snapshot struct {
 	SinceHours      int                      `json:"since_hours"`
 	Webhooks        map[string]int64         `json:"webhooks"`
 	Writebacks      map[string]int64         `json:"writebacks"`
-	RecentWebhooks  []models.WebhookDelivery `json:"recent_webhooks"`
-	RecentWriteback []models.WritebackItem   `json:"recent_writebacks"`
+	RecentWebhooks  []webhook.Delivery `json:"recent_webhooks"`
+	RecentWriteback []writeback.Item   `json:"recent_writebacks"`
 	Recommendations []Recommendation         `json:"recommendations"`
 	GeneratedAt     time.Time                `json:"generated_at"`
 }

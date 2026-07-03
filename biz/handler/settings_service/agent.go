@@ -2,16 +2,16 @@ package settings_service
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/domain/reviewer"
 
 	"github.com/oekit/pkg/ptrx"
 	"github.com/oekit/pkg/slicex"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"gorm.io/datatypes"
 )
 
 func ListReviewerAgents(ctx context.Context, c *app.RequestContext) {
@@ -20,7 +20,7 @@ func ListReviewerAgents(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, err)
 		return
 	}
-	items := slicex.Map(agents, func(a models.ReviewerAgent) *modelSettings.ReviewerAgentInfo {
+	items := slicex.Map(agents, func(a reviewer.Agent) *modelSettings.ReviewerAgentInfo {
 		return dbReviewerAgentToAPI(&a)
 	})
 	common.Success(c, &modelSettings.ListReviewerAgentsResp{Agents: items})
@@ -31,7 +31,7 @@ func CreateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	if !ok {
 		return
 	}
-	agent := &models.ReviewerAgent{
+	agent := &reviewer.Agent{
 		Name: req.Name, DisplayName: req.DisplayName, Description: ptrx.Deref(req.Description, ""),
 		Background: req.Background, Enabled: true, Redundancy: 1,
 	}
@@ -51,7 +51,7 @@ func CreateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 		agent.IsDefault = *req.IsDefault
 	}
 	if len(req.Tags) > 0 {
-		agent.Tags = datatypes.JSON(mustMarshalJSON(req.Tags))
+		agent.Tags = json.RawMessage(mustMarshalJSON(req.Tags))
 	}
 	if err := handlerInst.agentRepo.Create(ctx, agent); err != nil {
 		common.Fail(c, err)
@@ -100,7 +100,7 @@ func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 		existing.IsDefault = *req.IsDefault
 	}
 	if req.Tags != nil {
-		existing.Tags = datatypes.JSON(mustMarshalJSON(req.Tags))
+		existing.Tags = json.RawMessage(mustMarshalJSON(req.Tags))
 	}
 	if err := handlerInst.agentRepo.Update(ctx, existing); err != nil {
 		common.Fail(c, err)
@@ -126,7 +126,7 @@ func DeleteReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelSettings.DeleteReviewerAgentResp{})
 }
 
-func dbReviewerAgentToAPI(a *models.ReviewerAgent) *modelSettings.ReviewerAgentInfo {
+func dbReviewerAgentToAPI(a *reviewer.Agent) *modelSettings.ReviewerAgentInfo {
 	if a == nil {
 		return nil
 	}

@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
+	"github.com/yi-nology/code-review-service/internal/domain/platform"
 	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	"github.com/oekit/pkg/ptrx"
 	"github.com/oekit/pkg/slicex"
@@ -20,7 +20,7 @@ func ListPlatforms(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, err)
 		return
 	}
-	platforms := slicex.Map(items, func(item models.GitPlatform) *modelSettings.GitPlatformInfo {
+	platforms := slicex.Map(items, func(item platform.Platform) *modelSettings.GitPlatformInfo {
 		return &modelSettings.GitPlatformInfo{
 			Provider: item.Provider, BaseURL: item.BaseURL,
 			Token: common.MaskToken(item.Token), Enabled: item.Enabled,
@@ -60,7 +60,7 @@ func PutPlatform(ctx context.Context, c *app.RequestContext) {
 	if installationID == "" {
 		installationID = "default"
 	}
-	p := &models.GitPlatform{
+	p := &platform.Platform{
 		Provider: req.Provider, BaseURL: ptrx.Deref(req.BaseURL, ""),
 		Token: token, WebhookSecret: ptrx.Deref(req.WebhookSecret, ""), Enabled: enabled,
 		InstallationID: installationID, SkipTLS: ptrx.Deref(req.SkipTLS, false),
