@@ -8,6 +8,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/domain/platform"
 	"github.com/yi-nology/code-review-service/internal/domain/reviewer"
 	"github.com/yi-nology/code-review-service/internal/domain/revision"
+	"github.com/yi-nology/code-review-service/internal/domain/rules"
 	domainWebhook "github.com/yi-nology/code-review-service/internal/domain/webhook"
 	"github.com/yi-nology/code-review-service/internal/domain/writeback"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
@@ -244,8 +245,7 @@ func customProviderToDomain(m models.CustomProvider) llmprovider.Custom {
 
 // ---- webhook delivery ----
 
-func deliveryToModel(d *domainWebhook.Delivery) models.WebhookDelivery {
-	return models.WebhookDelivery{
+func deliveryToModel(d *domainWebhook.Delivery) models.WebhookDelivery {	return models.WebhookDelivery{
 		Provider:       d.Provider,
 		InstallationID: d.InstallationID,
 		DeliveryID:     d.DeliveryID,
@@ -273,4 +273,14 @@ func deliveryToDomain(m models.WebhookDelivery) domainWebhook.Delivery {
 		ReceivedAt:     m.ReceivedAt,
 		ProcessedAt:    m.ProcessedAt,
 	}
+}
+
+// ---- global rules ----
+
+func globalRulesToModel(g *rules.Global) models.GlobalRules {
+	return models.GlobalRules{Rules: dataTypeJSON(g.Content)}
+}
+
+func globalRulesToDomain(m models.GlobalRules) rules.Global {
+	return rules.Global{Content: rawJSON(m.Rules)}
 }

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/yi-nology/code-review-service/internal/domain/rules"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 )
 
@@ -19,8 +20,8 @@ type ProjectPolicyRepository interface {
 }
 
 type GlobalRulesRepository interface {
-	Get(ctx context.Context) (*models.GlobalRules, error)
-	Save(ctx context.Context, rules *models.GlobalRules) error
+	Get(ctx context.Context) (*rules.Global, error)
+	Save(ctx context.Context, rules *rules.Global) error
 }
 
 type OCRRulePackageRepository interface {
