@@ -2,38 +2,31 @@ package review
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-
-	"gorm.io/datatypes"
 )
 
-func (s *Service) updateWithRawOCR(ctx context.Context, id string, req domain.Request, response domain.Response, rawOCR json.RawMessage) error {
+// updateWithRawOCR 更新评审的 Response/RawOCR（#6 keystone：domain.Record 强类型，
+// 不再做 JSONB marshal/unmarshal 往返）。
+func (s *Service) updateWithRawOCR(ctx context.Context, id string, req domain.Request, response domain.Response, rawOCR []byte) error {
 	review, err := s.reviewRepo.GetByReviewID(ctx, id)
 	if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
 		return err
 	}
 	if review == nil {
-		review = &models.Review{
-			ReviewID: id,
+		review = &domain.Record{
+			ID:       id,
 			Provider: req.Provider,
 			Repo:     req.Repo,
-			Request:  mustMarshal(req),
+			Request:  req,
 			Status:   response.Status,
 		}
 	}
 
-	var previousResponse domain.Response
-	if err := json.Unmarshal(review.Response, &previousResponse); err != nil {
-		return fmt.Errorf("decode previous response: %w", err)
-	}
-
+	previousResponse := review.Response
 	previousStatus := previousResponse.Status
 	previousHistory := append([]domain.Event(nil), previousResponse.History...)
 
@@ -50,9 +43,9 @@ func (s *Service) updateWithRawOCR(ctx context.Context, id string, req domain.Re
 	}
 
 	review.Status = response.Status
-	review.Response = mustMarshal(response)
+	review.Response = response
 	if len(rawOCR) > 0 {
-		review.RawOCR = datatypes.JSON(rawOCR)
+		review.RawOCR = rawOCR
 	}
 	review.UpdatedAt = time.Now().UTC()
 	return s.reviewRepo.Save(ctx, review)

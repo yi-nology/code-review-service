@@ -2,12 +2,10 @@ package review
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
@@ -31,17 +29,13 @@ func (s *Service) Requeue(ctx context.Context, reviewID string) (domain.Response
 	}
 
 	var resultResp domain.Response
-	err := s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *models.Review) error {
+	err := s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *domain.Record) error {
 		switch review.Status {
 		case StatusQueued, statusRunning:
 			return fmt.Errorf("%w: review is %s, only failed or completed reviews can be re-run", ErrInvalidState, review.Status)
 		}
 
-		var resp domain.Response
-		if err := json.Unmarshal(review.Response, &resp); err != nil {
-			return fmt.Errorf("decode response: %w", err)
-		}
-
+		resp := review.Response
 		resp.Status = StatusQueued
 		resp.Summary = "review re-queued"
 		resp.Gate = domain.PendingGate()
@@ -57,7 +51,7 @@ func (s *Service) Requeue(ctx context.Context, reviewID string) (domain.Response
 		})
 
 		review.Status = StatusQueued
-		review.Response = mustMarshal(resp)
+		review.Response = resp
 		review.UpdatedAt = time.Now().UTC()
 		resultResp = resp
 		return nil
@@ -86,16 +80,12 @@ func (s *Service) Cancel(ctx context.Context, reviewID string) (domain.Response,
 	}
 
 	var resultResp domain.Response
-	err := s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *models.Review) error {
+	err := s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *domain.Record) error {
 		if review.Status != StatusQueued && review.Status != statusRunning {
 			return fmt.Errorf("%w: only queued or running reviews can be cancelled (current: %s)", ErrInvalidState, review.Status)
 		}
 
-		var resp domain.Response
-		if err := json.Unmarshal(review.Response, &resp); err != nil {
-			return fmt.Errorf("decode response: %w", err)
-		}
-
+		resp := review.Response
 		resp.Status = statusFailed
 		resp.Summary = "review cancelled by user"
 		resp.Gate = domain.ErrorGate("review cancelled")
@@ -107,7 +97,7 @@ func (s *Service) Cancel(ctx context.Context, reviewID string) (domain.Response,
 		})
 
 		review.Status = statusFailed
-		review.Response = mustMarshal(resp)
+		review.Response = resp
 		review.UpdatedAt = time.Now().UTC()
 		resultResp = resp
 		return nil

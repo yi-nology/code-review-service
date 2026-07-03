@@ -12,7 +12,6 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
@@ -26,21 +25,21 @@ import (
 
 type mockReviewRepo struct {
 	mu        sync.Mutex
-	reviews   []*models.Review
+	reviews   []*domain.Record
 	saveErr   error
 	createErr error
-	claimFn   func(ctx context.Context, limit int) ([]models.Review, error)
+	claimFn   func(ctx context.Context, limit int) ([]domain.Record, error)
 }
 
-func (m *mockReviewRepo) Create(_ context.Context, r *models.Review) error {
+func (m *mockReviewRepo) Create(_ context.Context, r *domain.Record) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.createErr != nil {
 		return m.createErr
 	}
-	if r.IdempotencyKey != nil {
+	if r.IdempotencyKey != "" {
 		for _, existing := range m.reviews {
-			if existing.IdempotencyKey != nil && *existing.IdempotencyKey == *r.IdempotencyKey {
+			if existing.IdempotencyKey != "" && existing.IdempotencyKey == r.IdempotencyKey {
 				return &pgconn.PgError{Code: "23505"}
 			}
 		}
@@ -49,14 +48,14 @@ func (m *mockReviewRepo) Create(_ context.Context, r *models.Review) error {
 	return nil
 }
 
-func (m *mockReviewRepo) Save(_ context.Context, r *models.Review) error {
+func (m *mockReviewRepo) Save(_ context.Context, r *domain.Record) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.saveErr != nil {
 		return m.saveErr
 	}
 	for i, existing := range m.reviews {
-		if existing.ReviewID == r.ReviewID {
+		if existing.ID == r.ID {
 			m.reviews[i] = r
 			return nil
 		}
@@ -65,29 +64,29 @@ func (m *mockReviewRepo) Save(_ context.Context, r *models.Review) error {
 	return nil
 }
 
-func (m *mockReviewRepo) GetByReviewID(_ context.Context, reviewID string) (*models.Review, error) {
+func (m *mockReviewRepo) GetByReviewID(_ context.Context, reviewID string) (*domain.Record, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, r := range m.reviews {
-		if r.ReviewID == reviewID {
+		if r.ID == reviewID {
 			return r, nil
 		}
 	}
 	return nil, repoerr.ErrNotFound
 }
 
-func (m *mockReviewRepo) GetByIdempotencyKey(_ context.Context, key string) (*models.Review, error) {
+func (m *mockReviewRepo) GetByIdempotencyKey(_ context.Context, key string) (*domain.Record, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, r := range m.reviews {
-		if r.IdempotencyKey != nil && *r.IdempotencyKey == key {
+		if r.IdempotencyKey != "" && r.IdempotencyKey == key {
 			return r, nil
 		}
 	}
 	return nil, repoerr.ErrNotFound
 }
 
-func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, provider, repo, pullRequestID, mergeRequestIID string) (*models.Review, error) {
+func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, provider, repo, pullRequestID, mergeRequestIID string) (*domain.Record, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, r := range m.reviews {
@@ -108,23 +107,23 @@ func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, provider, re
 	return nil, repoerr.ErrNotFound
 }
 
-func (m *mockReviewRepo) List(_ context.Context, opts models.ListOptions) (*ekitGorm.PageResponse[models.Review], error) {
-	return &ekitGorm.PageResponse[models.Review]{List: nil, Total: 0}, nil
+func (m *mockReviewRepo) List(_ context.Context, opts domain.ListOptions) (*ekitGorm.PageResponse[domain.Record], error) {
+	return &ekitGorm.PageResponse[domain.Record]{List: nil, Total: 0}, nil
 }
 
-func (m *mockReviewRepo) AggregateStats(_ context.Context, _ models.ListOptions) (*models.AggregateStats, error) {
-	return &models.AggregateStats{}, nil
+func (m *mockReviewRepo) AggregateStats(_ context.Context, _ domain.ListOptions) (*domain.AggregateStats, error) {
+	return &domain.AggregateStats{}, nil
 }
 
-func (m *mockReviewRepo) ProjectOCRMetrics(_ context.Context, _ models.ProjectStatsOptions) (*models.ProjectOCRMetrics, error) {
-	return &models.ProjectOCRMetrics{}, nil
+func (m *mockReviewRepo) ProjectOCRMetrics(_ context.Context, _ domain.ProjectStatsOptions) (*domain.ProjectOCRMetrics, error) {
+	return &domain.ProjectOCRMetrics{}, nil
 }
 
-func (m *mockReviewRepo) ProjectOCRTrend(_ context.Context, _ models.ProjectStatsOptions) ([]models.ProjectOCRTrendPoint, error) {
+func (m *mockReviewRepo) ProjectOCRTrend(_ context.Context, _ domain.ProjectStatsOptions) ([]domain.ProjectOCRTrendPoint, error) {
 	return nil, nil
 }
 
-func (m *mockReviewRepo) ClaimQueued(ctx context.Context, limit int) ([]models.Review, error) {
+func (m *mockReviewRepo) ClaimQueued(ctx context.Context, limit int) ([]domain.Record, error) {
 	m.mu.Lock()
 	fn := m.claimFn
 	m.mu.Unlock()
@@ -138,24 +137,24 @@ func (m *mockReviewRepo) RequeueStale(_ context.Context, _ time.Time) (int64, er
 	return 0, nil
 }
 
-func (m *mockReviewRepo) UpdateInTransaction(_ context.Context, reviewID string, fn func(review *models.Review) error) error {
+func (m *mockReviewRepo) UpdateInTransaction(_ context.Context, reviewID string, fn func(review *domain.Record) error) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, r := range m.reviews {
-		if r.ReviewID == reviewID {
+		if r.ID == reviewID {
 			return fn(r)
 		}
 	}
 	return repoerr.ErrNotFound
 }
 
-func (m *mockReviewRepo) snapshot() []*models.Review {
+func (m *mockReviewRepo) snapshot() []*domain.Record {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	// 返回值的深拷贝而非原始指针：async scan goroutine 会在锁外通过
 	// UpdateInTransaction 就地改写这些对象，若 snapshot 只复制指针切片，
 	// 测试 goroutine 读取字段时与异步写并发会造成数据竞争（race）。
-	out := make([]*models.Review, len(m.reviews))
+	out := make([]*domain.Record, len(m.reviews))
 	for i, r := range m.reviews {
 		clone := *r
 		out[i] = &clone
@@ -310,7 +309,7 @@ func (m *mockReviewRepo) updateReviewStatus(id, status string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, r := range m.reviews {
-		if r.ReviewID == id {
+		if r.ID == id {
 			r.Status = status
 			break
 		}
@@ -321,7 +320,7 @@ func (m *mockReviewRepoWithActive) updateReviewStatus(id, status string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, r := range m.reviews {
-		if r.ReviewID == id {
+		if r.ID == id {
 			r.Status = status
 			break
 		}
@@ -428,8 +427,8 @@ func TestCreateAsyncStaysQueuedUntilWorkerClaimsIt(t *testing.T) {
 		t.Fatalf("expected status queued, got %s", resp.Status)
 	}
 
-	claimed := make([]models.Review, 0)
-	repo.claimFn = func(_ context.Context, _ int) ([]models.Review, error) {
+	claimed := make([]domain.Record, 0)
+	repo.claimFn = func(_ context.Context, _ int) ([]domain.Record, error) {
 		if len(claimed) > 0 {
 			return nil, nil
 		}
@@ -438,7 +437,7 @@ func TestCreateAsyncStaysQueuedUntilWorkerClaimsIt(t *testing.T) {
 			if r.Status == "queued" {
 				r.Status = "running"
 				claimed = append(claimed, *r)
-				return []models.Review{*r}, nil
+				return []domain.Record{*r}, nil
 			}
 		}
 		return nil, nil
@@ -451,7 +450,7 @@ func TestCreateAsyncStaysQueuedUntilWorkerClaimsIt(t *testing.T) {
 
 	var lastStatus string
 	for _, r := range repo.snapshot() {
-		if r.ReviewID == resp.ReviewID {
+		if r.ID == resp.ReviewID {
 			lastStatus = r.Status
 		}
 	}
@@ -528,7 +527,7 @@ func TestCreateWithIdempotencyKeyReturnsExistingReview(t *testing.T) {
 
 	savedCount := 0
 	for _, r := range repo.snapshot() {
-		if r.ReviewID == resp1.ReviewID {
+		if r.ID == resp1.ReviewID {
 			savedCount++
 		}
 	}
@@ -893,10 +892,10 @@ func (r *countingRunner) Run(_ context.Context, _ domain.Workspace) (domain.Resu
 
 type mockReviewRepoWithActive struct {
 	mockReviewRepo
-	activeReview *models.Review
+	activeReview *domain.Record
 }
 
-func (m *mockReviewRepoWithActive) GetActiveByProviderRepo(_ context.Context, provider, repo, pullRequestID, mergeRequestIID string) (*models.Review, error) {
+func (m *mockReviewRepoWithActive) GetActiveByProviderRepo(_ context.Context, provider, repo, pullRequestID, mergeRequestIID string) (*domain.Record, error) {
 	if m.activeReview != nil && m.activeReview.Provider == provider && m.activeReview.Repo == repo {
 		if pullRequestID != "" && m.activeReview.PullRequestID != pullRequestID {
 			return nil, repoerr.ErrNotFound
@@ -914,20 +913,18 @@ func TestFindActiveReviewReturnsExisting(t *testing.T) {
 	req := validRequest()
 	req.PullRequestID = "42"
 
-	activeReview := &models.Review{
-		ReviewID:      "existing-review",
-		Provider:      req.Provider,
-		Repo:          req.Repo,
-		PullRequestID: req.PullRequestID,
-		Status:        "queued",
-		Request:       mustMarshalJSON(req),
-		Response: mustMarshalJSON(domain.Response{
+	activeRepo.activeReview = &domain.Record{
+		ID:       "existing-review",
+		Provider: req.Provider,
+		Repo:     req.Repo,
+		PullRequestID: "42",
+		Status:   "queued",
+		Response: domain.Response{
 			ReviewID: "existing-review",
 			Status:   "queued",
 			Summary:  "queued",
-		}),
+		},
 	}
-	activeRepo.activeReview = activeReview
 
 	svc := review.NewService(review.ServiceConfig{
 		ReviewRepo:      activeRepo,
@@ -954,9 +951,9 @@ func TestFindActiveReviewReturnsExisting(t *testing.T) {
 // 这验证了 SQL 层下推的正确性：PR 不匹配根本不会进入 review 记录。
 func TestFindActiveReview_PRIDMismatchIgnored(t *testing.T) {
 	activeRepo := &mockReviewRepo{}
-	activeRepo.reviews = []*models.Review{
+	activeRepo.reviews = []*domain.Record{
 		{
-			ReviewID:      "another-review",
+			ID:               "another-review",
 			Provider:      "github",
 			Repo:          "owner/repo",
 			PullRequestID: "999", // 不匹配
@@ -977,9 +974,9 @@ func TestFindActiveReview_PRIDMismatchIgnored(t *testing.T) {
 // TestFindActiveReview_PRIDMatch 验证 PR-02 修复：PR ID 匹配时能找到 review。
 func TestFindActiveReview_PRIDMatch(t *testing.T) {
 	activeRepo := &mockReviewRepo{}
-	activeRepo.reviews = []*models.Review{
+	activeRepo.reviews = []*domain.Record{
 		{
-			ReviewID:      "matching-review",
+			ID:               "matching-review",
 			Provider:      "github",
 			Repo:          "owner/repo",
 			PullRequestID: "42",
@@ -994,8 +991,8 @@ func TestFindActiveReview_PRIDMatch(t *testing.T) {
 	if got == nil {
 		t.Fatalf("expected to find review, got nil")
 	}
-	if got.ReviewID != "matching-review" {
-		t.Fatalf("expected matching-review, got %s", got.ReviewID)
+	if got.ID != "matching-review" {
+		t.Fatalf("expected matching-review, got %s", got.ID)
 	}
 }
 
@@ -1075,10 +1072,10 @@ func TestScanRecordsRawOCRInput(t *testing.T) {
 	}
 
 	deadline := time.Now().Add(5 * time.Second)
-	var saved *models.Review
+	var saved *domain.Record
 	for time.Now().Before(deadline) {
 		for _, r := range repo.snapshot() {
-			if r.ReviewID == result.ReviewID {
+			if r.ID == result.ReviewID {
 				saved = r
 			}
 		}

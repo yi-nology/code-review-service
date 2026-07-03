@@ -8,6 +8,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	ekitGorm "github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 	"github.com/oekit/pkg/pagination"
 
@@ -22,54 +23,83 @@ func NewReviewRepo(db *gormLib.DB) *ReviewRepo {
 	return &ReviewRepo{db: db}
 }
 
-func (r *ReviewRepo) Create(ctx context.Context, review *models.Review) error {
-	return r.db.WithContext(ctx).Create(review).Error
+func (r *ReviewRepo) Create(ctx context.Context, review *domain.Record) error {
+	m, err := reviewToModel(review)
+	if err != nil {
+		return err
+	}
+	if !review.CreatedAt.IsZero() {
+		m.CreatedAt = review.CreatedAt
+	}
+	if !review.UpdatedAt.IsZero() {
+		m.UpdatedAt = review.UpdatedAt
+	}
+	return r.db.WithContext(ctx).Create(&m).Error
 }
 
-func (r *ReviewRepo) Save(ctx context.Context, review *models.Review) error {
-	return r.db.WithContext(ctx).Save(review).Error
+// Save 按 review_id（业务键）定位现有行的 gorm 自增主键后整体保存。
+// domain.Record 不携带 gorm ID，故需先查（同 Session.Update 模式）。
+func (r *ReviewRepo) Save(ctx context.Context, review *domain.Record) error {
+	m, err := reviewToModel(review)
+	if err != nil {
+		return err
+	}
+	var existing models.Review
+	if err := r.db.WithContext(ctx).Where("review_id = ?", review.ID).First(&existing).Error; err != nil {
+		if errors.Is(err, gormLib.ErrRecordNotFound) {
+			// 不存在：创建（保留 domain 时间戳）
+			if !review.CreatedAt.IsZero() {
+				m.CreatedAt = review.CreatedAt
+			}
+			if !review.UpdatedAt.IsZero() {
+				m.UpdatedAt = review.UpdatedAt
+			}
+			return r.db.WithContext(ctx).Create(&m).Error
+		}
+		return err
+	}
+	m.ID = existing.ID
+	m.CreatedAt = existing.CreatedAt
+	if !review.UpdatedAt.IsZero() {
+		m.UpdatedAt = review.UpdatedAt
+	}
+	return r.db.WithContext(ctx).Save(&m).Error
 }
 
-func (r *ReviewRepo) GetByReviewID(ctx context.Context, reviewID string) (*models.Review, error) {
-	var review models.Review
+func (r *ReviewRepo) GetByReviewID(ctx context.Context, reviewID string) (*domain.Record, error) {
+	var m models.Review
 	err := r.db.WithContext(ctx).
 		Where("review_id = ?", reviewID).
-		First(&review).Error
+		First(&m).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return nil, repoerr.ErrNotFound
 		}
 		return nil, err
 	}
-	return &review, nil
+	d := reviewToDomain(m)
+	return &d, nil
 }
 
-func (r *ReviewRepo) GetByIdempotencyKey(ctx context.Context, key string) (*models.Review, error) {
-	var review models.Review
+func (r *ReviewRepo) GetByIdempotencyKey(ctx context.Context, key string) (*domain.Record, error) {
+	var m models.Review
 	err := r.db.WithContext(ctx).
 		Where("idempotency_key = ?", key).
-		First(&review).Error
+		First(&m).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return nil, repoerr.ErrNotFound
 		}
 		return nil, err
 	}
-	return &review, nil
+	d := reviewToDomain(m)
+	return &d, nil
 }
 
 // GetActiveByProviderRepo 返回 (provider, repo) 下处于 queued/running 的最近一条 review。
-//
-// 关键修复（PR-02）：pullRequestID / mergeRequestIID 任一非空时，把 PR/MR 过滤推到 SQL，
-// 避免 service 层先全表扫再 JSONB unmarshal 导致的 TOCTOU。
-// PR-02 之前：service 端 unmarshal 整条 response JSONB 比较 pull_request_id；
-// PR-02 之后：单条 SQL 完成 (provider, repo, pr_or_mr, status) 四元组过滤。
-//
-// 当两个参数都为空时（scan 路径），仅按 (provider, repo, status) 过滤；
-// 这种情况的并发安全由 db.go 中 idx_reviews_active_change 部分唯一索引兜底，
-// 但需要 Scan 路径也在 PR/MR/SHA 维度做等价匹配（见 service.scanExecuteWithPolicy）。
-func (r *ReviewRepo) GetActiveByProviderRepo(ctx context.Context, provider, repo, pullRequestID, mergeRequestIID string) (*models.Review, error) {
-	var review models.Review
+// pullRequestID / mergeRequestIID 任一非空时把 PR/MR 过滤推到 SQL，避免 service 层 TOCTOU。
+func (r *ReviewRepo) GetActiveByProviderRepo(ctx context.Context, provider, repo, pullRequestID, mergeRequestIID string) (*domain.Record, error) {
+	var m models.Review
 	db := r.db.WithContext(ctx).
 		Where("provider = ? AND repo = ? AND status IN ?", provider, repo, []string{"queued", "running"})
 
@@ -80,20 +110,21 @@ func (r *ReviewRepo) GetActiveByProviderRepo(ctx context.Context, provider, repo
 		db = db.Where("merge_request_iid = ?", mergeRequestIID)
 	}
 
-	err := db.Order("created_at DESC").First(&review).Error
+	err := db.Order("created_at DESC").First(&m).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return nil, repoerr.ErrNotFound
 		}
 		return nil, err
 	}
-	return &review, nil
+	d := reviewToDomain(m)
+	return &d, nil
 }
 
-func (r *ReviewRepo) List(ctx context.Context, opts models.ListOptions) (*ekitGorm.PageResponse[models.Review], error) {
+func (r *ReviewRepo) List(ctx context.Context, opts domain.ListOptions) (*ekitGorm.PageResponse[domain.Record], error) {
 	req := pagination.NewPageRequest(opts.Page, opts.PageSize)
 
-	return ekitGorm.Paginate[models.Review](r.db.WithContext(ctx).Model(&models.Review{}), req, func(db *gormLib.DB) *gormLib.DB {
+	resp, err := ekitGorm.Paginate[models.Review](r.db.WithContext(ctx).Model(&models.Review{}), req, func(db *gormLib.DB) *gormLib.DB {
 		if opts.Status != "" {
 			db = db.Where("status = ?", opts.Status)
 		}
@@ -108,10 +139,21 @@ func (r *ReviewRepo) List(ctx context.Context, opts models.ListOptions) (*ekitGo
 		}
 		return db.Order("created_at DESC")
 	})
+	if err != nil {
+		return nil, err
+	}
+	out := &ekitGorm.PageResponse[domain.Record]{
+		List:  make([]domain.Record, len(resp.List)),
+		Total: resp.Total,
+	}
+	for i, m := range resp.List {
+		out.List[i] = reviewToDomain(m)
+	}
+	return out, nil
 }
 
-func (r *ReviewRepo) ClaimQueued(ctx context.Context, limit int) ([]models.Review, error) {
-	var reviews []models.Review
+func (r *ReviewRepo) ClaimQueued(ctx context.Context, limit int) ([]domain.Record, error) {
+	var ms []models.Review
 
 	err := ekitGorm.InTransactionContext(ctx, r.db, func(tx *gormLib.DB) error {
 		return tx.Raw(`
@@ -127,10 +169,16 @@ func (r *ReviewRepo) ClaimQueued(ctx context.Context, limit int) ([]models.Revie
 			FROM claimed
 			WHERE r.id = claimed.id
 			RETURNING r.*
-		`, limit).Scan(&reviews).Error
+		`, limit).Scan(&ms).Error
 	})
-
-	return reviews, err
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.Record, len(ms))
+	for i, m := range ms {
+		out[i] = reviewToDomain(m)
+	}
+	return out, nil
 }
 
 func (r *ReviewRepo) RequeueStale(ctx context.Context, before time.Time) (int64, error) {
@@ -144,23 +192,31 @@ func (r *ReviewRepo) RequeueStale(ctx context.Context, before time.Time) (int64,
 	return result.RowsAffected, result.Error
 }
 
-func (r *ReviewRepo) UpdateInTransaction(ctx context.Context, reviewID string, fn func(review *models.Review) error) error {
+// UpdateInTransaction 在事务内把 model 映射为 domain.Record 交给回调，
+// 回调改写 domain 字段后映射回 model 保存（#6 keystone：消除 model 指针泄漏）。
+func (r *ReviewRepo) UpdateInTransaction(ctx context.Context, reviewID string, fn func(review *domain.Record) error) error {
 	return ekitGorm.InTransactionContext(ctx, r.db, func(tx *gormLib.DB) error {
-		var review models.Review
-		if err := tx.Where("review_id = ?", reviewID).First(&review).Error; err != nil {
+		var m models.Review
+		if err := tx.Where("review_id = ?", reviewID).First(&m).Error; err != nil {
 			if errors.Is(err, gormLib.ErrRecordNotFound) {
 				return fmt.Errorf("%w: %s", repoerr.ErrNotFound, reviewID)
 			}
 			return err
 		}
-		if err := fn(&review); err != nil {
+		rec := reviewToDomain(m)
+		if err := fn(&rec); err != nil {
 			return err
 		}
-		return tx.Save(&review).Error
+		updated, err := reviewToModel(&rec)
+		if err != nil {
+			return err
+		}
+		updated.ID = m.ID // 保留 gorm 自增主键
+		return tx.Save(&updated).Error
 	})
 }
 
-func (r *ReviewRepo) AggregateStats(ctx context.Context, opts models.ListOptions) (*models.AggregateStats, error) {
+func (r *ReviewRepo) AggregateStats(ctx context.Context, opts domain.ListOptions) (*domain.AggregateStats, error) {
 	applyFilters := func(db *gormLib.DB) *gormLib.DB {
 		if opts.Status != "" {
 			db = db.Where("status = ?", opts.Status)
@@ -196,13 +252,11 @@ func (r *ReviewRepo) AggregateStats(ctx context.Context, opts models.ListOptions
 		return nil, err
 	}
 
-	// Token 用量聚合（#20）：从 response jsonb 的 report.ocr 路径 SUM，
-	// 仅统计成功评审（失败评审无 token 数据）。
 	type tokenSums struct {
-		Total      int64
-		Input      int64
-		Output     int64
-		CacheRead  int64
+		Total     int64
+		Input     int64
+		Output    int64
+		CacheRead int64
 		CacheWrite int64
 	}
 	var tokens tokenSums
@@ -217,19 +271,19 @@ func (r *ReviewRepo) AggregateStats(ctx context.Context, opts models.ListOptions
 		return nil, err
 	}
 
-	return &models.AggregateStats{
-		Running:          int(running),
-		GateFailed:       int(gateFailed),
-		Findings:         int(totalFindings),
-		TotalTokens:      tokens.Total,
-		InputTokens:      tokens.Input,
-		OutputTokens:     tokens.Output,
-		CacheReadTokens:  tokens.CacheRead,
+	return &domain.AggregateStats{
+		Running:         int(running),
+		GateFailed:      int(gateFailed),
+		Findings:        int(totalFindings),
+		TotalTokens:     tokens.Total,
+		InputTokens:     tokens.Input,
+		OutputTokens:    tokens.Output,
+		CacheReadTokens: tokens.CacheRead,
 		CacheWriteTokens: tokens.CacheWrite,
 	}, nil
 }
 
-func (r *ReviewRepo) ProjectOCRMetrics(ctx context.Context, opts models.ProjectStatsOptions) (*models.ProjectOCRMetrics, error) {
+func (r *ReviewRepo) ProjectOCRMetrics(ctx context.Context, opts domain.ProjectStatsOptions) (*domain.ProjectOCRMetrics, error) {
 	applyFilters := func(db *gormLib.DB) *gormLib.DB {
 		db = db.Where("status = ?", "success")
 		if opts.Provider != "" {
@@ -273,7 +327,7 @@ func (r *ReviewRepo) ProjectOCRMetrics(ctx context.Context, opts models.ProjectS
 			COALESCE(AVG(CASE WHEN response #>> '{report,ocr,total_tokens}' ~ ? THEN (response #>> '{report,ocr,total_tokens}')::double precision END), 0) AS avg_tokens,
 			COALESCE(AVG(score), 0) AS avg_score,
 			COALESCE(AVG(CASE WHEN response #>> '{report,score,findings_density}' ~ ? THEN (response #>> '{report,score,findings_density}')::double precision END), 0) AS avg_findings_density`,
-			number, number, number, number, number, number, number, decimal).
+			number, number, number, number, number, number, number, number, decimal).
 		Scan(&summary).Error; err != nil {
 		return nil, err
 	}
@@ -309,12 +363,12 @@ func (r *ReviewRepo) ProjectOCRMetrics(ctx context.Context, opts models.ProjectS
 	if err := r.db.WithContext(ctx).Raw(query, args...).Scan(&toolRows).Error; err != nil {
 		return nil, err
 	}
-	toolCalls := make([]models.ToolCallStat, 0, len(toolRows))
+	toolCalls := make([]domain.ToolCallStat, 0, len(toolRows))
 	for _, row := range toolRows {
-		toolCalls = append(toolCalls, models.ToolCallStat{Tool: row.Tool, Count: row.Count})
+		toolCalls = append(toolCalls, domain.ToolCallStat{Tool: row.Tool, Count: row.Count})
 	}
 
-	return &models.ProjectOCRMetrics{
+	return &domain.ProjectOCRMetrics{
 		ReviewCount:        summary.ReviewCount,
 		TotalTokens:        summary.TotalTokens,
 		InputTokens:        summary.InputTokens,
@@ -330,7 +384,7 @@ func (r *ReviewRepo) ProjectOCRMetrics(ctx context.Context, opts models.ProjectS
 	}, nil
 }
 
-func (r *ReviewRepo) ProjectOCRTrend(ctx context.Context, opts models.ProjectStatsOptions) ([]models.ProjectOCRTrendPoint, error) {
+func (r *ReviewRepo) ProjectOCRTrend(ctx context.Context, opts domain.ProjectStatsOptions) ([]domain.ProjectOCRTrendPoint, error) {
 	clause, args := reviewMetricsFilterClause(opts)
 	type trendRow struct {
 		Period          string
@@ -357,9 +411,9 @@ func (r *ReviewRepo) ProjectOCRTrend(ctx context.Context, opts models.ProjectSta
 	if err := r.db.WithContext(ctx).Raw(query, args...).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-	points := make([]models.ProjectOCRTrendPoint, 0, len(rows))
+	points := make([]domain.ProjectOCRTrendPoint, 0, len(rows))
 	for _, row := range rows {
-		points = append(points, models.ProjectOCRTrendPoint{
+		points = append(points, domain.ProjectOCRTrendPoint{
 			Period:          row.Period,
 			ReviewCount:     row.ReviewCount,
 			TotalTokens:     row.TotalTokens,
@@ -372,7 +426,7 @@ func (r *ReviewRepo) ProjectOCRTrend(ctx context.Context, opts models.ProjectSta
 	return points, nil
 }
 
-func reviewMetricsFilterClause(opts models.ProjectStatsOptions) (string, []any) {
+func reviewMetricsFilterClause(opts domain.ProjectStatsOptions) (string, []any) {
 	var clause string
 	var args []any
 	if opts.Provider != "" {

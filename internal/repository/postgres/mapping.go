@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/yi-nology/code-review-service/internal/domain/feedback"
 	"github.com/yi-nology/code-review-service/internal/domain/llmprovider"
@@ -16,6 +17,7 @@ import (
 	domainWebhook "github.com/yi-nology/code-review-service/internal/domain/webhook"
 	"github.com/yi-nology/code-review-service/internal/domain/writeback"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"gorm.io/datatypes"
 	gormDB "gorm.io/gorm"
@@ -537,4 +539,83 @@ func sessionToDomain(m models.ReviewSession) session.Session {
 		CreatedAt:    m.CreatedAt,
 		UpdatedAt:    m.UpdatedAt,
 	}
+}
+
+// ---- review (keystone) ----
+
+// reviewToModel 把 domain.Record 转为持久化 model。
+// Request/Response 强类型 marshal 为 JSONB 列；RawOCR/RawOCRInput 直传。
+func reviewToModel(r *domain.Record) (models.Review, error) {
+	reqJSON, err := json.Marshal(r.Request)
+	if err != nil {
+		return models.Review{}, fmt.Errorf("marshal request: %w", err)
+	}
+	respJSON, err := json.Marshal(r.Response)
+	if err != nil {
+		return models.Review{}, fmt.Errorf("marshal response: %w", err)
+	}
+	return models.Review{
+		ReviewID:           r.ID,
+		IdempotencyKey:     strPtr(r.IdempotencyKey),
+		RequestFingerprint: r.RequestFingerprint,
+		Provider:           r.Provider,
+		Repo:               r.Repo,
+		Status:             r.Status,
+		Author:             r.Author,
+		AuthorName:         r.AuthorName,
+		AuthorAvatar:       r.AuthorAvatar,
+		Sender:             r.Sender,
+		PullRequestID:      r.PullRequestID,
+		MergeRequestIID:    r.MergeRequestIID,
+		BaseSHA:            r.BaseSHA,
+		HeadSHA:            r.HeadSHA,
+		Score:              r.Score,
+		Grade:              r.Grade,
+		Summary:            r.Summary,
+		Request:            datatypes.JSON(reqJSON),
+		Response:           datatypes.JSON(respJSON),
+		RawOCR:             dataTypeJSON(r.RawOCR),
+		RawOCRInput:        dataTypeJSON(r.RawOCRInput),
+	}, nil
+}
+
+// reviewToDomain 把持久化 model 转为 domain.Record。
+// Request/Response JSONB unmarshal 为强类型；失败时回退零值（兼容历史脏数据）。
+func reviewToDomain(m models.Review) domain.Record {
+	r := domain.Record{
+		ID:                 m.ReviewID,
+		RequestFingerprint: m.RequestFingerprint,
+		Provider:           m.Provider,
+		Repo:               m.Repo,
+		Status:             m.Status,
+		Author:             m.Author,
+		AuthorName:         m.AuthorName,
+		AuthorAvatar:       m.AuthorAvatar,
+		Sender:             m.Sender,
+		PullRequestID:      m.PullRequestID,
+		MergeRequestIID:    m.MergeRequestIID,
+		BaseSHA:            m.BaseSHA,
+		HeadSHA:            m.HeadSHA,
+		Score:              m.Score,
+		Grade:              m.Grade,
+		Summary:            m.Summary,
+		RawOCR:             rawJSON(m.RawOCR),
+		RawOCRInput:        rawJSON(m.RawOCRInput),
+		CreatedAt:          m.CreatedAt,
+		UpdatedAt:          m.UpdatedAt,
+	}
+	if m.IdempotencyKey != nil {
+		r.IdempotencyKey = *m.IdempotencyKey
+	}
+	_ = json.Unmarshal(m.Request, &r.Request)
+	_ = json.Unmarshal(m.Response, &r.Response)
+	return r
+}
+
+// strPtr 返回非空字符串的指针，空串返回 nil（供 nullable 列）。
+func strPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

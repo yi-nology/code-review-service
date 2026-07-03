@@ -2,28 +2,26 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"testing"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
-	"gorm.io/datatypes"
 )
 
 // newReview 构造一条最小可入库的 models.Review。caller 填充关键字段。
-func newReview(reviewID, provider, repo, status string) *models.Review {
-	return &models.Review{
-		ReviewID:       reviewID,
+func newReview(reviewID, provider, repo, status string) *domain.Record {
+	return &domain.Record{
+		ID:                reviewID,
 		RequestFingerprint: "fp-" + reviewID,
-		Provider:       provider,
-		Repo:           repo,
-		Status:         status,
-		PullRequestID:  "100",
-		Request:        datatypes.JSON([]byte(`{"pull_request_id":"100"}`)),
-		Response:       datatypes.JSON([]byte(`{"status":"queued"}`)),
+		Provider:          provider,
+		Repo:              repo,
+		Status:            status,
+		PullRequestID:     "100",
+		Request:           domain.Request{Provider: provider, Repo: repo, PullRequestID: "100"},
+		Response:          domain.Response{ReviewID: reviewID, Status: status},
 	}
 }
 
@@ -41,17 +39,13 @@ func TestReviewRepo_CreateAndGetByReviewID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByReviewID: %v", err)
 	}
-	if got.ReviewID != "rev-1" || got.Provider != "gitea" || got.Status != "queued" {
+	if got.ID != "rev-1" || got.Provider != "gitea" || got.Status != "queued" {
 		t.Fatalf("unexpected review: %+v", got)
 	}
 	// JSONB 列应能完整往返。注意 postgres jsonb 会规范化空白与键序，
 	// 不能做字节比较，需解析后语义校验。
-	var req map[string]any
-	if err := json.Unmarshal(got.Request, &req); err != nil {
-		t.Fatalf("Request not valid JSON: %v (raw: %s)", err, got.Request)
-	}
-	if req["pull_request_id"] != "100" {
-		t.Fatalf("Request pull_request_id = %v, want 100", req["pull_request_id"])
+	if got.Request.PullRequestID != "100" {
+		t.Fatalf("Request pull_request_id = %q, want 100", got.Request.PullRequestID)
 	}
 }
 
@@ -73,7 +67,7 @@ func TestReviewRepo_GetByIdempotencyKey(t *testing.T) {
 
 	key := "idem-abc"
 	r := newReview("rev-2", "github", "acme/api", "success")
-	r.IdempotencyKey = &key
+	r.IdempotencyKey = key
 	if err := repo.Create(ctx, r); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -82,8 +76,8 @@ func TestReviewRepo_GetByIdempotencyKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByIdempotencyKey: %v", err)
 	}
-	if got.ReviewID != "rev-2" {
-		t.Fatalf("unexpected review: %s", got.ReviewID)
+	if got.ID != "rev-2" {
+		t.Fatalf("unexpected review: %s", got.ID)
 	}
 }
 
@@ -101,29 +95,29 @@ func TestReviewRepo_ActiveChangeUniqueIndex(t *testing.T) {
 
 	// 第二条同 (provider, repo, PR) 的 active review 应被索引拒绝。
 	second := newReview("rev-b", "gitea", "acme/app", "queued")
-	second.ReviewID = "rev-b"
+	second.ID = "rev-b"
 	if err := repo.Create(ctx, second); err == nil {
 		t.Fatal("expected unique constraint violation for duplicate active review, got nil")
 	}
 
 	// 不同 PR 的 active review 应允许。
 	third := newReview("rev-c", "gitea", "acme/app", "queued")
-	third.ReviewID = "rev-c"
+	third.ID = "rev-c"
 	third.PullRequestID = "200"
-	third.Request = datatypes.JSON([]byte(`{"pull_request_id":"200"}`))
+	third.Request = domain.Request{PullRequestID: "200"}
 	if err := repo.Create(ctx, third); err != nil {
 		t.Fatalf("Create review with different PR should succeed: %v", err)
 	}
 
 	// 已结束（success）的 review 不受索引约束，可与同 PR 的 active 共存。
-	if err := repo.UpdateInTransaction(ctx, "rev-a", func(r *models.Review) error {
+	if err := repo.UpdateInTransaction(ctx, "rev-a", func(r *domain.Record) error {
 		r.Status = "success"
 		return nil
 	}); err != nil {
 		t.Fatalf("mark rev-a success: %v", err)
 	}
 	fourth := newReview("rev-d", "gitea", "acme/app", "queued")
-	fourth.ReviewID = "rev-d"
+	fourth.ID = "rev-d"
 	if err := repo.Create(ctx, fourth); err != nil {
 		t.Fatalf("Create active review after prior one completed should succeed: %v", err)
 	}
@@ -137,13 +131,13 @@ func TestReviewRepo_GetActiveByProviderRepo(t *testing.T) {
 	// 一条 success（不应被 active 查询命中）+ 一条 queued（应命中）。
 	done := newReview("rev-done", "github", "acme/api", "success")
 	done.PullRequestID = "42"
-	done.Request = datatypes.JSON([]byte(`{"pull_request_id":"42"}`))
+	done.Request = domain.Request{PullRequestID: "42"}
 	if err := repo.Create(ctx, done); err != nil {
 		t.Fatalf("Create done: %v", err)
 	}
 	active := newReview("rev-active", "github", "acme/api", "running")
 	active.PullRequestID = "42"
-	active.Request = datatypes.JSON([]byte(`{"pull_request_id":"42"}`))
+	active.Request = domain.Request{PullRequestID: "42"}
 	if err := repo.Create(ctx, active); err != nil {
 		t.Fatalf("Create active: %v", err)
 	}
@@ -152,8 +146,8 @@ func TestReviewRepo_GetActiveByProviderRepo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetActiveByProviderRepo: %v", err)
 	}
-	if got.ReviewID != "rev-active" {
-		t.Fatalf("expected rev-active, got %s", got.ReviewID)
+	if got.ID != "rev-active" {
+		t.Fatalf("expected rev-active, got %s", got.ID)
 	}
 
 	// 不存在的 PR。
@@ -173,14 +167,14 @@ func TestReviewRepo_ClaimQueued(t *testing.T) {
 	}
 	two := newReview("q-2", "gitea", "acme/app", "queued")
 	two.PullRequestID = "200"
-	two.Request = datatypes.JSON([]byte(`{"pull_request_id":"200"}`))
+	two.Request = domain.Request{PullRequestID: "200"}
 	if err := repo.Create(ctx, two); err != nil {
 		t.Fatalf("Create q-2: %v", err)
 	}
 	// 一条 running（不应被 claim）。
 	running := newReview("r-1", "gitea", "acme/app", "running")
 	running.PullRequestID = "300"
-	running.Request = datatypes.JSON([]byte(`{"pull_request_id":"300"}`))
+	running.Request = domain.Request{PullRequestID: "300"}
 	if err := repo.Create(ctx, running); err != nil {
 		t.Fatalf("Create r-1: %v", err)
 	}
@@ -195,7 +189,7 @@ func TestReviewRepo_ClaimQueued(t *testing.T) {
 	// claim 后状态应变 running。
 	for _, c := range claimed {
 		if c.Status != "running" {
-			t.Fatalf("claimed review %s status = %q, want running", c.ReviewID, c.Status)
+			t.Fatalf("claimed review %s status = %q, want running", c.ID, c.Status)
 		}
 	}
 	// 再次 claim 应返回 0（已无 queued）。
@@ -221,7 +215,7 @@ func TestReviewRepo_RequeueStale(t *testing.T) {
 
 	fresh := newReview("fresh-1", "gitea", "acme/app", "running")
 	fresh.PullRequestID = "200"
-	fresh.Request = datatypes.JSON([]byte(`{"pull_request_id":"200"}`))
+	fresh.Request = domain.Request{PullRequestID: "200"}
 	fresh.UpdatedAt = time.Now()
 	if err := repo.Create(ctx, fresh); err != nil {
 		t.Fatalf("Create fresh: %v", err)
@@ -256,9 +250,9 @@ func TestReviewRepo_UpdateInTransaction(t *testing.T) {
 	}
 
 	// 回调内改写 Response JSONB + Status，验证事务落库。
-	if err := repo.UpdateInTransaction(ctx, "tx-1", func(r *models.Review) error {
+	if err := repo.UpdateInTransaction(ctx, "tx-1", func(r *domain.Record) error {
 		r.Status = "success"
-		r.Response = datatypes.JSON([]byte(`{"status":"success","score":85}`))
+		r.Response = domain.Response{Status: "success"}
 		r.Score = 85
 		return nil
 	}); err != nil {
@@ -269,17 +263,12 @@ func TestReviewRepo_UpdateInTransaction(t *testing.T) {
 	if got.Status != "success" || got.Score != 85 {
 		t.Fatalf("tx update not persisted: status=%q score=%d", got.Status, got.Score)
 	}
-	// Response JSONB：postgres 会规范化键序/空白，解析后校验 status 字段。
-	var resp map[string]any
-	if err := json.Unmarshal(got.Response, &resp); err != nil {
-		t.Fatalf("Response not valid JSON: %v", err)
-	}
-	if resp["status"] != "success" {
-		t.Fatalf("Response status = %v, want success (raw: %s)", resp["status"], got.Response)
+	if got.Response.Status != "success" {
+		t.Fatalf("Response status = %q, want success", got.Response.Status)
 	}
 
 	// 不存在的 review 应返回 ErrNotFound。
-	if err := repo.UpdateInTransaction(ctx, "missing", func(r *models.Review) error { return nil }); !errors.Is(err, repoerr.ErrNotFound) {
+	if err := repo.UpdateInTransaction(ctx, "missing", func(r *domain.Record) error { return nil }); !errors.Is(err, repoerr.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound for missing review, got %v", err)
 	}
 }

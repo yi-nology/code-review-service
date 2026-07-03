@@ -6,6 +6,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/pkg/slicex"
 )
 
@@ -96,7 +97,7 @@ func (s *Service) GetContributorCategories(ctx context.Context, author, provider
 }
 
 func (s *Service) ListProjects(ctx context.Context, provider, repo, from, to, sort, order string, page, pageSize int) (*ProjectListResult, error) {
-	result, err := s.repo.ListProjects(ctx, models.ProjectStatsOptions{
+	result, err := s.repo.ListProjects(ctx, domain.ProjectStatsOptions{
 		Provider: provider,
 		Repo:     repo,
 		From:     parseTime(from),
@@ -113,7 +114,7 @@ func (s *Service) ListProjects(ctx context.Context, provider, repo, from, to, so
 }
 
 func (s *Service) GetProject(ctx context.Context, provider, repo, from, to string) (*ProjectDetail, error) {
-	detail, err := s.repo.GetProject(ctx, models.ProjectStatsOptions{
+	detail, err := s.repo.GetProject(ctx, domain.ProjectStatsOptions{
 		Provider: provider,
 		Repo:     repo,
 		From:     parseTime(from),
@@ -129,7 +130,7 @@ func (s *Service) GetProject(ctx context.Context, provider, repo, from, to strin
 }
 
 func (s *Service) GetProjectTrend(ctx context.Context, provider, repo, from, to string) ([]ProjectTrendPoint, error) {
-	points, err := s.repo.GetProjectTrend(ctx, models.ProjectStatsOptions{
+	points, err := s.repo.GetProjectTrend(ctx, domain.ProjectStatsOptions{
 		Provider: provider,
 		Repo:     repo,
 		From:     parseTime(from),
@@ -142,7 +143,7 @@ func (s *Service) GetProjectTrend(ctx context.Context, provider, repo, from, to 
 }
 
 func (s *Service) GetProjectCategories(ctx context.Context, provider, repo, from, to string) ([]CategoryStat, error) {
-	cats, err := s.repo.GetProjectCategories(ctx, models.ProjectStatsOptions{
+	cats, err := s.repo.GetProjectCategories(ctx, domain.ProjectStatsOptions{
 		Provider: provider,
 		Repo:     repo,
 		From:     parseTime(from),
@@ -155,7 +156,7 @@ func (s *Service) GetProjectCategories(ctx context.Context, provider, repo, from
 }
 
 func (s *Service) GetProjectFiles(ctx context.Context, provider, repo, from, to string) ([]FileRiskStat, error) {
-	files, err := s.repo.GetProjectFiles(ctx, models.ProjectStatsOptions{
+	files, err := s.repo.GetProjectFiles(ctx, domain.ProjectStatsOptions{
 		Provider: provider,
 		Repo:     repo,
 		From:     parseTime(from),
@@ -168,7 +169,7 @@ func (s *Service) GetProjectFiles(ctx context.Context, provider, repo, from, to 
 }
 
 func (s *Service) GetProjectContributors(ctx context.Context, provider, repo, from, to string, limit int) ([]ContributorSummary, error) {
-	contributors, err := s.repo.GetProjectContributors(ctx, models.ProjectStatsOptions{
+	contributors, err := s.repo.GetProjectContributors(ctx, domain.ProjectStatsOptions{
 		Provider: provider,
 		Repo:     repo,
 		From:     parseTime(from),
@@ -184,7 +185,7 @@ func (s *Service) GetProjectOCRMetrics(ctx context.Context, provider, repo, from
 	if s.reviewRepo == nil {
 		return &ProjectOCRMetrics{}, nil
 	}
-	metrics, err := s.reviewRepo.ProjectOCRMetrics(ctx, models.ProjectStatsOptions{
+	metrics, err := s.reviewRepo.ProjectOCRMetrics(ctx, domain.ProjectStatsOptions{
 		Provider: provider,
 		Repo:     repo,
 		From:     parseTime(from),
@@ -208,7 +209,7 @@ func (s *Service) GetProjectOCRMetrics(ctx context.Context, provider, repo, from
 		AvgScore:           metrics.AvgScore,
 		AvgFindingsDensity: metrics.AvgFindingsDensity,
 		GradeDistribution:  metrics.GradeDistribution,
-		ToolCalls:          slicex.Map(metrics.ToolCalls, func(t models.ToolCallStat) ToolCallStat { return ToolCallStat(t) }),
+		ToolCalls:          slicex.Map(metrics.ToolCalls, func(t domain.ToolCallStat) ToolCallStat { return ToolCallStat(t) }),
 	}, nil
 }
 
@@ -216,7 +217,7 @@ func (s *Service) GetProjectOCRTrend(ctx context.Context, provider, repo, from, 
 	if s.reviewRepo == nil {
 		return nil, nil
 	}
-	points, err := s.reviewRepo.ProjectOCRTrend(ctx, models.ProjectStatsOptions{
+	points, err := s.reviewRepo.ProjectOCRTrend(ctx, domain.ProjectStatsOptions{
 		Provider: provider,
 		Repo:     repo,
 		From:     parseTime(from),
@@ -225,7 +226,7 @@ func (s *Service) GetProjectOCRTrend(ctx context.Context, provider, repo, from, 
 	if err != nil {
 		return nil, err
 	}
-	return slicex.Map(points, func(p models.ProjectOCRTrendPoint) ProjectOCRTrendPoint {
+	return slicex.Map(points, func(p domain.ProjectOCRTrendPoint) ProjectOCRTrendPoint {
 		return ProjectOCRTrendPoint(p)
 	}), nil
 }

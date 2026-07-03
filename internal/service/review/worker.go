@@ -2,7 +2,6 @@ package review
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -127,18 +126,18 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 		}
 
 		review := reviews[0]
-		var req domain.Request
-		if err := json.Unmarshal(review.Request, &req); err != nil {
-			logx.Error("failed to decode review request", "review_id", review.ReviewID, "error", err)
-			s.recordFailure(ctx, review.ReviewID, req, fmt.Errorf("decode request: %w", err))
+		req := review.Request
+		if req.Provider == "" && req.Repo == "" {
+			logx.Error("failed to decode review request", "review_id", review.ID, "error", "empty request")
+			s.recordFailure(ctx, review.ID, req, fmt.Errorf("decode request: empty"))
 			release()
 			timer.Reset(0)
 			continue
 		}
 
 		if req.CallbackMode == "scan" {
-			logx.Warnf("worker: orphaned scan review from server restart, marking as failed: %s", review.ReviewID)
-			s.recordFailure(ctx, review.ReviewID, req, fmt.Errorf("scan was interrupted by server restart"))
+			logx.Warnf("worker: orphaned scan review from server restart, marking as failed: %s", review.ID)
+			s.recordFailure(ctx, review.ID, req, fmt.Errorf("scan was interrupted by server restart"))
 			release()
 			timer.Reset(0)
 			continue
@@ -147,8 +146,8 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 		provider, ok := s.Providers.Get(req.Provider)
 		if !ok {
 			err := fmt.Errorf("%w: %q", domain.ErrUnsupportedProvider, req.Provider)
-			logx.Errorf("worker: provider not found: requested=%q review_id=%s", req.Provider, review.ReviewID)
-			s.recordFailure(ctx, review.ReviewID, req, err)
+			logx.Errorf("worker: provider not found: requested=%q review_id=%s", req.Provider, review.ID)
+			s.recordFailure(ctx, review.ID, req, err)
 			release()
 			timer.Reset(0)
 			continue
@@ -161,13 +160,13 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 			// Create progress tracker for this review
 			var progressReporter progress.ProgressReporter
 			if s.progressManager != nil {
-				tracker := s.progressManager.CreateTracker(review.ReviewID, review.ReviewID, 1)
+				tracker := s.progressManager.CreateTracker(review.ID, review.ID, 1)
 				progressReporter = tracker
-				defer s.progressManager.RemoveTracker(review.ReviewID)
+				defer s.progressManager.RemoveTracker(review.ID)
 			}
 
-			if _, err := s.Executor.Execute(ctx, review.ReviewID, req, provider, progressReporter); err != nil && ctx.Err() == nil {
-				logx.Error("async review failed", "worker_id", workerID, "review_id", review.ReviewID, "error", err)
+			if _, err := s.Executor.Execute(ctx, review.ID, req, provider, progressReporter); err != nil && ctx.Err() == nil {
+				logx.Error("async review failed", "worker_id", workerID, "review_id", review.ID, "error", err)
 				// domain.Report error to progress tracker
 				if progressReporter != nil {
 					if tracker, ok := progressReporter.(*progress.ProgressTracker); ok {

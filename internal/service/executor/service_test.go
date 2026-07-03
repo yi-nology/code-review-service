@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
@@ -42,34 +41,34 @@ func (s *stubWriteback) PublishWithDiff(_ context.Context, req domain.Request, _
 // 我们让它返回 nil（视为成功）以避免测试日志噪音。
 type noopReviewRepo struct{}
 
-func (noopReviewRepo) Create(context.Context, *models.Review) error { return nil }
-func (noopReviewRepo) Save(context.Context, *models.Review) error    { return nil }
-func (noopReviewRepo) GetByReviewID(context.Context, string) (*models.Review, error) {
-	return &models.Review{}, nil
+func (noopReviewRepo) Create(context.Context, *domain.Record) error { return nil }
+func (noopReviewRepo) Save(context.Context, *domain.Record) error    { return nil }
+func (noopReviewRepo) GetByReviewID(context.Context, string) (*domain.Record, error) {
+	return &domain.Record{}, nil
 }
-func (noopReviewRepo) GetByIdempotencyKey(context.Context, string) (*models.Review, error) {
+func (noopReviewRepo) GetByIdempotencyKey(context.Context, string) (*domain.Record, error) {
 	return nil, repoerr.ErrNotFound
 }
-func (noopReviewRepo) GetActiveByProviderRepo(context.Context, string, string, string, string) (*models.Review, error) {
+func (noopReviewRepo) GetActiveByProviderRepo(context.Context, string, string, string, string) (*domain.Record, error) {
 	return nil, repoerr.ErrNotFound
 }
-func (noopReviewRepo) List(context.Context, models.ListOptions) (*ekitGorm.PageResponse[models.Review], error) {
-	return &ekitGorm.PageResponse[models.Review]{}, nil
+func (noopReviewRepo) List(context.Context, domain.ListOptions) (*ekitGorm.PageResponse[domain.Record], error) {
+	return &ekitGorm.PageResponse[domain.Record]{}, nil
 }
-func (noopReviewRepo) AggregateStats(context.Context, models.ListOptions) (*models.AggregateStats, error) {
-	return &models.AggregateStats{}, nil
+func (noopReviewRepo) AggregateStats(context.Context, domain.ListOptions) (*domain.AggregateStats, error) {
+	return &domain.AggregateStats{}, nil
 }
-func (noopReviewRepo) ProjectOCRMetrics(context.Context, models.ProjectStatsOptions) (*models.ProjectOCRMetrics, error) {
-	return &models.ProjectOCRMetrics{}, nil
+func (noopReviewRepo) ProjectOCRMetrics(context.Context, domain.ProjectStatsOptions) (*domain.ProjectOCRMetrics, error) {
+	return &domain.ProjectOCRMetrics{}, nil
 }
-func (noopReviewRepo) ProjectOCRTrend(context.Context, models.ProjectStatsOptions) ([]models.ProjectOCRTrendPoint, error) {
+func (noopReviewRepo) ProjectOCRTrend(context.Context, domain.ProjectStatsOptions) ([]domain.ProjectOCRTrendPoint, error) {
 	return nil, nil
 }
-func (noopReviewRepo) ClaimQueued(context.Context, int) ([]models.Review, error) {
+func (noopReviewRepo) ClaimQueued(context.Context, int) ([]domain.Record, error) {
 	return nil, nil
 }
 func (noopReviewRepo) RequeueStale(context.Context, time.Time) (int64, error) { return 0, nil }
-func (noopReviewRepo) UpdateInTransaction(context.Context, string, func(*models.Review) error) error {
+func (noopReviewRepo) UpdateInTransaction(context.Context, string, func(*domain.Record) error) error {
 	return nil
 }
 

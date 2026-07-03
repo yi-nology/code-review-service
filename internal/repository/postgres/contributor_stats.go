@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/pkg/mathx"
 	"github.com/oekit/pkg/slicex"
 
@@ -185,7 +186,7 @@ func filterArgs(opts models.ContributorStatsOptions) []interface{} {
 	return args
 }
 
-func projectFilterClause(opts models.ProjectStatsOptions) string {
+func projectFilterClause(opts domain.ProjectStatsOptions) string {
 	clauses := ""
 	if opts.Provider != "" {
 		clauses += " AND provider = ?"
@@ -202,7 +203,7 @@ func projectFilterClause(opts models.ProjectStatsOptions) string {
 	return clauses
 }
 
-func projectFilterArgs(opts models.ProjectStatsOptions) []interface{} {
+func projectFilterArgs(opts domain.ProjectStatsOptions) []interface{} {
 	var args []interface{}
 	if opts.Provider != "" {
 		args = append(args, opts.Provider)
@@ -219,7 +220,7 @@ func projectFilterArgs(opts models.ProjectStatsOptions) []interface{} {
 	return args
 }
 
-func projectFilterClauseWithoutProject(opts models.ProjectStatsOptions) string {
+func projectFilterClauseWithoutProject(opts domain.ProjectStatsOptions) string {
 	clauses := ""
 	if !opts.From.IsZero() {
 		clauses += " AND created_at >= ?"
@@ -230,7 +231,7 @@ func projectFilterClauseWithoutProject(opts models.ProjectStatsOptions) string {
 	return clauses
 }
 
-func projectFilterArgsWithoutProject(opts models.ProjectStatsOptions) []interface{} {
+func projectFilterArgsWithoutProject(opts domain.ProjectStatsOptions) []interface{} {
 	var args []interface{}
 	if !opts.From.IsZero() {
 		args = append(args, opts.From)

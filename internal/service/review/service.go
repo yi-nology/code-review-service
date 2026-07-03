@@ -16,7 +16,6 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
@@ -28,8 +27,6 @@ import (
 
 	"github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 	"github.com/oekit/logx"
-	"github.com/oekit/pkg/ptrx"
-	"gorm.io/datatypes"
 )
 
 var gitObjectIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{7,64}$`)
@@ -194,8 +191,8 @@ func (s *Service) createReview(ctx context.Context, req domain.Request, idempote
 		}},
 	}
 
-	review := &models.Review{
-		ReviewID:           id,
+	review := &domain.Record{
+		ID:                 id,
 		RequestFingerprint: fingerprint,
 		Provider:           req.Provider,
 		Repo:               req.Repo,
@@ -209,11 +206,11 @@ func (s *Service) createReview(ctx context.Context, req domain.Request, idempote
 		BaseSHA:            req.BaseSHA,
 		HeadSHA:            req.HeadSHA,
 		Summary:            queued.Summary,
-		Request:            mustMarshal(req),
-		Response:           mustMarshal(queued),
+		Request:            req,
+		Response:           queued,
 	}
 	if idempotencyKey != "" {
-		review.IdempotencyKey = &idempotencyKey
+		review.IdempotencyKey = idempotencyKey
 	}
 
 	if err := s.reviewRepo.Create(ctx, review); err != nil {
@@ -226,11 +223,7 @@ func (s *Service) createReview(ctx context.Context, req domain.Request, idempote
 				if existing.RequestFingerprint != fingerprint {
 					return domain.Response{}, domain.ErrIdempotencyConflict
 				}
-				var resp domain.Response
-				if err := json.Unmarshal(existing.Response, &resp); err != nil {
-					return domain.Response{}, fmt.Errorf("decode existing review response: %w", err)
-				}
-				return resp, nil
+				return existing.Response, nil
 			}
 		}
 		// 部分唯一索引 idx_reviews_active_change 冲突：并发创建同一 PR/MR 的 active review，
@@ -268,11 +261,7 @@ func (s *Service) findActiveReview(ctx context.Context, req domain.Request) *dom
 		logx.CtxErrorf(ctx, "failed to query active review by provider=%s repo=%s: %v", req.Provider, req.Repo, err)
 		return nil
 	}
-	var resp domain.Response
-	if err := json.Unmarshal(existing.Response, &resp); err != nil {
-		logx.CtxWarnf(ctx, "failed to decode active review response: %v", err)
-		return nil
-	}
+	resp := existing.Response
 	return &resp
 }
 
@@ -308,36 +297,18 @@ func (s *Service) Get(ctx context.Context, reviewID string) (domain.Record, bool
 		return domain.Record{}, false, err
 	}
 
-	var req domain.Request
-	if err := json.Unmarshal(review.Request, &req); err != nil {
-		return domain.Record{}, false, fmt.Errorf("decode review request: %w", err)
-	}
-	var resp domain.Response
-	if err := json.Unmarshal(review.Response, &resp); err != nil {
-		return domain.Record{}, false, fmt.Errorf("decode review response: %w", err)
-	}
-
-	if len(review.RawOCR) > 0 && resp.Status == "success" {
+	// review 已是 domain.Record（Request/Response 强类型），仅按需补 Analysis。
+	if len(review.RawOCR) > 0 && review.Response.Status == "success" {
 		result := domain.Result{
-			OCR:      resp.Report.OCR,
-			Scope:    resp.Report.Scope,
-			Warnings: resp.Report.Warnings,
-			Findings: resp.Findings,
+			OCR:      review.Response.Report.OCR,
+			Scope:    review.Response.Report.Scope,
+			Warnings: review.Response.Report.Warnings,
+			Findings: review.Response.Findings,
 		}
-		resp.Analysis = BuildAnalysisFromRaw(json.RawMessage(review.RawOCR), result)
+		review.Response.Analysis = BuildAnalysisFromRaw(json.RawMessage(review.RawOCR), result)
 	}
 
-	return domain.Record{
-		ID:                 review.ReviewID,
-		IdempotencyKey:     ptrx.Deref(review.IdempotencyKey, ""),
-		RequestFingerprint: review.RequestFingerprint,
-		Request:            req,
-		Response:           resp,
-		RawOCR:             json.RawMessage(review.RawOCR),
-		RawOCRInput:        json.RawMessage(review.RawOCRInput),
-		CreatedAt:          review.CreatedAt,
-		UpdatedAt:          review.UpdatedAt,
-	}, true, nil
+	return *review, true, nil
 }
 
 func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, error) {
@@ -349,7 +320,7 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 	}
 
 	page := options.Offset/options.Limit + 1
-	result, err := s.reviewRepo.List(ctx, models.ListOptions{
+	result, err := s.reviewRepo.List(ctx, domain.ListOptions{
 		Status:     options.Status,
 		GateStatus: options.GateStatus,
 		Provider:   options.Provider,
@@ -363,28 +334,18 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 
 	items := make([]ListItem, 0, len(result.List))
 	for _, review := range result.List {
-		var req domain.Request
-		if err := json.Unmarshal(review.Request, &req); err != nil {
-			logx.CtxWarnf(ctx, "failed to decode review request in list, review_id=%s: %v", review.ReviewID, err)
-			continue
-		}
-		var resp domain.Response
-		if err := json.Unmarshal(review.Response, &resp); err != nil {
-			logx.CtxWarnf(ctx, "failed to decode review response in list, review_id=%s: %v", review.ReviewID, err)
-			continue
-		}
-
+		// review 已是 domain.Record，Request/Response 强类型，无需 unmarshal。
 		items = append(items, ListItem{
-			ReviewID:        review.ReviewID,
-			Provider:        req.Provider,
-			Repo:            req.Repo,
-			Status:          resp.Status,
-			Summary:         resp.Summary,
-			Gate:            resp.Gate,
-			Findings:        len(resp.Findings),
-			Score:           resp.Report.Score.Value,
-			Grade:           resp.Report.Score.Grade,
-			ReportGenerated: resp.Report.Generated,
+			ReviewID:        review.ID,
+			Provider:        review.Request.Provider,
+			Repo:            review.Request.Repo,
+			Status:          review.Response.Status,
+			Summary:         review.Response.Summary,
+			Gate:            review.Response.Gate,
+			Findings:        len(review.Response.Findings),
+			Score:           review.Response.Report.Score.Value,
+			Grade:           review.Response.Report.Score.Grade,
+			ReportGenerated: review.Response.Report.Generated,
 			Author:          review.Author,
 			AuthorName:      review.AuthorName,
 			AuthorAvatar:    review.AuthorAvatar,
@@ -393,7 +354,7 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 		})
 	}
 
-	agg, err := s.reviewRepo.AggregateStats(ctx, models.ListOptions{
+	agg, err := s.reviewRepo.AggregateStats(ctx, domain.ListOptions{
 		Status:     options.Status,
 		GateStatus: options.GateStatus,
 		Provider:   options.Provider,
@@ -401,7 +362,7 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 	})
 	if err != nil {
 		logx.Warn("failed to compute aggregate stats", "error", err)
-		agg = &models.AggregateStats{}
+		agg = &domain.AggregateStats{}
 	}
 
 	return ListResult{
@@ -541,8 +502,8 @@ func (s *Service) scanAsync(ctx context.Context, req domain.ScanRequest) (*domai
 		}},
 	}
 
-	reviewRow := &models.Review{
-		ReviewID:           id,
+	reviewRow := &domain.Record{
+		ID:                 id,
 		RequestFingerprint: fingerprint,
 		Provider:           providerName,
 		Repo:               repo,
@@ -550,8 +511,8 @@ func (s *Service) scanAsync(ctx context.Context, req domain.ScanRequest) (*domai
 		BaseSHA:            head,
 		HeadSHA:            head,
 		Summary:            queuedResp.Summary,
-		Request:            mustMarshal(scanReq),
-		Response:           mustMarshal(queuedResp),
+		Request:            scanReq,
+		Response:           queuedResp,
 	}
 	if err := s.reviewRepo.Create(ctx, reviewRow); err != nil {
 		return nil, err
@@ -601,9 +562,9 @@ func (s *Service) runScanBackground(scanCtx context.Context, reviewID string, re
 		reporter.UpdatePhase(progress.PhaseContext, "active", 3, "准备仓库工作区...")
 	}
 
-	if err := s.updateReviewFields(scanCtx, reviewID, func(review *models.Review) {
-		var resp domain.Response
-		if err := json.Unmarshal(review.Response, &resp); err != nil {
+	if err := s.updateReviewFields(scanCtx, reviewID, func(review *domain.Record) {
+		resp := review.Response
+		if resp.ReviewID == "" {
 			resp = domain.Response{ReviewID: reviewID}
 		}
 		resp.Status = statusRunning
@@ -615,7 +576,7 @@ func (s *Service) runScanBackground(scanCtx context.Context, reviewID string, re
 			CreatedAt: time.Now().UTC(),
 		})
 		review.Status = statusRunning
-		review.Response = mustMarshal(resp)
+		review.Response = resp
 		review.UpdatedAt = time.Now().UTC()
 	}); err != nil {
 		logx.Errorf("failed to update scan status to running: review_id=%s: %v", reviewID, err)
@@ -724,8 +685,8 @@ func (s *Service) scanExecuteWithPolicy(ctx context.Context, reviewID string, re
 			RulePath:  workspace.RulePath,
 			StartedAt: time.Now().UTC(),
 		}
-		if err := s.updateReviewFields(ctx, reviewID, func(review *models.Review) {
-			review.RawOCRInput = mustMarshal(ocrInput)
+		if err := s.updateReviewFields(ctx, reviewID, func(review *domain.Record) {
+			rawOCRInputJSON, _ := json.Marshal(ocrInput); review.RawOCRInput = rawOCRInputJSON
 		}); err != nil {
 			logx.Warn("failed to persist scan ocr input", "review_id", reviewID, "error", err)
 		}
@@ -751,9 +712,9 @@ func (s *Service) scanExecuteWithPolicy(ctx context.Context, reviewID string, re
 }
 
 func (s *Service) recordScanFailure(ctx context.Context, reviewID string, scanErr error) {
-	err := s.updateReviewFields(ctx, reviewID, func(review *models.Review) {
-		var resp domain.Response
-		if err := json.Unmarshal(review.Response, &resp); err != nil {
+	err := s.updateReviewFields(ctx, reviewID, func(review *domain.Record) {
+		resp := review.Response
+		if resp.ReviewID == "" {
 			resp = domain.Response{ReviewID: reviewID}
 		}
 		resp.Status = statusFailed
@@ -767,7 +728,7 @@ func (s *Service) recordScanFailure(ctx context.Context, reviewID string, scanEr
 			CreatedAt: time.Now().UTC(),
 		})
 		review.Status = statusFailed
-		review.Response = mustMarshal(resp)
+		review.Response = resp
 		review.UpdatedAt = time.Now().UTC()
 	})
 	if err != nil {
@@ -828,21 +789,21 @@ func (s *Service) persistScanResultUpdate(ctx context.Context, reviewID string, 
 		},
 	}
 
-	return s.updateReviewFields(ctx, reviewID, func(review *models.Review) {
+	return s.updateReviewFields(ctx, reviewID, func(review *domain.Record) {
 		review.Status = resp.Status
 		review.Score = report.Score.Value
 		review.Grade = report.Score.Grade
 		review.Summary = resp.Summary
-		review.Response = mustMarshal(resp)
+		review.Response = resp
 		if len(result.RawOCR) > 0 {
-			review.RawOCR = datatypes.JSON(result.RawOCR)
+			review.RawOCR = result.RawOCR
 		}
 		review.UpdatedAt = time.Now().UTC()
 	})
 }
 
-func (s *Service) updateReviewFields(ctx context.Context, reviewID string, fn func(review *models.Review)) error {
-	return s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *models.Review) error {
+func (s *Service) updateReviewFields(ctx context.Context, reviewID string, fn func(review *domain.Record)) error {
+	return s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *domain.Record) error {
 		fn(review)
 		return nil
 	})

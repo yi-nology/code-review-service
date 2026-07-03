@@ -124,16 +124,104 @@ func ErrorGate(reason string) Gate {
 	return Gate{Status: GateError, Passed: ptrx.Of(false), Reason: reason}
 }
 
+// Record 是 Review 聚合根的领域表示（#6 keystone）。
+// Request/Response 为强类型（非 JSONB blob），消除上层 marshal/unmarshal 往返；
+// RawOCR/RawOCRInput 保留 json.RawMessage（Analysis 派生输入）。
+// 标量字段（Provider/Repo/Status/...）对应 models.Review 的索引列，供仓储查询/统计。
 type Record struct {
 	ID                 string          `json:"id"`
 	IdempotencyKey     string          `json:"idempotency_key,omitempty"`
 	RequestFingerprint string          `json:"request_fingerprint,omitempty"`
+	Provider           string          `json:"provider"`
+	Repo               string          `json:"repo"`
+	Status             string          `json:"status"`
+	Author             string          `json:"author,omitempty"`
+	AuthorName         string          `json:"author_name,omitempty"`
+	AuthorAvatar       string          `json:"author_avatar,omitempty"`
+	Sender             string          `json:"sender,omitempty"`
+	PullRequestID      string          `json:"pull_request_id,omitempty"`
+	MergeRequestIID    string          `json:"merge_request_iid,omitempty"`
+	BaseSHA            string          `json:"base_sha,omitempty"`
+	HeadSHA            string          `json:"head_sha,omitempty"`
+	Score              int             `json:"score"`
+	Grade              string          `json:"grade,omitempty"`
+	Summary            string          `json:"summary,omitempty"`
 	Request            Request         `json:"request"`
 	Response           Response        `json:"response"`
 	RawOCR             json.RawMessage `json:"raw_ocr,omitempty"`
 	RawOCRInput        json.RawMessage `json:"raw_ocr_input,omitempty"`
 	CreatedAt          time.Time       `json:"created_at"`
 	UpdatedAt          time.Time       `json:"updated_at"`
+}
+
+// ---- 仓储查询/统计 DTO（原 models/types.go，GORM-free，#6 迁移至 domain）----
+
+// ListOptions 是 Review 列表查询过滤条件。
+type ListOptions struct {
+	Status     string
+	GateStatus string
+	Provider   string
+	Repo       string
+	Page       int
+	PageSize   int
+}
+
+// AggregateStats 是 Review 聚合统计结果。
+type AggregateStats struct {
+	Running    int
+	GateFailed int
+	Findings   int
+
+	TotalTokens     int64
+	InputTokens     int64
+	OutputTokens    int64
+	CacheReadTokens int64
+	CacheWriteTokens int64
+}
+
+// ProjectStatsOptions 是项目级 OCR 统计查询条件（Review/Contributor 共享）。
+type ProjectStatsOptions struct {
+	Provider string
+	Repo     string
+	From     time.Time
+	To       time.Time
+	Page     int
+	PageSize int
+	Sort     string
+	Order    string
+}
+
+// ProjectOCRMetrics 是项目级 OCR 指标聚合结果。
+type ProjectOCRMetrics struct {
+	ReviewCount        int64
+	TotalTokens        int64
+	InputTokens        int64
+	OutputTokens       int64
+	CacheReadTokens    int64
+	CacheWriteTokens   int64
+	TotalReviewedFiles int64
+	AvgTokens          float64
+	AvgScore           float64
+	AvgFindingsDensity float64
+	GradeDistribution  map[string]int64
+	ToolCalls          []ToolCallStat
+}
+
+// ProjectOCRTrendPoint 是项目级 OCR 趋势的一个时间点。
+type ProjectOCRTrendPoint struct {
+	Period          string
+	ReviewCount     int64
+	TotalTokens     int64
+	AvgTokens       float64
+	AvgElapsedMs    float64
+	AvgScore        float64
+	FindingsDensity float64
+}
+
+// ToolCallStat 是工具调用次数统计。
+type ToolCallStat struct {
+	Tool  string `json:"tool"`
+	Count int64  `json:"count"`
 }
 
 // 严重级别常量（无类型字符串常量，可用于任意 string 上下文）。

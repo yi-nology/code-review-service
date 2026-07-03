@@ -5,23 +5,25 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/domain/writeback"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	ekitGorm "github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 )
 
+// ReviewRepository 已迁移为 domain 类型（#6 keystone）：不再依赖 postgres/models。
+// Request/Response 为强类型（domain.Request/Response），消除上层 JSONB 往返。
 type ReviewRepository interface {
-	Create(ctx context.Context, review *models.Review) error
-	Save(ctx context.Context, review *models.Review) error
-	GetByReviewID(ctx context.Context, reviewID string) (*models.Review, error)
-	GetByIdempotencyKey(ctx context.Context, key string) (*models.Review, error)
-	GetActiveByProviderRepo(ctx context.Context, provider, repo, pullRequestID, mergeRequestIID string) (*models.Review, error)
-	List(ctx context.Context, opts models.ListOptions) (*ekitGorm.PageResponse[models.Review], error)
-	AggregateStats(ctx context.Context, opts models.ListOptions) (*models.AggregateStats, error)
-	ProjectOCRMetrics(ctx context.Context, opts models.ProjectStatsOptions) (*models.ProjectOCRMetrics, error)
-	ProjectOCRTrend(ctx context.Context, opts models.ProjectStatsOptions) ([]models.ProjectOCRTrendPoint, error)
-	ClaimQueued(ctx context.Context, limit int) ([]models.Review, error)
+	Create(ctx context.Context, review *domain.Record) error
+	Save(ctx context.Context, review *domain.Record) error
+	GetByReviewID(ctx context.Context, reviewID string) (*domain.Record, error)
+	GetByIdempotencyKey(ctx context.Context, key string) (*domain.Record, error)
+	GetActiveByProviderRepo(ctx context.Context, provider, repo, pullRequestID, mergeRequestIID string) (*domain.Record, error)
+	List(ctx context.Context, opts domain.ListOptions) (*ekitGorm.PageResponse[domain.Record], error)
+	AggregateStats(ctx context.Context, opts domain.ListOptions) (*domain.AggregateStats, error)
+	ProjectOCRMetrics(ctx context.Context, opts domain.ProjectStatsOptions) (*domain.ProjectOCRMetrics, error)
+	ProjectOCRTrend(ctx context.Context, opts domain.ProjectStatsOptions) ([]domain.ProjectOCRTrendPoint, error)
+	ClaimQueued(ctx context.Context, limit int) ([]domain.Record, error)
 	RequeueStale(ctx context.Context, before time.Time) (int64, error)
-	UpdateInTransaction(ctx context.Context, reviewID string, fn func(review *models.Review) error) error
+	UpdateInTransaction(ctx context.Context, reviewID string, fn func(review *domain.Record) error) error
 }
 
 // WritebackItemRepository 已迁移为 domain 类型（#6）：不再依赖 postgres/models。

@@ -4,11 +4,12 @@ import (
 	"context"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/mathx"
 )
 
-func (r *ContributorStatsRepo) ListProjects(ctx context.Context, opts models.ProjectStatsOptions) (*models.ProjectListResult, error) {
+func (r *ContributorStatsRepo) ListProjects(ctx context.Context, opts domain.ProjectStatsOptions) (*models.ProjectListResult, error) {
 	if opts.Page <= 0 {
 		opts.Page = 1
 	}
@@ -51,7 +52,7 @@ func (r *ContributorStatsRepo) ListProjects(ctx context.Context, opts models.Pro
 	}, nil
 }
 
-func (r *ContributorStatsRepo) GetProject(ctx context.Context, opts models.ProjectStatsOptions) (*models.ProjectDetail, error) {
+func (r *ContributorStatsRepo) GetProject(ctx context.Context, opts domain.ProjectStatsOptions) (*models.ProjectDetail, error) {
 	var row projectRow
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT `+projectSelectCols+`
@@ -94,7 +95,7 @@ func (r *ContributorStatsRepo) GetProject(ctx context.Context, opts models.Proje
 	}, nil
 }
 
-func (r *ContributorStatsRepo) GetProjectTrend(ctx context.Context, opts models.ProjectStatsOptions) ([]models.ProjectTrendPoint, error) {
+func (r *ContributorStatsRepo) GetProjectTrend(ctx context.Context, opts domain.ProjectStatsOptions) ([]models.ProjectTrendPoint, error) {
 	var rows []struct {
 		Period        string  `gorm:"column:period"`
 		AvgScore      float64 `gorm:"column:avg_score"`
@@ -125,13 +126,13 @@ func (r *ContributorStatsRepo) GetProjectTrend(ctx context.Context, opts models.
 	return points, nil
 }
 
-func (r *ContributorStatsRepo) GetProjectCategories(ctx context.Context, opts models.ProjectStatsOptions) ([]models.CategoryStat, error) {
+func (r *ContributorStatsRepo) GetProjectCategories(ctx context.Context, opts domain.ProjectStatsOptions) ([]models.CategoryStat, error) {
 	return r.getCategories(ctx,
 		"provider = ? AND repo = ? AND "+baseReviewWhere+projectFilterClauseWithoutProject(opts),
 		append([]interface{}{opts.Provider, opts.Repo}, projectFilterArgsWithoutProject(opts)...)...)
 }
 
-func (r *ContributorStatsRepo) GetProjectFiles(ctx context.Context, opts models.ProjectStatsOptions) ([]models.FileRiskStat, error) {
+func (r *ContributorStatsRepo) GetProjectFiles(ctx context.Context, opts domain.ProjectStatsOptions) ([]models.FileRiskStat, error) {
 	var rows []struct {
 		Path          string `gorm:"column:path"`
 		Count         int    `gorm:"column:cnt"`
@@ -163,7 +164,7 @@ func (r *ContributorStatsRepo) GetProjectFiles(ctx context.Context, opts models.
 	return stats, nil
 }
 
-func (r *ContributorStatsRepo) GetProjectContributors(ctx context.Context, opts models.ProjectStatsOptions, limit int) ([]models.ContributorSummary, error) {
+func (r *ContributorStatsRepo) GetProjectContributors(ctx context.Context, opts domain.ProjectStatsOptions, limit int) ([]models.ContributorSummary, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 10
 	}
