@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 
@@ -18,42 +19,50 @@ func NewProjectPolicyRepo(db *gormLib.DB) *ProjectPolicyRepo {
 	return &ProjectPolicyRepo{db: db}
 }
 
-func (r *ProjectPolicyRepo) List(ctx context.Context) ([]models.ProjectPolicy, error) {
+func (r *ProjectPolicyRepo) List(ctx context.Context) ([]projectpolicy.ProjectPolicy, error) {
 	var policies []models.ProjectPolicy
-	err := r.db.WithContext(ctx).
+	if err := r.db.WithContext(ctx).
 		Order("provider, repo").
-		Find(&policies).Error
-	return policies, err
+		Find(&policies).Error; err != nil {
+		return nil, err
+	}
+	out := make([]projectpolicy.ProjectPolicy, len(policies))
+	for i, m := range policies {
+		out[i] = projectPolicyToDomain(m)
+	}
+	return out, nil
 }
 
-func (r *ProjectPolicyRepo) GetByProviderRepo(ctx context.Context, provider, repo string) (*models.ProjectPolicy, error) {
-	var policy models.ProjectPolicy
+func (r *ProjectPolicyRepo) GetByProviderRepo(ctx context.Context, provider, repo string) (*projectpolicy.ProjectPolicy, error) {
+	var m models.ProjectPolicy
 	err := r.db.WithContext(ctx).
 		Where("provider = ? AND repo = ?", provider, repo).
-		First(&policy).Error
+		First(&m).Error
 	if err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
 			return nil, repoerr.ErrNotFound
 		}
 		return nil, err
 	}
-	return &policy, nil
+	d := projectPolicyToDomain(m)
+	return &d, nil
 }
 
-func (r *ProjectPolicyRepo) Save(ctx context.Context, policy *models.ProjectPolicy) error {
+func (r *ProjectPolicyRepo) Save(ctx context.Context, policy *projectpolicy.ProjectPolicy) error {
+	m := projectPolicyToModel(policy)
 	return r.db.WithContext(ctx).Transaction(func(tx *gormLib.DB) error {
 		var existing models.ProjectPolicy
 		err := tx.Unscoped().
-			Where("provider = ? AND repo = ?", policy.Provider, policy.Repo).
+			Where("provider = ? AND repo = ?", m.Provider, m.Repo).
 			First(&existing).Error
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return tx.Create(policy).Error
+			return tx.Create(&m).Error
 		}
 		if err != nil {
 			return err
 		}
-		policy.ID = existing.ID
-		return tx.Unscoped().Save(policy).Error
+		m.ID = existing.ID
+		return tx.Unscoped().Save(&m).Error
 	})
 }
 

@@ -7,8 +7,8 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/domain/llmprovider"
 	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
+	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 	"github.com/yi-nology/code-review-service/internal/domain/reviewer"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 )
 
 func TestValidateOCRSettings(t *testing.T) {
@@ -238,7 +238,7 @@ func TestDTOToToolPackage(t *testing.T) {
 func TestValidateProjectPolicy(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   *models.ProjectPolicy
+		input   *projectpolicy.ProjectPolicy
 		wantErr bool
 	}{
 		{
@@ -248,7 +248,7 @@ func TestValidateProjectPolicy(t *testing.T) {
 		},
 		{
 			name: "empty provider returns error",
-			input: &models.ProjectPolicy{
+			input: &projectpolicy.ProjectPolicy{
 				Provider: "",
 				Repo:     "org/repo",
 				FailOn:   "critical",
@@ -257,7 +257,7 @@ func TestValidateProjectPolicy(t *testing.T) {
 		},
 		{
 			name: "empty repo returns error",
-			input: &models.ProjectPolicy{
+			input: &projectpolicy.ProjectPolicy{
 				Provider: "github",
 				Repo:     "",
 				FailOn:   "critical",
@@ -266,7 +266,7 @@ func TestValidateProjectPolicy(t *testing.T) {
 		},
 		{
 			name: "invalid fail_on returns error",
-			input: &models.ProjectPolicy{
+			input: &projectpolicy.ProjectPolicy{
 				Provider: "github",
 				Repo:     "org/repo",
 				FailOn:   "invalid",
@@ -275,7 +275,7 @@ func TestValidateProjectPolicy(t *testing.T) {
 		},
 		{
 			name: "valid policy passes",
-			input: &models.ProjectPolicy{
+			input: &projectpolicy.ProjectPolicy{
 				Provider:          "github",
 				Repo:              "org/repo",
 				FailOn:            "critical",
@@ -357,7 +357,7 @@ func TestDBOCRSettingsToAPI(t *testing.T) {
 func boolPtr(b bool) *bool { return &b }
 
 func TestDBProjectPolicyToAPI(t *testing.T) {
-	input := &models.ProjectPolicy{
+	input := &projectpolicy.ProjectPolicy{
 		Provider:          "github",
 		Repo:              "org/repo",
 		FailOn:            "critical",

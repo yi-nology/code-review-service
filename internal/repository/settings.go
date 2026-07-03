@@ -5,8 +5,8 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/domain/ocrasset"
 	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
+	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 	"github.com/yi-nology/code-review-service/internal/domain/rules"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 )
 
 type OCRSettingsRepository interface {
@@ -15,9 +15,9 @@ type OCRSettingsRepository interface {
 }
 
 type ProjectPolicyRepository interface {
-	List(ctx context.Context) ([]models.ProjectPolicy, error)
-	GetByProviderRepo(ctx context.Context, provider, repo string) (*models.ProjectPolicy, error)
-	Save(ctx context.Context, policy *models.ProjectPolicy) error
+	List(ctx context.Context) ([]projectpolicy.ProjectPolicy, error)
+	GetByProviderRepo(ctx context.Context, provider, repo string) (*projectpolicy.ProjectPolicy, error)
+	Save(ctx context.Context, policy *projectpolicy.ProjectPolicy) error
 	Delete(ctx context.Context, provider, repo string) error
 }
 

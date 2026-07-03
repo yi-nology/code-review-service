@@ -8,6 +8,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/domain/ocrasset"
 	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/domain/platform"
+	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 	"github.com/yi-nology/code-review-service/internal/domain/reviewer"
 	"github.com/yi-nology/code-review-service/internal/domain/revision"
 	"github.com/yi-nology/code-review-service/internal/domain/rules"
@@ -434,5 +435,67 @@ func toolPackageVersionToDomain(m models.OCRToolPackageVersion) ocrasset.ToolPac
 		Version:   m.Version,
 		Snapshot:  rawJSON(m.Snapshot),
 		CreatedAt: m.CreatedAt,
+	}
+}
+
+// ---- project policy ----
+
+func projectPolicyToModel(p *projectpolicy.ProjectPolicy) models.ProjectPolicy {
+	return models.ProjectPolicy{
+		Provider:                   p.Provider,
+		Repo:                       p.Repo,
+		FailOn:                     p.FailOn,
+		IgnorePaths:                dataTypeJSON(p.IgnorePaths),
+		Rules:                      dataTypeJSON(p.Rules),
+		OCREnabled:                 p.OCREnabled,
+		OCRConcurrency:             p.OCRConcurrency,
+		OCRTimeoutMinutes:          p.OCRTimeoutMinutes,
+		OCRMaxTools:                p.OCRMaxTools,
+		OCRDefaultSeverity:         p.OCRDefaultSeverity,
+		OCRBackground:              p.OCRBackground,
+		OCRAudience:                p.OCRAudience,
+		OCRProvider:                p.OCRProvider,
+		OCRURL:                     p.OCRURL,
+		OCRModel:                   p.OCRModel,
+		OCRMaxGitProcs:             p.OCRMaxGitProcs,
+		OCRUseAnthropic:            p.OCRUseAnthropic,
+		OCRExtraBody:               p.OCRExtraBody,
+		OCRLanguage:                p.OCRLanguage,
+		OCRBinary:                  p.OCRBinary,
+		OCRToolsPath:               p.OCRToolsPath,
+		OCRTelemetryEnabled:        p.OCRTelemetryEnabled,
+		OCRTelemetryExporter:       p.OCRTelemetryExporter,
+		OCRTelemetryOTLPEndpoint:   p.OCRTelemetryOTLPEndpoint,
+		OCRTelemetryContentLogging: p.OCRTelemetryContentLogging,
+	}
+}
+
+func projectPolicyToDomain(m models.ProjectPolicy) projectpolicy.ProjectPolicy {
+	return projectpolicy.ProjectPolicy{
+		Provider:                   m.Provider,
+		Repo:                       m.Repo,
+		FailOn:                     m.FailOn,
+		IgnorePaths:                rawJSON(m.IgnorePaths),
+		Rules:                      rawJSON(m.Rules),
+		OCREnabled:                 m.OCREnabled,
+		OCRConcurrency:             m.OCRConcurrency,
+		OCRTimeoutMinutes:          m.OCRTimeoutMinutes,
+		OCRMaxTools:                m.OCRMaxTools,
+		OCRDefaultSeverity:         m.OCRDefaultSeverity,
+		OCRBackground:              m.OCRBackground,
+		OCRAudience:                m.OCRAudience,
+		OCRProvider:                m.OCRProvider,
+		OCRURL:                     m.OCRURL,
+		OCRModel:                   m.OCRModel,
+		OCRMaxGitProcs:             m.OCRMaxGitProcs,
+		OCRUseAnthropic:            m.OCRUseAnthropic,
+		OCRExtraBody:               m.OCRExtraBody,
+		OCRLanguage:                m.OCRLanguage,
+		OCRBinary:                  m.OCRBinary,
+		OCRToolsPath:               m.OCRToolsPath,
+		OCRTelemetryEnabled:        m.OCRTelemetryEnabled,
+		OCRTelemetryExporter:       m.OCRTelemetryExporter,
+		OCRTelemetryOTLPEndpoint:   m.OCRTelemetryOTLPEndpoint,
+		OCRTelemetryContentLogging: m.OCRTelemetryContentLogging,
 	}
 }

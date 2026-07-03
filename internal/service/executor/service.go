@@ -12,7 +12,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
@@ -149,7 +149,7 @@ func (s *Service) Execute(ctx context.Context, id string, req domain.Request, pr
 		s.updateRequestSHAs(ctx, id, req)
 	}
 
-	projectPolicy := models.ProjectPolicy{FailOn: "critical"}
+	projectPolicy := projectpolicy.ProjectPolicy{FailOn: "critical"}
 	if s.projectRepo != nil {
 		p, err := s.projectRepo.GetByProviderRepo(ctx, req.Provider, req.Repo)
 		if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
@@ -225,7 +225,7 @@ func (s *Service) Execute(ctx context.Context, id string, req domain.Request, pr
 	return s.executeWithRunner(ctx, id, req, workspace, projectPolicy)
 }
 
-func (s *Service) executeWithWorkflow(ctx context.Context, id string, req domain.Request, workspace domain.Workspace, projectPolicy models.ProjectPolicy) (domain.Response, error) {
+func (s *Service) executeWithWorkflow(ctx context.Context, id string, req domain.Request, workspace domain.Workspace, projectPolicy projectpolicy.ProjectPolicy) (domain.Response, error) {
 	s.appendHistory(ctx, id, "workflow", "running", "multi-agent review workflow started", nil)
 
 	wfReq := workflow.ReviewRequest{
@@ -347,7 +347,7 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req domain
 	return resp, nil
 }
 
-func (s *Service) executeWithRunner(ctx context.Context, id string, req domain.Request, workspace domain.Workspace, projectPolicy models.ProjectPolicy) (domain.Response, error) {
+func (s *Service) executeWithRunner(ctx context.Context, id string, req domain.Request, workspace domain.Workspace, projectPolicy projectpolicy.ProjectPolicy) (domain.Response, error) {
 	s.appendHistory(ctx, id, "ocr", "running", "code review model invoked", nil)
 	result, err := s.runner.Run(ctx, workspace)
 	if err != nil {

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 
 	"github.com/oekit/logx"
 )
@@ -27,7 +27,7 @@ type ruleFile struct {
 //
 // 作为 review 与 executor 路径的单一实现（含 rule packages），消除重复，
 // 并修复此前 executor 路径丢失 rule packages 处理的问题。
-func ResolveRuleFile(ctx context.Context, projectPolicy models.ProjectPolicy, rulePackageRepo repository.OCRRulePackageRepository, globalRulesRepo repository.GlobalRulesRepository) (string, func(), error) {
+func ResolveRuleFile(ctx context.Context, projectPolicy projectpolicy.ProjectPolicy, rulePackageRepo repository.OCRRulePackageRepository, globalRulesRepo repository.GlobalRulesRepository) (string, func(), error) {
 	var merged []ruleEntry
 
 	if len(projectPolicy.Rules) > 0 {

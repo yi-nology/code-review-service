@@ -2,18 +2,18 @@ package settings_service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 
 	"github.com/oekit/pkg/ptrx"
 	"github.com/oekit/pkg/slicex"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	"gorm.io/datatypes"
 )
 
 func ListProjectPolicies(ctx context.Context, c *app.RequestContext) {
@@ -22,7 +22,7 @@ func ListProjectPolicies(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, err)
 		return
 	}
-	policies := slicex.Map(items, func(item models.ProjectPolicy) *modelSettings.ProjectPolicy {
+	policies := slicex.Map(items, func(item projectpolicy.ProjectPolicy) *modelSettings.ProjectPolicy {
 		return dbProjectPolicyToAPI(&item)
 	})
 	common.Success(c, &modelSettings.ListProjectPoliciesResp{Items: policies})
@@ -61,7 +61,7 @@ func DeleteProjectPolicy(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelSettings.DeleteProjectPolicyResp{})
 }
 
-func validateProjectPolicy(p *models.ProjectPolicy) error {
+func validateProjectPolicy(p *projectpolicy.ProjectPolicy) error {
 	if p == nil {
 		return fmt.Errorf("项目策略不能为空")
 	}
@@ -95,7 +95,7 @@ func validateProjectPolicy(p *models.ProjectPolicy) error {
 	return nil
 }
 
-func dbProjectPolicyToAPI(p *models.ProjectPolicy) *modelSettings.ProjectPolicy {
+func dbProjectPolicyToAPI(p *projectpolicy.ProjectPolicy) *modelSettings.ProjectPolicy {
 	var ignorePaths, rules string
 	if len(p.IgnorePaths) > 0 {
 		ignorePaths = string(p.IgnorePaths)
@@ -121,8 +121,8 @@ func dbProjectPolicyToAPI(p *models.ProjectPolicy) *modelSettings.ProjectPolicy 
 	}
 }
 
-func apiProjectPolicyToDB(p *modelSettings.ProjectPolicy) *models.ProjectPolicy {
-	db := &models.ProjectPolicy{}
+func apiProjectPolicyToDB(p *modelSettings.ProjectPolicy) *projectpolicy.ProjectPolicy {
+	db := &projectpolicy.ProjectPolicy{}
 	if p == nil {
 		return db
 	}
@@ -150,10 +150,10 @@ func apiProjectPolicyToDB(p *modelSettings.ProjectPolicy) *models.ProjectPolicy 
 	db.OCRTelemetryOTLPEndpoint = ptrx.Deref(p.OcrTelemetryOtlpEndpoint, "")
 	db.OCRTelemetryContentLogging = ptrx.Deref(p.OcrTelemetryContentLogging, false)
 	if p.IsSetIgnorePaths() && p.IgnorePaths != nil && *p.IgnorePaths != "" {
-		db.IgnorePaths = datatypes.JSON(*p.IgnorePaths)
+		db.IgnorePaths = json.RawMessage(*p.IgnorePaths)
 	}
 	if p.IsSetRules() && p.Rules != nil && *p.Rules != "" {
-		db.Rules = datatypes.JSON(*p.Rules)
+		db.Rules = json.RawMessage(*p.Rules)
 	}
 	return db
 }

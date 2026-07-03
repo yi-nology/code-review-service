@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
@@ -438,7 +439,7 @@ func (s *Service) Preview(ctx context.Context, req domain.Request) ([]string, er
 		defer func() { _ = os.RemoveAll(workspace.Dir) }()
 	}
 
-	projectPolicy := models.ProjectPolicy{FailOn: "critical"}
+	projectPolicy := projectpolicy.ProjectPolicy{FailOn: "critical"}
 	if s.projectRepo != nil {
 		policyRecord, err := s.projectRepo.GetByProviderRepo(ctx, req.Provider, req.Repo)
 		if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
@@ -650,7 +651,7 @@ func (s *Service) scanExecute(ctx context.Context, req domain.ScanRequest) (*dom
 	return scanResult, err
 }
 
-func (s *Service) scanExecuteWithPolicy(ctx context.Context, reviewID string, req domain.ScanRequest) (*domain.ScanResult, models.ProjectPolicy, error) {
+func (s *Service) scanExecuteWithPolicy(ctx context.Context, reviewID string, req domain.ScanRequest) (*domain.ScanResult, projectpolicy.ProjectPolicy, error) {
 	providerName := strings.TrimSpace(req.Provider)
 	repo := strings.TrimSpace(req.Repo)
 	head := strings.TrimSpace(req.HeadSHA)
@@ -660,7 +661,7 @@ func (s *Service) scanExecuteWithPolicy(ctx context.Context, reviewID string, re
 	p, ok := s.Providers.Get(providerName)
 	if !ok {
 		logx.Errorf("Scan: provider not found: requested=%q", providerName)
-		return nil, models.ProjectPolicy{}, fmt.Errorf("%w: %s", domain.ErrUnsupportedProvider, providerName)
+		return nil, projectpolicy.ProjectPolicy{}, fmt.Errorf("%w: %s", domain.ErrUnsupportedProvider, providerName)
 	}
 
 	if reporter != nil {
@@ -673,13 +674,13 @@ func (s *Service) scanExecuteWithPolicy(ctx context.Context, reviewID string, re
 		HeadSHA:  head,
 	})
 	if err != nil {
-		return nil, models.ProjectPolicy{}, err
+		return nil, projectpolicy.ProjectPolicy{}, err
 	}
 	if workspace.Dir != "" {
 		defer func() { _ = os.RemoveAll(workspace.Dir) }()
 	}
 
-	projectPolicy := models.ProjectPolicy{FailOn: "critical"}
+	projectPolicy := projectpolicy.ProjectPolicy{FailOn: "critical"}
 	if s.projectRepo != nil {
 		policyRecord, err := s.projectRepo.GetByProviderRepo(ctx, providerName, repo)
 		if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
@@ -732,7 +733,7 @@ func (s *Service) scanExecuteWithPolicy(ctx context.Context, reviewID string, re
 
 	scanResult, err := s.ScanRunner.Scan(ctx, workspace, req)
 	if err != nil {
-		return nil, models.ProjectPolicy{}, err
+		return nil, projectpolicy.ProjectPolicy{}, err
 	}
 	if req.Preview || scanResult == nil || scanResult.Result == nil {
 		return scanResult, projectPolicy, nil
@@ -774,7 +775,7 @@ func (s *Service) recordScanFailure(ctx context.Context, reviewID string, scanEr
 	}
 }
 
-func (s *Service) persistScanResultUpdate(ctx context.Context, reviewID string, scanReq domain.ScanRequest, projectPolicy models.ProjectPolicy, scanResult *domain.ScanResult) error {
+func (s *Service) persistScanResultUpdate(ctx context.Context, reviewID string, scanReq domain.ScanRequest, projectPolicy projectpolicy.ProjectPolicy, scanResult *domain.ScanResult) error {
 	result := scanResult.Result
 	if result == nil {
 		return fmt.Errorf("scan result is empty")
@@ -849,7 +850,7 @@ func (s *Service) updateReviewFields(ctx context.Context, reviewID string, fn fu
 
 // ProjectPolicyToOCROverrides 将项目策略中的 OCR 配置项映射为 review.OCROverrides。
 // 作为 scan 路径与 executor 路径的单一实现，消除重复。
-func ProjectPolicyToOCROverrides(p models.ProjectPolicy) domain.OCROverrides {
+func ProjectPolicyToOCROverrides(p projectpolicy.ProjectPolicy) domain.OCROverrides {
 	return domain.OCROverrides{
 		Enabled:                 p.OCREnabled,
 		Concurrency:             p.OCRConcurrency,

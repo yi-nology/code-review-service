@@ -11,7 +11,7 @@ import (
 
 	"github.com/oekit/concurrency/async"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
@@ -78,7 +78,7 @@ func (s *Service) CompareModels(ctx context.Context, reviewID string, opts Model
 		return nil, true, fmt.Errorf("%w: %s", domain.ErrUnsupportedProvider, record.Request.Provider)
 	}
 
-	projectPolicy := models.ProjectPolicy{FailOn: "critical"}
+	projectPolicy := projectpolicy.ProjectPolicy{FailOn: "critical"}
 	if s.projectRepo != nil {
 		policyRecord, err := s.projectRepo.GetByProviderRepo(ctx, record.Request.Provider, record.Request.Repo)
 		if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
@@ -105,7 +105,7 @@ func (s *Service) CompareModels(ctx context.Context, reviewID string, opts Model
 	return &ModelCompareResult{ReviewID: record.ID, Candidates: runs}, true, nil
 }
 
-func (s *Service) runModelCandidate(ctx context.Context, provider domain.Provider, req domain.Request, projectPolicy models.ProjectPolicy, candidate ModelCompareCandidate) ModelCompareCandidateRun {
+func (s *Service) runModelCandidate(ctx context.Context, provider domain.Provider, req domain.Request, projectPolicy projectpolicy.ProjectPolicy, candidate ModelCompareCandidate) ModelCompareCandidateRun {
 	started := time.Now()
 	run := ModelCompareCandidateRun{
 		Label:    firstNonBlankLocal(candidate.Label, candidate.Model),

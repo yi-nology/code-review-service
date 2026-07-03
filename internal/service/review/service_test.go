@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
+	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
@@ -179,22 +180,22 @@ func (m *mockOCRSettingsRepo) Save(_ context.Context, _ *ocrsettings.Settings) e
 }
 
 type mockProjectPolicyRepo struct {
-	policy *models.ProjectPolicy
+	policy *projectpolicy.ProjectPolicy
 	err    error
 }
 
-func (m *mockProjectPolicyRepo) List(_ context.Context) ([]models.ProjectPolicy, error) {
+func (m *mockProjectPolicyRepo) List(_ context.Context) ([]projectpolicy.ProjectPolicy, error) {
 	return nil, nil
 }
 
-func (m *mockProjectPolicyRepo) GetByProviderRepo(_ context.Context, _, _ string) (*models.ProjectPolicy, error) {
+func (m *mockProjectPolicyRepo) GetByProviderRepo(_ context.Context, _, _ string) (*projectpolicy.ProjectPolicy, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 	return m.policy, nil
 }
 
-func (m *mockProjectPolicyRepo) Save(_ context.Context, _ *models.ProjectPolicy) error {
+func (m *mockProjectPolicyRepo) Save(_ context.Context, _ *projectpolicy.ProjectPolicy) error {
 	return nil
 }
 
