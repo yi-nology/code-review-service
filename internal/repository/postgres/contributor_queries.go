@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 
+	"github.com/yi-nology/code-review-service/internal/domain/stats"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/mathx"
@@ -10,7 +11,7 @@ import (
 	gormLib "gorm.io/gorm"
 )
 
-func (r *ContributorStatsRepo) ListContributors(ctx context.Context, opts models.ContributorStatsOptions) (*models.ContributorListResult, error) {
+func (r *ContributorStatsRepo) ListContributors(ctx context.Context, opts stats.ContributorStatsOptions) (*stats.ContributorListResult, error) {
 	if opts.Page <= 0 {
 		opts.Page = 1
 	}
@@ -44,12 +45,12 @@ func (r *ContributorStatsRepo) ListContributors(ctx context.Context, opts models
 		return nil, err
 	}
 
-	return &models.ContributorListResult{
+	return &stats.ContributorListResult{
 		Contributors: rowsToSummaries(rows), Total: total, Page: opts.Page, PageSize: opts.PageSize,
 	}, nil
 }
 
-func (r *ContributorStatsRepo) GetContributor(ctx context.Context, opts models.ContributorStatsOptions) (*models.ContributorDetail, error) {
+func (r *ContributorStatsRepo) GetContributor(ctx context.Context, opts stats.ContributorStatsOptions) (*stats.ContributorDetail, error) {
 	var row contributorRow
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT `+contributorSelectCols+`
@@ -80,14 +81,14 @@ func (r *ContributorStatsRepo) GetContributor(ctx context.Context, opts models.C
 
 	gradeDist := r.getGradeDistribution(ctx, "author = ?", opts.Author)
 
-	return &models.ContributorDetail{
+	return &stats.ContributorDetail{
 		ContributorSummary: rowToSummary(row), MedianScore: mathx.Round(medianScore, 2),
 		MaxScore: maxScore, MinScore: minScore, GradeDistribution: gradeDist,
 		AvgFindings: mathx.Round(avgFindings, 2), AvgChangedLines: mathx.Round(avgChangedLines, 2),
 	}, nil
 }
 
-func (r *ContributorStatsRepo) GetContributorTrend(ctx context.Context, opts models.ContributorStatsOptions) ([]models.TrendPoint, error) {
+func (r *ContributorStatsRepo) GetContributorTrend(ctx context.Context, opts stats.ContributorStatsOptions) ([]stats.TrendPoint, error) {
 	var rows []struct {
 		Period      string  `gorm:"column:period"`
 		AvgScore    float64 `gorm:"column:avg_score"`
@@ -105,16 +106,16 @@ func (r *ContributorStatsRepo) GetContributorTrend(ctx context.Context, opts mod
 		return nil, err
 	}
 
-	points := make([]models.TrendPoint, 0, len(rows))
+	points := make([]stats.TrendPoint, 0, len(rows))
 	for _, row := range rows {
-		points = append(points, models.TrendPoint{
+		points = append(points, stats.TrendPoint{
 			Period: row.Period, AvgScore: mathx.Round(row.AvgScore, 2), ReviewCount: row.ReviewCount,
 		})
 	}
 	return points, nil
 }
 
-func (r *ContributorStatsRepo) GetContributorCategories(ctx context.Context, opts models.ContributorStatsOptions) ([]models.CategoryStat, error) {
+func (r *ContributorStatsRepo) GetContributorCategories(ctx context.Context, opts stats.ContributorStatsOptions) ([]stats.CategoryStat, error) {
 	return r.getCategories(ctx, "author = ? AND "+baseReviewWhere+filterClause(opts),
 		append([]interface{}{opts.Author}, filterArgs(opts)...))
 }
@@ -142,7 +143,7 @@ func (r *ContributorStatsRepo) getGradeDistribution(ctx context.Context, where s
 	return dist
 }
 
-func (r *ContributorStatsRepo) getCategories(ctx context.Context, where string, args ...interface{}) ([]models.CategoryStat, error) {
+func (r *ContributorStatsRepo) getCategories(ctx context.Context, where string, args ...interface{}) ([]stats.CategoryStat, error) {
 	var rows []struct {
 		Category string `gorm:"column:category"`
 		Count    int    `gorm:"column:cnt"`
@@ -157,13 +158,13 @@ func (r *ContributorStatsRepo) getCategories(ctx context.Context, where string, 
 		return nil, err
 	}
 
-	stats := make([]models.CategoryStat, 0, len(rows))
+	items := make([]stats.CategoryStat, 0, len(rows))
 	for _, row := range rows {
 		cat := row.Category
 		if cat == "" {
 			cat = "可维护性"
 		}
-		stats = append(stats, models.CategoryStat{Category: cat, Count: row.Count})
+		items = append(items, stats.CategoryStat{Category: cat, Count: row.Count})
 	}
-	return stats, nil
+	return items, nil
 }

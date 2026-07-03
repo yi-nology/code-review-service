@@ -3,7 +3,7 @@ package postgres
 import (
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/domain/stats"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/pkg/mathx"
 	"github.com/oekit/pkg/slicex"
@@ -48,7 +48,7 @@ func NewContributorStatsRepo(db *gormLib.DB) *ContributorStatsRepo {
 	return &ContributorStatsRepo{db: db}
 }
 
-func (r *ContributorStatsRepo) applyFilters(db *gormLib.DB, opts models.ContributorStatsOptions) *gormLib.DB {
+func (r *ContributorStatsRepo) applyFilters(db *gormLib.DB, opts stats.ContributorStatsOptions) *gormLib.DB {
 	db = db.Where("author != '' AND " + baseReviewWhere)
 	if opts.Provider != "" {
 		db = db.Where("provider = ?", opts.Provider)
@@ -124,8 +124,8 @@ type projectRow struct {
 	LastReviewAt  time.Time `gorm:"column:last_review_at"`
 }
 
-func rowToSummary(row contributorRow) models.ContributorSummary {
-	return models.ContributorSummary{
+func rowToSummary(row contributorRow) stats.ContributorSummary {
+	return stats.ContributorSummary{
 		Author: row.Author, AuthorName: row.AuthorName, AuthorAvatar: row.AuthorAvatar,
 		ReviewCount: row.ReviewCount, AvgScore: mathx.Round(row.AvgScore, 2),
 		PassRate: mathx.Round(row.PassRate*100, 2), TotalFindings: row.TotalFindings,
@@ -134,12 +134,12 @@ func rowToSummary(row contributorRow) models.ContributorSummary {
 	}
 }
 
-func rowsToSummaries(rows []contributorRow) []models.ContributorSummary {
+func rowsToSummaries(rows []contributorRow) []stats.ContributorSummary {
 	return slicex.Map(rows, rowToSummary)
 }
 
-func projectRowToSummary(row projectRow) models.ProjectSummary {
-	return models.ProjectSummary{
+func projectRowToSummary(row projectRow) stats.ProjectSummary {
+	return stats.ProjectSummary{
 		Provider: row.Provider, Repo: row.Repo,
 		ReviewCount: row.ReviewCount, AvgScore: mathx.Round(row.AvgScore, 2),
 		PassRate: mathx.Round(row.PassRate*100, 2), TotalFindings: row.TotalFindings,
@@ -148,11 +148,11 @@ func projectRowToSummary(row projectRow) models.ProjectSummary {
 	}
 }
 
-func projectRowsToSummaries(rows []projectRow) []models.ProjectSummary {
+func projectRowsToSummaries(rows []projectRow) []stats.ProjectSummary {
 	return slicex.Map(rows, projectRowToSummary)
 }
 
-func filterClause(opts models.ContributorStatsOptions) string {
+func filterClause(opts stats.ContributorStatsOptions) string {
 	clauses := ""
 	if opts.Provider != "" {
 		clauses += " AND provider = ?"
@@ -169,7 +169,7 @@ func filterClause(opts models.ContributorStatsOptions) string {
 	return clauses
 }
 
-func filterArgs(opts models.ContributorStatsOptions) []interface{} {
+func filterArgs(opts stats.ContributorStatsOptions) []interface{} {
 	var args []interface{}
 	if opts.Provider != "" {
 		args = append(args, opts.Provider)

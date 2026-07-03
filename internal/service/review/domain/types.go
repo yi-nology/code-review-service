@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/stats"
 	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/oekit/pkg/ptrx"
 	"github.com/oekit/pkg/stringx"
@@ -180,16 +181,9 @@ type AggregateStats struct {
 }
 
 // ProjectStatsOptions 是项目级 OCR 统计查询条件（Review/Contributor 共享）。
-type ProjectStatsOptions struct {
-	Provider string
-	Repo     string
-	From     time.Time
-	To       time.Time
-	Page     int
-	PageSize int
-	Sort     string
-	Order    string
-}
+// ProjectStatsOptions 是 review/domain 的别名，指向规范定义 internal/domain/stats。
+// ReviewRepository 继续使用 domain.ProjectStatsOptions（同一类型，零转换成本）。
+type ProjectStatsOptions = stats.ProjectStatsOptions
 
 // ProjectOCRMetrics 是项目级 OCR 指标聚合结果。
 type ProjectOCRMetrics struct {
