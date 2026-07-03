@@ -5,6 +5,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/domain/feedback"
 	"github.com/yi-nology/code-review-service/internal/domain/llmprovider"
+	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/domain/platform"
 	"github.com/yi-nology/code-review-service/internal/domain/reviewer"
 	"github.com/yi-nology/code-review-service/internal/domain/revision"
@@ -283,4 +284,72 @@ func globalRulesToModel(g *rules.Global) models.GlobalRules {
 
 func globalRulesToDomain(m models.GlobalRules) rules.Global {
 	return rules.Global{Content: rawJSON(m.Rules)}
+}
+
+// ---- ocr settings ----
+
+func ocrSettingsToModel(s *ocrsettings.Settings) models.OCRSettings {
+	return models.OCRSettings{
+		Enabled:                 s.Enabled,
+		Binary:                  s.Binary,
+		Audience:                s.Audience,
+		DefaultSeverity:         s.DefaultSeverity,
+		Provider:                s.Provider,
+		URL:                     s.URL,
+		AuthToken:               s.AuthToken,
+		AuthHeader:              s.AuthHeader,
+		ExtraHeaders:            s.ExtraHeaders,
+		ModelName:               s.ModelName,
+		UseAnthropic:            s.UseAnthropic,
+		ExtraBody:               dataTypeJSON(s.ExtraBody),
+		ReasoningMode:           s.ReasoningMode,
+		ReasoningBudget:         s.ReasoningBudget,
+		Language:                s.Language,
+		Concurrency:             s.Concurrency,
+		MaxGitProcs:             s.MaxGitProcs,
+		TimeoutMinutes:          s.TimeoutMinutes,
+		MaxTools:                s.MaxTools,
+		Background:              s.Background,
+		ToolsPath:               s.ToolsPath,
+		ToolsConfig:             dataTypeJSON(s.ToolsConfig),
+		TelemetryEnabled:        s.TelemetryEnabled,
+		TelemetryExporter:       s.TelemetryExporter,
+		TelemetryOTLPEndpoint:   s.TelemetryOTLPEndpoint,
+		TelemetryContentLogging: s.TelemetryContentLogging,
+		ContextWindow:           s.ContextWindow,
+		MaxOutputTokens:         s.MaxOutputTokens,
+	}
+}
+
+func ocrSettingsToDomain(m models.OCRSettings) ocrsettings.Settings {
+	return ocrsettings.Settings{
+		Enabled:                 m.Enabled,
+		Binary:                  m.Binary,
+		Audience:                m.Audience,
+		DefaultSeverity:         m.DefaultSeverity,
+		Provider:                m.Provider,
+		URL:                     m.URL,
+		AuthToken:               m.AuthToken,
+		AuthHeader:              m.AuthHeader,
+		ExtraHeaders:            m.ExtraHeaders,
+		ModelName:               m.ModelName,
+		UseAnthropic:            m.UseAnthropic,
+		ExtraBody:               rawJSON(m.ExtraBody),
+		ReasoningMode:           m.ReasoningMode,
+		ReasoningBudget:         m.ReasoningBudget,
+		Language:                m.Language,
+		Concurrency:             m.Concurrency,
+		MaxGitProcs:             m.MaxGitProcs,
+		TimeoutMinutes:          m.TimeoutMinutes,
+		MaxTools:                m.MaxTools,
+		Background:              m.Background,
+		ToolsPath:               m.ToolsPath,
+		ToolsConfig:             rawJSON(m.ToolsConfig),
+		TelemetryEnabled:        m.TelemetryEnabled,
+		TelemetryExporter:       m.TelemetryExporter,
+		TelemetryOTLPEndpoint:   m.TelemetryOTLPEndpoint,
+		TelemetryContentLogging: m.TelemetryContentLogging,
+		ContextWindow:           m.ContextWindow,
+		MaxOutputTokens:         m.MaxOutputTokens,
+	}
 }

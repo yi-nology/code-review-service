@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	gormLib "gorm.io/gorm"
@@ -30,7 +31,7 @@ func NewOCRSettingsRepo(db *gormLib.DB, defaults ...OCRSettingsDefaults) *OCRSet
 	return repo
 }
 
-func (r *OCRSettingsRepo) Get(ctx context.Context) (*models.OCRSettings, error) {
+func (r *OCRSettingsRepo) Get(ctx context.Context) (*ocrsettings.Settings, error) {
 	var settings models.OCRSettings
 	err := r.db.WithContext(ctx).
 		Order("id DESC").
@@ -41,15 +42,16 @@ func (r *OCRSettingsRepo) Get(ctx context.Context) (*models.OCRSettings, error) 
 		}
 		return nil, err
 	}
-	return &settings, nil
+	d := ocrSettingsToDomain(settings)
+	return &d, nil
 }
 
-func (r *OCRSettingsRepo) defaultSettings() *models.OCRSettings {
+func (r *OCRSettingsRepo) defaultSettings() *ocrsettings.Settings {
 	binary := strings.TrimSpace(r.defaults.Binary)
 	if binary == "" {
 		binary = "ocr"
 	}
-	return &models.OCRSettings{
+	return &ocrsettings.Settings{
 		Enabled:         r.defaults.Enabled,
 		Binary:          binary,
 		Audience:        "human",
@@ -64,17 +66,18 @@ func (r *OCRSettingsRepo) defaultSettings() *models.OCRSettings {
 	}
 }
 
-func (r *OCRSettingsRepo) Save(ctx context.Context, settings *models.OCRSettings) error {
+func (r *OCRSettingsRepo) Save(ctx context.Context, settings *ocrsettings.Settings) error {
+	m := ocrSettingsToModel(settings)
 	return r.db.WithContext(ctx).Transaction(func(tx *gormLib.DB) error {
 		var existing models.OCRSettings
 		err := tx.Order("id DESC").First(&existing).Error
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return tx.Create(settings).Error
+			return tx.Create(&m).Error
 		}
 		if err != nil {
 			return err
 		}
-		settings.ID = existing.ID
-		return tx.Save(settings).Error
+		m.ID = existing.ID
+		return tx.Save(&m).Error
 	})
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/yi-nology/code-review-service/internal/domain/llmprovider"
+	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/domain/reviewer"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 )
@@ -13,7 +14,7 @@ import (
 func TestValidateOCRSettings(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   *models.OCRSettings
+		input   *ocrsettings.Settings
 		wantErr bool
 	}{
 		{
@@ -23,7 +24,7 @@ func TestValidateOCRSettings(t *testing.T) {
 		},
 		{
 			name: "empty binary gets default",
-			input: &models.OCRSettings{
+			input: &ocrsettings.Settings{
 				Binary:          "",
 				Audience:        "human",
 				DefaultSeverity: "major",
@@ -32,7 +33,7 @@ func TestValidateOCRSettings(t *testing.T) {
 		},
 		{
 			name: "invalid audience returns error",
-			input: &models.OCRSettings{
+			input: &ocrsettings.Settings{
 				Binary:          "ocr",
 				Audience:        "invalid",
 				DefaultSeverity: "major",
@@ -41,7 +42,7 @@ func TestValidateOCRSettings(t *testing.T) {
 		},
 		{
 			name: "invalid severity returns error",
-			input: &models.OCRSettings{
+			input: &ocrsettings.Settings{
 				Binary:          "ocr",
 				Audience:        "human",
 				DefaultSeverity: "invalid",
@@ -50,7 +51,7 @@ func TestValidateOCRSettings(t *testing.T) {
 		},
 		{
 			name: "concurrency out of range returns error",
-			input: &models.OCRSettings{
+			input: &ocrsettings.Settings{
 				Binary:          "ocr",
 				Audience:        "human",
 				DefaultSeverity: "major",
@@ -60,7 +61,7 @@ func TestValidateOCRSettings(t *testing.T) {
 		},
 		{
 			name: "valid settings pass",
-			input: &models.OCRSettings{
+			input: &ocrsettings.Settings{
 				Binary:          "ocr",
 				Audience:        "human",
 				DefaultSeverity: "major",
@@ -73,7 +74,7 @@ func TestValidateOCRSettings(t *testing.T) {
 		},
 		{
 			name: "invalid extra body JSON returns error",
-			input: &models.OCRSettings{
+			input: &ocrsettings.Settings{
 				Binary:          "ocr",
 				Audience:        "human",
 				DefaultSeverity: "major",
@@ -325,7 +326,7 @@ func TestParseUintID(t *testing.T) {
 }
 
 func TestDBOCRSettingsToAPI(t *testing.T) {
-	input := &models.OCRSettings{
+	input := &ocrsettings.Settings{
 		Enabled:         true,
 		Binary:          "ocr",
 		Audience:        "human",

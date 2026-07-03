@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 )
 
 // ===================== MetricsProvider 测试 =====================
@@ -197,7 +197,7 @@ func TestRegistry_Settings(t *testing.T) {
 // ===================== resolveBinaryFrom 测试 =====================
 
 func TestResolveBinaryFrom_Settings(t *testing.T) {
-	s := &models.OCRSettings{Binary: "custom-ocr"}
+	s := &ocrsettings.Settings{Binary: "custom-ocr"}
 	got := resolveBinaryFrom(s, Fallback{Binary: "fallback-ocr"})
 	if got != "custom-ocr" {
 		t.Errorf("expected custom-ocr, got %q", got)

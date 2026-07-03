@@ -9,14 +9,13 @@ import (
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
+	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	"github.com/oekit/pkg/ptrx"
 
 	"github.com/oekit/logx"
 	"github.com/cloudwego/hertz/pkg/app"
-	"gorm.io/datatypes"
 )
 
 func GetOCRSettings(ctx context.Context, c *app.RequestContext) {
@@ -93,7 +92,7 @@ func TestLLM(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func validateOCRSettings(s *models.OCRSettings) error {
+func validateOCRSettings(s *ocrsettings.Settings) error {
 	if s == nil {
 		return fmt.Errorf("OCR 配置不能为空")
 	}
@@ -138,7 +137,7 @@ func validateOCRSettings(s *models.OCRSettings) error {
 	return nil
 }
 
-func dbOCRSettingsToAPI(s *models.OCRSettings) *modelSettings.OCRSettings {
+func dbOCRSettingsToAPI(s *ocrsettings.Settings) *modelSettings.OCRSettings {
 	var extraBody string
 	if len(s.ExtraBody) > 0 {
 		extraBody = string(s.ExtraBody)
@@ -168,8 +167,8 @@ func dbOCRSettingsToAPI(s *models.OCRSettings) *modelSettings.OCRSettings {
 	}
 }
 
-func apiOCRSettingsToDB(s *modelSettings.OCRSettings) *models.OCRSettings {
-	db := &models.OCRSettings{}
+func apiOCRSettingsToDB(s *modelSettings.OCRSettings) *ocrsettings.Settings {
+	db := &ocrsettings.Settings{}
 	if s == nil {
 		return db
 	}
@@ -200,10 +199,10 @@ func apiOCRSettingsToDB(s *modelSettings.OCRSettings) *models.OCRSettings {
 	db.ContextWindow = ptrx.Deref(s.ContextWindow, 0)
 	db.MaxOutputTokens = ptrx.Deref(s.MaxOutputTokens, 0)
 	if s.IsSetExtraBody() && s.ExtraBody != nil && *s.ExtraBody != "" {
-		db.ExtraBody = datatypes.JSON(*s.ExtraBody)
+		db.ExtraBody = json.RawMessage(*s.ExtraBody)
 	}
 	if s.IsSetToolsConfig() && s.ToolsConfig != nil && *s.ToolsConfig != "" {
-		db.ToolsConfig = datatypes.JSON(*s.ToolsConfig)
+		db.ToolsConfig = json.RawMessage(*s.ToolsConfig)
 	}
 	return db
 }

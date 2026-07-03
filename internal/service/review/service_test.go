@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
@@ -162,18 +163,18 @@ func (m *mockReviewRepo) snapshot() []*models.Review {
 }
 
 type mockOCRSettingsRepo struct {
-	settings *models.OCRSettings
+	settings *ocrsettings.Settings
 	err      error
 }
 
-func (m *mockOCRSettingsRepo) Get(_ context.Context) (*models.OCRSettings, error) {
+func (m *mockOCRSettingsRepo) Get(_ context.Context) (*ocrsettings.Settings, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 	return m.settings, nil
 }
 
-func (m *mockOCRSettingsRepo) Save(_ context.Context, _ *models.OCRSettings) error {
+func (m *mockOCRSettingsRepo) Save(_ context.Context, _ *ocrsettings.Settings) error {
 	return nil
 }
 

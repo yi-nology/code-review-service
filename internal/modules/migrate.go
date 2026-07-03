@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"gorm.io/datatypes"
 
 	"github.com/oekit/logx"
 	"go.uber.org/fx"
@@ -84,7 +83,7 @@ func runMigrate(ctx context.Context, repos *repository.RepoContainer) {
 	}
 	existing.UseAnthropic = cfg.LLM.UseAnthropic
 	if len(cfg.LLM.ExtraBody) > 0 {
-		existing.ExtraBody = datatypes.JSON(cfg.LLM.ExtraBody)
+		existing.ExtraBody = json.RawMessage(cfg.LLM.ExtraBody)
 	}
 	if cfg.Language != "" {
 		existing.Language = cfg.Language

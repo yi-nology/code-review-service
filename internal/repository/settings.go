@@ -3,13 +3,14 @@ package repository
 import (
 	"context"
 
+	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/domain/rules"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 )
 
 type OCRSettingsRepository interface {
-	Get(ctx context.Context) (*models.OCRSettings, error)
-	Save(ctx context.Context, settings *models.OCRSettings) error
+	Get(ctx context.Context) (*ocrsettings.Settings, error)
+	Save(ctx context.Context, settings *ocrsettings.Settings) error
 }
 
 type ProjectPolicyRepository interface {

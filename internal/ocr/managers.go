@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
@@ -201,12 +201,11 @@ func (u *Upgrader) UpgradeStatus(_ context.Context) (*domain.OCRUpgradeStatus, e
 	return &domain.OCRUpgradeStatus{State: domain.UpgradeIdle}, nil
 }
 
-// adaptSettings 把 SettingsData 转为 models.OCRSettings（阶段 A 兼容层）。
-// 阶段 A+3 彻底抛弃 models.OCRSettings，SettingsData 直接用。
-func adaptSettings(data *SettingsData) *models.OCRSettings {
+// adaptSettings 把 SettingsData 转为 domain ocrsettings.Settings（#6：不再依赖 models）。
+func adaptSettings(data *SettingsData) *ocrsettings.Settings {
 	if data == nil {
 		return nil
 	}
 	// 阶段 A 占位：仅填充 Binary 字段，其他字段由 legacy runner 自己解析 settings
-	return &models.OCRSettings{Binary: data.Binary}
+	return &ocrsettings.Settings{Binary: data.Binary}
 }

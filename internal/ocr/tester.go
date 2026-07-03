@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/oekit/logx"
@@ -16,7 +16,7 @@ import (
 // resolveBinaryFrom 从 settings 解析二进制路径（fallback 到默认 "ocr"）。
 // 这是 ocr/command.go、tester.go、versioner.go、provider_lister.go、rules_checker.go
 // 5 处 resolveBinaryFrom 重复实现的单一真相。
-func resolveBinaryFrom(s *models.OCRSettings, fallback Fallback) string {
+func resolveBinaryFrom(s *ocrsettings.Settings, fallback Fallback) string {
 	if s != nil && strings.TrimSpace(s.Binary) != "" {
 		return s.Binary
 	}

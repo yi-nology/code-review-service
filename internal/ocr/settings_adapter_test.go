@@ -4,22 +4,22 @@ import (
 	"context"
 	"testing"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
+	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 )
 
 // stubSettingsRepo 是 OCRSettingsGetter 的 stub。
 type stubSettingsRepo struct {
-	data *models.OCRSettings
+	data *ocrsettings.Settings
 	err  error
 }
 
-func (s *stubSettingsRepo) Get(_ context.Context) (*models.OCRSettings, error) {
+func (s *stubSettingsRepo) Get(_ context.Context) (*ocrsettings.Settings, error) {
 	return s.data, s.err
 }
 
 func TestSettingsAdapter_Get(t *testing.T) {
 	repo := &stubSettingsRepo{
-		data: &models.OCRSettings{
+		data: &ocrsettings.Settings{
 			Binary:    "ocr",
 			URL:       "https://api.example.com",
 			ModelName: "gpt-4",
