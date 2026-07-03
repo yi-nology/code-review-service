@@ -6,6 +6,7 @@ require (
 	github.com/yi-nology/ekit v0.16.1
 	github.com/apache/thrift v0.23.0
 	github.com/cloudwego/hertz v0.10.5
+	github.com/google/go-github/v69 v69.2.0
 	github.com/hertz-contrib/cors v0.1.0
 	github.com/hertz-contrib/swagger v0.1.1
 	github.com/hertz-contrib/websocket v0.2.0
@@ -112,7 +113,6 @@ require (
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/google/go-github/v69 v69.2.0 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20240727154555-813a5fbdbec8 // indirect
 	github.com/google/uuid v1.6.0 // indirect

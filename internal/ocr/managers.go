@@ -8,6 +8,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/google/go-github/v69/github"
 )
 
 // Versioner 实现 domain.OCRVersioner（吸收 ocr/versioner.go）。
@@ -180,12 +181,54 @@ func (u *Upgrader) CheckUpdate(ctx context.Context) (*domain.OCRUpdateInfo, erro
 			current = v.Version
 		}
 	}
-	// 阶段 A 占位；阶段 A+8 接入真实 GitHub Releases API
+
+	client := github.NewClient(nil)
+	repoParts := strings.SplitN(u.repo, "/", 2)
+	if len(repoParts) != 2 {
+		return &domain.OCRUpdateInfo{
+			CurrentVersion:  current,
+			LatestVersion:   current,
+			UpdateAvailable: false,
+		}, nil
+	}
+
+	release, _, err := client.Repositories.GetLatestRelease(ctx, repoParts[0], repoParts[1])
+	if err != nil {
+		if current != "" {
+			return &domain.OCRUpdateInfo{
+				CurrentVersion:  current,
+				LatestVersion:   current,
+				UpdateAvailable: false,
+			}, nil
+		}
+		return nil, fmt.Errorf("获取最新版本失败: %w", err)
+	}
+
+	latest := strings.TrimSpace(release.GetTagName())
+	releaseNotes := release.GetBody()
+	releaseURL := release.GetHTMLURL()
+
+	hasUpdate := false
+	if current != "" && latest != "" {
+		currentVer := normalizeVersion(current)
+		latestVer := normalizeVersion(latest)
+		if currentVer != latestVer {
+			hasUpdate = true
+		}
+	}
+
 	return &domain.OCRUpdateInfo{
 		CurrentVersion:  current,
-		LatestVersion:   "stage-a-latest",
-		UpdateAvailable: false,
+		LatestVersion:   latest,
+		UpdateAvailable: hasUpdate,
+		ReleaseNotes:    releaseNotes,
+		ReleaseURL:      releaseURL,
 	}, nil
+}
+
+// normalizeVersion 去掉版本号前面的 v 前缀。
+func normalizeVersion(v string) string {
+	return strings.TrimPrefix(v, "v")
 }
 
 // Upgrade 实现 domain.OCRUpgrader。

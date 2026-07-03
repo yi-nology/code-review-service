@@ -34,7 +34,11 @@ func (a *GiteaAdapter) Publish(ctx context.Context, rev Review) (Result, error) 
 		return Result{}, fmt.Errorf("parse repo path: %w", err)
 	}
 
-	p, err := a.svc.GetProvider("gitea")
+	providerName := rev.ChangeRequest.Provider
+	if providerName == "" {
+		providerName = "gitea"
+	}
+	p, err := a.svc.GetProvider(providerName)
 	if err != nil {
 		return Result{}, err
 	}

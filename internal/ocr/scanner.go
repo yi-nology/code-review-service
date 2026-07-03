@@ -25,8 +25,6 @@ func (r *Runner) Preview(ctx context.Context, workspace domain.Workspace) (*doma
 	args := []string{
 		"scan", "--preview",
 		"--repo", workspace.Dir,
-		"--from", workspace.BaseSHA,
-		"--to", workspace.HeadSHA,
 		"--format", "json",
 	}
 	toolsArgs, cleanupTools, err := appendToolsArgs(args, r.cfg)
@@ -87,8 +85,6 @@ func (r *Runner) Scan(ctx context.Context, workspace domain.Workspace, req domai
 	args := []string{
 		"scan",
 		"--repo", workspace.Dir,
-		"--from", workspace.BaseSHA,
-		"--to", workspace.HeadSHA,
 		"--format", "json",
 	}
 	if req.Batch != "" {

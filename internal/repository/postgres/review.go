@@ -314,20 +314,17 @@ func (r *ReviewRepo) ProjectOCRMetrics(ctx context.Context, opts domain.ProjectS
 		AvgFindingsDensity float64
 	}
 	var summary summaryRow
-	number := `^[0-9]+$`
-	decimal := `^[0-9]+(\.[0-9]+)?$`
 	if err := applyFilters(r.db.WithContext(ctx).Model(&models.Review{})).
 		Select(`COUNT(*) AS review_count,
-			COALESCE(SUM(CASE WHEN response #>> '{report,ocr,total_tokens}' ~ ? THEN (response #>> '{report,ocr,total_tokens}')::bigint ELSE 0 END), 0) AS total_tokens,
-			COALESCE(SUM(CASE WHEN response #>> '{report,ocr,input_tokens}' ~ ? THEN (response #>> '{report,ocr,input_tokens}')::bigint ELSE 0 END), 0) AS input_tokens,
-			COALESCE(SUM(CASE WHEN response #>> '{report,ocr,output_tokens}' ~ ? THEN (response #>> '{report,ocr,output_tokens}')::bigint ELSE 0 END), 0) AS output_tokens,
-			COALESCE(SUM(CASE WHEN response #>> '{report,ocr,cache_read_tokens}' ~ ? THEN (response #>> '{report,ocr,cache_read_tokens}')::bigint ELSE 0 END), 0) AS cache_read_tokens,
-			COALESCE(SUM(CASE WHEN response #>> '{report,ocr,cache_write_tokens}' ~ ? THEN (response #>> '{report,ocr,cache_write_tokens}')::bigint ELSE 0 END), 0) AS cache_write_tokens,
-			COALESCE(SUM(CASE WHEN response #>> '{report,scope,reviewed_files}' ~ ? THEN (response #>> '{report,scope,reviewed_files}')::bigint ELSE 0 END), 0) AS total_reviewed_files,
-			COALESCE(AVG(CASE WHEN response #>> '{report,ocr,total_tokens}' ~ ? THEN (response #>> '{report,ocr,total_tokens}')::double precision END), 0) AS avg_tokens,
+			COALESCE(SUM(CASE WHEN response #>> '{report,ocr,total_tokens}' ~ '^[0-9]+$' THEN (response #>> '{report,ocr,total_tokens}')::bigint ELSE 0 END), 0) AS total_tokens,
+			COALESCE(SUM(CASE WHEN response #>> '{report,ocr,input_tokens}' ~ '^[0-9]+$' THEN (response #>> '{report,ocr,input_tokens}')::bigint ELSE 0 END), 0) AS input_tokens,
+			COALESCE(SUM(CASE WHEN response #>> '{report,ocr,output_tokens}' ~ '^[0-9]+$' THEN (response #>> '{report,ocr,output_tokens}')::bigint ELSE 0 END), 0) AS output_tokens,
+			COALESCE(SUM(CASE WHEN response #>> '{report,ocr,cache_read_tokens}' ~ '^[0-9]+$' THEN (response #>> '{report,ocr,cache_read_tokens}')::bigint ELSE 0 END), 0) AS cache_read_tokens,
+			COALESCE(SUM(CASE WHEN response #>> '{report,ocr,cache_write_tokens}' ~ '^[0-9]+$' THEN (response #>> '{report,ocr,cache_write_tokens}')::bigint ELSE 0 END), 0) AS cache_write_tokens,
+			COALESCE(SUM(CASE WHEN response #>> '{report,scope,reviewed_files}' ~ '^[0-9]+$' THEN (response #>> '{report,scope,reviewed_files}')::bigint ELSE 0 END), 0) AS total_reviewed_files,
+			COALESCE(AVG(CASE WHEN response #>> '{report,ocr,total_tokens}' ~ '^[0-9]+$' THEN (response #>> '{report,ocr,total_tokens}')::double precision END), 0) AS avg_tokens,
 			COALESCE(AVG(score), 0) AS avg_score,
-			COALESCE(AVG(CASE WHEN response #>> '{report,score,findings_density}' ~ ? THEN (response #>> '{report,score,findings_density}')::double precision END), 0) AS avg_findings_density`,
-			number, number, number, number, number, number, number, number, decimal).
+			COALESCE(AVG(CASE WHEN response #>> '{report,score,findings_density}' ~ '^[0-9]+(\.[0-9]+)?$' THEN (response #>> '{report,score,findings_density}')::double precision END), 0) AS avg_findings_density`).
 		Scan(&summary).Error; err != nil {
 		return nil, err
 	}

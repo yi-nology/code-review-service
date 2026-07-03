@@ -32,3 +32,4 @@ data/*.json
 # Environment
 .env
 .env.local
+.playwright-mcp
