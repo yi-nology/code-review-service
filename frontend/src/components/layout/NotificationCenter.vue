@@ -172,22 +172,24 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: #6b7280;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  color: #4b5563;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .notify-button:hover {
   background: #f3f4f6;
-  color: #374151;
+  color: #1f2937;
+  border-color: #d1d5db;
 }
 .notify-button.active {
   background: #eef2ff;
   color: #4f46e5;
+  border-color: #c7d2fe;
 }
 .notify-panel {
   max-height: 480px;
