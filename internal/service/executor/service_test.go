@@ -20,6 +20,7 @@ import (
 type stubWriteback struct {
 	err      error
 	skipped  bool
+	stale    bool
 	calls    int
 	lastReq  domain.Request
 	lastDiff string
@@ -31,6 +32,9 @@ func (s *stubWriteback) PublishWithDiff(_ context.Context, req domain.Request, _
 	s.lastDiff = diff
 	if s.err != nil {
 		return nil, s.err
+	}
+	if s.stale {
+		return &domain.WritebackResult{Published: 1, Stale: true, ExpectedSHA: "oldhead", ActualSHA: "newhead"}, nil
 	}
 	return &domain.WritebackResult{Published: 1, Skipped: s.skipped}, nil
 }
@@ -152,6 +156,27 @@ func TestPublishWriteback_Skipped(t *testing.T) {
 	}
 	if stub.calls != 0 {
 		t.Fatalf("expected publisher not to be called, got %d calls", stub.calls)
+	}
+}
+
+// TestPublishWriteback_Stale 验证 stale 降级路径：summary.Status=stale，且 stale/SHA 字段透传。
+func TestPublishWriteback_Stale(t *testing.T) {
+	svc := &Service{
+		reviewRepo: noopReviewRepo{},
+		writeback:  &stubWriteback{stale: true},
+	}
+
+	req := domain.Request{Provider: "github", Repo: "o/r", PullRequestID: "1", CallbackMode: "comment"}
+	summary, err := svc.publishWriteback(context.Background(), "rv_1", req, domain.Workspace{}, domain.Result{})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if summary.Status != domain.WritebackStatusStale {
+		t.Fatalf("expected status=stale, got %q", summary.Status)
+	}
+	if !summary.Stale || summary.ExpectedSHA != "oldhead" || summary.ActualSHA != "newhead" {
+		t.Fatalf("stale summary fields not propagated: %+v", summary)
 	}
 }
 

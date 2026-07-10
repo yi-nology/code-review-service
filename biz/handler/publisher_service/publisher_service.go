@@ -2,6 +2,7 @@ package publisher_service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
@@ -43,13 +44,14 @@ func PublishReview(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	if err := publishReview(ctx, req.ID, req.SummaryOnly != nil && *req.SummaryOnly, false); err != nil {
+	wbResult, err := publishReview(ctx, req.ID, req.SummaryOnly != nil && *req.SummaryOnly, false)
+	if err != nil {
 		common.Fail(c, err)
 		return
 	}
 
 	common.Success(c, &modelPublisher.PublishReviewResp{
-		Message:  "review published successfully",
+		Message:  publishMessage(wbResult, "review published successfully"),
 		ReviewID: req.ID,
 	})
 }
@@ -83,17 +85,18 @@ func RetryPublish(ctx context.Context, c *app.RequestContext) {
 		common.Success(c, map[string]any{"message": "no retryable writeback items", "review_id": id})
 		return
 	}
-	if err := publishReview(ctx, id, false, false); err != nil {
+	wbResult, err := publishReview(ctx, id, false, false)
+	if err != nil {
 		common.Fail(c, err)
 		return
 	}
-	common.Success(c, map[string]any{"message": "retry published", "review_id": id})
+	common.Success(c, map[string]any{"message": publishMessage(wbResult, "retry published"), "review_id": id})
 }
 
-func publishReview(ctx context.Context, id string, summaryOnly bool, force bool) error {
+func publishReview(ctx context.Context, id string, summaryOnly bool, force bool) (*domain.WritebackResult, error) {
 	record, found, err := handlerInst.reviewSvc.Get(ctx, id)
 	if err != nil || !found {
-		return common.NotFound("review not found")
+		return nil, common.NotFound("review not found")
 	}
 
 	findings := record.Response.Findings
@@ -118,10 +121,20 @@ func publishReview(ctx context.Context, id string, summaryOnly bool, force bool)
 
 	publishReq := record.Request
 	publishReq.ReviewID = record.ID
-	if _, err := handlerInst.writeback.PublishWithOptions(ctx, publishReq, result, diff, writeback.PublishOptions{Force: force}); err != nil {
-		return err
+	wbResult, err := handlerInst.writeback.PublishWithOptions(ctx, publishReq, result, diff, writeback.PublishOptions{Force: force})
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return wbResult, nil
+}
+
+// publishMessage 在回写结果为 stale（head 已变）时返回降级提示，否则返回默认成功信息。
+func publishMessage(wbResult *domain.WritebackResult, def string) string {
+	if wbResult != nil && wbResult.Stale {
+		return fmt.Sprintf("review is stale (head %.8s -> %.8s): summary-only published to current head; re-run review for inline comments",
+			wbResult.ExpectedSHA, wbResult.ActualSHA)
+	}
+	return def
 }
 
 func PreviewComment(ctx context.Context, c *app.RequestContext) {
@@ -153,13 +166,14 @@ func UpdatePublishedComment(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	if err := publishReview(ctx, req.ID, false, true); err != nil {
+	wbResult, err := publishReview(ctx, req.ID, false, true)
+	if err != nil {
 		common.Fail(c, err)
 		return
 	}
 
 	common.Success(c, &modelPublisher.UpdatePublishedCommentResp{
-		Message:  "published comment refreshed successfully",
+		Message:  publishMessage(wbResult, "published comment refreshed successfully"),
 		ReviewID: req.ID,
 	})
 }

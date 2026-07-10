@@ -18,7 +18,7 @@ FROM docker.io/library/alpine:3.21
 RUN apk add --no-cache ca-certificates git wget \
     && adduser -D review
 
-ARG OCR_VERSION=v1.6.5
+ARG OCR_VERSION=v1.7.5
 RUN wget -qO /usr/local/bin/ocr \
     "https://github.com/alibaba/open-code-review/releases/download/${OCR_VERSION}/opencodereview-linux-amd64" \
     && chmod +x /usr/local/bin/ocr

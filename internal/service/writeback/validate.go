@@ -104,3 +104,21 @@ func FormatSummaryBody(summary string, findings []domain.Finding, maxComments in
 	}
 	return types.FormatReviewReport("<!-- review-service:summary -->", summary, ff, maxComments, false)
 }
+
+// FormatStaleBanner 生成过期降级回写摘要顶部的提示横幅。
+func FormatStaleBanner(expected, actual string) string {
+	return fmt.Sprintf(
+		"> ⚠️ **本评审已过期（已降级为仅发布摘要）**\n"+
+			"> 评审基于提交 `%s`，但合并请求已更新到 `%s`。\n"+
+			"> 行内评论因代码行号变化无法定位，本次仅发布评审摘要。**请对最新提交重新触发评审**以获取行内评论。",
+		ShortSHA(expected), ShortSHA(actual),
+	)
+}
+
+// ShortSHA 截取 commit SHA 的前 8 位用于展示。
+func ShortSHA(sha string) string {
+	if len(sha) > 8 {
+		return sha[:8]
+	}
+	return sha
+}

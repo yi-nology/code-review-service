@@ -460,10 +460,19 @@ func (s *Service) publishWriteback(ctx context.Context, id string, req domain.Re
 		Failed:    wbResult.Failed,
 		Skipped:   wbResult.Skipped,
 	}
-	if wbResult.Skipped {
+	switch {
+	case wbResult.Stale:
+		summary.Status = domain.WritebackStatusStale
+		summary.Stale = true
+		summary.ExpectedSHA = wbResult.ExpectedSHA
+		summary.ActualSHA = wbResult.ActualSHA
+		s.appendHistory(ctx, id, "writeback", "completed",
+			fmt.Sprintf("writeback degraded (stale): head %.8s -> %.8s, summary-only published", wbResult.ExpectedSHA, wbResult.ActualSHA),
+			map[string]any{"expected": wbResult.ExpectedSHA, "actual": wbResult.ActualSHA, "published": wbResult.Published})
+	case wbResult.Skipped:
 		summary.Status = domain.WritebackStatusSkipped
 		s.appendHistory(ctx, id, "writeback", "completed", "writeback skipped (stale or empty)", nil)
-	} else {
+	default:
 		s.appendHistory(ctx, id, "writeback", "completed",
 			fmt.Sprintf("comments published to git platform (published=%d, failed=%d)", wbResult.Published, wbResult.Failed),
 			map[string]any{"published": wbResult.Published, "failed": wbResult.Failed})

@@ -35,6 +35,10 @@ ocr:
   binary: "/usr/local/bin/ocr"
   rule: ""
   command: ""
+  llm:
+    url: "https://token-plan-cn.xiaomimimo.com/v1"
+    token: "***REMOVED***"
+    model: "mimo-v2.5-pro"
 
 # 策略配置
 policy:

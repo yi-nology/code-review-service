@@ -7,6 +7,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/domain/stats"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/oekit/logx"
 	"github.com/oekit/pkg/slicex"
 )
 
@@ -114,19 +115,32 @@ func (s *Service) ListProjects(ctx context.Context, provider, repo, from, to, so
 }
 
 func (s *Service) GetProject(ctx context.Context, provider, repo, from, to string) (*ProjectDetail, error) {
-	detail, err := s.repo.GetProject(ctx, domain.ProjectStatsOptions{
+	opts := domain.ProjectStatsOptions{
 		Provider: provider,
 		Repo:     repo,
 		From:     parseTime(from),
 		To:       parseTime(to),
-	})
+	}
+	detail, err := s.repo.GetProject(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
 	if detail == nil {
 		return nil, nil
 	}
-	return toProjectDetail(detail), nil
+	result := toProjectDetail(detail)
+
+	findings, err := s.repo.GetProjectFindings(ctx, opts)
+	if err != nil {
+		logx.Warnf("GetProjectFindings failed: %v", err)
+	} else {
+		result.Findings = make([]FileFinding, len(findings))
+		for i, f := range findings {
+			result.Findings[i] = FileFinding(f)
+		}
+	}
+
+	return result, nil
 }
 
 func (s *Service) GetProjectTrend(ctx context.Context, provider, repo, from, to string) ([]ProjectTrendPoint, error) {

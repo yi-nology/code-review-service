@@ -63,10 +63,13 @@ type CommentResult struct {
 }
 
 type Result struct {
-	ReviewID   string
-	SummaryID  string
-	SummaryURL string
-	Comments   []CommentResult
+	ReviewID    string
+	SummaryID   string
+	SummaryURL  string
+	Comments    []CommentResult
+	Stale       bool
+	ExpectedSHA string
+	ActualSHA   string
 }
 
 type PublishStatusItem struct {

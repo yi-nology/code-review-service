@@ -400,7 +400,17 @@ async function loadRepos() {
   if (!createForm.provider) return
   reposLoading.value = true
   try {
-    repos.value = await getProviderRepos(createForm.provider, 1, 100)
+    const allRepos: PlatformRepo[] = []
+    let page = 1
+    const perPage = 100
+    while (true) {
+      const batch = await getProviderRepos(createForm.provider, page, perPage)
+      if (!batch || batch.length === 0) break
+      allRepos.push(...batch)
+      if (batch.length < perPage) break
+      page++
+    }
+    repos.value = allRepos
     if (selectedRepo.value && !repos.value.some((repo) => repo.full_name === selectedRepo.value)) {
       repos.value.unshift({
         id: 0,

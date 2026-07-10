@@ -60,19 +60,23 @@ type Response struct {
 }
 
 // WritebackSummary 描述回写到 git 平台的最终结果。
-// Status: "ok" / "skipped" / "failed" / "disabled"。
+// Status: "ok" / "skipped" / "stale" / "failed" / "disabled"。
 type WritebackSummary struct {
-	Status    string `json:"status"`
-	Published int    `json:"published"`
-	Failed    int    `json:"failed"`
-	Skipped   bool   `json:"skipped"`
-	Error     string `json:"error,omitempty"`
+	Status      string `json:"status"`
+	Published   int    `json:"published"`
+	Failed      int    `json:"failed"`
+	Skipped     bool   `json:"skipped"`
+	Stale       bool   `json:"stale,omitempty"`
+	ExpectedSHA string `json:"expected_sha,omitempty"`
+	ActualSHA   string `json:"actual_sha,omitempty"`
+	Error       string `json:"error,omitempty"`
 }
 
 // Writeback status 常量。
 const (
 	WritebackStatusDisabled = "disabled"
 	WritebackStatusSkipped  = "skipped"
+	WritebackStatusStale    = "stale"
 	WritebackStatusOK       = "ok"
 	WritebackStatusFailed   = "failed"
 )

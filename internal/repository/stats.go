@@ -19,5 +19,6 @@ type ContributorStatsRepository interface {
 	GetProjectTrend(ctx context.Context, opts domain.ProjectStatsOptions) ([]stats.ProjectTrendPoint, error)
 	GetProjectCategories(ctx context.Context, opts domain.ProjectStatsOptions) ([]stats.CategoryStat, error)
 	GetProjectFiles(ctx context.Context, opts domain.ProjectStatsOptions) ([]stats.FileRiskStat, error)
+	GetProjectFindings(ctx context.Context, opts domain.ProjectStatsOptions) ([]stats.FileFinding, error)
 	GetProjectContributors(ctx context.Context, opts domain.ProjectStatsOptions, limit int) ([]stats.ContributorSummary, error)
 }

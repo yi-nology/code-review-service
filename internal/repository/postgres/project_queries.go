@@ -182,3 +182,48 @@ func (r *ContributorStatsRepo) GetProjectContributors(ctx context.Context, opts 
 	}
 	return rowsToSummaries(rows), nil
 }
+
+func (r *ContributorStatsRepo) GetProjectFindings(ctx context.Context, opts domain.ProjectStatsOptions) ([]stats.FileFinding, error) {
+	type findingRow struct {
+		ReviewID  string `gorm:"column:review_id"`
+		Path      string `gorm:"column:path"`
+		Line      int    `gorm:"column:line"`
+		Severity  string `gorm:"column:severity"`
+		Title     string `gorm:"column:title"`
+		Category  string `gorm:"column:category"`
+		CreatedAt string `gorm:"column:created_at"`
+	}
+	var rows []findingRow
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT
+			review_id,
+			finding->>'path' AS path,
+			COALESCE((finding->>'line')::int, 0) AS line,
+			COALESCE(finding->>'severity', '') AS severity,
+			COALESCE(finding->>'title', '') AS title,
+			COALESCE(finding->>'category', '') AS category,
+			created_at::text
+		FROM reviews, jsonb_array_elements(response->'findings') AS finding
+		WHERE provider = ? AND repo = ? AND `+baseReviewWhere+`
+			`+projectFilterClauseWithoutProject(opts)+`
+		ORDER BY created_at DESC
+		LIMIT 500
+	`, append([]interface{}{opts.Provider, opts.Repo}, projectFilterArgsWithoutProject(opts)...)...).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]stats.FileFinding, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, stats.FileFinding{
+			ReviewID:  row.ReviewID,
+			Path:      row.Path,
+			Line:      row.Line,
+			Severity:  row.Severity,
+			Title:     row.Title,
+			Category:  row.Category,
+			CreatedAt: row.CreatedAt,
+		})
+	}
+	return items, nil
+}

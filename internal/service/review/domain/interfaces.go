@@ -27,9 +27,12 @@ type WritebackPublisher interface {
 }
 
 type WritebackResult struct {
-	Published int
-	Failed    int
-	Skipped   bool
+	Published   int
+	Failed      int
+	Skipped     bool
+	Stale       bool
+	ExpectedSHA string
+	ActualSHA   string
 }
 
 type PreviewRunner interface {

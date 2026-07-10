@@ -165,6 +165,10 @@ func (o *Orchestrator) PublishWithOptions(ctx context.Context, req domain.Reques
 		return nil, fmt.Errorf("publish writeback: %w", err)
 	}
 
+	if wbResult.Stale {
+		return o.publishStaleSummary(ctx, adapter, cr, summaryBody, serviceReviewID, wbResult)
+	}
+
 	if wbResult.ReviewID == "" && len(wbResult.Comments) == 0 {
 		logx.Info("writeback skipped (stale or empty)")
 		return &domain.WritebackResult{Skipped: true}, nil
@@ -236,6 +240,71 @@ func (o *Orchestrator) PublishWithOptions(ctx context.Context, req domain.Reques
 
 func writebackItemKey(findingKey, kind string) string {
 	return kind + "\x00" + findingKey
+}
+
+// publishStaleSummary 在检测到 head SHA 已变（评审过期）后，以当前 head 降级发布一份
+// 仅含摘要的回写。行内评论依赖具体行号，过期后无法可靠锚定；而摘要（分析/风险/建议）
+// 不依赖行号，始终可安全发布，故降级为 summary-only，并在顶部追加过期横幅，提示作者
+// 对最新提交重新触发评审以获取行内评论。
+func (o *Orchestrator) publishStaleSummary(ctx context.Context, adapter Adapter, cr ChangeRequest, summaryBody, serviceReviewID string, stale Result) (*domain.WritebackResult, error) {
+	expected := stale.ExpectedSHA
+	actual := stale.ActualSHA
+	logx.Info("writeback degraded (stale): publishing summary-only on current head",
+		"expected", expected, "actual", actual)
+
+	body := strings.TrimSpace(summaryBody)
+	if body == "" {
+		body = "（评审摘要为空）"
+	}
+	degradedRev := Review{
+		ChangeRequest: ChangeRequest{
+			Provider:   cr.Provider,
+			Repository: cr.Repository,
+			Number:     cr.Number,
+			BaseSHA:    cr.BaseSHA,
+			HeadSHA:    actual,
+		},
+		Summary:  FormatStaleBanner(expected, actual) + "\n\n" + body,
+		Event:    EventComment,
+		Comments: nil,
+	}
+
+	degraded, err := adapter.Publish(ctx, degradedRev)
+	if err != nil {
+		return nil, fmt.Errorf("publish stale summary: %w", err)
+	}
+
+	published := 0
+	if serviceReviewID == "" {
+		serviceReviewID = degraded.ReviewID
+	}
+	if serviceReviewID != "" && o.itemRepo != nil && (degraded.ReviewID != "" || degraded.SummaryID != "") {
+		if err := o.itemRepo.Create(ctx, &wbitem.Item{
+			ReviewID:   serviceReviewID,
+			FindingKey: summaryFindingKey,
+			Kind:       "summary",
+			Status:     "pending",
+		}); err != nil {
+			logx.Warn("writeback: failed to create stale summary item record", "error", err)
+		}
+		if err := o.itemRepo.IncrementAttempts(ctx, serviceReviewID, summaryFindingKey, "summary"); err != nil {
+			logx.Warn("writeback: failed to increment stale summary attempts", "error", err)
+		}
+		if err := o.itemRepo.UpdateStatus(ctx, serviceReviewID, summaryFindingKey, "summary", "downgraded", degraded.SummaryID, degraded.SummaryURL, ""); err != nil {
+			logx.Warn("writeback: failed to update stale summary item status", "error", err)
+		} else {
+			published = 1
+		}
+	} else if degraded.ReviewID != "" || degraded.SummaryID != "" {
+		published = 1
+	}
+
+	return &domain.WritebackResult{
+		Published:   published,
+		Stale:       true,
+		ExpectedSHA: expected,
+		ActualSHA:   actual,
+	}, nil
 }
 
 func isPublishedWritebackItem(item wbitem.Item) bool {

@@ -95,6 +95,7 @@ type ProjectDetail struct {
 	GradeDistribution map[string]int `json:"grade_distribution"`
 	AvgFindings       float64        `json:"avg_findings"`
 	AvgChangedLines   float64        `json:"avg_changed_lines"`
+	Findings          []FileFinding  `json:"findings"`
 }
 
 type ProjectTrendPoint struct {
@@ -109,6 +110,16 @@ type FileRiskStat struct {
 	Count         int    `json:"count"`
 	CriticalCount int    `json:"critical_count"`
 	MajorCount    int    `json:"major_count"`
+}
+
+type FileFinding struct {
+	ReviewID  string `json:"review_id"`
+	Path      string `json:"path"`
+	Line      int    `json:"line"`
+	Severity  string `json:"severity"`
+	Title     string `json:"title"`
+	Category  string `json:"category"`
+	CreatedAt string `json:"created_at"`
 }
 
 type ProjectListResult struct {

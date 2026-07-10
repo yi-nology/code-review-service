@@ -377,20 +377,24 @@ async function loadFileFindings(filePath: string) {
   if (fileFindingsMap.value[filePath]) return
   loadingFileFindings.value[filePath] = true
   try {
-    const listRes = await getReviews({ provider: provider.value, repo: repo.value, status: 'success', page: 1, page_size: 10 } as any)
-    const reviews = listRes.items || []
-    const allFindings: Finding[] = []
-    await Promise.all(reviews.slice(0, 8).map(async (r) => {
-      try {
-        const detail = await getReview(r.review_id)
-        const matched = (detail.findings || []).filter((f) => f.path === filePath)
-        matched.forEach((f) => {
-          if (!reviewIdMap.value[filePath]) reviewIdMap.value[filePath] = r.review_id
-          allFindings.push(f)
-        })
-      } catch { /* skip */ }
-    }))
-    fileFindingsMap.value[filePath] = allFindings
+    const projectFindings = (detail.value?.findings || []).filter((f: any) => f.path === filePath)
+    if (projectFindings.length > 0) {
+      const mapped = projectFindings.map((f: any) => ({
+        severity: f.severity,
+        category: f.category || '',
+        path: f.path,
+        line: f.line || 0,
+        title: f.title || '',
+        body: f.title || '',
+        review_id: f.review_id,
+      }))
+      if (mapped.length > 0 && mapped[0].review_id) {
+        reviewIdMap.value[filePath] = mapped[0].review_id
+      }
+      fileFindingsMap.value[filePath] = mapped
+    } else {
+      fileFindingsMap.value[filePath] = []
+    }
   } catch {
     fileFindingsMap.value[filePath] = []
   } finally {

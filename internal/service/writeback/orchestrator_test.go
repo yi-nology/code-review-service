@@ -2,6 +2,7 @@ package writeback
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -127,6 +128,81 @@ func findWritebackItem(items []wbitem.Item, key, kind string) (wbitem.Item, bool
 
 func testFindingKey() string {
 	return FindingKey("", "a.go", SideNew, 1, "body")
+}
+
+// staleThenOKAdapter 第一次 Publish 返回 stale（head 已变），第二次（降级 summary-only）返回成功。
+// 用于验证 orchestrator 在 stale 时降级为以当前 head 发布摘要。
+type staleThenOKAdapter struct {
+	calls   int
+	reviews []Review
+}
+
+func (staleThenOKAdapter) Capabilities(context.Context, ChangeRequest) (Capabilities, error) {
+	return Capabilities{BatchReview: true, MultiLineComments: true, Suggestions: true}, nil
+}
+
+func (a *staleThenOKAdapter) Publish(_ context.Context, review Review) (Result, error) {
+	a.calls++
+	a.reviews = append(a.reviews, review)
+	if a.calls == 1 {
+		return Result{Stale: true, ExpectedSHA: review.ChangeRequest.HeadSHA, ActualSHA: "newhead"}, nil
+	}
+	return Result{ReviewID: "degraded-1", SummaryID: "degraded-summary-1", SummaryURL: "https://example.test/d-1"}, nil
+}
+
+func TestPublishStaleDegradesToSummaryOnly(t *testing.T) {
+	repo := &mockWritebackItemRepo{}
+	adapter := &staleThenOKAdapter{}
+	orch := NewOrchestrator(OrchestratorConfig{
+		Adapters: map[string]Adapter{"github": adapter},
+		ItemRepo: repo,
+	})
+
+	result, err := orch.Publish(t.Context(), domain.Request{
+		ReviewID:      "review-service-1",
+		Provider:      "github",
+		Repo:          "org/repo",
+		PullRequestID: "12",
+		HeadSHA:       "oldhead",
+	}, domain.Result{Summary: "summary text", Findings: []domain.Finding{{
+		Severity: domain.SeverityMajor,
+		Path:     "a.go",
+		Line:     1,
+		Title:    "replace old",
+		Body:     "body",
+	}}}, "")
+	if err != nil {
+		t.Fatalf("Publish() error = %v", err)
+	}
+	if result == nil || !result.Stale {
+		t.Fatalf("result = %+v, want Stale=true", result)
+	}
+	if result.ExpectedSHA != "oldhead" || result.ActualSHA != "newhead" {
+		t.Fatalf("sha mismatch: %+v", result)
+	}
+	if adapter.calls != 2 {
+		t.Fatalf("adapter calls = %d, want 2 (stale + degraded)", adapter.calls)
+	}
+	degraded := adapter.reviews[1]
+	if degraded.ChangeRequest.HeadSHA != "newhead" {
+		t.Fatalf("degraded publish anchored to %q, want newhead", degraded.ChangeRequest.HeadSHA)
+	}
+	if len(degraded.Comments) != 0 {
+		t.Fatalf("degraded publish should have no inline comments, got %d", len(degraded.Comments))
+	}
+	if !strings.Contains(degraded.Summary, "本评审已过期") {
+		t.Fatalf("degraded summary missing stale banner: %q", degraded.Summary)
+	}
+	if !strings.Contains(degraded.Summary, "summary text") {
+		t.Fatalf("degraded summary missing original body: %q", degraded.Summary)
+	}
+	if result.Published != 1 {
+		t.Fatalf("expected published=1, got %d", result.Published)
+	}
+	item, ok := findWritebackItem(repo.items, summaryFindingKey, "summary")
+	if !ok || item.Status != "downgraded" {
+		t.Fatalf("summary item = %+v ok=%v, want downgraded", item, ok)
+	}
 }
 
 func TestPublishStoresServiceReviewID(t *testing.T) {

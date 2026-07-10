@@ -72,6 +72,17 @@ export interface ProjectDetail extends ProjectSummary {
   grade_distribution: Record<string, number>
   avg_findings: number
   avg_changed_lines: number
+  findings?: FileFinding[]
+}
+
+export interface FileFinding {
+  review_id: string
+  path: string
+  line: number
+  severity: string
+  title: string
+  category: string
+  created_at: string
 }
 
 export interface ProjectTrendPoint {

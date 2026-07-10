@@ -46,7 +46,7 @@ func (a *GitLabAdapter) Publish(ctx context.Context, rev Review) (Result, error)
 			"expected", rev.ChangeRequest.HeadSHA,
 			"actual", cr.HeadSHA,
 		)
-		return Result{}, nil
+		return Result{Stale: true, ExpectedSHA: rev.ChangeRequest.HeadSHA, ActualSHA: cr.HeadSHA}, nil
 	}
 
 	comments := make([]sdk.ReviewComment, 0, len(rev.Comments))
