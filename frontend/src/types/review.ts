@@ -75,11 +75,13 @@ export interface Finding {
   body: string
   existing_code?: string
   suggestion_code?: string
+  fingerprint?: string
 }
 
 export interface FindingFeedback {
   review_id: string
   finding_index: number
+  fingerprint?: string
   status: string
   note?: string
   created_at: string

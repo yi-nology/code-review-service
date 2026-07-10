@@ -145,6 +145,11 @@ func createSuggestionPatchCR(ctx context.Context, svcReq domain.Request, req *ap
 	if targetBranch == "" {
 		return nil, fmt.Errorf("target_branch is required to create PR/MR")
 	}
+	// 安全校验：禁止自动修复 PR/MR 以受保护主干（main/master 等）为目标分支，
+	// 防止自动生成的修复直接合入主干，必须经人工 review。
+	if suggestion.IsProtectedBranch(targetBranch) {
+		return nil, fmt.Errorf("refused to create auto-patch PR/MR targeting protected branch %q", targetBranch)
+	}
 	title := strings.TrimSpace(req.Title)
 	if title == "" {
 		title = "Apply review suggestions"

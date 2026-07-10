@@ -264,6 +264,10 @@ func (p *LLMProvider) doHTTP(httpReq *http.Request, parse func([]byte) (LLMRespo
 		resp, err := p.client.Do(httpReq)
 		if err != nil {
 			lastErr = fmt.Errorf("llm http call failed: %w", err)
+			// DNS 解析失败 / 连接被拒这类传输层错误不可恢复，重试只会双倍超时。
+			if isPermanentMessage(err.Error()) {
+				return LLMResponse{}, lastErr
+			}
 			continue
 		}
 

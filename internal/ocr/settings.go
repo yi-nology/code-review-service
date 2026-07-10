@@ -27,29 +27,30 @@ type Settings interface {
 //
 // 阶段 A+1：把它从 models.OCRSettings 解耦，让 ocr 包不依赖 internal/repository/postgres。
 type SettingsData struct {
-	Binary     string
-	Audience   string
-	URL        string
-	Model      string
-	ModelName  string
-	AuthToken  string
-	AuthHeader string
+	Binary       string
+	Audience     string
+	URL          string
+	Model        string
+	ModelName    string
+	AuthToken    string
+	AuthHeader   string
 	ExtraHeaders string
 	UseAnthropic bool
 
-	ExtraBody    string
-	Language     string
-	Background   string
-	MaxTools     int
-	ToolsPath    string
-	ToolsConfig  string
+	ExtraBody   string
+	Language    string
+	Background  string
+	MaxTools    int
+	ToolsPath   string
+	ToolsConfig string
+	McpServers  string
 
-	Provider          string
-	ReasoningMode     string
-	ReasoningBudget   int
+	Provider        string
+	ReasoningMode   string
+	ReasoningBudget int
 
-	Concurrency int
-	MaxGitProcs  int
+	Concurrency    int
+	MaxGitProcs    int
 	TimeoutMinutes int
 
 	TelemetryEnabled        bool

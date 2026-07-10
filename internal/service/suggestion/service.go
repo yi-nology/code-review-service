@@ -117,6 +117,12 @@ func (s *Service) ApplySuggestionPatch(ctx context.Context, reviewID string, opt
 	}
 
 	branch := normalizeSuggestionPatchBranch(opts.Branch, record.ID)
+	// 安全校验：禁止自动修复补丁推送到受保护主干（main/master/develop 等），
+	// 防止自动生成的提交绕过 review 流程直接进主干。须走分支 + PR 流程。
+	if opts.Push && IsProtectedBranch(branch) {
+		result.Error = fmt.Sprintf("refused to push auto-patch to protected branch %q; use a feature branch", branch)
+		return result, true, nil
+	}
 	pushAuth := suggestionPatchPushAuth{}
 	if opts.Push && s.gitSvc != nil {
 		pushAuth.Token = s.gitSvc.GetToken(record.Request.Provider)

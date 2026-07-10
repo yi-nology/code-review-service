@@ -22,6 +22,19 @@ Review Service is a code review gateway that integrates with GitHub, GitLab, Git
 - **Session management**: Multi-round review sessions with history
 - **Review maps**: Visual code architecture maps with Mermaid diagrams
 
+### Production & Enterprise Features
+
+- **CI Status Check**: Automatically writes commit status (success/failed/error) to Git platforms, enabling review-service as a required PR quality gate
+- **Finding lifecycle**: Stable cross-review fingerprints identify recurring issues; false-positive suppression prevents re-reporting dismissed findings
+- **Notifications**: In-app notification center + external webhooks (Feishu/Lark, WeCom, DingTalk) on review completion/failure/gate-fail
+- **Cost management**: Per-model pricing table for LLM cost estimation, monthly budget limits with configurable enforcement (warn/block)
+- **Observability**: Prometheus metrics (`/metrics` endpoint) for review duration, queue depth, writeback rate, and LLM cost; ready-to-import Grafana dashboard (`deploy/grafana-dashboard.json`)
+- **Audit & auth**: Named API tokens (SHA256-hashed) with audit logging of write operations, backward-compatible with single-token mode
+- **Reliability**: Persistent review queue (PG `SKIP LOCKED`), retry-limit dead-letter handling, non-retryable error classification (DNS failures won't double-timeout)
+- **Security**: Patch path-traversal protection, sensitive-file guardrails (CI/build/hooks), protected-branch enforcement for auto-fix pushes
+- **Weekly reports**: Project-level review summary reports in Markdown
+
+
 ## Architecture
 
 ```
@@ -147,7 +160,7 @@ curl -X POST http://localhost:8081/api/v1/webhooks \
 
 | Env | Default | Description |
 |-----|---------|-------------|
-| `HTTP_ADDR` | `:8080` | HTTP listen address |
+| `HTTP_ADDR` | `:8081` | HTTP listen address |
 | `REVIEW_TOKEN` | - | Bearer token for API authentication |
 | `DATABASE_URL` | - | PostgreSQL connection URL |
 | `OCR_ENABLED` | `false` | Enable AI-powered code review |
@@ -158,6 +171,29 @@ curl -X POST http://localhost:8081/api/v1/webhooks \
 | `GITHUB_TOKEN` | - | GitHub API token |
 | `GITLAB_TOKEN` | - | GitLab API token |
 | `GITEA_TOKEN` | - | Gitea API token |
+| `FEISHU_WEBHOOK_URL` | - | Feishu/Lark webhook URL for review notifications |
+| `WECOM_WEBHOOK_URL` | - | WeCom (企业微信) webhook URL for review notifications |
+
+### Notification / Cost / Metrics (optional)
+
+These are configured via `etc/config-{env}.yaml`:
+
+```yaml
+notification:
+  inapp_disabled: false          # in-app notifications (default on)
+  webhooks:
+    - type: feishu               # feishu / wecom / dingtalk / generic
+      url: "${FEISHU_WEBHOOK_URL:}"
+      on: ["failed", "gate_failed"]   # trigger conditions
+
+cost:
+  monthly_budget_usd: 100.0      # monthly LLM cost budget (USD), 0 = unlimited
+  review_action: "warn"          # warn (log only) / block (reject new reviews)
+```
+
+**Prometheus metrics** are exposed at `GET /metrics` (auth-exempt). See `deploy/grafana-dashboard.json` for a ready-to-import dashboard.
+
+**Key metrics**: `review_service_review_total`, `review_service_review_duration_seconds`, `review_service_review_queue_depth`, `review_service_writeback_findings_total`, `review_service_llm_cost_usd_total`.
 
 ## Development
 

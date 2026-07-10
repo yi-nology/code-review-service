@@ -3,8 +3,6 @@ package ocr
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -211,29 +209,6 @@ func TestResolveBinaryFrom_NilSettings(t *testing.T) {
 	}
 }
 
-// ===================== ensureOCRLanguage 测试 =====================
-
-func TestEnsureOCRLanguage(t *testing.T) {
-	// 写入临时配置文件
-	home, _ := os.UserHomeDir()
-	dir := filepath.Join(home, ".opencodereview")
-	_ = os.MkdirAll(dir, 0o755)
-	path := filepath.Join(dir, "config.json")
-	_ = os.WriteFile(path, []byte(`{"language":"test-lang"}`), 0o644)
-
-	// 调用 ensureOCRLanguage
-	ensureOCRLanguage("ocr", "new-lang")
-
-	// 验证文件被更新
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Skipf("cannot read config file: %v", err)
-	}
-	if !strings.Contains(string(data), "new-lang") {
-		t.Errorf("expected config to contain new-lang")
-	}
-}
-
 // ===================== Config.AppendEnv 测试 =====================
 
 func TestConfig_AppendEnv_Anthropic(t *testing.T) {
@@ -258,9 +233,9 @@ func TestConfig_AppendEnv_Anthropic(t *testing.T) {
 
 func TestConfig_AppendEnv_Telemetry(t *testing.T) {
 	cfg := Config{
-		TelemetryEnabled:      true,
-		TelemetryExporter:      "otlp",
-		TelemetryOTLPEndpoint:  "http://localhost:4317",
+		TelemetryEnabled:        true,
+		TelemetryExporter:       "otlp",
+		TelemetryOTLPEndpoint:   "http://localhost:4317",
 		TelemetryContentLogging: true,
 	}
 	env := cfg.AppendEnv([]string{})

@@ -34,8 +34,8 @@ var handlerInst *ReviewHandler
 var webhookInst *WebhookHandler
 
 type ReviewHandler struct {
-	reviewSvc    svcApp.ReviewService
-	gitMgr       svcApp.GitProviderManager
+	reviewSvc     svcApp.ReviewService
+	gitMgr        svcApp.GitProviderManager
 	suggestionSvc *suggestion.Service
 }
 
@@ -626,6 +626,7 @@ func convertFindings(findings []domain.Finding) []*modelReview.Finding {
 			Line: ptrx.Of(int64(f.Line)), StartLine: ptrx.Of(int64(f.StartLine)), EndLine: ptrx.Of(int64(f.EndLine)),
 			Title: f.Title, Body: f.Body, ExistingCode: common.StrPtr(f.ExistingCode),
 			SuggestionCode: common.StrPtr(f.SuggestionCode),
+			Fingerprint:    common.StrPtr(f.Fingerprint),
 		}
 	})
 }

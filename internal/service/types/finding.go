@@ -23,6 +23,10 @@ type Finding struct {
 	// RedundancyStatus 标记同一 persona 多次运行是否都发现此问题（路径 A4）
 	// "" 未参与冗余；"confirmed" 冗余确认；"single" 单次观察
 	RedundancyStatus string `json:"redundancy_status,omitempty"`
+	// Fingerprint 是跨 review 稳定的问题指纹（path+category+title签名+行桶的哈希）。
+	// 用于支撑「新增/存量/已修复」生命周期与误报抑制，与随机 ID 不同。
+	// 在 findings 组装时由 ComputeFingerprints 统一填充。
+	Fingerprint string `json:"fingerprint,omitempty"`
 }
 
 // 冗余状态常量（路径 A4）

@@ -99,6 +99,9 @@
           <el-tab-pane label="审查背景" name="review">
             <ReviewFocusTab />
           </el-tab-pane>
+          <el-tab-pane label="MCP 服务器" name="mcp">
+            <McpServersTab />
+          </el-tab-pane>
         </el-tabs>
       </section>
     </div>
@@ -112,6 +115,7 @@ import { Refresh, RefreshRight, Upload, Cpu } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ExecutionParamsTab from '@/components/model-settings/ExecutionParamsTab.vue'
 import ReviewFocusTab from '@/components/model-settings/ReviewFocusTab.vue'
+import McpServersTab from '@/components/model-settings/McpServersTab.vue'
 import { settingsFormKey, type SettingsFormContext } from '@/components/model-settings/context'
 import { useOcrSettingsForm } from '@/composables/useOcrSettingsForm'
 import {

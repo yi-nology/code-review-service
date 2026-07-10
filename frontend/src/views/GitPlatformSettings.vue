@@ -340,8 +340,9 @@ async function handleDeleteSelected() {
 
 async function handleDelete(p: GitPlatform) {
   try {
-    await ElMessageBox.confirm(`确定删除 ${getProviderLabel(p.provider)} 平台配置？`, '确认删除')
-    await deleteGitPlatform(p.provider)
+    const inst = p.installation_id || 'default'
+    await ElMessageBox.confirm(`确定删除 ${getProviderLabel(p.provider)} 平台配置${inst !== 'default' ? `（installation: ${inst}）` : ''}？`, '确认删除')
+    await deleteGitPlatform(p.provider, p.installation_id)
     ElMessage.success('已删除')
     resetForm()
     await fetchPlatforms()
@@ -355,7 +356,8 @@ function providerInitial(provider: string) {
 }
 
 function platformKey(platform: GitPlatform) {
-  return `${platform.provider}:${platform.base_url}`
+  // 用 (provider, installation_id) 区分，支持同 provider 多 installation。
+  return `${platform.provider}:${platform.installation_id || 'default'}`
 }
 
 onMounted(() => {

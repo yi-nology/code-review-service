@@ -46,7 +46,7 @@ func (s *stubWriteback) PublishWithDiff(_ context.Context, req domain.Request, _
 type noopReviewRepo struct{}
 
 func (noopReviewRepo) Create(context.Context, *domain.Record) error { return nil }
-func (noopReviewRepo) Save(context.Context, *domain.Record) error    { return nil }
+func (noopReviewRepo) Save(context.Context, *domain.Record) error   { return nil }
 func (noopReviewRepo) GetByReviewID(context.Context, string) (*domain.Record, error) {
 	return &domain.Record{}, nil
 }
@@ -72,6 +72,8 @@ func (noopReviewRepo) ClaimQueued(context.Context, int) ([]domain.Record, error)
 	return nil, nil
 }
 func (noopReviewRepo) RequeueStale(context.Context, time.Time) (int64, error) { return 0, nil }
+func (noopReviewRepo) QueueDepth(context.Context) (int64, error)              { return 0, nil }
+func (noopReviewRepo) RequeueFromDeadLetter(context.Context, string) error    { return nil }
 func (noopReviewRepo) UpdateInTransaction(context.Context, string, func(*domain.Record) error) error {
 	return nil
 }

@@ -10,17 +10,24 @@ import (
 	"sync"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
+	bizmetrics "github.com/yi-nology/code-review-service/internal/observability/metrics"
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
+	"github.com/yi-nology/code-review-service/internal/service/cost"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/service/statuscheck"
+	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
 	"github.com/yi-nology/code-review-service/internal/vcs"
+
+	notifdomain "github.com/yi-nology/code-review-service/internal/domain/notification"
+	"github.com/oekit/concurrency/async"
 
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/slicex"
@@ -33,6 +40,11 @@ type Service struct {
 	rulePackageRepo repository.OCRRulePackageRepository
 	runner          domain.Runner
 	writeback       domain.WritebackPublisher
+	notifier        domain.Notifier
+	statusPoster    *statuscheck.Poster
+	modelNameFunc   func() string
+	budgetChecker   *cost.BudgetChecker
+	costCalc        *cost.Calculator
 	policy          *policy.Engine
 	progressMgr     *progress.ProgressManager
 	workflow        *workflow.ReviewWorkflow
@@ -51,11 +63,17 @@ type Config struct {
 	RulePackageRepo repository.OCRRulePackageRepository
 	Runner          domain.Runner
 	Writeback       domain.WritebackPublisher
-	Policy          *policy.Engine
-	ProgressMgr     *progress.ProgressManager
-	Workflow        *workflow.ReviewWorkflow
-	AgentManager    *agent.AgentManager
-	LLMMetrics      *ocr.Metrics
+	Notifier        domain.Notifier
+	StatusPoster    *statuscheck.Poster
+	// ModelNameFunc 延迟返回当前配置的模型名（用于成本归因）。可选，nil 时留空。
+	ModelNameFunc func() string
+	BudgetChecker *cost.BudgetChecker
+	CostCalc      *cost.Calculator
+	Policy        *policy.Engine
+	ProgressMgr   *progress.ProgressManager
+	Workflow      *workflow.ReviewWorkflow
+	AgentManager  *agent.AgentManager
+	LLMMetrics    *ocr.Metrics
 }
 
 func NewService(cfg Config) *Service {
@@ -66,6 +84,11 @@ func NewService(cfg Config) *Service {
 		rulePackageRepo: cfg.RulePackageRepo,
 		runner:          cfg.Runner,
 		writeback:       cfg.Writeback,
+		notifier:        cfg.Notifier,
+		statusPoster:    cfg.StatusPoster,
+		modelNameFunc:   cfg.ModelNameFunc,
+		budgetChecker:   cfg.BudgetChecker,
+		costCalc:        cfg.CostCalc,
 		policy:          cfg.Policy,
 		progressMgr:     cfg.ProgressMgr,
 		workflow:        cfg.Workflow,
@@ -115,6 +138,14 @@ func (s *Service) Execute(ctx context.Context, id string, req domain.Request, pr
 		return domain.Response{}, err
 	}
 
+	// 预算闸门：月度成本预算超限时，block 模式拒绝新评审（避免持续烧钱）。
+	if s.budgetChecker != nil {
+		if err := s.budgetChecker.CheckBlock(ctx); err != nil {
+			s.recordFailure(ctx, id, req, "budget", err)
+			return domain.Response{}, err
+		}
+	}
+
 	if progressReporter != nil {
 		ctx = progress.WithProgressReporter(ctx, progressReporter)
 	}
@@ -160,6 +191,11 @@ func (s *Service) Execute(ctx context.Context, id string, req domain.Request, pr
 		}
 	}
 	workspace.OCR = review.ProjectPolicyToOCROverrides(projectPolicy)
+	// 把需求/spec 注入 OCR --background：单 runner 路径直接调 OCR，此前丢失了需求上下文。
+	// workflow 路径在 steps.go 里把需求嵌入 prompt，但 runner 路径只有 --background 这一个通道。
+	if len(req.Requirements) > 0 {
+		workspace.OCR.Background = review.MergeRequirementsIntoBackground(workspace.OCR.Background, req.Requirements)
+	}
 
 	var ignorePaths []string
 	if len(projectPolicy.IgnorePaths) > 0 {
@@ -265,6 +301,8 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req domain
 		// agent.Finding 即 domain.Finding（types.Finding 别名），无需转换。
 		findings = append(findings, bucket...)
 	}
+	// 统一计算跨 review 稳定指纹（与 runner 路径一致），供反馈关联与误报抑制。
+	types.ComputeFingerprints(findings)
 
 	// 确保 scope 被正确初始化（即使没有配置 ignorePaths）
 	scope := workspace.Scope
@@ -291,12 +329,13 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req domain
 		}
 	}
 	dummyResult := domain.Result{
-		Summary:           result.FinalReport.Summary,
-		Findings:          findings,
-		Scope:             scope,
-		TechLeadAnalysis:  tla,
+		Summary:          result.FinalReport.Summary,
+		Findings:         findings,
+		Scope:            scope,
+		TechLeadAnalysis: tla,
 		OCR: domain.OCRMetadata{
 			Engine:        "workflow",
+			Model:         s.currentModel(),
 			Status:        review.OCRStatusSuccess,
 			FilesReviewed: int64(scope.ChangedFiles),
 			Comments:      int64(len(findings)),
@@ -344,15 +383,21 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req domain
 		return resp, fmt.Errorf("review completed but writeback failed: %w", wbErr)
 	}
 
+	s.notifyCompletion(req, resp)
+	s.postCompletionStatus(req, resp, workspace)
+	s.recordReviewMetrics(req, resp, workspace)
 	return resp, nil
 }
 
 func (s *Service) executeWithRunner(ctx context.Context, id string, req domain.Request, workspace domain.Workspace, projectPolicy projectpolicy.ProjectPolicy) (domain.Response, error) {
 	s.appendHistory(ctx, id, "ocr", "running", "code review model invoked", nil)
+	// #7：runner 路径也计入 ocr.Metrics，让 /debug/llm/metrics 反映真实 OCR 调用（原仅 workflow 路径统计）。
+	// 对齐 MetricsProvider.Complete 语义：墙钟 latency 无论成败都记录，调用前取 start。
+	start := time.Now()
 	result, err := s.runner.Run(ctx, workspace)
 	if err != nil {
-		// #7：runner 路径也计入 ocr.Metrics，让 /debug/llm/metrics 反映真实 OCR 调用（原仅 workflow 路径统计）
 		if s.llmMetrics != nil {
+			s.llmMetrics.TotalLatency.Add(int64(time.Since(start)))
 			s.llmMetrics.Calls.Add(1)
 			s.llmMetrics.Failures.Add(1)
 		}
@@ -360,6 +405,7 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req domain.R
 		return domain.Response{}, err
 	}
 	if s.llmMetrics != nil {
+		s.llmMetrics.TotalLatency.Add(int64(time.Since(start)))
 		s.llmMetrics.Calls.Add(1)
 		s.llmMetrics.Successes.Add(1)
 		s.llmMetrics.InputTokens.Add(result.OCR.InputTokens)
@@ -373,6 +419,10 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req domain.R
 	})
 	result.Scope = workspace.Scope
 	result.Scope.ChangedLines = review.CountDiffLines(workspace.Diff)
+
+	// 在 gate/report/writeback 消费 findings 之前，统一计算跨 review 稳定指纹，
+	// 供反馈关联、生命周期判定与误报抑制使用。
+	types.ComputeFingerprints(result.Findings)
 
 	report := review.BuildReport(&result)
 	analysis := review.BuildAnalysis(result)
@@ -408,6 +458,9 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req domain.R
 		return resp, fmt.Errorf("review completed but writeback failed: %w", wbErr)
 	}
 
+	s.notifyCompletion(req, resp)
+	s.postCompletionStatus(req, resp, workspace)
+	s.recordReviewMetrics(req, resp, workspace)
 	return resp, nil
 }
 
@@ -477,6 +530,13 @@ func (s *Service) publishWriteback(ctx context.Context, id string, req domain.Re
 			fmt.Sprintf("comments published to git platform (published=%d, failed=%d)", wbResult.Published, wbResult.Failed),
 			map[string]any{"published": wbResult.Published, "failed": wbResult.Failed})
 	}
+	// 回写指标：published / failed 分别计数。
+	if wbResult.Published > 0 {
+		bizmetrics.WritebackFindingsTotal.WithLabelValues(req.Provider, "published").Add(float64(wbResult.Published))
+	}
+	if wbResult.Failed > 0 {
+		bizmetrics.WritebackFindingsTotal.WithLabelValues(req.Provider, "failed").Add(float64(wbResult.Failed))
+	}
 	return summary, nil
 }
 
@@ -503,6 +563,151 @@ func (s *Service) recordFailure(ctx context.Context, id string, req domain.Reque
 	if err := s.updateWithRawOCR(ctx, id, req, response, nil); err != nil {
 		logx.Error("failed to persist review failure", "review_id", id, "error", err)
 	}
+
+	// 失败通知（fire-and-forget，不阻塞主流程，不因通知失败影响评审落库）。
+	s.notifyAsync(notifdomain.Event{
+		ReviewID: id,
+		Provider: req.Provider,
+		Repo:     req.Repo,
+		Ref:      req.PullRequestID + req.MergeRequestIID,
+		Kind:     notifdomain.KindFailed,
+		Stage:    stage,
+		Error:    runErr.Error(),
+	})
+
+	// 失败时向 Git 平台写 error 状态（PR 上显示评审失败的 check）。
+	// SHA 用 req.HeadSHA（recordFailure 无 workspace 上下文）。
+	if s.statusPoster != nil && req.HeadSHA != "" {
+		s.statusPoster.Post(context.Background(), req.Provider, req.Repo, req.HeadSHA,
+			statuscheck.StateError,
+			"评审执行失败："+truncateForStatus(stage+": "+runErr.Error()),
+			id)
+	}
+	// 失败评审判定计入指标。
+	bizmetrics.ReviewTotal.WithLabelValues(req.Provider, "failed").Inc()
+}
+
+// postCompletionStatus 在评审结束后向 Git 平台写 commit status（CI 质量门禁）。
+// gate passed → success，gate failed → failed，用 workspace 真实 head SHA。
+func (s *Service) postCompletionStatus(req domain.Request, resp domain.Response, workspace domain.Workspace) {
+	if s.statusPoster == nil {
+		return
+	}
+	state := statuscheck.StateSuccess
+	description := "代码评审通过"
+	if resp.Gate.Status == domain.GateFailed {
+		state = statuscheck.StateFailed
+		description = "质量门禁未通过：" + truncateForStatus(resp.Gate.Reason)
+	}
+	// 用真实 head SHA（合成提交会让 workspace.HeadSHA 偏离）。
+	sha := workspace.OriginalHeadSHA
+	if sha == "" {
+		sha = workspace.HeadSHA
+	}
+	if sha == "" {
+		sha = req.HeadSHA
+	}
+	s.statusPoster.Post(context.Background(), req.Provider, req.Repo, sha, state, description, resp.ReviewID)
+}
+
+func truncateForStatus(s string) string {
+	if s == "" {
+		return "未知原因"
+	}
+	if len(s) > 100 {
+		return s[:99] + "…"
+	}
+	return s
+}
+
+// currentModel 返回当前配置的模型名（用于成本归因）。
+func (s *Service) currentModel() string {
+	if s.modelNameFunc != nil {
+		return s.modelNameFunc()
+	}
+	return ""
+}
+
+// recordReviewMetrics 记录评审完成的 Prometheus 指标：
+// 耗时分布、评审计数、LLM 估算成本。
+func (s *Service) recordReviewMetrics(req domain.Request, resp domain.Response, workspace domain.Workspace) {
+	status := resp.Gate.Status
+	if status == "" {
+		status = resp.Status
+	}
+	bizmetrics.ReviewTotal.WithLabelValues(req.Provider, status).Inc()
+
+	// 耗时：从 report.ocr.elapsed 解析（OCR 子进程耗时），fallback 用 total_tokens 推断。
+	// 这里用 elapsed 字符串（如 "12.3s"）解析秒数。
+	if elapsed := parseElapsedSeconds(resp.Report.OCR.Elapsed); elapsed > 0 {
+		bizmetrics.ReviewDurationSeconds.WithLabelValues(req.Provider, status).Observe(elapsed)
+	}
+
+	// LLM 成本：用 token 用量 × 单价估算（cost.Calculator 可能未配置，nil 安全）。
+	if s.costCalc != nil && resp.Report.OCR.TotalTokens > 0 {
+		model := resp.Report.OCR.Model
+		cost := s.costCalc.Estimate(context.Background(), req.Provider, model,
+			resp.Report.OCR.InputTokens, resp.Report.OCR.OutputTokens,
+			resp.Report.OCR.CacheReadTokens, resp.Report.OCR.CacheWriteTokens)
+		if cost > 0 {
+			bizmetrics.LLMCostUSDTotal.WithLabelValues(req.Provider, model).Add(cost)
+		}
+	}
+}
+
+// parseElapsedSeconds 解析 OCR elapsed 字符串（如 "12.3s"）为秒数。
+func parseElapsedSeconds(elapsed string) float64 {
+	if elapsed == "" {
+		return 0
+	}
+	// 去掉单位后缀 s/ms，尝试解析。
+	s := strings.TrimSuffix(elapsed, "s")
+	var v float64
+	if _, err := fmt.Sscanf(s, "%f", &v); err != nil {
+		return 0
+	}
+	// ms 单位
+	if strings.HasSuffix(elapsed, "ms") {
+		return v / 1000
+	}
+	return v
+}
+
+// notifyCompletion 在评审成功完成后触发通知。
+// 根据 gate 结果区分 completed / gate_failed 事件。
+func (s *Service) notifyCompletion(req domain.Request, resp domain.Response) {
+	kind := notifdomain.KindCompleted
+	if resp.Gate.Status == domain.GateFailed {
+		kind = notifdomain.KindGateFailed
+	}
+	s.notifyAsync(notifdomain.Event{
+		ReviewID:   resp.ReviewID,
+		Provider:   req.Provider,
+		Repo:       req.Repo,
+		Ref:        req.PullRequestID + req.MergeRequestIID,
+		Kind:       kind,
+		GateStatus: resp.Gate.Status,
+		Score:      resp.Report.Score.Value,
+		Grade:      resp.Report.Score.Grade,
+		Findings:   len(resp.Findings),
+		Summary:    resp.Summary,
+	})
+}
+
+// notifyAsync 异步触发通知（fire-and-forget）。
+// 用独立 context 避免评审 ctx 取消后通知也跟着取消；通知失败仅记日志。
+func (s *Service) notifyAsync(event notifdomain.Event) {
+	if s.notifier == nil {
+		return
+	}
+	async.GoSafe(func() {
+		notifyCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := s.notifier.Notify(notifyCtx, event); err != nil {
+			logx.CtxWarnf(context.Background(),
+				"[notification] review %s kind=%s notify failed: %v", event.ReviewID, event.Kind, err)
+		}
+	})
 }
 
 // classifyReviewErrorType 把 runner 的结构化错误归类为运维可读标签，写入 history details，

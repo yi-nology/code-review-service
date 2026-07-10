@@ -152,9 +152,9 @@ func (v *Viewer) StopViewer(_ context.Context) (*domain.ViewerStatus, error) {
 
 // Upgrader 实现 domain.OCRUpgrader（吸收 ocr/upgrader.go）。
 type Upgrader struct {
-	settings Settings
-	resolver *ConfigResolver
-	versioner *Versioner
+	settings   Settings
+	resolver   *ConfigResolver
+	versioner  *Versioner
 	installDir string
 	repo       string
 }

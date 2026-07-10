@@ -8,7 +8,6 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/domain/session"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
-
 )
 
 func newSession(reviewID string, round int) *session.Session {

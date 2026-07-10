@@ -279,83 +279,11 @@
           </div>
 
           <!-- Preview -->
-          <div
+          <ScanPreviewPanel
             v-if="hasPreview && scanState === 'idle'"
-            class="preview-section"
-          >
-            <div class="section-head">
-              <h2>文件预览</h2>
-              <div class="section-actions">
-                <el-input
-                  v-model="previewFilter"
-                  size="small"
-                  placeholder="搜索文件…"
-                  style="width: 200px"
-                  clearable
-                />
-                <el-button
-                  text
-                  type="primary"
-                  @click="clearPreview"
-                >
-                  清空
-                </el-button>
-              </div>
-            </div>
-            <div
-              class="preview-summary"
-              :class="{ 'has-excluded': previewInfo.excluded.length > 0 }"
-            >
-              <div class="preview-stat">
-                <span>总变更</span>
-                <strong>{{ previewInfo.totalChanged || previewInfo.reviewable.length + previewInfo.excluded.length }}</strong>
-              </div>
-              <div class="preview-stat primary">
-                <span>将审查</span>
-                <strong>{{ filteredPreviewFiles.length }}</strong>
-              </div>
-              <div
-                v-if="previewInfo.excluded.length"
-                class="preview-stat"
-              >
-                <span>已排除</span>
-                <strong>{{ previewInfo.excluded.length }}</strong>
-              </div>
-            </div>
-            <div class="file-list" :class="{ empty: filteredPreviewFiles.length === 0 }">
-              <div
-                v-for="file in filteredPreviewFiles"
-                :key="file"
-                class="file-row"
-              >
-                <span class="file-badge">审查</span>
-                <code>{{ file }}</code>
-              </div>
-              <div
-                v-if="filteredPreviewFiles.length === 0"
-                class="file-list-empty"
-              >
-                没有匹配的可审查文件
-              </div>
-            </div>
-            <el-collapse
-              v-if="filteredExcludedFiles.length"
-              class="excluded-collapse"
-            >
-              <el-collapse-item :title="`已排除文件 (${filteredExcludedFiles.length})`" name="excluded">
-                <div class="file-list excluded-list">
-                  <div
-                    v-for="file in filteredExcludedFiles"
-                    :key="file"
-                    class="file-row"
-                  >
-                    <span class="file-badge muted">排除</span>
-                    <code>{{ file }}</code>
-                  </div>
-                </div>
-              </el-collapse-item>
-            </el-collapse>
-          </div>
+            :files="previewFiles"
+            @clear="clearPreview"
+          />
 
           <!-- Running: Progress Tracker -->
           <div
@@ -474,201 +402,7 @@
             />
 
             <!-- Findings Table -->
-            <div class="findings-section">
-              <div class="section-head">
-                <h2>问题列表</h2>
-                <div class="section-actions">
-                  <el-select
-                    v-model="severityFilter"
-                    multiple
-                    collapse-tags
-                    collapse-tags-tooltip
-                    placeholder="严重级别"
-                    size="small"
-                    style="width: 200px"
-                    clearable
-                  >
-                    <el-option
-                      label="Critical"
-                      value="critical"
-                    />
-                    <el-option
-                      label="Major"
-                      value="major"
-                    />
-                    <el-option
-                      label="Minor"
-                      value="minor"
-                    />
-                    <el-option
-                      label="Info"
-                      value="info"
-                    />
-                  </el-select>
-                  <el-select
-                    v-model="groupByPath"
-                    size="small"
-                    style="width: 120px"
-                  >
-                    <el-option
-                      label="不分组"
-                      :value="false"
-                    />
-                    <el-option
-                      label="按文件"
-                      :value="true"
-                    />
-                  </el-select>
-                </div>
-              </div>
-
-              <el-empty
-                v-if="!filteredFindings.length"
-                description="未发现问题"
-                :image-size="80"
-              />
-
-              <template v-else-if="groupByPath">
-                <el-collapse
-                  v-model="expandedGroups"
-                  class="finding-groups"
-                >
-                  <el-collapse-item
-                    v-for="group in groupedFindings"
-                    :key="group.path"
-                    :name="group.path"
-                  >
-                    <template #title>
-                      <code class="group-path">{{ group.path }}</code>
-                      <el-badge
-                        :value="group.items.length"
-                        class="group-badge"
-                      />
-                    </template>
-                    <div class="finding-cards">
-                      <article
-                        v-for="(finding, idx) in group.items"
-                        :key="idx"
-                        class="finding-card"
-                      >
-                        <div class="finding-head">
-                          <el-tag
-                            :type="severityType(finding.severity)"
-                            size="small"
-                          >
-                            {{ finding.severity }}
-                          </el-tag>
-                          <strong>{{ finding.title }}</strong>
-                          <span
-                            v-if="finding.start_line"
-                            class="finding-line"
-                          >L{{ finding.start_line }}</span>
-                        </div>
-                        <p class="finding-body">
-                          {{ finding.body }}
-                        </p>
-                        <div
-                          v-if="finding.existing_code || finding.suggestion_code"
-                          class="finding-code"
-                        >
-                          <div
-                            v-if="finding.existing_code"
-                            class="code-block"
-                          >
-                            <small>当前代码</small>
-                            <pre>{{ finding.existing_code }}</pre>
-                          </div>
-                          <div
-                            v-if="finding.suggestion_code"
-                            class="code-block"
-                          >
-                            <small>建议代码</small>
-                            <pre>{{ finding.suggestion_code }}</pre>
-                          </div>
-                        </div>
-                      </article>
-                    </div>
-                  </el-collapse-item>
-                </el-collapse>
-              </template>
-
-              <el-table
-                v-else
-                :data="pagedFindings"
-                stripe
-              >
-                <el-table-column type="expand">
-                  <template #default="{ row }">
-                    <p class="finding-body">
-                      {{ row.body }}
-                    </p>
-                    <div
-                      v-if="row.existing_code || row.suggestion_code"
-                      class="finding-code"
-                    >
-                      <div
-                        v-if="row.existing_code"
-                        class="code-block"
-                      >
-                        <small>当前代码</small>
-                        <pre>{{ row.existing_code }}</pre>
-                      </div>
-                      <div
-                        v-if="row.suggestion_code"
-                        class="code-block"
-                      >
-                        <small>建议代码</small>
-                        <pre>{{ row.suggestion_code }}</pre>
-                      </div>
-                    </div>
-                  </template>
-                </el-table-column>
-                <el-table-column
-                  width="100"
-                  label="级别"
-                >
-                  <template #default="{ row }">
-                    <el-tag
-                      :type="severityType(row.severity)"
-                      size="small"
-                    >
-                      {{ row.severity }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column
-                  label="标题"
-                  min-width="200"
-                  show-overflow-tooltip
-                >
-                  <template #default="{ row }">
-                    <strong>{{ row.title }}</strong>
-                  </template>
-                </el-table-column>
-                <el-table-column
-                  label="文件"
-                  min-width="200"
-                  show-overflow-tooltip
-                >
-                  <template #default="{ row }">
-                    <code class="finding-path">{{ row.path }}{{ row.start_line ? `:${row.start_line}` : '' }}</code>
-                  </template>
-                </el-table-column>
-              </el-table>
-
-              <div
-                v-if="filteredFindings.length > findingsPageSize"
-                class="pagination-wrap"
-              >
-                <el-pagination
-                  v-model:current-page="findingsPage"
-                  :page-size="findingsPageSize"
-                  :total="filteredFindings.length"
-                  layout="prev, pager, next"
-                  small
-                />
-              </div>
-            </div>
+            <ScanFindingsPanel :findings="reviewDetail?.findings ?? []" />
           </div>
         </section>
       </div>
@@ -743,7 +477,9 @@ import { getBranchSHA, getGitPlatforms, getProviderBranches, getProviderRepos } 
 import { cancelReview, getReview, scanRepository } from '@/api/review'
 import { sessionApi, type ReviewSession } from '@/api/session'
 import type { GitPlatform, PlatformBranch, PlatformRepo } from '@/types/config'
-import type { ReviewDetail, Finding } from '@/types/review'
+import type { ReviewDetail } from '@/types/review'
+import ScanFindingsPanel from '@/components/scan/ScanFindingsPanel.vue'
+import ScanPreviewPanel from '@/components/scan/ScanPreviewPanel.vue'
 import type { PhaseDefinition } from '@/constants/phases'
 
 const router = useRouter()
@@ -760,7 +496,6 @@ const previewing = ref(false)
 const starting = ref(false)
 const cancelling = ref(false)
 const previewFiles = ref<string[]>([])
-const previewFilter = ref('')
 const branch = ref('')
 const branchTouched = ref(false)
 const pathsText = ref('')
@@ -778,12 +513,6 @@ const elapsedText = ref('')
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 let elapsedTimer: ReturnType<typeof setInterval> | null = null
 let pollFailureCount = 0
-
-const severityFilter = ref<string[]>([])
-const groupByPath = ref(false)
-const expandedGroups = ref<string[]>([])
-const findingsPage = ref(1)
-const findingsPageSize = 20
 
 const confirmVisible = ref(false)
 
@@ -853,46 +582,7 @@ const formRules: FormRules = {
 
 const canRun = computed(() => Boolean(form.provider && form.repo && form.head_sha))
 const scanRunning = computed(() => scanState.value === 'queued' || scanState.value === 'running')
-const previewInfo = computed(() => normalizePreviewOutput(previewFiles.value))
-const hasPreview = computed(() => previewFiles.value.length > 0 || previewInfo.value.reviewable.length > 0 || previewInfo.value.excluded.length > 0)
-
-const filteredPreviewFiles = computed(() => {
-  const files = previewInfo.value.reviewable
-  if (!previewFilter.value) return files
-  const q = previewFilter.value.toLowerCase()
-  return files.filter((f) => f.toLowerCase().includes(q))
-})
-
-const filteredExcludedFiles = computed(() => {
-  const files = previewInfo.value.excluded
-  if (!previewFilter.value) return files
-  const q = previewFilter.value.toLowerCase()
-  return files.filter((f) => f.toLowerCase().includes(q))
-})
-
-const allFindings = computed<Finding[]>(() => reviewDetail.value?.findings ?? [])
-
-const filteredFindings = computed(() => {
-  if (!severityFilter.value.length) return allFindings.value
-  return allFindings.value.filter((f) => severityFilter.value.includes(f.severity))
-})
-
-const pagedFindings = computed(() => {
-  const start = (findingsPage.value - 1) * findingsPageSize
-  return filteredFindings.value.slice(start, start + findingsPageSize)
-})
-
-const groupedFindings = computed(() => {
-  const groups: Record<string, Finding[]> = {}
-  for (const f of filteredFindings.value) {
-    const key = f.path || '(unknown)'
-    if (!groups[key]) groups[key] = []
-    groups[key].push(f)
-  }
-  return Object.entries(groups)
-    .map(([path, items]) => ({ path, items }))
-    .sort((a, b) => b.items.length - a.items.length)
-})
+const hasPreview = computed(() => previewFiles.value.length > 0)
 
 const metrics = computed(() => {
   const detail = reviewDetail.value
@@ -917,13 +607,6 @@ function splitRepo(repo: string) {
 
 function formatNumber(value?: number) {
   return value ? value.toLocaleString() : '-'
-}
-
-function severityType(severity?: string) {
-  if (severity === 'critical') return 'danger'
-  if (severity === 'major') return 'warning'
-  if (severity === 'minor') return 'info'
-  return 'success'
 }
 
 function stripAnsi(value: string) {
@@ -1312,18 +995,15 @@ function resetScan() {
   scanStartTime.value = null
   elapsedText.value = ''
   previewFiles.value = []
-  previewFilter.value = ''
   clearScanSession()
 }
 
 function clearPreview() {
   previewFiles.value = []
-  previewFilter.value = ''
 }
 
 watch(() => form, saveFormState, { deep: true })
 watch([branch, pathsText, excludeText], saveFormState)
-watch([severityFilter, groupByPath], () => { findingsPage.value = 1 })
 
 function onVisibilityChange() {
   if (document.visibilityState === 'visible' && scanRunning.value && !pollTimer) {

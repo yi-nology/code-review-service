@@ -18,7 +18,7 @@ var RunnerModule = fx.Options(
 func NewOpenCodeReviewRunner(cfg *config.Config) *ocr.Runner {
 	return ocr.NewRunner(ocr.Fallback{
 		Binary:          cfg.OCR.Binary,
-		Audience:        "human",
+		Audience:        "agent",
 		RulePath:        cfg.OCR.Rule,
 		DefaultSeverity: "major",
 	}.ToConfig())

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/ocr"
 	dsession "github.com/yi-nology/code-review-service/internal/domain/session"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/discussion"
 	"github.com/yi-nology/code-review-service/internal/service/progress"

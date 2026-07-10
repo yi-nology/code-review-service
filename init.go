@@ -41,6 +41,8 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 		modules.OCRModule,
 		modules.LLMModule,
 		modules.WritebackModule,
+		modules.NotificationModule,
+		modules.CostModule,
 		modules.AgentModule,
 		modules.WorkflowModule,
 		modules.ReviewModule,

@@ -135,6 +135,14 @@
           <el-tag v-if="feedbackByIndex[index]" size="small" type="info">
             {{ feedbackLabel(feedbackByIndex[index].status) }}
           </el-tag>
+          <el-tag
+            v-if="finding.fingerprint && historicalFalsePositiveByFp[finding.fingerprint]"
+            size="small"
+            type="warning"
+            effect="plain"
+          >
+            历史误报
+          </el-tag>
         </div>
         <div class="finding-body" v-if="finding.body">{{ finding.body }}</div>
         <div class="finding-code" v-if="finding.existing_code">
@@ -153,7 +161,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { getSeverityType } from '@/utils/status'
-import { previewSuggestionPatch, checkSuggestionPatch, applySuggestionPatch, getFindingFeedback, saveFindingFeedback } from '@/api/review'
+import { previewSuggestionPatch, checkSuggestionPatch, applySuggestionPatch, getFindingFeedback, saveFindingFeedback, lookupFeedbackByFingerprints } from '@/api/review'
 import type { Finding, FindingFeedback, SuggestionPatchApplyResult, SuggestionPatchCheck, SuggestionPatchPreview } from '@/types/review'
 import { ElMessage } from 'element-plus/es/components/message/index'
 
@@ -179,6 +187,9 @@ const patchDownloading = ref(false)
 const patchApplying = ref(false)
 const patchCheckKey = ref('')
 const feedbackByIndex = ref<Record<number, FindingFeedback>>({})
+// historicalFalsePositiveByFp 记录指纹历史上被标记为误报的集合（跨 review）。
+// key = fingerprint，用于给当前 review 中"曾被视为误报的问题"显示提示徽章。
+const historicalFalsePositiveByFp = ref<Record<string, boolean>>({})
 
 const patchableFindingIndexes = computed(() => {
   return props.findings
@@ -224,10 +235,30 @@ function feedbackLabel(status?: string) {
 async function loadFeedback() {
   const items = await getFindingFeedback(props.reviewId)
   feedbackByIndex.value = Object.fromEntries(items.map((item) => [item.finding_index, item]))
+
+  // 跨 review 误报抑制：查询本 review 所有 finding 指纹的历史反馈，
+  // 找出曾被标记为 false_positive 的指纹，用于在卡片上提示"历史误报"。
+  const fps = props.findings.map((f) => f.fingerprint).filter((fp): fp is string => Boolean(fp))
+  if (fps.length) {
+    try {
+      const historical = await lookupFeedbackByFingerprints(fps)
+      const map: Record<string, boolean> = {}
+      for (const h of historical) {
+        // 排除本 review 自己刚标记的，只看历史其它 review 的误报判定
+        if (h.status === 'false_positive' && h.review_id !== props.reviewId && h.fingerprint) {
+          map[h.fingerprint] = true
+        }
+      }
+      historicalFalsePositiveByFp.value = map
+    } catch {
+      // 历史查询失败不影响主流程（全局拦截器会提示），静默降级即可。
+    }
+  }
 }
 
 async function handleFeedback(index: number, status: string) {
-  const item = await saveFindingFeedback(props.reviewId, index, { status })
+  const fingerprint = props.findings[index]?.fingerprint
+  const item = await saveFindingFeedback(props.reviewId, index, { status, fingerprint })
   feedbackByIndex.value = { ...feedbackByIndex.value, [index]: item }
   ElMessage.success(`已标记为${feedbackLabel(status)}`)
 }

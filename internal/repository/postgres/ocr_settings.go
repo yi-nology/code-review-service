@@ -54,7 +54,7 @@ func (r *OCRSettingsRepo) defaultSettings() *ocrsettings.Settings {
 	return &ocrsettings.Settings{
 		Enabled:         r.defaults.Enabled,
 		Binary:          binary,
-		Audience:        "human",
+		Audience:        "agent",
 		DefaultSeverity: "major",
 		Language:        "Chinese",
 		Concurrency:     2,

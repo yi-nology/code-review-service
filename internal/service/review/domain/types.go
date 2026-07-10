@@ -177,10 +177,10 @@ type AggregateStats struct {
 	GateFailed int
 	Findings   int
 
-	TotalTokens     int64
-	InputTokens     int64
-	OutputTokens    int64
-	CacheReadTokens int64
+	TotalTokens      int64
+	InputTokens      int64
+	OutputTokens     int64
+	CacheReadTokens  int64
 	CacheWriteTokens int64
 }
 

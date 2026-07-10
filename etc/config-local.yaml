@@ -89,3 +89,24 @@ tracing:
   endpoint: "${OTEL_ENDPOINT:}"
   insecure: true
   sample_rate: 1.0
+
+# 通知配置（可选）
+# 评审完成/失败/门禁未通过时推送通知。站内通知默认开启（无需配置），
+# 外部 webhook（飞书/企业微信/钉钉）按需配置。
+# notification:
+#   inapp_disabled: false          # 站内通知开关，默认开启
+#   webhooks:
+#     - type: feishu               # 渠道类型：feishu / wecom / dingtalk / generic
+#       url: "${FEISHU_WEBHOOK_URL:}"
+#       secret: "${FEISHU_WEBHOOK_SECRET:}"  # 签名密钥（可选）
+#       on: ["failed", "gate_failed"]        # 触发条件，空表示所有事件
+#     - type: wecom
+#       url: "${WECOM_WEBHOOK_URL:}"
+#       on: ["gate_failed"]
+
+# LLM 成本与预算配置（可选）
+# 月度成本预算：超额时按 review_action 决定行为。
+# 模型单价在 Web 控制台或 /api/v1/settings/cost/pricing 维护。
+# cost:
+#   monthly_budget_usd: 100.0      # 月度预算上限（美元），0 表示不限制
+#   review_action: "warn"          # warn（仅告警，默认）/ block（拒绝新评审）

@@ -9,8 +9,13 @@ import (
 	"strings"
 	"time"
 
+	authHandler "github.com/yi-nology/code-review-service/biz/handler/auth_service"
+	"github.com/yi-nology/code-review-service/biz/handler/common"
+	costHandler "github.com/yi-nology/code-review-service/biz/handler/cost_service"
 	diagnosticsHandler "github.com/yi-nology/code-review-service/biz/handler/diagnostics_service"
 	feedbackHandler "github.com/yi-nology/code-review-service/biz/handler/feedback_service"
+	notificationHandler "github.com/yi-nology/code-review-service/biz/handler/notification_service"
+	reportHandler "github.com/yi-nology/code-review-service/biz/handler/report_service"
 	reviewHandler "github.com/yi-nology/code-review-service/biz/handler/review_service"
 	settingsHandler "github.com/yi-nology/code-review-service/biz/handler/settings_service"
 	"github.com/yi-nology/code-review-service/biz/router"
@@ -18,6 +23,9 @@ import (
 	"github.com/yi-nology/code-review-service/internal/middleware"
 	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/readiness"
+	"github.com/yi-nology/code-review-service/internal/repository"
+	// blank import：触发业务指标包的 init()，将指标注册到 ekit Registry。
+	_ "github.com/yi-nology/code-review-service/internal/observability/metrics"
 	"github.com/yi-nology/code-review-service/swagger"
 
 	// 阶段 A 移除"
@@ -39,7 +47,7 @@ var ServerModule = fx.Options(
 	fx.Invoke(RegisterRoutes),
 )
 
-func RegisterGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
+func RegisterGlobalMiddleware(h *server.Hertz, cfg *config.Config, repos *repository.RepoContainer) {
 	h.Use(mw.RecoveryMiddleware())
 	h.Use(cors.Default())
 
@@ -57,9 +65,19 @@ func RegisterGlobalMiddleware(h *server.Hertz, cfg *config.Config) {
 	h.Use(middleware.RateLimitMiddleware(rps, burst))
 	logx.Infof("rate limiting middleware enabled (%d req/s, burst %d)", rps, burst)
 
-	if cfg.Auth.Token != "" {
+	// 多 Token 鉴权：优先查 DB api_tokens 表（具名 token + scope + 审计），
+	// 未命中时 fallback 到配置的单 token（向后兼容）。
+	if repos != nil && repos.Auth != nil {
+		h.Use(middleware.MultiTokenAuth(middleware.NewRepoTokenSource(repos.Auth), cfg.Auth.Token))
+		logx.Infof("multi-token auth middleware enabled (DB tokens + fallback single token)")
+	} else if cfg.Auth.Token != "" {
 		h.Use(middleware.BearerTokenAuth(cfg.Auth.Token))
-		logx.Infof("auth middleware enabled")
+		logx.Infof("auth middleware enabled (single token)")
+	}
+
+	// 审计中间件：记录写操作的「谁/何时/做了什么」。
+	if repos != nil && repos.Auth != nil {
+		h.Use(middleware.AuditMiddleware(repos.Auth))
 	}
 
 	h.Use(middleware.SecurityHeaders())
@@ -93,6 +111,10 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *ocrcore.Metrics, o
 	h.GET("/healthz", probeHandler)
 	h.GET("/readyz", probeHandler)
 
+	// /metrics：Prometheus 抓取端点（auth skip 白名单已含）。
+	// 暴露 ekit Registry 上注册的全部指标（build_info、HTTP、Go runtime、业务指标）。
+	h.GET("/metrics", hertz.MetricsHandler())
+
 	// LLM 调用指标端点（阶段 6 可观测）
 	h.GET("/debug/llm/metrics", func(ctx context.Context, c *app.RequestContext) {
 		snapshot := llmMetrics.Snapshot()
@@ -109,16 +131,53 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *ocrcore.Metrics, o
 	swagger.RegisterRoutes(h)
 
 	router.GeneratedRegister(h)
-	registerReviewExtraRoutes(h)
+	registerReviewExtraRoutes(h, repos)
 	registerSettingsExtraRoutes(h)
 	registerDiagnosticsRoutes(h)
 	registerFeedbackRoutes(h)
+	registerNotificationRoutes(h)
+	registerAuthRoutes(h)
+	registerCostRoutes(h)
+	registerReportRoutes(h)
 	registerViewerProxyRoute(h, ocrReg.Viewer().(*ocrcore.Viewer), cfg.Auth.Token)
 }
 
-func registerReviewExtraRoutes(h *server.Hertz) {
+func registerReportRoutes(h *server.Hertz) {
+	h.GET("/api/v1/reports/weekly", reportHandler.GenerateWeeklyReport)
+}
+
+func registerCostRoutes(h *server.Hertz) {
+	h.GET("/api/v1/settings/cost/pricing", costHandler.ListPricing)
+	h.POST("/api/v1/settings/cost/pricing", costHandler.UpsertPricing)
+	h.DELETE("/api/v1/settings/cost/pricing/:id", costHandler.DeletePricing)
+}
+
+func registerNotificationRoutes(h *server.Hertz) {
+	h.GET("/api/v1/notifications", notificationHandler.List)
+	h.GET("/api/v1/notifications/unread-count", notificationHandler.UnreadCount)
+	h.POST("/api/v1/notifications/:id/read", notificationHandler.MarkRead)
+	h.POST("/api/v1/notifications/read-all", notificationHandler.MarkAllRead)
+}
+
+func registerAuthRoutes(h *server.Hertz) {
+	h.POST("/api/v1/settings/tokens", authHandler.CreateToken)
+	h.GET("/api/v1/settings/tokens", authHandler.ListTokens)
+	h.DELETE("/api/v1/settings/tokens/:id", authHandler.DeleteToken)
+	h.GET("/api/v1/settings/audit-logs", authHandler.ListAudit)
+}
+
+func registerReviewExtraRoutes(h *server.Hertz, repos *repository.RepoContainer) {
 	h.POST("/api/v1/reviews/:id/suggestion-patch/apply", reviewHandler.ApplySuggestionPatch)
 	h.POST("/api/v1/reviews/:id/model-compare", reviewHandler.CompareReviewModels)
+	// 死信重排队：把因重试次数耗尽而 failed 的评审重新入队（重置 retry_count）。
+	h.POST("/api/v1/reviews/:id/requeue", func(ctx context.Context, c *app.RequestContext) {
+		reviewID := c.Param("id")
+		if err := repos.Review.RequeueFromDeadLetter(ctx, reviewID); err != nil {
+			common.Fail(c, err)
+			return
+		}
+		common.Success(c, map[string]any{"ok": true, "review_id": reviewID})
+	})
 }
 
 func registerSettingsExtraRoutes(h *server.Hertz) {
@@ -136,6 +195,8 @@ func registerDiagnosticsRoutes(h *server.Hertz) {
 func registerFeedbackRoutes(h *server.Hertz) {
 	h.GET("/api/v1/reviews/:id/findings/feedback", feedbackHandler.ListFeedback)
 	h.POST("/api/v1/reviews/:id/findings/:index/feedback", feedbackHandler.UpsertFeedback)
+	// 按指纹批量查历史反馈，供跨 review 误报抑制。
+	h.POST("/api/v1/findings/feedback/lookup", feedbackHandler.ListFeedbackByFingerprints)
 }
 
 func registerViewerProxyRoute(h *server.Hertz, viewerMgr *ocrcore.Viewer, authToken string) {

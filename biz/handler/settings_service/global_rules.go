@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
-	"github.com/yi-nology/code-review-service/internal/domain/rules"
 	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
+	"github.com/yi-nology/code-review-service/internal/domain/rules"
 
 	"github.com/cloudwego/hertz/pkg/app"
 )

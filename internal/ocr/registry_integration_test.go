@@ -52,16 +52,16 @@ func TestRegistry_AllDomainInterfaces(t *testing.T) {
 
 	// 编译期断言：每个 getter 返回的值满足 domain interface
 	var (
-		_ domain.Runner             = r.Runner()
-		_ domain.PreviewRunner      = r.Previewer()
-		_ domain.ScanRunner         = r.Scanner()
-		_ domain.LLMTester          = r.Tester()
-		_ domain.LLMProviderLister  = r.Lister()
-		_ domain.RulesChecker       = r.Checker()
-		_ domain.OCRVersioner       = r.Versioner()
-		_ domain.ViewerManager      = r.Viewer()
-		_ domain.OCRUpgrader        = r.Upgrader()
-		_ Provider              = r.LLM()
+		_ domain.Runner            = r.Runner()
+		_ domain.PreviewRunner     = r.Previewer()
+		_ domain.ScanRunner        = r.Scanner()
+		_ domain.LLMTester         = r.Tester()
+		_ domain.LLMProviderLister = r.Lister()
+		_ domain.RulesChecker      = r.Checker()
+		_ domain.OCRVersioner      = r.Versioner()
+		_ domain.ViewerManager     = r.Viewer()
+		_ domain.OCRUpgrader       = r.Upgrader()
+		_ Provider                 = r.LLM()
 	)
 	_ = r
 }

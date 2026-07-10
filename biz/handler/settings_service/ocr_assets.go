@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
-	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/domain/ocrasset"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 
 	"github.com/cloudwego/hertz/pkg/app"
 )

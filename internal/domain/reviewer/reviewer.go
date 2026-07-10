@@ -35,7 +35,7 @@ type ProjectAssignment struct {
 
 // ProjectConfig 表示某项目的完整审查员配置。
 type ProjectConfig struct {
-	Provider string             `json:"provider"`
-	Repo     string             `json:"repo"`
+	Provider string              `json:"provider"`
+	Repo     string              `json:"repo"`
 	Agents   []ProjectAssignment `json:"agents"`
 }

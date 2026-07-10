@@ -268,6 +268,7 @@ struct PutPlatformResp {
 
 struct DeletePlatformReq {
     1: string provider (api.query="provider")
+    2: optional string installation_id (api.query="installation_id")
 }
 
 struct DeletePlatformResp {}

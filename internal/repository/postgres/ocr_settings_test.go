@@ -37,8 +37,8 @@ func TestOCRSettingsRepoDefaultSettingsKeepsBuiltInFallbacks(t *testing.T) {
 	if got.Binary != "ocr" {
 		t.Fatalf("Binary = %q, want built-in ocr fallback", got.Binary)
 	}
-	if got.Audience != "human" {
-		t.Fatalf("Audience = %q, want human", got.Audience)
+	if got.Audience != "agent" {
+		t.Fatalf("Audience = %q, want agent", got.Audience)
 	}
 	if got.DefaultSeverity != "major" {
 		t.Fatalf("DefaultSeverity = %q, want major", got.DefaultSeverity)

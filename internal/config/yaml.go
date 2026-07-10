@@ -1,24 +1,44 @@
 package config
 
 import (
+	"github.com/yi-nology/code-review-service/internal/domain/notification"
 	"github.com/oekit/bootstrap/nacos"
 	"github.com/oekit/tracing"
 )
 
 // Config 配置结构
 type Config struct {
-	Port      int             `yaml:"port"`
-	Auth      AuthConfig      `yaml:"auth"`
-	Database  DatabaseConfig  `yaml:"database"`
-	Nacos     nacos.Bootstrap `yaml:"nacos"`
-	Tracing   tracing.Config  `yaml:"tracing"`
-	Review    ReviewConfig    `yaml:"review"`
-	OCR       OCRConfig       `yaml:"ocr"`
-	Policy    PolicyConfig    `yaml:"policy"`
-	Git       GitConfig       `yaml:"git"`
-	Agents    AgentsConfig    `yaml:"agents"`
-	RateLimit RateLimitConfig `yaml:"rate_limit"`
-	Webhook   WebhookConfig   `yaml:"webhook"`
+	Port         int                `yaml:"port"`
+	Auth         AuthConfig         `yaml:"auth"`
+	Database     DatabaseConfig     `yaml:"database"`
+	Nacos        nacos.Bootstrap    `yaml:"nacos"`
+	Tracing      tracing.Config     `yaml:"tracing"`
+	Review       ReviewConfig       `yaml:"review"`
+	OCR          OCRConfig          `yaml:"ocr"`
+	Policy       PolicyConfig       `yaml:"policy"`
+	Git          GitConfig          `yaml:"git"`
+	Agents       AgentsConfig       `yaml:"agents"`
+	RateLimit    RateLimitConfig    `yaml:"rate_limit"`
+	Webhook      WebhookConfig      `yaml:"webhook"`
+	Notification NotificationConfig `yaml:"notification"`
+	Cost         CostConfig         `yaml:"cost"`
+}
+
+// CostConfig 控制 LLM 成本与预算。
+// MonthlyBudgetUSD 是全局月度成本预算上限（美元），0 表示不限制。
+// 超额时 ReviewAction 决定行为：warn（仅告警，默认）/ block（拒绝新评审）。
+type CostConfig struct {
+	MonthlyBudgetUSD float64 `yaml:"monthly_budget_usd"`
+	ReviewAction     string  `yaml:"review_action"` // "warn"（默认）或 "block"
+}
+
+// NotificationConfig 控制评审事件通知。
+// Webhooks 配置外部推送渠道（飞书/企业微信/钉钉），空表示不推送外部。
+// 站内通知默认开启（无需配置）。
+type NotificationConfig struct {
+	Webhooks []notification.WebhookChannelConfig `yaml:"webhooks"`
+	// InAppDisabled 关闭站内通知（默认 false，即开启）。
+	InAppDisabled bool `yaml:"inapp_disabled"`
 }
 
 // RateLimitConfig 控制全局 HTTP 限流（每秒请求数与突发桶大小）。

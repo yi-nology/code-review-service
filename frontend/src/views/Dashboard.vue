@@ -77,6 +77,9 @@
         </div>
       </section>
 
+      <!-- 新用户引导 checklist（配置完 4 步后自动消失） -->
+      <OnboardingGuide :completed-steps="onboardingProgress" class="onboarding-section" />
+
       <section class="dashboard-grid">
         <el-card class="panel-card queue-card" shadow="never">
           <template #header>
@@ -227,6 +230,7 @@ import {
   WarningFilled,
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import OnboardingGuide from '@/components/common/OnboardingGuide.vue'
 import ReviewCreateDialog from '@/components/ReviewCreateDialog.vue'
 import { getReviews } from '@/api/review'
 import { getProjects } from '@/api/stats'
@@ -304,6 +308,19 @@ const readinessItems = computed(() => [
     state: 'ok',
   },
 ])
+
+// onboardingProgress：根据健康状态和已有评审数推断 onboarding 完成进度（0-4）。
+const onboardingProgress = computed(() => {
+  let n = 0
+  // 步骤 1: Git 平台 — 无法直接探测，保守不标记
+  // 步骤 2: LLM 模型 — 健康检查通过说明 LLM 可达
+  if (healthStatus.value === 'healthy') n = Math.max(n, 2)
+  // 步骤 3: OCR 引擎 — 同上，健康通过即视为配置完成
+  if (healthStatus.value === 'healthy') n = Math.max(n, 3)
+  // 步骤 4: 触发过评审 — 有历史评审记录即视为完成
+  if (listStats.value.total > 0) n = 4
+  return n
+})
 
 function scoreClass(score: number) {
   if (score >= 85) return 'good'
@@ -409,6 +426,10 @@ onMounted(refreshAll)
 .dashboard-grid {
   display: grid;
   gap: 16px;
+}
+
+.onboarding-section {
+  margin-bottom: 16px;
 }
 
 .health-band {

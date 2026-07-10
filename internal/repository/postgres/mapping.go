@@ -56,6 +56,7 @@ func feedbackToModel(f *feedback.Feedback) models.FindingFeedback {
 	return models.FindingFeedback{
 		ReviewID:     f.ReviewID,
 		FindingIndex: f.FindingIndex,
+		Fingerprint:  f.Fingerprint,
 		Status:       f.Status,
 		Note:         f.Note,
 		UpdatedAt:    f.UpdatedAt,
@@ -66,6 +67,7 @@ func feedbackToDomain(m models.FindingFeedback) feedback.Feedback {
 	return feedback.Feedback{
 		ReviewID:     m.ReviewID,
 		FindingIndex: m.FindingIndex,
+		Fingerprint:  m.Fingerprint,
 		Status:       m.Status,
 		Note:         m.Note,
 		CreatedAt:    m.CreatedAt,
@@ -164,7 +166,7 @@ func writebackToDomain(m models.WritebackItem) writeback.Item {
 
 func reviewerToModel(a *reviewer.Agent) models.ReviewerAgent {
 	return models.ReviewerAgent{
-		Model:      gormModel(a.ID),
+		Model:       gormModel(a.ID),
 		Name:        a.Name,
 		DisplayName: a.DisplayName,
 		Description: a.Description,
@@ -223,7 +225,7 @@ func projectAgentToDomain(m models.ProjectAgent) reviewer.ProjectAssignment {
 
 func customProviderToModel(c *llmprovider.Custom) models.CustomProvider {
 	return models.CustomProvider{
-		Model:     gormModel(c.ID),
+		Model:      gormModel(c.ID),
 		Name:       c.Name,
 		Protocol:   c.Protocol,
 		URL:        c.URL,
@@ -251,7 +253,8 @@ func customProviderToDomain(m models.CustomProvider) llmprovider.Custom {
 
 // ---- webhook delivery ----
 
-func deliveryToModel(d *domainWebhook.Delivery) models.WebhookDelivery {	return models.WebhookDelivery{
+func deliveryToModel(d *domainWebhook.Delivery) models.WebhookDelivery {
+	return models.WebhookDelivery{
 		Provider:       d.Provider,
 		InstallationID: d.InstallationID,
 		DeliveryID:     d.DeliveryID,
@@ -317,6 +320,7 @@ func ocrSettingsToModel(s *ocrsettings.Settings) models.OCRSettings {
 		Background:              s.Background,
 		ToolsPath:               s.ToolsPath,
 		ToolsConfig:             dataTypeJSON(s.ToolsConfig),
+		McpServers:              dataTypeJSON(s.McpServers),
 		TelemetryEnabled:        s.TelemetryEnabled,
 		TelemetryExporter:       s.TelemetryExporter,
 		TelemetryOTLPEndpoint:   s.TelemetryOTLPEndpoint,
@@ -350,6 +354,7 @@ func ocrSettingsToDomain(m models.OCRSettings) ocrsettings.Settings {
 		Background:              m.Background,
 		ToolsPath:               m.ToolsPath,
 		ToolsConfig:             rawJSON(m.ToolsConfig),
+		McpServers:              rawJSON(m.McpServers),
 		TelemetryEnabled:        m.TelemetryEnabled,
 		TelemetryExporter:       m.TelemetryExporter,
 		TelemetryOTLPEndpoint:   m.TelemetryOTLPEndpoint,

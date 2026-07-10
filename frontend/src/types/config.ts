@@ -19,6 +19,7 @@ export interface OCRSettings {
   background?: string
   tools_path?: string
   tools_config?: string
+  mcp_servers?: string
   telemetry_enabled?: boolean
   telemetry_exporter?: string
   telemetry_otlp_endpoint?: string
@@ -27,6 +28,15 @@ export interface OCRSettings {
   reasoning_budget?: number
   context_window?: number
   max_output_tokens?: number
+}
+
+// McpServer 描述单个 MCP server（与 OCR CLI 的 mcp_servers 配置对齐）。
+export interface McpServer {
+  command: string
+  args?: string[]
+  env?: string[]
+  tools?: string[]
+  setup?: string
 }
 
 export interface ReviewRule {
@@ -112,6 +122,8 @@ export interface GitPlatform {
   token: string
   enabled: boolean
   skip_tls?: boolean
+  installation_id?: string
+  webhook_secret?: string
 }
 
 export interface GitPlatformList {

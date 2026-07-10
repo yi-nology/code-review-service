@@ -418,9 +418,9 @@ const reviewViewerSrc = computed(() => {
   return `${target}${sep}token=${encodeURIComponent(auth.token)}`
 })
 const showProgressTracker = computed(() => Boolean(detail.value && (
-  ['queued', 'running', 'failed', 'success', 'completed'].includes(detail.value.status) ||
-  sessions.value.length > 0 ||
-  (detail.value.history?.length || 0) > 0
+  // 仅在进行中状态显示进度器；完成后不再常驻（避免页面拥挤）。
+  // 失败状态短暂显示（用户能看到走到哪一步失败的）。
+  ['queued', 'running', 'failed'].includes(detail.value.status)
  )))
 
 // Debug mode
@@ -966,12 +966,6 @@ code {
   color: #0f172a;
 }
 
-.finding-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .suggestion-patch-panel {
   margin-bottom: 14px;
   padding: 12px;
@@ -1185,121 +1179,10 @@ code {
   line-height: 1.5;
 }
 
-.finding-item {
-  padding: 16px;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  margin-bottom: 12px;
-}
-
-.finding-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.finding-patch-checkbox {
-  flex: 0 0 auto;
-  height: 22px;
-}
-
-.finding-title {
-  font-weight: bold;
-}
-
-.finding-path {
-  color: #999;
-  font-size: 14px;
-}
-
-.finding-body {
-  color: #666;
-  margin-bottom: 8px;
-}
-
-.finding-code {
-  background: #f5f5f5;
-  padding: 12px;
-  border-radius: 4px;
-  margin-top: 8px;
-}
-
-.code-label {
-  font-size: 12px;
-  color: #999;
-  margin-bottom: 4px;
-}
-
-.finding-code pre {
-  margin: 0;
-  font-family: monospace;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.raw-ocr-json {
-  font-family: monospace;
-  font-size: 12px;
-  white-space: pre-wrap;
-  word-break: break-all;
-  max-height: 500px;
-  overflow-y: auto;
-  background: #f8f8f8;
-  padding: 12px;
-  border-radius: 4px;
-  margin: 0;
-}
-
 .header-actions {
   display: flex;
   gap: 8px;
   align-items: center;
-}
-
-.debug-card {
-  border: 1px dashed #e6a23c;
-  background: #fdf6ec;
-}
-
-.debug-card :deep(.el-card__header) {
-  background: #faecd8;
-  border-bottom: 1px dashed #e6a23c;
-}
-
-.debug-json {
-  font-family: 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', monospace;
-  font-size: 12px;
-  line-height: 1.6;
-  max-height: 600px;
-  overflow: auto;
-  background: #1e1e1e;
-  color: #d4d4d4;
-  padding: 16px;
-  border-radius: 6px;
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.gate-status {
-  text-align: center;
-  padding: 24px;
-}
-
-.gate-icon {
-  margin-bottom: 16px;
-}
-
-.gate-status.passed .gate-icon { color: #67c23a; }
-.gate-status.failed .gate-icon,
-.gate-status.error .gate-icon { color: #f56c6c; }
-.gate-status.pending .gate-icon { color: #909399; }
-
-.gate-text {
-  font-size: 18px;
-  font-weight: bold;
-  margin-bottom: 8px;
 }
 
 .gate-reason {
@@ -1373,21 +1256,6 @@ code {
     gap: 8px;
   }
 
-  .finding-header {
-    flex-wrap: wrap;
-  }
-
-  .finding-header-actions,
-  .patch-summary,
-  .patch-actions {
-    flex-wrap: wrap;
-  }
-
-  .finding-path {
-    width: 100%;
-    overflow-wrap: anywhere;
-  }
-
   .ocr-header-actions {
     flex-wrap: wrap;
     justify-content: flex-end;
@@ -1402,51 +1270,4 @@ code {
   margin-top: 16px;
 }
 
-.session-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.session-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px;
-  background: #f5f7fa;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.session-item:hover {
-  background: #ecf5ff;
-  transform: translateX(4px);
-}
-
-.session-info {
-  flex: 1;
-}
-
-.session-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.session-round {
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.session-phase {
-  font-size: 12px;
-  color: #666;
-  margin-bottom: 8px;
-}
-
-.session-item .el-icon {
-  color: #909399;
-}
 </style>

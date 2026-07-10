@@ -148,4 +148,3 @@ func (r *Runner) Scan(ctx context.Context, workspace domain.Workspace, req domai
 	}
 	return &out, nil
 }
-

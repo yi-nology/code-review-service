@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	bizmetrics "github.com/yi-nology/code-review-service/internal/observability/metrics"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/concurrency/async"
@@ -65,6 +66,22 @@ func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval,
 					logx.Error("periodic requeue stale failed", "error", err)
 				} else if n > 0 {
 					logx.Warnf("periodic requeue: %d stale reviews re-queued", n)
+				}
+			}
+		}
+	})
+
+	// 定期采集队列深度指标（每 30s 查一次 queued+running 数量）。
+	async.GoSafe(func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if depth, err := s.reviewRepo.QueueDepth(ctx); err == nil {
+					bizmetrics.ReviewQueueDepth.Set(float64(depth))
 				}
 			}
 		}

@@ -114,6 +114,7 @@ struct Finding {
     8: string body (api.body="body")
     9: optional string existing_code (api.body="existing_code")
     10: optional string suggestion_code (api.body="suggestion_code")
+    11: optional string fingerprint (api.body="fingerprint")
 }
 
 struct ReviewResponse {

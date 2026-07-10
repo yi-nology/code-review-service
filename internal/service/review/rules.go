@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
+	"github.com/yi-nology/code-review-service/internal/repository"
 
 	"github.com/oekit/logx"
 )
@@ -63,9 +63,9 @@ func ResolveRuleFile(ctx context.Context, projectPolicy projectpolicy.ProjectPol
 		globalRules, err := globalRulesRepo.Get(ctx)
 		if err != nil {
 			logx.Warn("failed to load global rules", "error", err)
-	} else if globalRules != nil && len(globalRules.Content) > 0 {
-		var globalEntries []ruleEntry
-		if err := json.Unmarshal(globalRules.Content, &globalEntries); err != nil {
+		} else if globalRules != nil && len(globalRules.Content) > 0 {
+			var globalEntries []ruleEntry
+			if err := json.Unmarshal(globalRules.Content, &globalEntries); err != nil {
 				logx.Warn("failed to decode global rules", "error", err)
 			} else {
 				merged = append(merged, globalEntries...)

@@ -28,6 +28,7 @@ type Settings struct {
 	Background              string          `json:"background,omitempty"`
 	ToolsPath               string          `json:"tools_path,omitempty"`
 	ToolsConfig             json.RawMessage `json:"tools_config,omitempty"`
+	McpServers              json.RawMessage `json:"mcp_servers,omitempty"`
 	TelemetryEnabled        bool            `json:"telemetry_enabled"`
 	TelemetryExporter       string          `json:"telemetry_exporter,omitempty"`
 	TelemetryOTLPEndpoint   string          `json:"telemetry_otlp_endpoint,omitempty"`

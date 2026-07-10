@@ -21,6 +21,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitprovider "github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/service/types"
 
 	"github.com/oekit/concurrency/async"
 	bizerrors "github.com/oekit/pkg/errors"
@@ -686,7 +687,8 @@ func (s *Service) scanExecuteWithPolicy(ctx context.Context, reviewID string, re
 			StartedAt: time.Now().UTC(),
 		}
 		if err := s.updateReviewFields(ctx, reviewID, func(review *domain.Record) {
-			rawOCRInputJSON, _ := json.Marshal(ocrInput); review.RawOCRInput = rawOCRInputJSON
+			rawOCRInputJSON, _ := json.Marshal(ocrInput)
+			review.RawOCRInput = rawOCRInputJSON
 		}); err != nil {
 			logx.Warn("failed to persist scan ocr input", "review_id", reviewID, "error", err)
 		}
@@ -741,6 +743,8 @@ func (s *Service) persistScanResultUpdate(ctx context.Context, reviewID string, 
 	if result == nil {
 		return fmt.Errorf("scan result is empty")
 	}
+	// 在 gate/report/writeback 消费 findings 之前，统一计算跨 review 稳定指纹。
+	types.ComputeFingerprints(result.Findings)
 	report := BuildReport(result)
 	if scanResult.Report != nil {
 		report = *scanResult.Report
@@ -836,6 +840,28 @@ func ProjectPolicyToOCROverrides(p projectpolicy.ProjectPolicy) domain.OCROverri
 	}
 }
 
+// MergeRequirementsIntoBackground 把需求/spec 追加进 OCR --background 上下文。
+//
+// OCR 的 --background 让审查 agent 拿到 diff 之外的背景（需求、约束、验收标准），
+// 官方明确建议「有 PR/需求上下文时始终传 --background，质量提升显著」。
+// 此前 req.Requirements 仅在 workflow 多 agent 路径（嵌入 LLM prompt）里被使用，
+// 单 runner 路径直接调 OCR 时丢失了需求上下文 —— 本函数补上这个缺口。
+//
+// 合并规则：项目策略的 Background 在前，requirements 追加其后（已有内容则换行分隔），
+// 两者都保留，让 OCR 同时看到项目级背景和本次评审需求。
+func MergeRequirementsIntoBackground(existing string, requirements []string) string {
+	var parts []string
+	if b := strings.TrimSpace(existing); b != "" {
+		parts = append(parts, b)
+	}
+	for _, r := range requirements {
+		if r = strings.TrimSpace(r); r != "" {
+			parts = append(parts, r)
+		}
+	}
+	return strings.Join(parts, "\n")
+}
+
 func scanPolicyFindings(findings []domain.Finding) []policy.Finding {
 	out := make([]policy.Finding, 0, len(findings))
 	for _, finding := range findings {
@@ -843,7 +869,6 @@ func scanPolicyFindings(findings []domain.Finding) []policy.Finding {
 	}
 	return out
 }
-
 
 func validate(req domain.Request) error {
 	if strings.TrimSpace(req.Provider) == "" {

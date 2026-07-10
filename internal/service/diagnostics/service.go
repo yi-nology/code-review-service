@@ -28,13 +28,13 @@ type SnapshotOptions struct {
 }
 
 type Snapshot struct {
-	SinceHours      int                      `json:"since_hours"`
-	Webhooks        map[string]int64         `json:"webhooks"`
-	Writebacks      map[string]int64         `json:"writebacks"`
+	SinceHours      int                `json:"since_hours"`
+	Webhooks        map[string]int64   `json:"webhooks"`
+	Writebacks      map[string]int64   `json:"writebacks"`
 	RecentWebhooks  []webhook.Delivery `json:"recent_webhooks"`
 	RecentWriteback []writeback.Item   `json:"recent_writebacks"`
-	Recommendations []Recommendation         `json:"recommendations"`
-	GeneratedAt     time.Time                `json:"generated_at"`
+	Recommendations []Recommendation   `json:"recommendations"`
+	GeneratedAt     time.Time          `json:"generated_at"`
 }
 
 type Recommendation struct {

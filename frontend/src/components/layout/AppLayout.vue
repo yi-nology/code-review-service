@@ -15,108 +15,42 @@
       </div>
 
       <nav class="navigation" @click="sidebarOpen = false">
-        <p class="nav-label">工作台</p>
-        <router-link to="/dashboard" class="nav-item">
-          <el-icon><HomeFilled /></el-icon>
-          <span>运营总览</span>
-        </router-link>
-        <router-link to="/reviews" class="nav-item">
-          <el-icon><DocumentChecked /></el-icon>
-          <span>审查记录</span>
-        </router-link>
-        <router-link to="/scan" class="nav-item">
-          <el-icon><Search /></el-icon>
-          <span>代码库扫描</span>
-        </router-link>
-        <router-link to="/contributors" class="nav-item">
-          <el-icon><DataAnalysis /></el-icon>
-          <span>开发者质量</span>
-        </router-link>
-        <router-link to="/projects/reports" class="nav-item">
-          <el-icon><Notebook /></el-icon>
-          <span>项目报告</span>
-        </router-link>
-        <router-link to="/diagnostics" class="nav-item">
-          <el-icon><Monitor /></el-icon>
-          <span>诊断中心</span>
-        </router-link>
-        <router-link to="/api-docs" class="nav-item">
-          <el-icon><Document /></el-icon>
-          <span>接口文档</span>
-        </router-link>
-
-        <p class="nav-label settings-label">配置中心</p>
-
-        <div class="nav-group">
-          <button class="nav-group-header" @click="toggleGroup('system')">
-            <span>系统设置</span>
-            <el-icon class="nav-group-arrow" :class="{ expanded: expandedGroups.system }"><ArrowRight /></el-icon>
-          </button>
-          <div v-show="expandedGroups.system" class="nav-group-items">
-            <router-link to="/settings/model" class="nav-item">
-              <el-icon><Cpu /></el-icon>
-              <span>模型配置</span>
-            </router-link>
-            <router-link to="/settings/ocr" class="nav-item">
-              <el-icon><Tools /></el-icon>
-              <span>OCR 设置</span>
-            </router-link>
-            <router-link to="/settings/platforms" class="nav-item">
-              <el-icon><Connection /></el-icon>
-              <span>Git 平台</span>
-            </router-link>
-            <router-link to="/settings/agents" class="nav-item">
-              <el-icon><User /></el-icon>
-              <span>审查代理</span>
-            </router-link>
-          </div>
-        </div>
-
-        <div class="nav-group">
-          <button class="nav-group-header" @click="toggleGroup('rules')">
-            <span>审查规则</span>
-            <el-icon class="nav-group-arrow" :class="{ expanded: expandedGroups.rules }"><ArrowRight /></el-icon>
-          </button>
-          <div v-show="expandedGroups.rules" class="nav-group-items">
-            <router-link to="/settings/rules" class="nav-item">
-              <el-icon><List /></el-icon>
-              <span>全局规则</span>
-            </router-link>
-          </div>
-        </div>
-
-        <div class="nav-group">
-          <button class="nav-group-header" @click="toggleGroup('project')">
-            <span>项目管理</span>
-            <el-icon class="nav-group-arrow" :class="{ expanded: expandedGroups.project }"><ArrowRight /></el-icon>
-          </button>
-          <div v-show="expandedGroups.project" class="nav-group-items">
-            <router-link to="/settings/projects" class="nav-item">
-              <el-icon><FolderChecked /></el-icon>
-              <span>项目策略</span>
-            </router-link>
-          </div>
-        </div>
+        <!-- 三主域导航：评审 / 洞察 / 配置，数据驱动渲染 -->
+        <template v-for="group in navGroups" :key="group.key">
+          <p class="nav-label" :class="{ 'settings-label': group.key !== 'review' }">{{ group.label }}</p>
+          <router-link
+            v-for="item in group.items"
+            :key="item.path"
+            :to="item.path"
+            class="nav-item"
+          >
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span>{{ item.label }}</span>
+          </router-link>
+        </template>
       </nav>
 
       <div class="sidebar-footer">
         <span class="health-dot" :class="healthStatus" />
         <div class="service-status">
-          <strong>{{ healthLabel }}</strong>
-          <span>Review Service Console</span>
+          <strong>Review Service</strong>
+          <span>AI 代码评审控制台</span>
         </div>
-        <button class="logout-button" aria-label="退出登录" title="退出登录" @click="logout">
-          <el-icon><SwitchButton /></el-icon>
-        </button>
       </div>
     </aside>
 
     <div class="content-shell">
-      <header class="mobile-header">
-        <button aria-label="打开菜单" @click="sidebarOpen = true">
+      <header class="app-topbar">
+        <button class="topbar-menu-btn" aria-label="打开菜单" @click="sidebarOpen = true">
           <el-icon><Menu /></el-icon>
         </button>
-        <strong>Review Hub</strong>
+        <span class="health-dot topbar-health-dot" :class="healthStatus" />
+        <span class="topbar-health-text">{{ healthLabel }}</span>
+        <div class="topbar-spacer" />
+        <NotificationCenter />
+        <button class="logout-button topbar-logout" aria-label="退出登录" title="退出登录" @click="logout">
+          <el-icon><SwitchButton /></el-icon>
+        </button>
       </header>
       <main class="main-content">
         <slot />
@@ -126,9 +60,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, markRaw } from 'vue'
 import {
-  ArrowRight,
   Close,
   Connection,
   Cpu,
@@ -148,15 +81,46 @@ import {
   User,
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import NotificationCenter from './NotificationCenter.vue'
 
 const sidebarOpen = ref(false)
 const auth = useAuthStore()
 
-const expandedGroups = reactive({
-  system: true,
-  rules: true,
-  project: true,
-})
+// 三主域导航：评审（核心）/ 洞察（度量）/ 配置（治理）。
+// 数据驱动渲染，便于后续增减菜单项；按业务归属分组而非路径前缀。
+const navGroups = [
+  {
+    key: 'review',
+    label: '评审',
+    items: [
+      { path: '/reviews', label: '审查记录', icon: markRaw(DocumentChecked) },
+      { path: '/scan', label: '代码库扫描', icon: markRaw(Search) },
+    ],
+  },
+  {
+    key: 'insight',
+    label: '洞察',
+    items: [
+      { path: '/dashboard', label: '运营总览', icon: markRaw(HomeFilled) },
+      { path: '/contributors', label: '开发者质量', icon: markRaw(DataAnalysis) },
+      { path: '/projects/reports', label: '项目报告', icon: markRaw(Notebook) },
+      { path: '/diagnostics', label: '诊断中心', icon: markRaw(Monitor) },
+    ],
+  },
+  {
+    key: 'config',
+    label: '配置',
+    items: [
+      { path: '/settings/model', label: '模型配置', icon: markRaw(Cpu) },
+      { path: '/settings/ocr', label: 'OCR 设置', icon: markRaw(Tools) },
+      { path: '/settings/platforms', label: 'Git 平台', icon: markRaw(Connection) },
+      { path: '/settings/agents', label: '审查代理', icon: markRaw(User) },
+      { path: '/settings/rules', label: '全局规则', icon: markRaw(List) },
+      { path: '/settings/projects', label: '项目策略', icon: markRaw(FolderChecked) },
+      { path: '/api-docs', label: '接口文档', icon: markRaw(Document) },
+    ],
+  },
+]
 
 const healthStatus = ref<'healthy' | 'down' | 'unknown'>('unknown')
 const healthLabel = computed(() => healthStatus.value === 'healthy' ? '服务运行中' : healthStatus.value === 'down' ? '服务异常' : '检测中…')
@@ -169,10 +133,6 @@ async function checkHealth() {
   } catch {
     healthStatus.value = 'down'
   }
-}
-
-function toggleGroup(group: 'system' | 'rules' | 'project') {
-  expandedGroups[group] = !expandedGroups[group]
 }
 
 function logout() {
@@ -272,51 +232,6 @@ onBeforeUnmount(() => {
 
 .settings-label {
   margin-top: 26px;
-}
-
-.nav-group {
-  margin-bottom: 4px;
-}
-
-.nav-group-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  min-height: 38px;
-  padding: 0 12px;
-  border: none;
-  border-radius: 6px;
-  color: #8d98aa;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  background: transparent;
-  cursor: pointer;
-  transition: 160ms ease;
-}
-
-.nav-group-header:hover {
-  color: #dfe4f2;
-  background: #182235;
-}
-
-.nav-group-arrow {
-  font-size: 12px;
-  transition: transform 200ms ease;
-}
-
-.nav-group-arrow.expanded {
-  transform: rotate(90deg);
-}
-
-.nav-group-items {
-  padding-left: 4px;
-}
-
-.nav-group-items .nav-item {
-  min-height: 40px;
-  font-size: 13px;
 }
 
 .nav-item {
@@ -427,7 +342,67 @@ onBeforeUnmount(() => {
   background: #f6f7f9;
 }
 
-.mobile-header,
+/* 顶部栏：常驻，容纳健康状态、通知中心、退出登录 */
+.app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding: 0 24px;
+  border-bottom: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+}
+
+.topbar-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+  color: #374151;
+  background: #fff;
+  cursor: pointer;
+}
+
+.topbar-health-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+}
+
+.topbar-health-text {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.topbar-spacer {
+  flex: 1;
+}
+
+.topbar-logout {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border: none;
+  border-radius: 8px;
+  color: #6b7280;
+  background: transparent;
+  cursor: pointer;
+}
+
+.topbar-logout:hover {
+  color: #1f2937;
+  background: #f3f4f6;
+}
+
 .sidebar-backdrop {
   display: none;
 }
@@ -469,29 +444,12 @@ onBeforeUnmount(() => {
     margin-left: 0;
   }
 
-  .mobile-header {
-    position: sticky;
-    top: 0;
-    z-index: 10;
+  .topbar-menu-btn {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    height: 58px;
-    padding: 0 18px;
-    border-bottom: 1px solid var(--app-border);
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(12px);
   }
 
-  .mobile-header button {
-    display: grid;
-    width: 34px;
-    height: 34px;
-    place-items: center;
-    border: 1px solid var(--app-border);
-    border-radius: 9px;
-    color: var(--app-text);
-    background: #fff;
+  .topbar-health-text {
+    display: none;
   }
 }
 </style>

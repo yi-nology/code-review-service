@@ -300,8 +300,10 @@ export async function saveGitPlatform(data: GitPlatform): Promise<GitPlatform> {
   return request.put('/settings/platforms', data) as any
 }
 
-export async function deleteGitPlatform(provider: string): Promise<void> {
-  return request.delete('/settings/platforms', { params: { provider } }) as any
+export async function deleteGitPlatform(provider: string, installationID?: string): Promise<void> {
+  const params: Record<string, string> = { provider }
+  if (installationID) params.installation_id = installationID
+  return request.delete('/settings/platforms', { params }) as any
 }
 
 export async function testGitPlatform(data: {

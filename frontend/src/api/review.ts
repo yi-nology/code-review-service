@@ -146,6 +146,18 @@ export async function getFindingFeedback(reviewId: string): Promise<FindingFeedb
 export async function saveFindingFeedback(reviewId: string, index: number, data: {
   status: string
   note?: string
+  fingerprint?: string
 }): Promise<FindingFeedback> {
   return request.post(`/reviews/${reviewId}/findings/${index}/feedback`, data) as any
+}
+
+/**
+ * 按指纹批量查询历史反馈，用于跨 review 误报抑制。
+ * 返回这些指纹所有历史反馈记录（含 false_positive/fixed 等）。
+ * 前端可据此标注"该问题曾被标记为误报"。
+ */
+export async function lookupFeedbackByFingerprints(fingerprints: string[]): Promise<FindingFeedback[]> {
+  if (fingerprints.length === 0) return []
+  const data: any = await request.post('/findings/feedback/lookup', { fingerprints })
+  return data?.items ?? []
 }

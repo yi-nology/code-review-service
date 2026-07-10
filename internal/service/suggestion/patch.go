@@ -99,19 +99,27 @@ func BuildSuggestionPatch(reviewID string, findings []domain.Finding, indexes []
 		}
 		f := findings[idx]
 		start := findingStartLine(f)
-		path := strings.TrimSpace(f.Path)
+		rawPath := strings.TrimSpace(f.Path)
+		// 安全校验：归一化路径并拒绝路径逃逸（../ 、绝对路径），防止补丁头注入。
+		path, pathOK := normalizePatchPath(rawPath)
 		skip := func(reason string) {
 			result.Skipped = append(result.Skipped, SuggestionPatchSkipped{
 				Index:  idx,
-				Path:   path,
+				Path:   rawPath,
 				Title:  f.Title,
 				Reason: reason,
 			})
 		}
 
 		switch {
-		case path == "":
+		case rawPath == "":
 			skip("missing path")
+			continue
+		case !pathOK:
+			skip("path rejected: traversal or absolute path not allowed")
+			continue
+		case isSensitivePath(path):
+			skip("path rejected: sensitive file (CI/build/hooks/secrets) not auto-patchable")
 			continue
 		case strings.TrimSpace(f.ExistingCode) == "":
 			skip("missing existing_code")

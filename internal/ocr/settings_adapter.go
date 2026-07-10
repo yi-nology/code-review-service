@@ -67,6 +67,7 @@ func convertOCRSettings(m *ocrsettings.Settings) *SettingsData {
 		MaxTools:                m.MaxTools,
 		ToolsPath:               m.ToolsPath,
 		ToolsConfig:             string(m.ToolsConfig),
+		McpServers:              string(m.McpServers),
 		ReasoningMode:           m.ReasoningMode,
 		ReasoningBudget:         m.ReasoningBudget,
 		Provider:                m.Provider,

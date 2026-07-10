@@ -137,6 +137,14 @@ func (m *mockReviewRepo) RequeueStale(_ context.Context, _ time.Time) (int64, er
 	return 0, nil
 }
 
+func (m *mockReviewRepo) QueueDepth(_ context.Context) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockReviewRepo) RequeueFromDeadLetter(_ context.Context, _ string) error {
+	return nil
+}
+
 func (m *mockReviewRepo) UpdateInTransaction(_ context.Context, reviewID string, fn func(review *domain.Record) error) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -914,11 +922,11 @@ func TestFindActiveReviewReturnsExisting(t *testing.T) {
 	req.PullRequestID = "42"
 
 	activeRepo.activeReview = &domain.Record{
-		ID:       "existing-review",
-		Provider: req.Provider,
-		Repo:     req.Repo,
+		ID:            "existing-review",
+		Provider:      req.Provider,
+		Repo:          req.Repo,
 		PullRequestID: "42",
-		Status:   "queued",
+		Status:        "queued",
 		Response: domain.Response{
 			ReviewID: "existing-review",
 			Status:   "queued",
@@ -953,7 +961,7 @@ func TestFindActiveReview_PRIDMismatchIgnored(t *testing.T) {
 	activeRepo := &mockReviewRepo{}
 	activeRepo.reviews = []*domain.Record{
 		{
-			ID:               "another-review",
+			ID:            "another-review",
 			Provider:      "github",
 			Repo:          "owner/repo",
 			PullRequestID: "999", // 不匹配
@@ -976,7 +984,7 @@ func TestFindActiveReview_PRIDMatch(t *testing.T) {
 	activeRepo := &mockReviewRepo{}
 	activeRepo.reviews = []*domain.Record{
 		{
-			ID:               "matching-review",
+			ID:            "matching-review",
 			Provider:      "github",
 			Repo:          "owner/repo",
 			PullRequestID: "42",
@@ -1170,8 +1178,8 @@ func TestScanAsync_RequestCtxCancellation(t *testing.T) {
 
 // ctxBlockingScanRunner 阻塞在 ctx.Done() 上以验证 cancellation。
 type ctxBlockingScanRunner struct {
-	entered    chan struct{}
-	cancelled  chan struct{}
+	entered   chan struct{}
+	cancelled chan struct{}
 }
 
 func (r *ctxBlockingScanRunner) Scan(ctx context.Context, _ domain.Workspace, _ domain.ScanRequest) (*domain.ScanResult, error) {
@@ -1185,4 +1193,53 @@ func (r *ctxBlockingScanRunner) Scan(ctx context.Context, _ domain.Workspace, _ 
 	<-ctx.Done()
 	close(r.cancelled)
 	return nil, ctx.Err()
+}
+
+// TestMergeRequirementsIntoBackground 验证需求/spec 被正确合并进 OCR --background。
+func TestMergeRequirementsIntoBackground(t *testing.T) {
+	tests := []struct {
+		name         string
+		existing     string
+		requirements []string
+		want         string
+	}{
+		{
+			name:         "empty existing + requirements",
+			existing:     "",
+			requirements: []string{"需求 A", "需求 B"},
+			want:         "需求 A\n需求 B",
+		},
+		{
+			name:         "existing + requirements appended",
+			existing:     "项目背景",
+			requirements: []string{"需求 A"},
+			want:         "项目背景\n需求 A",
+		},
+		{
+			name:         "no requirements keeps existing",
+			existing:     "项目背景",
+			requirements: nil,
+			want:         "项目背景",
+		},
+		{
+			name:         "blank entries trimmed and dropped",
+			existing:     "  项目背景  ",
+			requirements: []string{"  ", "需求 A", ""},
+			want:         "项目背景\n需求 A",
+		},
+		{
+			name:         "all empty produces empty",
+			existing:     "   ",
+			requirements: []string{"  ", ""},
+			want:         "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := review.MergeRequirementsIntoBackground(tt.existing, tt.requirements)
+			if got != tt.want {
+				t.Errorf("MergeRequirementsIntoBackground(%q, %v) = %q, want %q", tt.existing, tt.requirements, got, tt.want)
+			}
+		})
+	}
 }

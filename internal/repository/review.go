@@ -23,6 +23,9 @@ type ReviewRepository interface {
 	ProjectOCRTrend(ctx context.Context, opts domain.ProjectStatsOptions) ([]domain.ProjectOCRTrendPoint, error)
 	ClaimQueued(ctx context.Context, limit int) ([]domain.Record, error)
 	RequeueStale(ctx context.Context, before time.Time) (int64, error)
+	QueueDepth(ctx context.Context) (int64, error)
+	// RequeueFromDeadLetter 把死信评审（failed 且 retry_count 达上限）重新入队并重置计数。
+	RequeueFromDeadLetter(ctx context.Context, reviewID string) error
 	UpdateInTransaction(ctx context.Context, reviewID string, fn func(review *domain.Record) error) error
 }
 

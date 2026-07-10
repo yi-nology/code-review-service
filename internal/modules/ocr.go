@@ -36,7 +36,7 @@ func NewOCRRegistry(
 ) *ocrcore.Registry {
 	fallbackConfig := ocrcore.Config{
 		Binary:          cfg.OCR.Binary,
-		Audience:        "human",
+		Audience:        "agent",
 		RulePath:        cfg.OCR.Rule,
 		DefaultSeverity: "major",
 	}
@@ -58,7 +58,7 @@ func NewOCRRegistry(
 func NewConfigResolver(repos *repository.RepoContainer) *ocrcore.ConfigResolver {
 	fallback := ocrcore.Fallback{
 		Binary:          "ocr",
-		Audience:        "human",
+		Audience:        "agent",
 		DefaultSeverity: "major",
 	}
 	return ocrcore.NewConfigResolver(

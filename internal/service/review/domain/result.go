@@ -45,6 +45,7 @@ type ScopeMetadata struct {
 
 type OCRMetadata struct {
 	Engine           string             `json:"engine,omitempty"`
+	Model            string             `json:"model,omitempty"`
 	Status           string             `json:"status,omitempty"`
 	FilesReviewed    int64              `json:"files_reviewed,omitempty"`
 	Comments         int64              `json:"comments,omitempty"`

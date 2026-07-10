@@ -5,9 +5,10 @@ import (
 	"fmt"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
-	"github.com/yi-nology/code-review-service/internal/domain/platform"
 	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
+	"github.com/yi-nology/code-review-service/internal/domain/platform"
 
+	"github.com/oekit/logx"
 	"github.com/oekit/pkg/ptrx"
 	"github.com/oekit/pkg/slicex"
 
@@ -43,7 +44,11 @@ func PutPlatform(ctx context.Context, c *app.RequestContext) {
 	}
 	token := ptrx.Deref(req.Token, "")
 	if token == "" {
-		existing, err := handlerInst.platform.Get(ctx, req.Provider, "default")
+		installationIDForLookup := ptrx.Deref(req.InstallationID, "")
+		if installationIDForLookup == "" {
+			installationIDForLookup = "default"
+		}
+		existing, err := handlerInst.platform.Get(ctx, req.Provider, installationIDForLookup)
 		if err == nil && existing != nil {
 			token = existing.Token
 		}
@@ -99,12 +104,35 @@ func DeletePlatform(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, common.BadRequest("代码平台不能为空"))
 		return
 	}
-	if err := handlerInst.platform.Delete(ctx, req.Provider, "default"); err != nil {
+	installationID := ptrx.Deref(req.InstallationID, "")
+	if installationID == "" {
+		installationID = "default"
+	}
+	// 按 (provider, installation_id) 精确删除，避免误删同 provider 其它 installation。
+	if err := handlerInst.platform.Delete(ctx, req.Provider, installationID); err != nil {
 		common.Fail(c, err)
 		return
 	}
+	// 运行态 provider map 是 per-provider 的（非 per-installation），删除一个 installation
+	// 不应直接清掉整个 provider 运行态。仅当该 provider 已无任何记录时才 Remove，
+	// 否则会误伤同 provider 的其它 installation（它们在重启/重载前仍需运行态可用）。
 	if handlerInst.gitMgr != nil {
-		handlerInst.gitMgr.Remove(req.Provider)
+		remaining, err := handlerInst.platform.List(ctx)
+		if err == nil {
+			hasOther := false
+			for _, p := range remaining {
+				if p.Provider == req.Provider {
+					hasOther = true
+					break
+				}
+			}
+			if !hasOther {
+				handlerInst.gitMgr.Remove(req.Provider)
+			}
+		} else {
+			// List 失败时保守处理：不擅自移除运行态，避免误删。
+			logx.Warnf("[platform] delete %s/%s 后 List 失败，跳过运行态清理: %v", req.Provider, installationID, err)
+		}
 	}
 	common.Success(c, &modelSettings.DeletePlatformResp{})
 }

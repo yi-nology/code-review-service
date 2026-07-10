@@ -100,7 +100,7 @@ func validateOCRSettings(s *ocrsettings.Settings) error {
 		s.Binary = "ocr"
 	}
 	if strings.TrimSpace(s.Audience) == "" {
-		s.Audience = "human"
+		s.Audience = "agent"
 	}
 	if s.Audience != "human" && s.Audience != "agent" {
 		return fmt.Errorf("audience 仅支持 human 或 agent")
@@ -131,6 +131,9 @@ func validateOCRSettings(s *ocrsettings.Settings) error {
 	if len(s.ToolsConfig) > 0 && !json.Valid(s.ToolsConfig) {
 		return fmt.Errorf("工具配置必须是合法 JSON")
 	}
+	if len(s.McpServers) > 0 && !json.Valid(s.McpServers) {
+		return fmt.Errorf("MCP 服务器配置必须是合法 JSON")
+	}
 	if strings.ContainsAny(s.ExtraHeaders, "\r\n") {
 		return fmt.Errorf("额外请求头不能包含换行")
 	}
@@ -146,6 +149,10 @@ func dbOCRSettingsToAPI(s *ocrsettings.Settings) *modelSettings.OCRSettings {
 	if len(s.ToolsConfig) > 0 {
 		toolsConfig = string(s.ToolsConfig)
 	}
+	var mcpServers string
+	if len(s.McpServers) > 0 {
+		mcpServers = string(s.McpServers)
+	}
 	return &modelSettings.OCRSettings{
 		Enabled: s.Enabled, Provider: common.StrPtr(s.Provider),
 		URL: common.StrPtr(s.URL), AuthToken: common.StrPtr(s.AuthToken), AuthHeader: common.StrPtr(s.AuthHeader),
@@ -158,6 +165,7 @@ func dbOCRSettingsToAPI(s *ocrsettings.Settings) *modelSettings.OCRSettings {
 		DefaultSeverity:  common.StrPtr(s.DefaultSeverity),
 		ToolsPath:        common.StrPtr(s.ToolsPath),
 		ToolsConfig:      common.StrPtr(toolsConfig),
+		McpServers:       common.StrPtr(mcpServers),
 		TelemetryEnabled: ptrx.Of(s.TelemetryEnabled), TelemetryExporter: common.StrPtr(s.TelemetryExporter),
 		TelemetryOtlpEndpoint: common.StrPtr(s.TelemetryOTLPEndpoint), TelemetryContentLogging: ptrx.Of(s.TelemetryContentLogging),
 		ReasoningMode:   common.StrPtr(s.ReasoningMode),
@@ -203,6 +211,9 @@ func apiOCRSettingsToDB(s *modelSettings.OCRSettings) *ocrsettings.Settings {
 	}
 	if s.IsSetToolsConfig() && s.ToolsConfig != nil && *s.ToolsConfig != "" {
 		db.ToolsConfig = json.RawMessage(*s.ToolsConfig)
+	}
+	if s.IsSetMcpServers() && s.McpServers != nil && *s.McpServers != "" {
+		db.McpServers = json.RawMessage(*s.McpServers)
 	}
 	return db
 }
