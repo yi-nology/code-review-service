@@ -35,6 +35,11 @@ const router = createRouter({
       component: () => import('@/views/SessionDetail.vue'),
     },
     {
+      path: '/sessions',
+      name: 'Sessions',
+      component: () => import('@/views/Sessions.vue'),
+    },
+    {
       path: '/contributors',
       name: 'Contributors',
       component: () => import('@/views/Contributors.vue'),
@@ -48,6 +53,11 @@ const router = createRouter({
       path: '/projects/reports',
       name: 'ProjectReports',
       component: () => import('@/views/ProjectReports.vue'),
+    },
+    {
+      path: '/reports/weekly',
+      name: 'WeeklyReport',
+      component: () => import('@/views/WeeklyReport.vue'),
     },
     {
       path: '/diagnostics',

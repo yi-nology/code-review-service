@@ -109,13 +109,12 @@ type ReviewServiceDeps struct {
 
 func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 	return svcReview.NewService(svcReview.ServiceConfig{
-		ReviewRepo:         deps.Repos.Review,
-		OCRSettingsRepo:    deps.Repos.OCRSettings,
-		ProjectRepo:        deps.Repos.ProjectPolicy,
-		GlobalRulesRepo:    deps.Repos.GlobalRules,
-		RulePackageRepo:    deps.Repos.OCRRulePackage,
-		CustomProviderRepo: deps.Repos.CustomProvider,
-		SessionRepo:        deps.SessionRepo,
+		ReviewRepo:      deps.Repos.Review,
+		OCRSettingsRepo: deps.Repos.OCRSettings,
+		ProjectRepo:     deps.Repos.ProjectPolicy,
+		GlobalRulesRepo: deps.Repos.GlobalRules,
+		RulePackageRepo: deps.Repos.OCRRulePackage,
+		SessionRepo:     deps.SessionRepo,
 		GitProviderSvc:  deps.GitProviderSvc,
 		Policy:          deps.PolicyEngine,
 		Providers:       deps.GitProviders,

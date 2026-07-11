@@ -29,9 +29,10 @@
         </div>
         <div class="metric-card">
           <span class="metric-icon warning"><el-icon><WarningFilled /></el-icon></span>
-          <span>Webhook 异常</span>
+          <span>Webhook 异常 / 忽略</span>
           <strong>{{ webhookProblems }}</strong>
-          <small>error / received</small>
+          <small v-if="webhookErrors || webhookIgnored">{{ webhookErrors }} 错误 · {{ webhookIgnored }} 忽略</small>
+          <small v-else>error / ignored</small>
         </div>
         <div class="metric-card">
           <span class="metric-icon published"><el-icon><Promotion /></el-icon></span>
@@ -84,6 +85,7 @@
               </template>
             </el-table-column>
             <el-table-column prop="event_type" label="事件" min-width="130" />
+            <el-table-column prop="action" label="动作" min-width="100" />
             <el-table-column prop="delivery_id" label="Delivery" min-width="160" show-overflow-tooltip />
             <el-table-column label="状态" min-width="110">
               <template #default="{ row }">
@@ -92,6 +94,9 @@
             </el-table-column>
             <el-table-column label="收到时间" min-width="160">
               <template #default="{ row }">{{ formatDateTime(row.received_at) }}</template>
+            </el-table-column>
+            <el-table-column label="处理时间" min-width="160">
+              <template #default="{ row }">{{ row.processed_at ? formatDateTime(row.processed_at) : '-' }}</template>
             </el-table-column>
             <el-table-column prop="error" label="错误" min-width="180" show-overflow-tooltip />
           </el-table>
@@ -118,6 +123,14 @@
                 <el-tag :type="statusTag(row.status)" size="small">{{ row.status }}</el-tag>
               </template>
             </el-table-column>
+            <el-table-column label="评论链接" min-width="110">
+              <template #default="{ row }">
+                <a v-if="row.provider_url" :href="row.provider_url" target="_blank" rel="noopener" class="provider-link">
+                  查看 <el-icon><TopRight /></el-icon>
+                </a>
+                <span v-else class="muted-value">-</span>
+              </template>
+            </el-table-column>
             <el-table-column prop="attempts" label="尝试" min-width="80" />
             <el-table-column label="发布时间" min-width="160">
               <template #default="{ row }">{{ row.published_at ? formatDateTime(row.published_at) : '-' }}</template>
@@ -139,6 +152,7 @@ import {
   InfoFilled,
   Promotion,
   Refresh,
+  TopRight,
   WarningFilled,
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -151,7 +165,9 @@ const hours = ref(24)
 const snapshot = ref<DiagnosticsSnapshot | null>(null)
 
 const webhookAccepted = computed(() => snapshot.value?.webhooks.accepted || 0)
-const webhookProblems = computed(() => (snapshot.value?.webhooks.error || 0) + (snapshot.value?.webhooks.received || 0))
+const webhookErrors = computed(() => snapshot.value?.webhooks.error || 0)
+const webhookIgnored = computed(() => snapshot.value?.webhooks.ignored || 0)
+const webhookProblems = computed(() => webhookErrors.value + webhookIgnored.value)
 const writebackPublished = computed(() => snapshot.value?.writebacks.published || 0)
 const writebackProblems = computed(() => (snapshot.value?.writebacks.failed || 0) + (snapshot.value?.writebacks.pending || 0))
 
@@ -372,6 +388,20 @@ h1 {
   color: #2563eb;
   font-weight: 600;
   text-decoration: none;
+}
+
+.provider-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #2563eb;
+  font-size: 13px;
+  text-decoration: none;
+}
+.provider-link:hover { text-decoration: underline; }
+
+.muted-value {
+  color: #9ca3af;
 }
 
 @media (max-width: 1080px) {

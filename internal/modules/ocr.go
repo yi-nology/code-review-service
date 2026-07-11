@@ -1,10 +1,13 @@
 package modules
 
 import (
+	"context"
+
 	"github.com/yi-nology/code-review-service/internal/config"
 	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 
+	"github.com/oekit/logx"
 	"go.uber.org/fx"
 )
 
@@ -23,6 +26,9 @@ var OCRModule = fx.Options(
 	fx.Provide(NewOCRVersioner),
 	fx.Provide(NewOCRViewerManager),
 	fx.Provide(NewOCRUpgrader),
+
+	// 服务关闭时回收 viewer 子进程，避免孤儿进程残留。
+	fx.Invoke(RegisterViewerShutdown),
 )
 
 // NewOCRRegistry 构造 *ocrcore.Registry 单一入口。
@@ -96,6 +102,23 @@ func NewOCRUpgrader(repos *repository.RepoContainer, resolver *ocrcore.ConfigRes
 		cfg.OCR.UpgradeInstallDir,
 		cfg.OCR.GitHubRepo,
 	)
+}
+
+// RegisterViewerShutdown 在服务关闭时停止 viewer 子进程，避免孤儿进程残留。
+func RegisterViewerShutdown(lc fx.Lifecycle, viewer *ocrcore.Viewer) {
+	lc.Append(fx.Hook{
+		OnStop: func(ctx context.Context) error {
+			status, err := viewer.StopViewer(ctx)
+			if err != nil {
+				logx.Warn("failed to stop ocr viewer on shutdown", "error", err)
+				return nil
+			}
+			if status != nil && !status.Running {
+				logx.Info("ocr viewer stopped on shutdown")
+			}
+			return nil
+		},
+	})
 }
 
 // _ 避免 unused import

@@ -9,6 +9,7 @@ export interface Review {
   score: number
   grade: string
   report_generated: boolean
+  retry_count?: number
   author?: string
   author_name?: string
   author_avatar?: string
@@ -39,6 +40,7 @@ export interface ReviewDetail {
   author?: string
   author_name?: string
   author_avatar?: string
+  retry_count?: number
   created_at: string
   updated_at: string
 }
@@ -128,42 +130,6 @@ export interface SuggestionPatchApplyResult extends SuggestionPatchPreview {
   cr_url?: string
   output?: string
   error?: string
-}
-
-export interface ModelCompareCandidate {
-  label: string
-  provider_id?: number
-  provider?: string
-  url?: string
-  model: string
-  auth_token?: string
-  auth_header?: string
-  extra_headers?: string
-  extra_body?: string
-}
-
-export interface ModelCompareCandidateRun {
-  label: string
-  provider?: string
-  url?: string
-  model: string
-  success: boolean
-  score?: number
-  grade?: string
-  findings: number
-  warnings: number
-  total_tokens?: number
-  input_tokens?: number
-  output_tokens?: number
-  elapsed?: string
-  duration_ms: number
-  summary?: string
-  error?: string
-}
-
-export interface ModelCompareResult {
-  review_id: string
-  candidates: ModelCompareCandidateRun[]
 }
 
 export interface Report {

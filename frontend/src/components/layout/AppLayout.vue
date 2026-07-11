@@ -62,6 +62,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, markRaw } from 'vue'
 import {
+  Calendar,
   Close,
   Connection,
   Cpu,
@@ -70,6 +71,7 @@ import {
   DocumentChecked,
   Finished,
   FolderChecked,
+  Histogram,
   HomeFilled,
   List,
   Menu,
@@ -94,6 +96,7 @@ const navGroups = [
     label: '评审',
     items: [
       { path: '/reviews', label: '审查记录', icon: markRaw(DocumentChecked) },
+      { path: '/sessions', label: '审查会话', icon: markRaw(Histogram) },
       { path: '/scan', label: '代码库扫描', icon: markRaw(Search) },
     ],
   },
@@ -104,6 +107,7 @@ const navGroups = [
       { path: '/dashboard', label: '运营总览', icon: markRaw(HomeFilled) },
       { path: '/contributors', label: '开发者质量', icon: markRaw(DataAnalysis) },
       { path: '/projects/reports', label: '项目报告', icon: markRaw(Notebook) },
+      { path: '/reports/weekly', label: '周报', icon: markRaw(Calendar) },
       { path: '/diagnostics', label: '诊断中心', icon: markRaw(Monitor) },
     ],
   },

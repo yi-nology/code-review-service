@@ -6567,6 +6567,7 @@ type ReviewDetail struct {
 	AuthorName      *string    `thrift:"author_name,22,optional" form:"author_name" json:"author_name,omitempty"`
 	AuthorAvatar    *string    `thrift:"author_avatar,23,optional" form:"author_avatar" json:"author_avatar,omitempty"`
 	RawOcrInput     *OCRInput  `thrift:"raw_ocr_input,24,optional" form:"raw_ocr_input" json:"raw_ocr_input,omitempty"`
+	RetryCount      *int64     `thrift:"retry_count,25,optional" form:"retry_count" json:"retry_count,omitempty"`
 }
 
 func NewReviewDetail() *ReviewDetail {
@@ -6792,6 +6793,7 @@ var fieldIDToName_ReviewDetail = map[int16]string{
 	22: "author_name",
 	23: "author_avatar",
 	24: "raw_ocr_input",
+	25: "retry_count",
 }
 
 func (p *ReviewDetail) IsSetProjectID() bool {
@@ -6868,6 +6870,19 @@ func (p *ReviewDetail) IsSetAuthorAvatar() bool {
 
 func (p *ReviewDetail) IsSetRawOcrInput() bool {
 	return p.RawOcrInput != nil
+}
+
+var ReviewDetail_RetryCount_DEFAULT int64
+
+func (p *ReviewDetail) GetRetryCount() (v int64) {
+	if !p.IsSetRetryCount() {
+		return ReviewDetail_RetryCount_DEFAULT
+	}
+	return *p.RetryCount
+}
+
+func (p *ReviewDetail) IsSetRetryCount() bool {
+	return p.RetryCount != nil
 }
 
 func (p *ReviewDetail) Read(iprot thrift.TProtocol) (err error) {
@@ -7076,6 +7091,14 @@ func (p *ReviewDetail) Read(iprot thrift.TProtocol) (err error) {
 		case 24:
 			if fieldTypeId == thrift.STRUCT {
 				if err = p.ReadField24(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 25:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField25(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -7387,6 +7410,18 @@ func (p *ReviewDetail) ReadField24(iprot thrift.TProtocol) error {
 	return nil
 }
 
+func (p *ReviewDetail) ReadField25(iprot thrift.TProtocol) error {
+
+	var _field *int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.RetryCount = _field
+	return nil
+}
+
 func (p *ReviewDetail) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
 	if err = oprot.WriteStructBegin("ReviewDetail"); err != nil {
@@ -7487,6 +7522,10 @@ func (p *ReviewDetail) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField24(oprot); err != nil {
 			fieldId = 24
+			goto WriteFieldError
+		}
+		if err = p.writeField25(oprot); err != nil {
+			fieldId = 25
 			goto WriteFieldError
 		}
 	}
@@ -7967,6 +8006,25 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 24 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 24 end error: ", p), err)
+}
+
+func (p *ReviewDetail) writeField25(oprot thrift.TProtocol) (err error) {
+	if p.IsSetRetryCount() {
+		if err = oprot.WriteFieldBegin("retry_count", thrift.I64, 25); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteI64(*p.RetryCount); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 25 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 25 end error: ", p), err)
 }
 
 func (p *ReviewDetail) String() string {
@@ -9293,6 +9351,7 @@ type ListItem struct {
 	Author          *string `thrift:"author,13,optional" form:"author" json:"author,omitempty"`
 	AuthorName      *string `thrift:"author_name,14,optional" form:"author_name" json:"author_name,omitempty"`
 	AuthorAvatar    *string `thrift:"author_avatar,15,optional" form:"author_avatar" json:"author_avatar,omitempty"`
+	RetryCount      *int64  `thrift:"retry_count,16,optional" form:"retry_count" json:"retry_count,omitempty"`
 }
 
 func NewListItem() *ListItem {
@@ -9413,6 +9472,7 @@ var fieldIDToName_ListItem = map[int16]string{
 	13: "author",
 	14: "author_name",
 	15: "author_avatar",
+	16: "retry_count",
 }
 
 func (p *ListItem) IsSetGate() bool {
@@ -9441,6 +9501,19 @@ func (p *ListItem) IsSetAuthorName() bool {
 
 func (p *ListItem) IsSetAuthorAvatar() bool {
 	return p.AuthorAvatar != nil
+}
+
+var ListItem_RetryCount_DEFAULT int64
+
+func (p *ListItem) GetRetryCount() (v int64) {
+	if !p.IsSetRetryCount() {
+		return ListItem_RetryCount_DEFAULT
+	}
+	return *p.RetryCount
+}
+
+func (p *ListItem) IsSetRetryCount() bool {
+	return p.RetryCount != nil
 }
 
 func (p *ListItem) Read(iprot thrift.TProtocol) (err error) {
@@ -9577,6 +9650,14 @@ func (p *ListItem) Read(iprot thrift.TProtocol) (err error) {
 		case 15:
 			if fieldTypeId == thrift.STRING {
 				if err = p.ReadField15(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 16:
+			if fieldTypeId == thrift.I64 {
+				if err = p.ReadField16(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -9774,6 +9855,18 @@ func (p *ListItem) ReadField15(iprot thrift.TProtocol) error {
 	return nil
 }
 
+func (p *ListItem) ReadField16(iprot thrift.TProtocol) error {
+
+	var _field *int64
+	if v, err := iprot.ReadI64(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.RetryCount = _field
+	return nil
+}
+
 func (p *ListItem) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
 	if err = oprot.WriteStructBegin("ListItem"); err != nil {
@@ -9838,6 +9931,10 @@ func (p *ListItem) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField15(oprot); err != nil {
 			fieldId = 15
+			goto WriteFieldError
+		}
+		if err = p.writeField16(oprot); err != nil {
+			fieldId = 16
 			goto WriteFieldError
 		}
 	}
@@ -10125,6 +10222,25 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 15 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 15 end error: ", p), err)
+}
+
+func (p *ListItem) writeField16(oprot thrift.TProtocol) (err error) {
+	if p.IsSetRetryCount() {
+		if err = oprot.WriteFieldBegin("retry_count", thrift.I64, 16); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteI64(*p.RetryCount); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 16 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 16 end error: ", p), err)
 }
 
 func (p *ListItem) String() string {

@@ -215,9 +215,6 @@
           </div>
         </div>
       </section>
-
-      <!-- 模型预设库：保存多套模型配置，供 A/B 对比快速引用 -->
-      <ProviderPresetLibrary />
     </div>
   </AppLayout>
 </template>
@@ -227,7 +224,6 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { Refresh, Connection, Search, Check, InfoFilled } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import ProviderPresetLibrary from '@/components/model-settings/ProviderPresetLibrary.vue'
 import { useOcrSettingsForm } from '@/composables/useOcrSettingsForm'
 import { listLLMProviders } from '@/api/config'
 import type { LLMProvider } from '@/types/config'
@@ -829,11 +825,6 @@ onMounted(() => {
   flex-direction: column;
   justify-content: center;
   gap: 12px;
-}
-
-/* 预设库区块 */
-.preset-library {
-  margin-top: 20px;
 }
 
 .hint-text {

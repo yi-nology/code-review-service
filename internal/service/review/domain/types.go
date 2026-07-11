@@ -151,6 +151,7 @@ type Record struct {
 	Score              int             `json:"score"`
 	Grade              string          `json:"grade,omitempty"`
 	Summary            string          `json:"summary,omitempty"`
+	RetryCount         int             `json:"retry_count"`
 	Request            Request         `json:"request"`
 	Response           Response        `json:"response"`
 	RawOCR             json.RawMessage `json:"raw_ocr,omitempty"`

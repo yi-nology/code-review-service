@@ -18,8 +18,13 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'cancel'): void
   (e: 'rerun'): void
+  (e: 'requeue'): void
   (e: 'refresh'): void
 }>()
+
+const isDeadLetter = computed(() =>
+  props.detail.status === 'failed' && (props.detail.retry_count ?? 0) >= 5,
+)
 
 const isFailed = computed(() =>
   props.detail.status === 'failed' ||
@@ -171,6 +176,11 @@ function scoreColor(score: number) {
         type="danger" plain size="small" :loading="acting"
         @click="emit('cancel')"
       >取消审查</el-button>
+      <el-button
+        v-if="isDeadLetter"
+        type="warning" plain size="small" :loading="acting"
+        @click="emit('requeue')"
+      >重新入队</el-button>
       <el-button
         v-if="detail.status === 'failed' || detail.status === 'success'"
         type="primary" plain size="small" :loading="acting"

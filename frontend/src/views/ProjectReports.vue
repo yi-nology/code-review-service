@@ -222,9 +222,12 @@
             </template>
           </el-table-column>
 
-          <el-table-column width="40" align="right">
-            <template #default>
-              <el-icon class="row-arrow"><ArrowRight /></el-icon>
+          <el-table-column width="120" align="right">
+            <template #default="{ row }">
+              <div class="row-actions" @click.stop>
+                <el-button size="small" plain @click="goToWeekly(row)">周报</el-button>
+                <el-icon class="row-arrow"><ArrowRight /></el-icon>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -345,6 +348,13 @@ function goToDetail(row: ProjectSummary) {
       repo: row.repo,
       ...dateParams(),
     },
+  })
+}
+
+function goToWeekly(row: ProjectSummary) {
+  router.push({
+    path: '/reports/weekly',
+    query: { provider: row.provider, repo: row.repo },
   })
 }
 
@@ -859,6 +869,12 @@ onMounted(fetchProjects)
 
 .clickable-row:hover .row-arrow {
   color: var(--app-primary);
+}
+
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* 分页 */

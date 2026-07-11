@@ -6,6 +6,8 @@ import type {
   FinalReport,
   ReviewProgress,
   ProgressEvent,
+  SessionListResult,
+  SessionListOptions,
 } from '@/types/session'
 
 export type {
@@ -24,7 +26,17 @@ export type {
   AgentStatus,
   ReviewProgress,
   PhaseInfo,
+  SessionListResult,
+  SessionListOptions,
 } from '@/types/session'
+
+/**
+ * 全局会话列表（跨 review 的所有审查会话）。
+ * 独立命名导出，供 Sessions.vue 列表页使用；sessionApi.listSessions 仍保留向后兼容。
+ */
+export async function listAllSessions(params: SessionListOptions = {}): Promise<SessionListResult> {
+  return request.get('/sessions', { params }) as any
+}
 
 // Session API
 export const sessionApi = {
@@ -118,21 +130,50 @@ export const progressApi = {
     return request.get('/progress/active')
   },
 
-  connectProgress(reviewId: string, onMessage: (event: ProgressEvent) => void): WebSocket {
+  /**
+   * 连接 review 实时进度 WebSocket。
+   *
+   * 返回一个控制对象，调用方可通过 close() 主动断开（不会触发 onClose 回调，
+   * 避免断开后误重连）。onMessage 收到的是已 JSON.parse 的事件对象。
+   */
+  connectProgress(
+    reviewId: string,
+    onMessage: (event: ProgressEvent) => void,
+    handlers?: { onClose?: () => void; onError?: () => void },
+  ): { close: () => void } {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const wsUrl = `${protocol}//${window.location.host}/api/v1/reviews/${reviewId}/progress`
-    
+
+    let closed = false
     const ws = new WebSocket(wsUrl)
-    
+
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      onMessage(data)
+      try {
+        const data = JSON.parse(event.data)
+        onMessage(data)
+      } catch {
+        // 忽略无法解析的消息
+      }
     }
-    
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error)
+
+    ws.onerror = () => {
+      handlers?.onError?.()
     }
-    
-    return ws
+
+    ws.onclose = () => {
+      if (!closed) handlers?.onClose?.()
+    }
+
+    return {
+      close() {
+        closed = true
+        ws.onclose = null
+        ws.onmessage = null
+        ws.onerror = null
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          ws.close()
+        }
+      },
+    }
   },
 }

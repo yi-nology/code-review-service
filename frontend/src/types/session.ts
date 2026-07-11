@@ -16,6 +16,23 @@ export interface ReviewSession {
   completed_at: string | null
 }
 
+/** 全局会话列表查询参数。 */
+export interface SessionListOptions {
+  page?: number
+  page_size?: number
+  status?: string
+  phase?: string
+}
+
+/** 全局会话列表响应。 */
+export interface SessionListResult {
+  sessions: ReviewSession[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
 export interface AgentResult {
   agent_name: string
   findings: Finding[]

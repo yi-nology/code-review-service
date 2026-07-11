@@ -8,7 +8,6 @@ import type { ReviewDetail } from '@/types/review'
 import ReviewFindingsPanel from './ReviewFindingsPanel.vue'
 import ReviewOcrCard from './ReviewOcrCard.vue'
 import ReviewDebugPanel from './ReviewDebugPanel.vue'
-import ModelComparePanel from './ModelComparePanel.vue'
 import PublishPanel from '@/components/PublishPanel.vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { downloadSuggestionPatch } from '@/api/review'
@@ -101,12 +100,6 @@ defineExpose({ resetPatchState })
     <!-- 发布面板 -->
     <PublishPanel
       v-if="detail.status === 'success' && detail.report?.generated"
-      :review-id="detail.review_id"
-    />
-
-    <!-- 模型对比 -->
-    <ModelComparePanel
-      v-if="detail.status === 'success'"
       :review-id="detail.review_id"
     />
 

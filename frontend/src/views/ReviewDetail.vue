@@ -48,6 +48,7 @@
               :acting="acting"
               @cancel="handleCancel"
               @rerun="handleRerun"
+              @requeue="handleRequeue"
               @refresh="fetchDetail"
             />
 
@@ -85,7 +86,7 @@ import ReviewSummarySidebar from '@/components/review-detail/ReviewSummarySideba
 import ReviewContentArea from '@/components/review-detail/ReviewContentArea.vue'
 import ReviewHistoryCard from '@/components/review-detail/ReviewHistoryCard.vue'
 import ReviewSessionsCard from '@/components/review-detail/ReviewSessionsCard.vue'
-import { getReview, cancelReview, rerunReview } from '@/api/review'
+import { getReview, cancelReview, rerunReview, requeueReview } from '@/api/review'
 import { sessionApi, type ReviewSession } from '@/api/session'
 import { getProviderLabel } from '@/utils/url-parser'
 import type { ReviewDetail as ReviewDetailType } from '@/types/review'
@@ -167,6 +168,28 @@ async function handleRerun() {
     await fetchDetail()
   } catch {
     ElMessage.error('重新审查失败，请稍后重试')
+  } finally {
+    acting.value = false
+  }
+}
+
+async function handleRequeue() {
+  try {
+    await ElMessageBox.confirm(
+      '这条审查因重试次数耗尽被标记为死信。确定从死信队列重新入队？',
+      '重新入队',
+      { type: 'warning', confirmButtonText: '重新入队', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  acting.value = true
+  try {
+    await requeueReview(route.params.id as string)
+    ElMessage.success('已从死信队列重新入队')
+    await fetchDetail()
+  } catch {
+    ElMessage.error('重新入队失败，该评审可能不满足死信条件')
   } finally {
     acting.value = false
   }

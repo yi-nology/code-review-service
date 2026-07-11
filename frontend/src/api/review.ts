@@ -1,7 +1,7 @@
 import request from './request'
 import type {
   ReviewDetail, ListResult, ListOptions, CreateReviewOptions, FindingFeedback,
-  ModelCompareCandidate, ModelCompareResult, PublishStatus, ScanRepositoryOptions, ScanRepositoryResult, SuggestionPatchApplyResult, SuggestionPatchCheck, SuggestionPatchPreview,
+  PublishStatus, ScanRepositoryOptions, ScanRepositoryResult, SuggestionPatchApplyResult, SuggestionPatchCheck, SuggestionPatchPreview,
 } from '@/types/review'
 
 export async function getReviews(params: ListOptions): Promise<ListResult> {
@@ -51,6 +51,14 @@ export async function cancelReview(id: string): Promise<ReviewDetail> {
 export async function rerunReview(id: string): Promise<ReviewDetail> {
   const res: any = await request.post(`/reviews/${id}/rerun`)
   return res?.review ?? res
+}
+
+/**
+ * 死信重排队：把因重试次数耗尽（retry_count >= 5）而 failed 的评审重新入队。
+ * 仅对死信评审生效，后端会校验条件，非死信评审返回 404。
+ */
+export async function requeueReview(id: string): Promise<{ ok: boolean; review_id: string }> {
+  return request.post(`/reviews/${id}/requeue`) as any
 }
 
 export async function previewComment(reviewId: string, mode?: 'team'): Promise<{
@@ -132,10 +140,6 @@ export async function applySuggestionPatch(reviewId: string, options: {
     description: options.description,
     remove_source_branch: options.remove_source_branch,
   }, { timeout: 300000 }) as any
-}
-
-export async function compareReviewModels(reviewId: string, candidates: ModelCompareCandidate[]): Promise<ModelCompareResult> {
-  return request.post(`/reviews/${reviewId}/model-compare`, { candidates }, { timeout: 900000 }) as any
 }
 
 export async function getFindingFeedback(reviewId: string): Promise<FindingFeedback[]> {

@@ -92,6 +92,33 @@
             </div>
           </template>
 
+          <!-- 实时活跃审查面板（仅有活跃任务时显示） -->
+          <div v-if="activeReviews.length > 0" class="active-reviews">
+            <div class="active-header">
+              <span class="active-pulse" />
+              <strong>正在执行</strong>
+              <small>{{ activeReviews.length }} 个任务</small>
+            </div>
+            <router-link
+              v-for="item in activeReviews"
+              :key="item.review_id"
+              class="active-item"
+              :to="`/reviews/${item.review_id}`"
+            >
+              <div class="active-item-main">
+                <strong>{{ shortId(item.review_id) }}</strong>
+                <small>{{ getPhaseLabel(item.phase) }} · 第 {{ item.round }} 轮</small>
+              </div>
+              <el-progress
+                :percentage="Math.round(item.progress)"
+                :stroke-width="6"
+                :show-text="false"
+                class="active-item-progress"
+              />
+              <span class="active-item-pct">{{ Math.round(item.progress) }}%</span>
+            </router-link>
+          </div>
+
           <div v-loading="loading" class="review-feed">
             <router-link
               v-for="item in recentReviews"
@@ -212,7 +239,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Aim,
@@ -234,10 +261,11 @@ import OnboardingGuide from '@/components/common/OnboardingGuide.vue'
 import ReviewCreateDialog from '@/components/ReviewCreateDialog.vue'
 import { getReviews } from '@/api/review'
 import { getProjects } from '@/api/stats'
+import { progressApi } from '@/api/session'
 import type { ListStats, Review } from '@/types/review'
 import type { ProjectSummary } from '@/types/stats'
-import { formatDateRelative, getProviderInitial } from '@/utils/format'
-import { getStatusLabel } from '@/utils/status'
+import { formatDateRelative, getProviderInitial, shortId } from '@/utils/format'
+import { getStatusLabel, getPhaseLabel } from '@/utils/status'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -255,6 +283,20 @@ const listStats = ref<ListStats>({
   findings: 0,
   total_tokens: 0,
 })
+
+/** 活跃审查实时面板：展示正在执行的审查及其阶段/进度。 */
+interface ActiveReview {
+  review_id: string
+  session_id: string
+  round: number
+  phase: string
+  status: string
+  progress: number
+  start_time: string
+  updated_at: string
+}
+const activeReviews = ref<ActiveReview[]>([])
+let activePollTimer: ReturnType<typeof setInterval> | null = null
 
 const healthLabel = computed(() => {
   if (healthStatus.value === 'healthy') return '运行中'
@@ -367,7 +409,30 @@ async function fetchProjects() {
 }
 
 async function refreshAll() {
-  await Promise.all([checkHealth(), fetchReviews(), fetchProjects()])
+  await Promise.all([checkHealth(), fetchReviews(), fetchProjects(), fetchActiveReviews()])
+}
+
+async function fetchActiveReviews() {
+  try {
+    const result = await progressApi.getActiveReviews()
+    activeReviews.value = result?.reviews || []
+  } catch {
+    activeReviews.value = []
+  }
+  syncActivePolling()
+}
+
+/** 仅在有活跃任务时轮询（5s），减少无谓请求。 */
+function syncActivePolling() {
+  const hasActive = activeReviews.value.length > 0 || listStats.value.running > 0
+  if (hasActive && !activePollTimer) {
+    activePollTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchActiveReviews()
+    }, 5000)
+  } else if (!hasActive && activePollTimer) {
+    clearInterval(activePollTimer)
+    activePollTimer = null
+  }
 }
 
 function handleCreated() {
@@ -375,7 +440,13 @@ function handleCreated() {
   refreshAll()
 }
 
-onMounted(refreshAll)
+onMounted(() => {
+  refreshAll().then(syncActivePolling)
+})
+
+onBeforeUnmount(() => {
+  if (activePollTimer) { clearInterval(activePollTimer); activePollTimer = null }
+})
 </script>
 
 <style scoped>
@@ -591,6 +662,65 @@ onMounted(refreshAll)
   font-size: 13px;
   font-weight: 700;
   text-decoration: none;
+}
+
+.active-reviews {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.active-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.active-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--app-warning);
+  animation: active-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes active-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(217, 134, 22, 0.4); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(217, 134, 22, 0); }
+}
+
+.active-header strong { font-size: 14px; color: var(--app-text); }
+.active-header small { font-size: 12px; color: var(--app-muted); }
+
+.active-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  text-decoration: none;
+  color: var(--app-text);
+  background: #fffbeb;
+  transition: border-color 160ms ease;
+}
+.active-item:last-child { margin-bottom: 0; }
+.active-item:hover { border-color: #f0c674; }
+
+.active-item-main { min-width: 120px; flex-shrink: 0; }
+.active-item-main strong { display: block; font-size: 13px; color: var(--app-text); }
+.active-item-main small { display: block; margin-top: 2px; font-size: 11px; color: var(--app-muted); }
+
+.active-item-progress { flex: 1; }
+
+.active-item-pct {
+  width: 36px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--app-warning);
 }
 
 .review-feed,

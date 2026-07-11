@@ -604,6 +604,7 @@ func reviewToDomain(m models.Review) domain.Record {
 		Score:              m.Score,
 		Grade:              m.Grade,
 		Summary:            m.Summary,
+		RetryCount:         m.RetryCount,
 		RawOCR:             rawJSON(m.RawOCR),
 		RawOCRInput:        rawJSON(m.RawOCRInput),
 		CreatedAt:          m.CreatedAt,

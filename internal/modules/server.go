@@ -168,7 +168,6 @@ func registerAuthRoutes(h *server.Hertz) {
 
 func registerReviewExtraRoutes(h *server.Hertz, repos *repository.RepoContainer) {
 	h.POST("/api/v1/reviews/:id/suggestion-patch/apply", reviewHandler.ApplySuggestionPatch)
-	h.POST("/api/v1/reviews/:id/model-compare", reviewHandler.CompareReviewModels)
 	// 死信重排队：把因重试次数耗尽而 failed 的评审重新入队（重置 retry_count）。
 	h.POST("/api/v1/reviews/:id/requeue", func(ctx context.Context, c *app.RequestContext) {
 		reviewID := c.Param("id")

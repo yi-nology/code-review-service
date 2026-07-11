@@ -165,7 +165,7 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column width="120" align="right">
+          <el-table-column width="140" align="right">
             <template #default="{ row }">
               <div class="row-actions" @click.stop>
                 <el-button
@@ -177,6 +177,16 @@
                   @click="handleCancel(row)"
                 >
                   取消
+                </el-button>
+                <el-button
+                  v-if="isDeadLetter(row)"
+                  size="small"
+                  type="warning"
+                  plain
+                  :loading="actingId === row.review_id"
+                  @click="handleRequeue(row)"
+                >
+                  重新入队
                 </el-button>
                 <el-button
                   v-if="row.status === 'failed' || row.status === 'success'"
@@ -224,6 +234,16 @@
                   @click="handleCancel(row)"
                 >
                   取消
+                </el-button>
+                <el-button
+                  v-if="isDeadLetter(row)"
+                  size="small"
+                  type="warning"
+                  plain
+                  :loading="actingId === row.review_id"
+                  @click="handleRequeue(row)"
+                >
+                  重新入队
                 </el-button>
                 <el-button
                   v-if="row.status === 'failed' || row.status === 'success'"
@@ -288,7 +308,7 @@ import {
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ReviewCreateDialog from '@/components/ReviewCreateDialog.vue'
-import { getReviews, cancelReview, rerunReview } from '@/api/review'
+import { getReviews, cancelReview, rerunReview, requeueReview } from '@/api/review'
 import { getProviderLabel, PROVIDER_OPTIONS } from '@/utils/url-parser'
 import { getStatusLabel } from '@/utils/status'
 import { getScoreColor } from '@/utils/colors'
@@ -415,6 +435,36 @@ async function handleRerun(row: Review) {
   } finally {
     actingId.value = ''
   }
+}
+
+/**
+ * 死信重排队：仅对 retry_count 达上限的 failed 评审显示。
+ * 后端校验条件，非死信返回 404（前端按 retry_count>=5 精确判断显示）。
+ */
+async function handleRequeue(row: Review) {
+  try {
+    await ElMessageBox.confirm(
+      `这条审查因重试次数耗尽被标记为死信（重试 ${row.retry_count} 次）。确定重新入队？`,
+      '重新入队',
+      { type: 'warning', confirmButtonText: '重新入队', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  actingId.value = row.review_id
+  try {
+    await requeueReview(row.review_id)
+    ElMessage.success('已从死信队列重新入队')
+    refreshBackground()
+  } catch {
+    ElMessage.error('重新入队失败，该评审可能不满足死信条件')
+  } finally {
+    actingId.value = ''
+  }
+}
+
+function isDeadLetter(row: Review): boolean {
+  return row.status === 'failed' && (row.retry_count ?? 0) >= 5
 }
 
 function getGateLabel(row: Review) {
