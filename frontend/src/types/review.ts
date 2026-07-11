@@ -132,6 +132,7 @@ export interface SuggestionPatchApplyResult extends SuggestionPatchPreview {
 
 export interface ModelCompareCandidate {
   label: string
+  provider_id?: number
   provider?: string
   url?: string
   model: string

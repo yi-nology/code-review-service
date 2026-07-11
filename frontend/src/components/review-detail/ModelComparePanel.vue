@@ -8,15 +8,20 @@
  * 设计上贴合 review-detail 最近的重构风格：自定义卡片、评分环、
  * lane 徽章，并把输入和结果拆到独立子组件。
  */
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, onMounted } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { compareReviewModels } from '@/api/review'
+import { listCustomProviders } from '@/api/config'
 import type { ModelCompareCandidate, ModelCompareResult, ModelCompareCandidateRun } from '@/types/review'
+import type { CustomProvider } from '@/types/config'
 import ModelCompareCandidateForm from './ModelCompareCandidateForm.vue'
 import ModelCompareResultCard from './ModelCompareResultCard.vue'
 
 const props = defineProps<{ reviewId: string }>()
+
+// 模型预设库（供候选下拉引用）
+const presets = ref<CustomProvider[]>([])
 
 // 候选输入：默认 A/B 两行，可增删。label 由 index 推导，无需用户手填。
 const candidates = reactive<ModelCompareCandidate[]>([
@@ -117,6 +122,14 @@ async function runCompare() {
     loading.value = false
   }
 }
+
+onMounted(async () => {
+  try {
+    presets.value = await listCustomProviders()
+  } catch {
+    // 预设库加载失败不阻塞对比（手填仍可用），全局拦截器会提示
+  }
+})
 </script>
 
 <template>
@@ -146,6 +159,7 @@ async function runCompare() {
         :key="index"
         :candidate="candidate"
         :index="index"
+        :presets="presets"
         :removable="canRemove"
         @remove="removeCandidate(index)"
       />

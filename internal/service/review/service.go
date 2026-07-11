@@ -61,12 +61,13 @@ type SessionRepo interface {
 }
 
 type ServiceConfig struct {
-	ReviewRepo      repository.ReviewRepository
-	OCRSettingsRepo repository.OCRSettingsRepository
-	ProjectRepo     repository.ProjectPolicyRepository
-	GlobalRulesRepo repository.GlobalRulesRepository
-	RulePackageRepo repository.OCRRulePackageRepository
-	SessionRepo     SessionRepo
+	ReviewRepo         repository.ReviewRepository
+	OCRSettingsRepo    repository.OCRSettingsRepository
+	ProjectRepo        repository.ProjectPolicyRepository
+	GlobalRulesRepo    repository.GlobalRulesRepository
+	RulePackageRepo    repository.OCRRulePackageRepository
+	CustomProviderRepo repository.CustomProviderRepository
+	SessionRepo        SessionRepo
 	GitProviderSvc  *gitprovider.GitProviderService
 	Policy          *policy.Engine
 	Providers       domain.Providers
@@ -81,12 +82,13 @@ type ServiceConfig struct {
 }
 
 type Service struct {
-	reviewRepo      repository.ReviewRepository
-	ocrSettingsRepo repository.OCRSettingsRepository
-	projectRepo     repository.ProjectPolicyRepository
-	globalRulesRepo repository.GlobalRulesRepository
-	rulePackageRepo repository.OCRRulePackageRepository
-	sessionRepo     SessionRepo
+	reviewRepo         repository.ReviewRepository
+	ocrSettingsRepo    repository.OCRSettingsRepository
+	projectRepo        repository.ProjectPolicyRepository
+	globalRulesRepo    repository.GlobalRulesRepository
+	rulePackageRepo    repository.OCRRulePackageRepository
+	customProviderRepo repository.CustomProviderRepository
+	sessionRepo        SessionRepo
 	gitProviderSvc  *gitprovider.GitProviderService
 	policy          *policy.Engine
 	Providers       domain.Providers
@@ -102,12 +104,13 @@ type Service struct {
 
 func NewService(cfg ServiceConfig) *Service {
 	s := &Service{
-		reviewRepo:      cfg.ReviewRepo,
-		ocrSettingsRepo: cfg.OCRSettingsRepo,
-		projectRepo:     cfg.ProjectRepo,
-		globalRulesRepo: cfg.GlobalRulesRepo,
-		rulePackageRepo: cfg.RulePackageRepo,
-		sessionRepo:     cfg.SessionRepo,
+		reviewRepo:         cfg.ReviewRepo,
+		ocrSettingsRepo:    cfg.OCRSettingsRepo,
+		projectRepo:        cfg.ProjectRepo,
+		globalRulesRepo:    cfg.GlobalRulesRepo,
+		rulePackageRepo:    cfg.RulePackageRepo,
+		customProviderRepo: cfg.CustomProviderRepo,
+		sessionRepo:        cfg.SessionRepo,
 		gitProviderSvc:  cfg.GitProviderSvc,
 		policy:          cfg.Policy,
 		Providers:       cfg.Providers,

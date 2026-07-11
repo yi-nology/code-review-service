@@ -18,6 +18,7 @@ import (
 
 type ModelCompareCandidate struct {
 	Label        string `json:"label"`
+	ProviderID   int64  `json:"provider_id,omitempty"`
 	Provider     string `json:"provider,omitempty"`
 	URL          string `json:"url,omitempty"`
 	Model        string `json:"model"`
@@ -89,11 +90,21 @@ func (s *Service) CompareModels(ctx context.Context, reviewID string, opts Model
 		}
 	}
 
+	// 引用预设库时，按 provider_id 解析真实凭据（前端永远拿不到明文 key）。
+	// 解析串行、轻量（最多 4 个候选）；后续 OCR 运行仍并行。
+	resolvedCandidates := opts.Candidates
+	if s.customProviderRepo != nil {
+		resolvedCandidates = make([]ModelCompareCandidate, len(opts.Candidates))
+		for i, candidate := range opts.Candidates {
+			resolvedCandidates[i] = s.resolveCustomProvider(ctx, candidate)
+		}
+	}
+
 	// 各 candidate 的 OCR 运行彼此独立（各自 clone 工作区 + LLM 调用），
 	// 并行执行以避免 N 个候选模型延迟线性叠加。结果按索引回填保持顺序稳定。
-	runs := make([]ModelCompareCandidateRun, len(opts.Candidates))
+	runs := make([]ModelCompareCandidateRun, len(resolvedCandidates))
 	var wg sync.WaitGroup
-	for i, candidate := range opts.Candidates {
+	for i, candidate := range resolvedCandidates {
 		i, candidate := i, candidate
 		wg.Add(1)
 		async.GoSafe(func() {
@@ -165,6 +176,30 @@ func (s *Service) runModelCandidate(ctx context.Context, provider domain.Provide
 	run.Summary = ocrResult.Summary
 	run.Counts = report.Counts
 	return run
+}
+
+// resolveCustomProvider 把引用预设库（provider_id>0）的候选解析成完整凭据。
+// 预设字段作基底、请求体显式字段覆盖——这样用户选预设后仍可临时改 model/url，
+// 但默认沿用库里保存的 key/headers，前端全程不接触明文 key。
+func (s *Service) resolveCustomProvider(ctx context.Context, candidate ModelCompareCandidate) ModelCompareCandidate {
+	resolved := candidate
+	if candidate.ProviderID <= 0 || s.customProviderRepo == nil {
+		return resolved
+	}
+	preset, err := s.customProviderRepo.GetByID(ctx, uint(candidate.ProviderID))
+	if err != nil || preset == nil {
+		return resolved
+	}
+	// 预设作基底
+	resolved.Provider = firstNonBlankLocal(candidate.Provider, preset.Protocol)
+	resolved.URL = firstNonBlankLocal(candidate.URL, preset.URL)
+	resolved.Model = firstNonBlankLocal(candidate.Model, preset.ModelName)
+	resolved.AuthToken = firstNonBlankLocal(candidate.AuthToken, preset.APIKey)
+	resolved.AuthHeader = firstNonBlankLocal(candidate.AuthHeader, preset.AuthHeader)
+	if len(preset.ExtraBody) > 0 {
+		resolved.ExtraBody = firstNonBlankLocal(candidate.ExtraBody, string(preset.ExtraBody))
+	}
+	return resolved
 }
 
 func firstNonBlankLocal(values ...string) string {

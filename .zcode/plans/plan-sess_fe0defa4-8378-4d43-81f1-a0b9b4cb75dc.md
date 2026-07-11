@@ -1,86 +1,64 @@
-## 重新设计 模型 A/B 对比面板
+## 激活后端 Provider 库 + 模型预设库 + A/B 引用预设
 
-### 目标文件
-重写 `./review-service/frontend/src/components/review-detail/ModelComparePanel.vue`，并拆出两个子组件（贴合最近 `review-detail`/`ocr-settings` 的组件拆分风格）：
-- 新建 `frontend/src/components/review-detail/ModelCompareCandidateForm.vue` — 单个候选输入卡
-- 新建 `frontend/src/components/review-detail/ModelCompareResultCard.vue` — 单个对比结果卡（含可展开明细）
-- 重写 `ModelComparePanel.vue` — 容器：头部、候选列表、添加按钮、汇总条、结果区
-
-API 与类型不变：`compareReviewModels(reviewId, candidates)` 与 `ModelCompareCandidate` / `ModelCompareCandidateRun` / `ModelCompareResult` 复用现有定义（`ModelCompareCandidate` 已含 provider/auth/headers/body 字段，这次补齐 UI）。
+彻底解决「割裂」：把闲置的 `custom_providers` 后端库激活，在 `settings/model` 页新增「模型预设库」管理区，A/B 对比改为下拉引用预设并**后端按 id 解析真实凭据**（前端永不接触 key）。
 
 ---
 
-### 设计要点（对应你选的三项）
+### 一、后端改动（让 model-compare 按 id 解析预设凭据）
 
-**① 候选输入卡（多候选 2+，可增删）**
-```
-┌ ● A ────────────────────── [×] ┐
-│ 模型  [ gpt-4o              ]   │
-│ URL   [ https://… 可选       ]   │
-│ [▾ 高级] provider · token · …   │
-└─────────────────────────────────┘
-┌ ● B ────────────────────── [×] ┐  …
-┌─────── [＋ 添加候选] ───────────┐  (虚线 dashed，hover 变色)
-```
-- 左侧彩色「泳道徽章」（A=蓝/B=紫/C=绿/D=橙…），复用 `PresetSelector` 的渐变方块样式。
-- 默认只填「模型名 + URL」；点「高级」折叠展开 provider / auth_token / auth_header / extra_headers / extra_body（当前类型已有、UI 缺失）。
-- 每行右侧 `[×]` 删除（≥1 个时显示）；底部 `[＋ 添加候选]` 虚线按钮追加。
-- 候选序号删除后自动重排标签（A/B/C…）。
+候选新增 `provider_id`；后端注入 `CustomProviderRepository`，在 `runModelCandidate` 前按 id 查库，用预设的 url/model/key/auth_header/extra_body **作为基底、请求体显式字段覆盖**，再执行。
 
-**② 对比结果卡 + 可展开明细（结果呈现核心）**
-```
-┌ 🏆 A 质量最高 · +8 分 · B 最快 · 快 6s ┐   ← 汇总条(仅≥2成功候选时显示)
-├──────────────────┬──────────────────┤
-│ ●A 🏆  gpt-4o    │ ●B     claude-3.5│
-│      ◯ 88        │      ◯ 80        │   ← 评分环(复用 sidebar SVG)
-│      等级 A 🟢   │      等级 B 🟢   │
-│ 问题 12  警告 3  │ 问题 9   警告 1  │
-│ 1.2k tok · 34s   │ 980 tok · 28s    │
-│ 摘要：…（2行截断）│ 摘要：…          │
-│ [▾ 展开明细]     │ [▾ 展开明细]     │
-└──────────────────┴──────────────────┘
-```
-- 汇总条：胜出者(最高分)+分差、最快者+速度差，多指标并列；失败时不显示。
-- 结果卡：`grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))` 自适应（A/B 两列，加 C/D 自动换行）。
-- 评分环：复用 `ReviewSummarySidebar` 的 SVG 圆环（r=34，`scoreColor`：≥85 绿/≥70 琥珀/<70 红）。
-- 明细展开区（点「展开明细」切换）：token 拆解(input/output/cache)、provider、URL、摘要全文。
-- 失败候选：卡片显示红色错误框（替代当前底部纯文本错误列表）。
-- 胜出者：质量最高且成功的候选带 🏆 冠军标记（同分不标记）。
+1. **`internal/service/review/model_compare.go`**
+   - `ModelCompareCandidate` 增加 `ProviderID int64 \`json:"provider_id,omitempty"\``。
+   - 新增 `resolveCustomProvider(ctx, candidate)`：`ProviderID>0` 时 `repo.GetByID`，把库里 url/model/auth_token/auth_header/extra_body 作基底，请求体非空字段覆盖（用户下拉选预设后仍可临时改 model）；`Protocol`→`Provider`。查不到则该候选 error。
+   - `CompareModels` 在取完 review/provider 后、并行执行前遍历候选做解析（解析本身串行、轻量；执行仍并行）。
+
+2. **`internal/service/review/service.go`** — `ServiceConfig` 与 `Service` 各加 `customProviderRepo repository.CustomProviderRepository` 字段；`NewService` 赋值。
+
+3. **`internal/modules/review.go`** — `NewReviewService` 的 `ServiceConfig` 加 `CustomProviderRepo: deps.Repos.CustomProvider`（`ReviewServiceDeps.Repos *RepoContainer` 已在，其 `.CustomProvider` 字段已存在于 `container.go:24`，不加新依赖、不加路由）。
+
+4. **`biz/handler/review_service/model_compare.go`** — 无需改（透传 `ModelCompareOptions`，新字段自动随绑定）。
+
+> 完全复用现有 `RepoContainer.CustomProvider` 与 `CustomProviderRepository.GetByID`，不新建表、不加路由。
 
 ---
 
-### 组件契约
+### 二、前端：settings/model 页新增「模型预设库」区块
 
-**ModelComparePanel.vue（容器）**
-- props: `{ reviewId: string }`
-- state: `candidates: ModelCompareCandidate[]`(reactive, 初始 2 个 A/B)、`result`、`loading`、`expandedResult: Set<string>`
-- computed: `validCandidates`(model 非空)、`successfulRuns`、`winner`(最高分)、`fastest`(最小 duration_ms)、`failedRows`
-- 渲染：头部(标题+开始对比按钮) → 候选输入卡列表 + 添加按钮 → [结果区] 汇总条 + 结果卡网格
+**新组件 `frontend/src/components/model-settings/ProviderPresetLibrary.vue`**
+- `onMounted` 拉 `listCustomProviders()`；列表展示：图标 + 名称 + model + protocol + [编辑][删除]。
+- `[+ 新建预设]` → 行内表单（name 必填、protocol openai/anthropic、url、api_key 密码框、model、auth_header、extra_body），调 `createCustomProvider` 后刷新。
+- 编辑：行内表单回填（api_key 留空表示不改），调 `updateCustomProvider(id,...)`。
+- 删除：确认后 `deleteCustomProvider(id)`。
+- 空列表用 `el-empty`；复用 `ModelSettings.vue` 的 `.pchip` 渐变图标语言。
 
-**ModelCompareCandidateForm.vue（候选输入卡）**
-- props: `{ candidate: ModelCompareCandidate; index: number; removable: boolean }`
-- emits: `remove`
-- 本地 state: `showAdvanced`(折叠高级配置)
-- 字段：label(徽章)、model、url + 高级：provider、auth_token、auth_header、extra_headers、extra_body
-
-**ModelCompareResultCard.vue（结果卡）**
-- props: `{ run: ModelCompareCandidateRun; rank: number; isWinner: boolean; isFastest: boolean; expanded: boolean }`
-- emits: `toggle`
-- 渲染：徽章+模型名+状态 → 评分环(成功) / 错误框(失败) → 指标(问题/警告/tokens/耗时) → 摘要(截断) → 展开明细
+**`views/ModelSettings.vue`** — 在 `config-card` 下方加 `<ProviderPresetLibrary />`，区块标题「模型预设库」+ 说明"保存多套模型配置，供 A/B 对比快速引用"。
 
 ---
 
-### 样式规范（复用现有设计系统）
-- 颜色 token：`--app-border`、`--app-surface`、`--app-text`、`--app-muted`、`--app-primary`
-- 卡片：`border-radius: 10-14px`、`border: 1px solid var(--app-border)`、`background: #fff`
-- 评分环色：≥85 `#22c55e` / ≥70 `#e6a23c` / <70 `#f56c6c`（与 sidebar 一致）
-- 泳道徽章：复用 `PresetSelector` 的渐变方块（A=蓝/B=紫/C=绿/D=橙/E+=灰）
-- 耗时格式化：`Ns`(<60s) 或 `Mm Ss`(≥60s)，比当前固定 `Math.round(/1000)s` 更准
-- 图标：`Plus`/`Close`/`ArrowDown`/`ArrowUp` from `@element-plus/icons-vue`；🏆 用 emoji（与汇总条风格一致）
+### 三、前端：A/B 对比改为引用预设
 
-### 不改动
-- API 层（`api/review.ts`）、类型（`types/review.ts`）、后端。
-- `ReviewContentArea.vue` 中渲染位置与 `v-if` 条件保持不变。
+**`types/review.ts`** — `ModelCompareCandidate` 增加 `provider_id?: number`。
 
-### 验证
-- 启动 dev server，访问 `/reviews/:id`（success 状态），确认：候选可增删、高级可展开、对比后显示评分环+汇总条+可展开明细、失败候选显示错误框、响应式换行。
+**`ModelComparePanel.vue`（容器）**
+- `onMounted` 拉 `listCustomProviders()` 存 `presets`；传给候选卡。
+- `validCandidates` 提交体带上各自 `provider_id`。
+
+**`ModelCompareCandidateForm.vue`（候选输入卡）**
+- 新增 props `presets: CustomProvider[]`。
+- 顶部加预设下拉 `[▾ 从预设库选择]`（可搜索）；选中后回填 model/url 并标记 `provider_id`，显示「已引用：预设名」徽章 + `[×]` 解除引用（清 provider_id，保留已填字段）。
+- 现有 model/url 字段保留可编辑（引用预设后仍可微调，微调不影响库）；高级区不变。
+
+---
+
+### 四、不改
+- API 层 `api/config.ts`（custom providers CRUD 已封装）、`api/review.ts`。
+- 后端 settings CRUD handler、`dbCustomProviderToAPI`（仍屏蔽 key，解析在后端做）。
+- `ReviewContentArea.vue` 渲染位置。
+
+---
+
+### 五、验证
+- 后端 `go build ./...` + `go test ./internal/service/review/...`。
+- 前端 `vue-tsc --noEmit` + `vite build`。
+- 手动：settings/model 建两个预设（gpt-4o+key、claude+key）→ A/B 下拉选这两个 → 对比正常（后端用各自 key）；手填（不选预设）仍可用。

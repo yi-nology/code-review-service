@@ -1,15 +1,18 @@
 <script setup lang="ts">
 /**
  * ModelCompareCandidateForm — 模型 A/B 对比的单个候选输入卡。
- * 默认只暴露「模型名 + 可选 URL」，点「高级」展开 provider / 鉴权 / 自定义请求。
+ * 顶部可从「模型预设库」下拉引用（回填 model/url，标记 provider_id 由后端解析凭据），
+ * 默认暴露「模型名 + 可选 URL」，点「高级」展开 provider / 鉴权 / 自定义请求。
  */
-import { ref } from 'vue'
-import { Close, ArrowDown, ArrowUp } from '@element-plus/icons-vue'
+import { computed, ref } from 'vue'
+import { Close, ArrowDown, ArrowUp, Link } from '@element-plus/icons-vue'
 import type { ModelCompareCandidate } from '@/types/review'
+import type { CustomProvider } from '@/types/config'
 
 const props = defineProps<{
   candidate: ModelCompareCandidate
   index: number
+  presets: CustomProvider[]
   removable: boolean
 }>()
 
@@ -18,6 +21,32 @@ const emit = defineEmits<{
 }>()
 
 const showAdvanced = ref(false)
+
+// 当前引用的预设对象（按 provider_id 反查）
+const linkedPreset = computed<CustomProvider | undefined>(() =>
+  props.candidate.provider_id ? props.presets.find((p) => p.id === props.candidate.provider_id) : undefined,
+)
+
+function applyPreset(id: number) {
+  const preset = props.presets.find((p) => p.id === id)
+  if (!preset) return
+  // 引用预设：标记 id，回填 model/url 作为基底；用户仍可随后微调。
+  props.candidate.provider_id = preset.id
+  props.candidate.model = preset.model || props.candidate.model
+  props.candidate.url = preset.url || props.candidate.url
+  if (preset.protocol) props.candidate.provider = preset.protocol
+  // 预设自带的鉴权/headers 由后端按 id 解析，前端不显示具体值；
+  // 清掉本地可能残留的手填鉴权字段，避免误导。
+  props.candidate.auth_token = ''
+  props.candidate.auth_header = ''
+  props.candidate.extra_body = ''
+}
+
+function unlinkPreset() {
+  // 解除引用：保留已回填的 model/url（用户可继续手填），只清掉 id 与 provider 标记。
+  props.candidate.provider_id = undefined
+  props.candidate.provider = undefined
+}
 
 // 判断是否已填写任意高级字段，用于在折叠时给出提示
 const hasAdvancedValue = (): boolean =>
@@ -38,6 +67,37 @@ const hasAdvancedValue = (): boolean =>
     </div>
 
     <div class="candidate-body">
+      <!-- 预设引用：从模型预设库选一个，回填 model/url，凭据由后端按 id 解析 -->
+      <div class="preset-row">
+        <template v-if="linkedPreset">
+          <span class="preset-chip">
+            <el-icon :size="12"><Link /></el-icon>
+            已引用：{{ linkedPreset.name }}
+            <small v-if="linkedPreset.model">{{ linkedPreset.model }}</small>
+          </span>
+          <button type="button" class="unlink-btn" aria-label="解除引用" @click="unlinkPreset">
+            <el-icon :size="13"><Close /></el-icon>
+          </button>
+        </template>
+        <template v-else>
+          <el-select
+            :model-value="candidate.provider_id"
+            size="small"
+            filterable
+            placeholder="从预设库选择（可选）"
+            class="preset-select"
+            @change="(v: number) => applyPreset(v)"
+          >
+            <el-option
+              v-for="p in presets"
+              :key="p.id"
+              :label="`${p.name}${p.model ? ' · ' + p.model : ''}`"
+              :value="p.id"
+            />
+          </el-select>
+        </template>
+      </div>
+
       <!-- 基础字段：模型名 + URL -->
       <div class="field-row">
         <label class="field">
@@ -175,6 +235,51 @@ const hasAdvancedValue = (): boolean =>
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* 预设引用行 */
+.preset-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+}
+.preset-select {
+  width: 100%;
+}
+.preset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #eff6ff;
+  border: 1px solid #cdddff;
+  color: var(--app-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.preset-chip small {
+  font-weight: 400;
+  color: #6b7280;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.unlink-btn {
+  border: none;
+  background: transparent;
+  color: var(--app-muted);
+  cursor: pointer;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.unlink-btn:hover {
+  background: #fff0f2;
+  color: var(--app-danger);
 }
 
 .field-row {

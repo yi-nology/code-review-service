@@ -24,7 +24,9 @@ func BearerTokenAuth(token string) app.HandlerFunc {
 			return strings.HasPrefix(path, "/swagger") ||
 				strings.HasPrefix(path, "/openapi.yaml") ||
 				strings.HasPrefix(path, "/api/v1/webhooks") ||
-				strings.HasPrefix(path, "/api/v1/settings/ocr/viewer/proxy")
+				strings.HasPrefix(path, "/api/v1/settings/ocr/viewer/proxy") ||
+				// WebSocket upgrade 无法携带 Authorization header，progress WS 有 sameOrigin 校验防 CSRF。
+				strings.HasSuffix(path, "/progress")
 		}),
 	)
 }
