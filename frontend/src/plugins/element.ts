@@ -25,6 +25,8 @@ import { ElPopconfirm } from 'element-plus/es/components/popconfirm/index'
 import { ElPopover } from 'element-plus/es/components/popover/index'
 import { ElProgress } from 'element-plus/es/components/progress/index'
 import { ElRadio, ElRadioGroup } from 'element-plus/es/components/radio/index'
+import { ElResult } from 'element-plus/es/components/result/index'
+import { ElStep, ElSteps } from 'element-plus/es/components/steps/index'
 import { ElRow } from 'element-plus/es/components/row/index'
 import { ElSkeleton } from 'element-plus/es/components/skeleton/index'
 import { ElSwitch } from 'element-plus/es/components/switch/index'
@@ -68,7 +70,10 @@ import 'element-plus/theme-chalk/el-popper.css'
 import 'element-plus/theme-chalk/el-progress.css'
 import 'element-plus/theme-chalk/el-radio.css'
 import 'element-plus/theme-chalk/el-radio-group.css'
+import 'element-plus/theme-chalk/el-result.css'
 import 'element-plus/theme-chalk/el-row.css'
+import 'element-plus/theme-chalk/el-segmented.css'
+import 'element-plus/theme-chalk/el-steps.css'
 import 'element-plus/theme-chalk/el-scrollbar.css'
 import 'element-plus/theme-chalk/el-select.css'
 import 'element-plus/theme-chalk/el-select-dropdown.css'
@@ -114,10 +119,13 @@ const components = [
   ElProgress,
   ElRadio,
   ElRadioGroup,
+  ElResult,
   ElRow,
   ElSelect,
   ElSegmented,
   ElSkeleton,
+  ElStep,
+  ElSteps,
   ElSwitch,
   ElTabPane,
   ElTable,

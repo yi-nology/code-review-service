@@ -8,17 +8,6 @@
           <p>为每个仓库定义门禁、审查范围、引擎覆盖和专属规则，让高风险变更在合并前被清楚拦住。</p>
         </div>
 
-        <div class="hero-actions">
-          <el-button plain @click="startCreate">
-            <el-icon><Plus /></el-icon>
-            新建策略
-          </el-button>
-          <el-button type="primary" @click="handleSave" :loading="saving" :disabled="hasBlockingIssues">
-            <el-icon><CircleCheckFilled /></el-icon>
-            保存策略
-          </el-button>
-        </div>
-
         <div class="summary-strip">
           <div class="summary-item">
             <span>已配置</span>
@@ -32,26 +21,29 @@
             <span>项目规则</span>
             <strong>{{ totalRuleCount }}</strong>
           </div>
-          <div class="summary-item warning" :class="{ active: validationIssues.length > 0 }">
-            <span>待处理</span>
-            <strong>{{ validationIssues.length }}</strong>
-          </div>
         </div>
       </header>
 
       <div class="content-grid">
+        <!-- 左栏：策略库 -->
         <aside class="policy-sidebar panel-shell">
           <div class="panel-heading">
             <div>
               <strong>策略库</strong>
-              <span>选择一个仓库继续编辑</span>
+              <span>选择一个仓库编辑</span>
             </div>
             <el-button circle text aria-label="刷新策略列表" @click="fetchPolicies" :loading="loading">
               <el-icon><Refresh /></el-icon>
             </el-button>
           </div>
 
+          <el-button type="primary" plain class="new-policy-btn" @click="startCreate">
+            <el-icon><Plus /></el-icon>
+            新建策略
+          </el-button>
+
           <el-input
+            v-if="policies.length"
             v-model="policyKeyword"
             class="policy-search"
             clearable
@@ -60,7 +52,7 @@
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
 
-          <el-empty v-if="!loading && filteredPolicies.length === 0" description="暂无项目策略">
+          <el-empty v-if="!loading && filteredPolicies.length === 0 && policies.length === 0" description="暂无项目策略">
             <el-button type="primary" @click="startCreate">
               <el-icon><Plus /></el-icon>
               创建第一条策略
@@ -72,7 +64,7 @@
               v-for="policy in filteredPolicies"
               :key="policyKey(policy)"
               class="policy-item"
-              :class="{ active: policyKey(policy) === currentPolicyKey }"
+              :class="{ active: !isWizard && policyKey(policy) === currentPolicyKey }"
               type="button"
               @click="handleEdit(policy)"
             >
@@ -89,17 +81,19 @@
           </div>
         </aside>
 
+        <!-- 右栏：编辑器（新建=向导 / 编辑=标签页） -->
         <main class="editor-column panel-shell">
           <div class="editor-header">
-            <div>
-              <span class="editor-state">{{ editingExisting ? '正在编辑' : '新建策略' }}</span>
+            <div class="editor-title">
+              <span class="editor-state">{{ isWizard ? '新建策略' : editingExisting ? '正在编辑' : '新建策略' }}</span>
               <strong>{{ form.repo || '选择或输入仓库' }}</strong>
-              <small>{{ dirty ? '有未保存修改' : '当前表单已同步' }}</small>
+              <small v-if="dirty" class="dirty-tag">有未保存修改</small>
             </div>
             <el-button
-              v-if="editingExisting"
+              v-if="!isWizard && editingExisting"
               type="success"
               plain
+              size="small"
               @click="openAgentDialog"
             >
               <el-icon><User /></el-icon>
@@ -107,198 +101,201 @@
             </el-button>
           </div>
 
-          <div class="editor-layout">
-            <section class="form-section">
-              <div class="section-title">
-                <span class="section-index">01</span>
-                <div>
-                  <strong>仓库定位</strong>
-                  <span>策略按平台和仓库唯一生效</span>
+          <!-- ===== 新建：分步向导 ===== -->
+          <div v-if="isWizard" class="wizard">
+            <el-steps :active="wizardStep" align-center class="wizard-steps">
+              <el-step title="仓库定位" description="选平台和仓库" />
+              <el-step title="质量门禁" description="阻断级别" />
+              <el-step title="审查范围" description="忽略路径" />
+              <el-step title="完成" description="确认保存" />
+            </el-steps>
+
+            <div class="wizard-body">
+              <!-- Step 0: 仓库定位 -->
+              <section v-if="wizardStep === 0" class="wizard-step">
+                <div class="field-grid two-columns">
+                  <label class="field-block">
+                    <span>代码平台</span>
+                    <el-select v-model="form.provider" @change="handleProviderChange" placeholder="请先配置代码平台">
+                      <el-option v-for="p in platforms" :key="p.provider" :label="p.provider" :value="p.provider" />
+                    </el-select>
+                    <small v-if="platforms.length === 0">
+                      暂无代码平台，请先到 <router-link to="/settings/platforms">Git 平台</router-link> 添加。
+                    </small>
+                  </label>
+                  <label class="field-block">
+                    <span>仓库</span>
+                    <el-select v-model="form.repo" filterable allow-create default-first-option placeholder="选择或输入 owner/repo" :loading="reposLoading">
+                      <el-option v-for="repo in repos" :key="repo.full_name" :label="repo.full_name" :value="repo.full_name" />
+                    </el-select>
+                    <small>仓库列表加载失败时也可以手动输入。</small>
+                  </label>
                 </div>
-              </div>
+              </section>
 
-              <div class="field-grid two-columns">
-                <label class="field-block">
-                  <span>代码平台</span>
-                  <el-select v-model="form.provider" @change="handleProviderChange" placeholder="请先配置代码平台">
-                    <el-option
-                      v-for="p in platforms"
-                      :key="p.provider"
-                      :label="p.provider"
-                      :value="p.provider"
-                    />
-                  </el-select>
-                  <small v-if="platforms.length === 0">
-                    暂无代码平台，请先到 <router-link to="/settings/platforms">Git 平台</router-link> 添加。
-                  </small>
-                </label>
-
-                <label class="field-block">
-                  <span>仓库</span>
-                  <el-select
-                    v-model="form.repo"
-                    filterable
-                    allow-create
-                    default-first-option
-                    placeholder="选择或输入 owner/repo"
-                    :loading="reposLoading"
+              <!-- Step 1: 质量门禁 -->
+              <section v-else-if="wizardStep === 1" class="wizard-step">
+                <p class="step-hint">达到所选严重级别时，审查结果会判定为未通过。推荐大多数仓库选「阻断高风险及以上」。</p>
+                <div class="gate-options">
+                  <button
+                    v-for="option in failOnOptions"
+                    :key="option.value"
+                    class="gate-option"
+                    :class="{ active: form.fail_on === option.value }"
+                    type="button"
+                    @click="form.fail_on = option.value"
                   >
-                    <el-option
-                      v-for="repo in repos"
-                      :key="repo.full_name"
-                      :label="repo.full_name"
-                      :value="repo.full_name"
-                    />
-                  </el-select>
-                  <small>仓库列表加载失败时也可以手动输入。</small>
-                </label>
-              </div>
-            </section>
-
-            <section class="form-section">
-              <div class="section-title">
-                <span class="section-index">02</span>
-                <div>
-                  <strong>质量门禁</strong>
-                  <span>达到所选严重级别时，审查结果会判定为未通过</span>
+                    <strong>{{ option.label }}</strong>
+                    <span>{{ option.description }}</span>
+                  </button>
                 </div>
-              </div>
+              </section>
 
-              <div class="gate-options">
-                <button
-                  v-for="option in failOnOptions"
-                  :key="option.value"
-                  class="gate-option"
-                  :class="{ active: form.fail_on === option.value }"
-                  type="button"
-                  @click="form.fail_on = option.value"
-                >
-                  <strong>{{ option.label }}</strong>
-                  <span>{{ option.description }}</span>
-                </button>
-              </div>
-            </section>
-
-            <section class="form-section">
-              <div class="section-title">
-                <span class="section-index">03</span>
-                <div>
-                  <strong>审查范围</strong>
-                  <span>忽略生成文件、依赖目录和构建产物，减少模型调用噪音</span>
+              <!-- Step 2: 审查范围 -->
+              <section v-else-if="wizardStep === 2" class="wizard-step">
+                <p class="step-hint">忽略生成文件、依赖目录和构建产物，减少模型调用噪音。可留空。</p>
+                <el-input v-model="ignorePathsText" type="textarea" :rows="5" placeholder="vendor/**&#10;dist/**&#10;**/*.pb.go" />
+                <div class="quick-actions">
+                  <el-button size="small" @click="addIgnoreTemplate('vendor/**')">vendor/**</el-button>
+                  <el-button size="small" @click="addIgnoreTemplate('dist/**')">dist/**</el-button>
+                  <el-button size="small" @click="addIgnoreTemplate('**/*.pb.go')">*.pb.go</el-button>
+                  <el-button size="small" @click="addIgnoreTemplate('node_modules/**')">node_modules</el-button>
                 </div>
+              </section>
+
+              <!-- Step 3: 完成确认 -->
+              <section v-else class="wizard-step">
+                <el-result icon="success" title="策略信息已就绪" sub-title="确认以下信息，点击保存完成创建。如需高级配置（OCR 覆盖、专属规则），保存后在编辑页继续。">
+                  <template #extra>
+                    <div class="confirm-summary">
+                      <div><span>平台 / 仓库</span><strong>{{ form.provider }} / {{ form.repo }}</strong></div>
+                      <div><span>门禁</span><strong>{{ getFailOnLabel(form.fail_on) }}</strong></div>
+                      <div><span>忽略路径</span><strong>{{ normalizedIgnorePaths.length }} 条</strong></div>
+                    </div>
+                  </template>
+                </el-result>
+              </section>
+            </div>
+
+            <!-- 向导底部导航 -->
+            <div class="wizard-nav">
+              <el-button v-if="wizardStep > 0" @click="wizardPrev">上一步</el-button>
+              <div class="wizard-nav-spacer" />
+              <el-button v-if="wizardStep < 3" type="primary" :disabled="!wizardStepValid" @click="wizardNext">下一步</el-button>
+              <el-button v-else type="primary" :loading="saving" :disabled="hasBlockingIssues" @click="handleSave">
+                <el-icon><CircleCheckFilled /></el-icon>保存策略
+              </el-button>
+            </div>
+          </div>
+
+          <!-- ===== 编辑：标签页 ===== -->
+          <div v-else class="editor-tabs">
+            <el-tabs v-model="activeTab">
+              <el-tab-pane label="基本信息" name="basic">
+                <section class="form-section">
+                  <div class="field-grid two-columns">
+                    <label class="field-block">
+                      <span>代码平台</span>
+                      <el-select v-model="form.provider" @change="handleProviderChange" :disabled="editingExisting">
+                        <el-option v-for="p in platforms" :key="p.provider" :label="p.provider" :value="p.provider" />
+                      </el-select>
+                    </label>
+                    <label class="field-block">
+                      <span>仓库</span>
+                      <el-select v-model="form.repo" filterable allow-create default-first-option :loading="reposLoading" :disabled="editingExisting">
+                        <el-option v-for="repo in repos" :key="repo.full_name" :label="repo.full_name" :value="repo.full_name" />
+                      </el-select>
+                    </label>
+                  </div>
+                </section>
+
+                <section class="form-section">
+                  <div class="section-title compact-title"><strong>质量门禁</strong></div>
+                  <div class="gate-options">
+                    <button v-for="option in failOnOptions" :key="option.value" class="gate-option" :class="{ active: form.fail_on === option.value }" type="button" @click="form.fail_on = option.value">
+                      <strong>{{ option.label }}</strong>
+                      <span>{{ option.description }}</span>
+                    </button>
+                  </div>
+                </section>
+
+                <section class="form-section">
+                  <div class="section-title compact-title"><strong>审查范围（忽略路径）</strong></div>
+                  <el-input v-model="ignorePathsText" type="textarea" :rows="4" placeholder="vendor/**&#10;dist/**" />
+                  <div class="quick-actions">
+                    <el-button size="small" @click="addIgnoreTemplate('vendor/**')">vendor/**</el-button>
+                    <el-button size="small" @click="addIgnoreTemplate('dist/**')">dist/**</el-button>
+                    <el-button size="small" @click="addIgnoreTemplate('node_modules/**')">node_modules</el-button>
+                  </div>
+                </section>
+              </el-tab-pane>
+
+              <el-tab-pane name="ocr">
+                <template #label>
+                  OCR 引擎覆盖
+                  <el-badge v-if="ocrOverrideSummary !== '继承全局'" is-dot type="primary" />
+                </template>
+                <OCREngineOverride
+                  :form="form"
+                  :ocr-enabled-mode="ocrEnabledMode"
+                  @update:ocr-enabled-mode="ocrEnabledMode = $event as any"
+                  @update:ocr-default-severity="form.ocr_default_severity = $event"
+                  @update:ocr-audience="form.ocr_audience = $event"
+                  @update:ocr-language="form.ocr_language = $event"
+                  @update:ocr-background="form.ocr_background = $event"
+                  @update:ocr-concurrency="form.ocr_concurrency = $event"
+                  @update:ocr-max-git-procs="form.ocr_max_git_procs = $event"
+                  @update:ocr-timeout-minutes="form.ocr_timeout_minutes = $event"
+                  @update:ocr-max-tools="form.ocr_max_tools = $event"
+                  @update:ocr-use-anthropic="form.ocr_use_anthropic = $event"
+                  @update:ocr-url="form.ocr_url = $event"
+                  @update:ocr-model="form.ocr_model = $event"
+                  @update:ocr-binary="form.ocr_binary = $event"
+                  @update:ocr-tools-path="form.ocr_tools_path = $event"
+                  @update:ocr-extra-body="form.ocr_extra_body = $event"
+                  @update:ocr-telemetry-enabled="form.ocr_telemetry_enabled = $event"
+                  @update:ocr-telemetry-exporter="form.ocr_telemetry_exporter = $event"
+                  @update:ocr-telemetry-otlp-endpoint="form.ocr_telemetry_otlp_endpoint = $event"
+                  @update:ocr-telemetry-content-logging="form.ocr_telemetry_content_logging = $event"
+                />
+              </el-tab-pane>
+
+              <el-tab-pane label="项目专属规则" name="rules">
+                <p class="tab-hint">这里只写该仓库特有要求，通用规则放到「审查规则」页面。</p>
+                <RuleEditor v-model="form.rules" :issues="projectRuleIssues" empty-description="当前没有项目专属规则" />
+              </el-tab-pane>
+            </el-tabs>
+
+            <!-- 编辑模式：保存前检查 + 生效预览（折叠到标签页下方，不再是独立第三栏） -->
+            <div class="editor-footer-info">
+              <div v-if="validationIssues.length" class="issues-inline">
+                <strong>需处理（{{ validationIssues.length }}）：</strong>
+                <span v-for="(issue, i) in validationIssues.slice(0, 3)" :key="i" class="issue-chip">{{ issue }}</span>
+                <span v-if="validationIssues.length > 3" class="issue-more">等 {{ validationIssues.length }} 项</span>
               </div>
-
-              <el-input
-                v-model="ignorePathsText"
-                type="textarea"
-                :rows="5"
-                placeholder="vendor/**&#10;dist/**&#10;**/*.pb.go"
-              />
-              <div class="quick-actions">
-                <el-button size="small" @click="addIgnoreTemplate('vendor/**')">vendor/**</el-button>
-                <el-button size="small" @click="addIgnoreTemplate('dist/**')">dist/**</el-button>
-                <el-button size="small" @click="addIgnoreTemplate('**/*.pb.go')">*.pb.go</el-button>
-                <el-button size="small" @click="addIgnoreTemplate('node_modules/**')">node_modules</el-button>
+              <div v-else class="issues-inline ok">
+                <el-icon><CircleCheckFilled /></el-icon> 表单校验通过，可保存
               </div>
-            </section>
-
-            <OCREngineOverride
-              :form="form"
-              :ocr-enabled-mode="ocrEnabledMode"
-              @update:ocr-enabled-mode="ocrEnabledMode = $event as any"
-              @update:ocr-default-severity="form.ocr_default_severity = $event"
-              @update:ocr-audience="form.ocr_audience = $event"
-              @update:ocr-language="form.ocr_language = $event"
-              @update:ocr-background="form.ocr_background = $event"
-              @update:ocr-concurrency="form.ocr_concurrency = $event"
-              @update:ocr-max-git-procs="form.ocr_max_git_procs = $event"
-              @update:ocr-timeout-minutes="form.ocr_timeout_minutes = $event"
-              @update:ocr-max-tools="form.ocr_max_tools = $event"
-              @update:ocr-use-anthropic="form.ocr_use_anthropic = $event"
-              @update:ocr-url="form.ocr_url = $event"
-              @update:ocr-model="form.ocr_model = $event"
-              @update:ocr-binary="form.ocr_binary = $event"
-              @update:ocr-tools-path="form.ocr_tools_path = $event"
-              @update:ocr-extra-body="form.ocr_extra_body = $event"
-              @update:ocr-telemetry-enabled="form.ocr_telemetry_enabled = $event"
-              @update:ocr-telemetry-exporter="form.ocr_telemetry_exporter = $event"
-              @update:ocr-telemetry-otlp-endpoint="form.ocr_telemetry_otlp_endpoint = $event"
-              @update:ocr-telemetry-content-logging="form.ocr_telemetry_content_logging = $event"
-            />
-
-            <section class="form-section">
-              <div class="section-title">
-                <span class="section-index">05</span>
-                <div>
-                  <strong>项目专属规则</strong>
-                  <span>这里只写该仓库特有要求，通用规则放到「审查规则」页面</span>
-                </div>
-              </div>
-
-              <RuleEditor
-                v-model="form.rules"
-                :issues="projectRuleIssues"
-                empty-description="当前没有项目专属规则"
-              />
-            </section>
+              <el-button v-if="editingExisting" type="danger" plain size="small" @click="handleDeleteSelected">
+                <el-icon><Delete /></el-icon>删除策略
+              </el-button>
+            </div>
           </div>
         </main>
+      </div>
 
-        <aside class="inspector-column">
-          <div class="inspector-sticky">
-            <section class="panel-shell inspector-card">
-              <div class="panel-heading compact">
-                <strong>保存前检查</strong>
-              </div>
-            <div v-if="validationIssues.length === 0" class="check-ok">
-              <el-icon><CircleCheckFilled /></el-icon>
-              可以保存
-            </div>
-            <ul v-else class="issue-list">
-              <li v-for="issue in validationIssues" :key="issue">{{ issue }}</li>
-            </ul>
-            </section>
-
-            <section class="panel-shell inspector-card">
-              <div class="panel-heading compact">
-                <strong>生效预览</strong>
-              </div>
-            <div class="preview-list">
-              <div>
-                <span>平台 / 仓库</span>
-                <strong>{{ form.provider || '--' }} / {{ form.repo || '--' }}</strong>
-              </div>
-              <div>
-                <span>门禁</span>
-                <strong>{{ getFailOnLabel(form.fail_on) }}</strong>
-              </div>
-              <div>
-                <span>忽略路径</span>
-                <strong>{{ normalizedIgnorePaths.length }} 条</strong>
-              </div>
-              <div>
-                <span>项目规则</span>
-                <strong>{{ normalizedRules.length }} 条</strong>
-              </div>
-              <div>
-                <span>OCR 覆盖</span>
-                <strong>{{ ocrOverrideSummary }}</strong>
-              </div>
-            </div>
-            </section>
-
-            <section class="panel-shell danger-card" v-if="editingExisting">
-              <div class="panel-heading compact">
-                <strong>危险操作</strong>
-              </div>
-            <p>删除后该仓库会回退到默认门禁和全局规则。</p>
-            <el-button type="danger" plain @click="handleDeleteSelected">
-              <el-icon><Delete /></el-icon>
-              删除当前策略
-            </el-button>
-            </section>
-          </div>
-        </aside>
+      <!-- 底部 sticky 保存条（编辑模式） -->
+      <div v-if="!isWizard" class="sticky-save-bar" :class="{ dirty }">
+        <div class="save-bar-info">
+          <strong>{{ form.provider }}/{{ form.repo || '未选择' }}</strong>
+          <span>{{ getFailOnLabel(form.fail_on) }} · 忽略 {{ normalizedIgnorePaths.length }} · 规则 {{ normalizedRules.length }}</span>
+        </div>
+        <div class="save-bar-actions">
+          <el-button v-if="dirty" plain size="small" @click="handleEdit(payloadPreview)">放弃修改</el-button>
+          <el-button type="primary" :loading="saving" :disabled="hasBlockingIssues" @click="handleSave">
+            <el-icon><CircleCheckFilled /></el-icon>保存策略
+          </el-button>
+        </div>
       </div>
 
       <el-dialog
@@ -360,6 +357,11 @@ const repos = ref<PlatformRepo[]>([])
 const platforms = ref<GitPlatform[]>([])
 const policyKeyword = ref('')
 const originalJson = ref('')
+
+// 向导/编辑模式：新建策略走分步向导（降低 47 字段的信息过载）；编辑走标签页。
+const isWizard = ref(true) // 新建时 true，编辑已有策略时 false
+const wizardStep = ref(0) // 0 仓库定位 · 1 质量门禁 · 2 审查范围 · 3（完成可保存）
+const activeTab = ref('basic') // 编辑模式标签：basic / ocr / rules
 
 const form = reactive<ProjectPolicyForm>({
   provider: '',
@@ -614,6 +616,8 @@ function handleEdit(policy: ProjectPolicy) {
   ignorePathsText.value = (policy.ignore_paths || []).join('\n')
   syncOriginal()
   fetchRepos()
+  isWizard.value = false
+  activeTab.value = 'basic'
 }
 
 function startCreate() {
@@ -645,6 +649,22 @@ function startCreate() {
   ignorePathsText.value = ''
   syncOriginal()
   if (form.provider) fetchRepos()
+  isWizard.value = true
+  wizardStep.value = 0
+}
+
+// 向导"下一步"校验：每步只检查该步必填项，逐步降低认知负担。
+const wizardStepValid = computed(() => {
+  if (wizardStep.value === 0) return Boolean(form.provider && form.repo.trim())
+  if (wizardStep.value === 1) return failOnOptions.some((o) => o.value === form.fail_on)
+  return true
+})
+
+function wizardNext() {
+  if (wizardStep.value < 3 && wizardStepValid.value) wizardStep.value++
+}
+function wizardPrev() {
+  if (wizardStep.value > 0) wizardStep.value--
 }
 
 function openAgentDialog() {
@@ -788,7 +808,7 @@ onMounted(async () => {
 
 .content-grid {
   display: grid;
-  grid-template-columns: 318px minmax(0, 1fr) 336px;
+  grid-template-columns: 300px minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
@@ -1159,40 +1179,216 @@ onMounted(async () => {
   line-height: 1.6;
 }
 
-@media (max-width: 1600px) {
-  .content-grid {
-    grid-template-columns: 300px minmax(560px, 1fr);
-  }
-
-  .inspector-column {
-    grid-column: 1 / -1;
-  }
-
-  .inspector-sticky {
-    position: static;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .danger-card {
-    grid-column: 1 / -1;
-  }
+/* ===== 新建策略按钮（侧栏顶部） ===== */
+.new-policy-btn {
+  margin: 12px 14px 0;
+  width: calc(100% - 28px);
 }
 
-@media (max-width: 900px) {
-  .policy-hero,
-  .content-grid,
-  .field-grid.two-columns,
-  .gate-options,
-  .inspector-sticky {
+/* ===== 向导 ===== */
+.wizard {
+  display: flex;
+  flex-direction: column;
+  min-height: 420px;
+}
+
+.wizard-steps {
+  padding: 20px 24px 0;
+}
+
+.wizard-body {
+  flex: 1;
+  padding: 24px;
+}
+
+.wizard-step {
+  max-width: 640px;
+}
+
+.step-hint {
+  margin: 0 0 16px;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.wizard-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--app-border);
+  background: #fafbfc;
+  border-radius: 0 0 14px 14px;
+}
+
+.wizard-nav-spacer {
+  flex: 1;
+}
+
+.confirm-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  text-align: left;
+}
+
+.confirm-summary > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 14px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+}
+
+.confirm-summary span {
+  color: var(--app-muted);
+}
+
+.confirm-summary strong {
+  color: var(--app-text);
+}
+
+/* ===== 编辑模式标签页 ===== */
+.editor-tabs {
+  padding: 0 20px 16px;
+}
+
+.editor-tabs :deep(.el-tabs__nav-wrap) {
+  padding: 0 4px;
+}
+
+.compact-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--app-text);
+}
+
+.tab-hint {
+  margin: 0 0 14px;
+  color: var(--app-muted);
+  font-size: 13px;
+}
+
+.editor-footer-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  background: #fafbfc;
+  flex-wrap: wrap;
+}
+
+.issues-inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  color: #b45309;
+}
+
+.issues-inline.ok {
+  color: #16a34a;
+}
+
+.issues-inline strong {
+  font-weight: 600;
+}
+
+.issue-chip {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #fff7ed;
+  font-size: 12px;
+}
+
+.issue-more {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+/* ===== 编辑器标题 ===== */
+.editor-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.editor-state {
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dirty-tag {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ===== 底部 sticky 保存条 ===== */
+.sticky-save-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 20px;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+  transition: border-color 200ms ease;
+}
+
+.sticky-save-bar.dirty {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.save-bar-info {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.save-bar-info strong {
+  font-size: 14px;
+  color: var(--app-text);
+}
+
+.save-bar-info span {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.save-bar-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 980px) {
+  .content-grid {
     grid-template-columns: 1fr;
-  }
-
-  .hero-actions {
-    justify-content: flex-start;
-  }
-
-  .summary-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .policy-sidebar {
@@ -1200,7 +1396,21 @@ onMounted(async () => {
   }
 
   .policy-list {
-    max-height: 360px;
+    max-height: 280px;
+  }
+
+  .field-grid.two-columns,
+  .gate-options {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .sticky-save-bar {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 
@@ -1217,27 +1427,15 @@ onMounted(async () => {
     font-size: 24px;
   }
 
-  .hero-actions {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .hero-actions :deep(.el-button) {
-    width: 100%;
-    margin-left: 0;
-  }
-
   .summary-strip {
     grid-template-columns: 1fr;
   }
 
-  .editor-header {
-    display: grid;
-  }
-
-  .section-title {
-    grid-template-columns: 1fr;
-    gap: 8px;
+  .wizard-body,
+  .wizard-nav,
+  .editor-tabs {
+    padding-left: 14px;
+    padding-right: 14px;
   }
 }
 </style>
