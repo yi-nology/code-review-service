@@ -173,16 +173,17 @@ type ListOptions struct {
 }
 
 // AggregateStats 是 Review 聚合统计结果。
+// 显式 snake_case JSON tag，与其余 review API 契约保持一致（如 ListStats）。
 type AggregateStats struct {
-	Running    int
-	GateFailed int
-	Findings   int
+	Running    int   `json:"running"`
+	GateFailed int   `json:"gate_failed"`
+	Findings   int   `json:"findings"`
 
-	TotalTokens      int64
-	InputTokens      int64
-	OutputTokens     int64
-	CacheReadTokens  int64
-	CacheWriteTokens int64
+	TotalTokens      int64 `json:"total_tokens"`
+	InputTokens      int64 `json:"input_tokens"`
+	OutputTokens     int64 `json:"output_tokens"`
+	CacheReadTokens  int64 `json:"cache_read_tokens"`
+	CacheWriteTokens int64 `json:"cache_write_tokens"`
 }
 
 // ProjectStatsOptions 是项目级 OCR 统计查询条件（Review/Contributor 共享）。

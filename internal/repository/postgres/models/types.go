@@ -10,16 +10,16 @@ type ListOptions struct {
 }
 
 type AggregateStats struct {
-	Running    int
-	GateFailed int
-	Findings   int
+	Running    int   `json:"running"`
+	GateFailed int   `json:"gate_failed"`
+	Findings   int   `json:"findings"`
 
 	// Token 用量聚合（仅统计成功评审），让运营能看到 token 花销（#20）。
-	TotalTokens      int64
-	InputTokens      int64
-	OutputTokens     int64
-	CacheReadTokens  int64
-	CacheWriteTokens int64
+	TotalTokens      int64 `json:"total_tokens"`
+	InputTokens      int64 `json:"input_tokens"`
+	OutputTokens     int64 `json:"output_tokens"`
+	CacheReadTokens  int64 `json:"cache_read_tokens"`
+	CacheWriteTokens int64 `json:"cache_write_tokens"`
 }
 
 type ProjectOCRMetrics struct {

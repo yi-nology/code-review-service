@@ -78,7 +78,7 @@
       </section>
 
       <!-- 新用户引导 checklist（配置完 4 步后自动消失） -->
-      <OnboardingGuide :completed-steps="onboardingProgress" class="onboarding-section" />
+      <OnboardingGuide :step-status="configStatus" :completed-steps="onboardingProgress" class="onboarding-section" />
 
       <section class="dashboard-grid">
         <el-card class="panel-card queue-card" shadow="never">
@@ -262,6 +262,7 @@ import ReviewCreateDialog from '@/components/ReviewCreateDialog.vue'
 import { getReviews } from '@/api/review'
 import { getProjects } from '@/api/stats'
 import { progressApi } from '@/api/session'
+import { getGitPlatforms, getOCRSettings } from '@/api/config'
 import type { ListStats, Review } from '@/types/review'
 import type { ProjectSummary } from '@/types/stats'
 import { formatDateRelative, getProviderInitial, shortId } from '@/utils/format'
@@ -297,6 +298,26 @@ interface ActiveReview {
 }
 const activeReviews = ref<ActiveReview[]>([])
 let activePollTimer: ReturnType<typeof setInterval> | null = null
+
+// onboarding 真实配置探测：查询实际配置项判断各步骤是否完成，避免「/ping 通就误判已配置」。
+// 任一查询失败时该步骤保守视为未完成，引导用户去配置。
+const configStatus = ref({ git: false, llm: false, ocr: false, reviewed: false })
+
+async function probeConfigStatus() {
+  try {
+    const platforms = await getGitPlatforms()
+    configStatus.value.git = Boolean(platforms?.items?.some((p) => p.enabled))
+  } catch { /* 查询失败保守视为未配置 */ }
+  try {
+    const ocr = await getOCRSettings()
+    // LLM 步骤：provider + url + model 齐备视为配置完成。
+    configStatus.value.llm = Boolean(ocr?.url && ocr?.model)
+    // OCR 引擎步骤：enabled=true 视为已启用。
+    configStatus.value.ocr = Boolean(ocr?.enabled)
+  } catch { /* 查询失败保守视为未配置 */ }
+  // reviewed 步骤沿用 listStats.total。
+  configStatus.value.reviewed = listStats.value.total > 0
+}
 
 const healthLabel = computed(() => {
   if (healthStatus.value === 'healthy') return '运行中'
@@ -351,16 +372,15 @@ const readinessItems = computed(() => [
   },
 ])
 
-// onboardingProgress：根据健康状态和已有评审数推断 onboarding 完成进度（0-4）。
+// onboarding 进度：基于真实配置探测（不再用 /ping 通误判）。
+// reviewed 步骤依赖 listStats，在数据加载后同步刷新。
 const onboardingProgress = computed(() => {
+  const s = configStatus.value
   let n = 0
-  // 步骤 1: Git 平台 — 无法直接探测，保守不标记
-  // 步骤 2: LLM 模型 — 健康检查通过说明 LLM 可达
-  if (healthStatus.value === 'healthy') n = Math.max(n, 2)
-  // 步骤 3: OCR 引擎 — 同上，健康通过即视为配置完成
-  if (healthStatus.value === 'healthy') n = Math.max(n, 3)
-  // 步骤 4: 触发过评审 — 有历史评审记录即视为完成
-  if (listStats.value.total > 0) n = 4
+  if (s.git) n = Math.max(n, 1)
+  if (s.llm) n = Math.max(n, 2)
+  if (s.ocr) n = Math.max(n, 3)
+  if (s.reviewed) n = Math.max(n, 4)
   return n
 })
 
@@ -389,6 +409,8 @@ async function fetchReviews() {
     recentReviews.value = latest.items || []
     listStats.value = latest.stats || listStats.value
     failedCount.value = failed.total || 0
+    // 同步 onboarding 的 reviewed 步骤。
+    configStatus.value.reviewed = listStats.value.total > 0
   } catch (err: any) {
     ElMessage.error(err?.message || '加载审查概览失败')
   } finally {
@@ -409,7 +431,7 @@ async function fetchProjects() {
 }
 
 async function refreshAll() {
-  await Promise.all([checkHealth(), fetchReviews(), fetchProjects(), fetchActiveReviews()])
+  await Promise.all([checkHealth(), fetchReviews(), fetchProjects(), fetchActiveReviews(), probeConfigStatus()])
 }
 
 async function fetchActiveReviews() {

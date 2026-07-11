@@ -168,7 +168,7 @@ function syncDraftJSON() {
 }
 
 function syncDraftSelection() {
-  try { toolDraft.value.selectedTools = inferSelectedTools(JSON.parse(toolDraft.value.configText)) } catch {}
+  try { toolDraft.value.selectedTools = inferSelectedTools(JSON.parse(toolDraft.value.configText)) } catch { /* config 非合法 JSON 时保留当前选择，忽略解析错误 */ }
 }
 
 function inferSelectedTools(config: any) {

@@ -28,6 +28,11 @@ function resetPatchState() {
   findingsPanelRef.value?.resetPatchState()
 }
 
+// 转发来自侧栏「优先修复」的跳转请求到发现面板。
+function focusFinding(index: number) {
+  findingsPanelRef.value?.scrollToFinding(index)
+}
+
 async function handleDownloadPatch(indexes: number[]) {
   if (!props.detail || !indexes.length) return
   const blob = await downloadSuggestionPatch(props.detail.review_id, indexes)
@@ -41,7 +46,7 @@ async function handleDownloadPatch(indexes: number[]) {
   URL.revokeObjectURL(url)
 }
 
-defineExpose({ resetPatchState })
+defineExpose({ resetPatchState, focusFinding })
 </script>
 
 <template>

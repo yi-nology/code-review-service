@@ -1,18 +1,16 @@
 /**
  * 周报相关类型。
- *
- * 注意：AggregateStats 的键名是 PascalCase（后端 Go 结构体无 JSON 标签，
- * 走默认 marshal），不要写成 snake_case。
+ * 后端 AggregateStats 已加 snake_case JSON tag，与其余 review API 契约一致。
  */
 export interface AggregateStats {
-  Running: number
-  GateFailed: number
-  Findings: number
-  TotalTokens: number
-  InputTokens: number
-  OutputTokens: number
-  CacheReadTokens: number
-  CacheWriteTokens: number
+  running: number
+  gate_failed: number
+  findings: number
+  total_tokens: number
+  input_tokens: number
+  output_tokens: number
+  cache_read_tokens: number
+  cache_write_tokens: number
 }
 
 export interface WeeklyReport {

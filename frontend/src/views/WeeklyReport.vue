@@ -46,22 +46,22 @@
         <div class="metric-item">
           <span class="metric-icon running"><el-icon><Loading /></el-icon></span>
           <span class="metric-label">运行中</span>
-          <strong>{{ stats.Running }}</strong>
+          <strong>{{ stats.running }}</strong>
         </div>
         <div class="metric-item">
           <span class="metric-icon failed"><el-icon><WarningFilled /></el-icon></span>
           <span class="metric-label">门禁失败</span>
-          <strong>{{ stats.GateFailed }}</strong>
+          <strong>{{ stats.gate_failed }}</strong>
         </div>
         <div class="metric-item">
           <span class="metric-icon findings"><el-icon><Aim /></el-icon></span>
           <span class="metric-label">发现问题</span>
-          <strong>{{ stats.Findings }}</strong>
+          <strong>{{ stats.findings }}</strong>
         </div>
         <div class="metric-item">
           <span class="metric-icon tokens"><el-icon><Coin /></el-icon></span>
           <span class="metric-label">累计 Tokens</span>
-          <strong>{{ stats.TotalTokens ? stats.TotalTokens.toLocaleString() : 0 }}</strong>
+          <strong>{{ stats.total_tokens ? stats.total_tokens.toLocaleString() : 0 }}</strong>
         </div>
       </section>
 
@@ -97,8 +97,8 @@ const loading = ref(false)
 const report = ref<WeeklyReportType | null>(null)
 
 const stats = computed(() => report.value?.stats ?? {
-  Running: 0, GateFailed: 0, Findings: 0, TotalTokens: 0,
-  InputTokens: 0, OutputTokens: 0, CacheReadTokens: 0, CacheWriteTokens: 0,
+  running: 0, gate_failed: 0, findings: 0, total_tokens: 0,
+  input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0,
 })
 const period = computed(() => report.value?.period ?? '')
 const renderedHtml = computed(() => renderMarkdown(report.value?.report ?? ''))

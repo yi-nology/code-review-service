@@ -5,10 +5,11 @@
  * 门禁解释、优先修复列表，加上元信息和操作按钮。
  */
 import { computed } from 'vue'
-import { SuccessFilled, CircleCloseFilled, InfoFilled } from '@element-plus/icons-vue'
+import { SuccessFilled, CircleCloseFilled, InfoFilled, TopRight } from '@element-plus/icons-vue'
 import type { ReviewDetail, Finding, Report } from '@/types/review'
 import { getStatusLabel, getStatusType } from '@/utils/status'
 import { formatDateTime } from '@/utils/format'
+import { DEAD_LETTER_THRESHOLD } from '@/constants/review'
 
 const props = defineProps<{
   detail: ReviewDetail
@@ -20,10 +21,11 @@ const emit = defineEmits<{
   (e: 'rerun'): void
   (e: 'requeue'): void
   (e: 'refresh'): void
+  (e: 'focus-finding', index: number): void
 }>()
 
 const isDeadLetter = computed(() =>
-  props.detail.status === 'failed' && (props.detail.retry_count ?? 0) >= 5,
+  props.detail.status === 'failed' && (props.detail.retry_count ?? 0) >= DEAD_LETTER_THRESHOLD,
 )
 
 const isFailed = computed(() =>
@@ -39,9 +41,11 @@ const gateLabel = computed(() => {
   return '等待结果'
 })
 
+// 优先修复：保留原始 index，便于点击跳转到对应 finding 卡片。
 const blockingFindings = computed(() =>
   (props.detail.findings || [])
-    .filter((f: Finding) => ['critical', 'major'].includes(f.severity))
+    .map((f: Finding, index: number) => ({ finding: f, index }))
+    .filter(({ finding }) => ['critical', 'major'].includes(finding.severity))
     .slice(0, 5),
 )
 
@@ -136,13 +140,20 @@ function scoreColor(score: number) {
         </div>
       </div>
 
-      <!-- 优先修复 -->
+      <!-- 优先修复：点击跳转到对应 finding 并高亮 -->
       <div v-if="blockingFindings.length" class="blocking-list">
         <strong>优先修复</strong>
-        <div v-for="(f, i) in blockingFindings" :key="i" class="blocking-item">
-          <el-tag size="small" :type="f.severity === 'critical' ? 'danger' : 'warning'">{{ severityLabel(f.severity) }}</el-tag>
-          <span>{{ f.path || '未知' }}<template v-if="f.line">:{{ f.line }}</template></span>
-        </div>
+        <button
+          v-for="item in blockingFindings"
+          :key="item.index"
+          type="button"
+          class="blocking-item"
+          @click="emit('focus-finding', item.index)"
+        >
+          <el-tag size="small" :type="item.finding.severity === 'critical' ? 'danger' : 'warning'">{{ severityLabel(item.finding.severity) }}</el-tag>
+          <span>{{ item.finding.path || '未知' }}<template v-if="item.finding.line">:{{ item.finding.line }}</template></span>
+          <el-icon class="blocking-arrow"><TopRight /></el-icon>
+        </button>
       </div>
     </div>
 
@@ -312,15 +323,39 @@ function scoreColor(score: number) {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 0;
+  width: 100%;
+  padding: 6px 4px;
+  border: 0;
   border-top: 1px solid var(--app-border);
-  font-size: 12px;
-}
-.blocking-item span {
+  border-radius: 0;
+  background: transparent;
   color: #374151;
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.blocking-item:hover {
+  background: #f3f5f9;
+}
+
+.blocking-item span {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.blocking-arrow {
+  flex-shrink: 0;
+  color: #c4cad6;
+  font-size: 11px;
+}
+
+.blocking-item:hover .blocking-arrow {
+  color: #2563eb;
 }
 
 /* 元信息 */

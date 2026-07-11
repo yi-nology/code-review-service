@@ -3,7 +3,7 @@
     <div class="reviews-page">
       <header class="page-header">
         <div>
-          <h1>代码审查</h1>
+          <h1>审查记录</h1>
           <p>跟踪审查队列、质量门禁和风险项处理状态。</p>
         </div>
         <el-button type="primary" size="large" @click="openCreateDialog">
@@ -69,7 +69,7 @@
           <el-input
             v-model="filters.repo"
             class="repo-search"
-            placeholder="搜索仓库，例如 owner/repo"
+            placeholder="搜索仓库名（按 owner/repo 模糊匹配）"
             clearable
             @keyup.enter="applyFilters"
             @clear="applyFilters"
@@ -77,22 +77,39 @@
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
           <el-select v-model="filters.provider" placeholder="全部平台" clearable @change="applyFilters">
-              <el-option v-for="p in PROVIDER_OPTIONS" :key="p.value" :label="p.label" :value="p.value" />
+            <el-option v-for="p in PROVIDER_OPTIONS" :key="p.value" :label="p.label" :value="p.value" />
           </el-select>
           <el-select v-model="filters.status" placeholder="全部状态" clearable @change="applyFilters">
-              <el-option label="排队中" value="queued" />
-              <el-option label="审查中" value="running" />
-              <el-option label="已完成" value="success" />
-              <el-option label="执行失败" value="failed" />
+            <el-option label="排队中" value="queued" />
+            <el-option label="审查中" value="running" />
+            <el-option label="已完成" value="success" />
+            <el-option label="执行失败" value="failed" />
           </el-select>
           <el-select v-model="filters.gate_status" placeholder="全部门禁" clearable @change="applyFilters">
-              <el-option label="门禁通过" value="passed" />
-              <el-option label="门禁失败" value="failed" />
-              <el-option label="待评估" value="pending" />
+            <el-option label="门禁通过" value="passed" />
+            <el-option label="门禁失败" value="failed" />
+            <el-option label="待评估" value="pending" />
           </el-select>
           <el-button type="primary" plain @click="applyFilters">筛选</el-button>
           <el-button v-if="hasFilters" link @click="resetFilters">重置</el-button>
         </div>
+
+        <!-- 批量操作条：有选中时出现 -->
+        <transition name="bulk-slide">
+          <div v-if="selectedRows.length" class="bulk-action-bar">
+            <span>已选 <strong>{{ selectedRows.length }}</strong> 条</span>
+            <span class="bulk-hint">
+              （可取消 {{ cancellableRows(selectedRows).length }} · 可重审 {{ rerunnableRows(selectedRows).length }}）
+            </span>
+            <div class="bulk-spacer" />
+            <el-button size="small" type="danger" plain :loading="bulkAction" :disabled="!cancellableRows(selectedRows).length" @click="handleBulkCancel">
+              批量取消
+            </el-button>
+            <el-button size="small" type="primary" plain :loading="bulkAction" :disabled="!rerunnableRows(selectedRows).length" @click="handleBulkRerun">
+              批量重新审查
+            </el-button>
+          </div>
+        </transition>
 
         <el-table
           :data="reviews"
@@ -100,8 +117,11 @@
           class="review-table desktop-table"
           row-class-name="review-row"
           empty-text="暂无符合条件的审查记录"
+          row-key="review_id"
           @row-click="goToDetail"
+          @selection-change="handleSelectionChange"
         >
+          <el-table-column type="selection" width="42" :selectable="() => true" />
           <el-table-column label="仓库" min-width="240">
             <template #default="{ row }">
               <div class="repo-cell">
@@ -143,7 +163,7 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="质量评分" width="130">
+          <el-table-column label="质量评分" width="130" sortable :sort-method="(a: Review, b: Review) => a.score - b.score">
             <template #default="{ row }">
               <div v-if="row.report_generated" class="score-cell">
                 <strong>{{ row.score }}</strong>
@@ -152,12 +172,12 @@
               <span v-else class="muted-value">尚未生成</span>
             </template>
           </el-table-column>
-          <el-table-column label="问题" width="90" align="center">
+          <el-table-column label="问题" width="90" align="center" sortable :sort-method="(a: Review, b: Review) => a.findings - b.findings">
             <template #default="{ row }">
               <span class="finding-count" :class="{ active: row.findings > 0 }">{{ row.findings }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="最后更新" width="150">
+          <el-table-column label="最后更新" width="160" sortable prop="updated_at">
             <template #default="{ row }">
               <div class="time-cell">
                 <strong>{{ formatDateShort(row.updated_at) }}</strong>
@@ -317,11 +337,15 @@ import type { Review, ListStats } from '@/types/review'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 import { useListPage } from '@/composables/useListPage'
+import { DEAD_LETTER_THRESHOLD } from '@/constants/review'
 
 const router = useRouter()
 const route = useRoute()
 const showCreateDialog = ref(false)
 const actingId = ref('')
+// 批量选择：对运行中/失败/成功的记录支持批量取消 / 批量重新审查。
+const selectedRows = ref<Review[]>([])
+const bulkAction = ref(false)
 const initialFilters = {
   repo: typeof route.query.repo === 'string' ? route.query.repo : '',
   provider: typeof route.query.provider === 'string' ? route.query.provider : '',
@@ -464,7 +488,7 @@ async function handleRequeue(row: Review) {
 }
 
 function isDeadLetter(row: Review): boolean {
-  return row.status === 'failed' && (row.retry_count ?? 0) >= 5
+  return row.status === 'failed' && (row.retry_count ?? 0) >= DEAD_LETTER_THRESHOLD
 }
 
 function getGateLabel(row: Review) {
@@ -479,6 +503,65 @@ function getGateClass(row: Review) {
 
 function handleReviewCreated() {
   refresh()
+}
+
+// ---- 批量操作 ----
+// 可批量取消：运行中/排队中。可批量重审：失败/成功。
+function cancellableRows(rows: Review[]) {
+  return rows.filter((r) => r.status === 'queued' || r.status === 'running')
+}
+function rerunnableRows(rows: Review[]) {
+  return rows.filter((r) => r.status === 'failed' || r.status === 'success')
+}
+
+function handleSelectionChange(rows: Review[]) {
+  selectedRows.value = rows
+}
+
+async function handleBulkRerun() {
+  const targets = rerunnableRows(selectedRows.value)
+  if (!targets.length) {
+    ElMessage.warning('选中记录中没有可重新审查的（仅失败/成功可重审）')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `将对选中的 ${targets.length} 条记录重新发起审查，确定继续？`,
+      '批量重新审查',
+      { type: 'warning', confirmButtonText: '批量重审', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  bulkAction.value = true
+  let ok = 0
+  await Promise.allSettled(targets.map((r) => rerunReview(r.review_id).then(() => ok++)))
+  ElMessage.success(`已重新加入审查队列：${ok}/${targets.length}`)
+  bulkAction.value = false
+  refreshBackground()
+}
+
+async function handleBulkCancel() {
+  const targets = cancellableRows(selectedRows.value)
+  if (!targets.length) {
+    ElMessage.warning('选中记录中没有可取消的（仅运行中/排队中可取消）')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `将取消选中的 ${targets.length} 条审查任务，确定继续？`,
+      '批量取消',
+      { type: 'warning', confirmButtonText: '批量取消', cancelButtonText: '再想想' },
+    )
+  } catch {
+    return
+  }
+  bulkAction.value = true
+  let ok = 0
+  await Promise.allSettled(targets.map((r) => cancelReview(r.review_id).then(() => ok++)))
+  ElMessage.success(`已取消审查任务：${ok}/${targets.length}`)
+  bulkAction.value = false
+  refreshBackground()
 }
 </script>
 
@@ -671,6 +754,41 @@ function handleReviewCreated() {
 
 .filter-bar .el-select {
   width: 148px;
+}
+
+/* 批量操作条：选中行时滑出，与筛选条视觉延续 */
+.bulk-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--app-border);
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 13px;
+}
+
+.bulk-hint {
+  color: #6366f1;
+  font-size: 12px;
+}
+
+.bulk-spacer {
+  flex: 1;
+}
+
+.bulk-slide-enter-active,
+.bulk-slide-leave-active {
+  transition: all 180ms ease;
+  overflow: hidden;
+}
+
+.bulk-slide-enter-from,
+.bulk-slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .review-table {

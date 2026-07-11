@@ -3,6 +3,7 @@ import type {
   ReviewDetail, ListResult, ListOptions, CreateReviewOptions, FindingFeedback,
   PublishStatus, ScanRepositoryOptions, ScanRepositoryResult, SuggestionPatchApplyResult, SuggestionPatchCheck, SuggestionPatchPreview,
 } from '@/types/review'
+import { DEAD_LETTER_THRESHOLD } from '@/constants/review'
 
 export async function getReviews(params: ListOptions): Promise<ListResult> {
   return request.get('/reviews', { params }) as any
@@ -54,7 +55,7 @@ export async function rerunReview(id: string): Promise<ReviewDetail> {
 }
 
 /**
- * 死信重排队：把因重试次数耗尽（retry_count >= 5）而 failed 的评审重新入队。
+ * 死信重排队：把因重试次数耗尽（retry_count >= DEAD_LETTER_THRESHOLD）而 failed 的评审重新入队。
  * 仅对死信评审生效，后端会校验条件，非死信评审返回 404。
  */
 export async function requeueReview(id: string): Promise<{ ok: boolean; review_id: string }> {

@@ -2,7 +2,7 @@ import request from './request'
 import type {
   OCRSettings, ProjectPolicy, ProjectPolicyList, GitPlatform, GitPlatformList,
   GitTestResult, GlobalRules, TestLLMResult, PlatformRepo, PlatformBranch,
-  PlatformPullRequest, ReviewerAgent, LLMProvider, CustomProvider,
+  PlatformPullRequest, ReviewerAgent, LLMProvider,
   RulesCheckResult, OCRVersion, ViewerStatus, OCRAssetVersion, OCRRulePackage, OCRToolPackage,
   OCRUpdateInfo, OCRUpgradeStatus, ViewerSessionLocation
 } from '@/types/config'
@@ -70,45 +70,6 @@ export async function testLLM(): Promise<TestLLMResult> {
 export async function listLLMProviders(): Promise<LLMProvider[]> {
   const resp: any = await request.get('/settings/ocr/providers')
   return resp?.built_in ?? []
-}
-
-// ==================== Custom Providers ====================
-
-export async function listCustomProviders(): Promise<CustomProvider[]> {
-  const resp: any = await request.get('/settings/ocr/custom-providers')
-  return resp?.items ?? []
-}
-
-export async function createCustomProvider(data: {
-  name: string
-  protocol: string
-  url?: string
-  api_key?: string
-  model?: string
-  auth_header?: string
-  extra_body?: string
-  enabled?: boolean
-}): Promise<CustomProvider> {
-  const resp: any = await request.post('/settings/ocr/custom-providers', data)
-  return resp?.provider ?? resp
-}
-
-export async function updateCustomProvider(id: number, data: {
-  name?: string
-  protocol?: string
-  url?: string
-  api_key?: string
-  model?: string
-  auth_header?: string
-  extra_body?: string
-  enabled?: boolean
-}): Promise<CustomProvider> {
-  const resp: any = await request.put(`/settings/ocr/custom-providers/${id}`, data)
-  return resp?.provider ?? resp
-}
-
-export async function deleteCustomProvider(id: number): Promise<void> {
-  return request.delete(`/settings/ocr/custom-providers/${id}`) as any
 }
 
 // ==================== Rules Check ====================

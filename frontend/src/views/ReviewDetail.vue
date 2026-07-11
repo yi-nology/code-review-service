@@ -50,6 +50,7 @@
               @rerun="handleRerun"
               @requeue="handleRequeue"
               @refresh="fetchDetail"
+              @focus-finding="(index: number) => contentRef?.focusFinding(index)"
             />
 
             <!-- 历史 / 会话（左栏底部） -->

@@ -62,6 +62,8 @@ Review Service is a code review gateway that integrates with GitHub, GitLab, Git
 └─────────────────────────────────────────────────────────┘
 ```
 
+> **Deployment note:** In production/Docker the web console is served by a **separate nginx container** that reverse-proxies `/api`, `/swagger`, `/healthz` to the Go API service — the Go binary serves only the API, it does not embed the frontend. For local development run `cd frontend && npm run dev` (Vite dev server proxies `/api` to the backend) or `make dev`.
+
 ## Quick Start
 
 ### Prerequisites
@@ -70,6 +72,16 @@ Review Service is a code review gateway that integrates with GitHub, GitLab, Git
 - PostgreSQL 14+
 - Open Code Review binary (for AI-powered reviews)
 
+### Database setup
+
+The service uses **GORM AutoMigrate** — on startup it creates all required tables automatically (enabled by default; set `DATABASE_AUTO_MIGRATE=false` to disable). You only need to **pre-create the database** itself:
+
+```sh
+psql -U postgres -c "CREATE DATABASE review_service;"
+```
+
+The committed `migrations/*.sql` files are optional manual migrations for specific column/index additions already covered by AutoMigrate; they are not run automatically. The `deploy/migrations/` files are one-off manual cleanup (e.g. dropping a removed feature's table) — run them by hand if upgrading an existing deployment.
+
 ### Run
 
 ```sh
@@ -77,6 +89,8 @@ DATABASE_URL='postgres://review_service:review_service@localhost:5432/review_ser
 REVIEW_TOKEN=dev-token \
 go run .
 ```
+
+The local profile (`etc/config-local.yaml`) listens on **:8081**. Docker Compose overrides `HTTP_ADDR=:8080`. See the env var table below.
 
 ### With OCR enabled
 
@@ -262,6 +276,8 @@ Review Service 是一个代码评审网关，支持 GitHub、GitLab、Gitea、Gi
 └─────────────────────────────────────────────────────────┘
 ```
 
+> **部署说明：** 生产/Docker 环境下 Web 控制台由**独立的 nginx 容器**服务，nginx 把 `/api`、`/swagger`、`/healthz` 反向代理到 Go API 服务 —— Go 二进制只提供 API，不内嵌前端。本地开发可 `cd frontend && npm run dev`（Vite dev server 代理 `/api` 到后端）或 `make dev`。
+
 ## 快速开始
 
 ### 环境要求
@@ -270,6 +286,16 @@ Review Service 是一个代码评审网关，支持 GitHub、GitLab、Gitea、Gi
 - PostgreSQL 14+
 - Open Code Review 二进制文件（用于 AI 评审）
 
+### 数据库初始化
+
+服务使用 **GORM AutoMigrate** —— 启动时自动创建所有需要的表（默认开启，设置 `DATABASE_AUTO_MIGRATE=false` 可关闭）。你只需**预先创建数据库**本身：
+
+```sh
+psql -U postgres -c "CREATE DATABASE review_service;"
+```
+
+`migrations/*.sql` 是可选的手动迁移（AutoMigrate 已覆盖其内容，不会自动执行）；`deploy/migrations/` 是一次性手动清理脚本（如删除已下线特性的表），升级既有部署时手动执行。
+
 ### 运行
 
 ```sh
@@ -277,6 +303,8 @@ DATABASE_URL='postgres://review_service:review_service@localhost:5432/review_ser
 REVIEW_TOKEN=dev-token \
 go run .
 ```
+
+本地配置（`etc/config-local.yaml`）监听 **:8081**；Docker Compose 通过 `HTTP_ADDR=:8080` 覆盖。详见下方环境变量表。
 
 ### 启用 OCR
 
@@ -360,7 +388,7 @@ curl -X POST http://localhost:8081/api/v1/webhooks \
 
 | 环境变量 | 默认值 | 说明 |
 |---------|--------|------|
-| `HTTP_ADDR` | `:8080` | HTTP 监听地址 |
+| `HTTP_ADDR` | `:8081` | HTTP 监听地址（Docker Compose 覆盖为 `:8080`） |
 | `REVIEW_TOKEN` | - | API 认证 Bearer Token |
 | `DATABASE_URL` | - | PostgreSQL 连接 URL |
 | `OCR_ENABLED` | `false` | 启用 AI 代码评审 |

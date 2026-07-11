@@ -5,35 +5,45 @@ import { CircleCheck, Right } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const props = defineProps<{
-  /** 已完成的步骤数量（由父组件根据实际配置状态传入） */
+  /**
+   * 每个步骤的真实完成状态（由父组件查询实际配置得出）。
+   * 优先于 completedSteps；未传时回退到 completedSteps 的顺序推断。
+   */
+  stepStatus?: { git?: boolean; llm?: boolean; ocr?: boolean; reviewed?: boolean }
+  /** 旧版顺序完成数（向后兼容），stepStatus 未传时使用。 */
   completedSteps?: number
 }>()
 
 const dismissed = ref(localStorage.getItem('onboarding-dismissed') === 'true')
 
+function stepDone(key: keyof NonNullable<typeof props.stepStatus>, ordinal: number): boolean {
+  if (props.stepStatus) return Boolean(props.stepStatus[key])
+  return (props.completedSteps ?? 0) >= ordinal
+}
+
 const steps = computed(() => [
   {
     label: '配置 Git 平台',
     desc: '添加 GitHub/GitLab/Gitea 等 Token，让评审能读取代码',
-    done: (props.completedSteps ?? 0) >= 1,
+    done: stepDone('git', 1),
     action: () => router.push('/settings/platforms'),
   },
   {
     label: '配置 LLM 模型',
     desc: '选择服务商和模型，这是评审的核心引擎',
-    done: (props.completedSteps ?? 0) >= 2,
+    done: stepDone('llm', 2),
     action: () => router.push('/settings/model'),
   },
   {
     label: '配置 OCR 引擎',
     desc: '设置评审执行参数、审查背景',
-    done: (props.completedSteps ?? 0) >= 3,
+    done: stepDone('ocr', 3),
     action: () => router.push('/settings/ocr'),
   },
   {
     label: '触发第一次评审',
     desc: '创建一个评审或开启 webhook 自动评审',
-    done: (props.completedSteps ?? 0) >= 4,
+    done: stepDone('reviewed', 4),
     action: () => router.push('/reviews'),
   },
 ])

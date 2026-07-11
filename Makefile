@@ -5,10 +5,13 @@ GO_LINT_PATHS = $(shell go list -f '{{.Dir}}' ./... | grep -v '/frontend/node_mo
 EKIT_PATH ?= ../ekit
 GIT_SDK_PATH ?= /opt/project/wechat_project/git-platform-sdk
 
-.PHONY: help fmt lint lint-strict test test-race vuln frontend-install frontend-lint frontend-build compose-config check setup-local-deps
+.PHONY: help fmt lint lint-strict test test-race vuln build run dev frontend-install frontend-lint frontend-build compose-config check setup-local-deps
 
 help:
 	@echo "Targets:"
+	@echo "  make build           Compile the Go binary into bin/"
+	@echo "  make run             Run the backend locally (config-local profile)"
+	@echo "  make dev             Build the frontend and run the backend"
 	@echo "  make fmt             Run gofmt on Go sources"
 	@echo "  make lint            Run required Go static checks"
 	@echo "  make lint-strict     Run extended golangci-lint policy"
@@ -20,6 +23,15 @@ help:
 	@echo "  make compose-config  Validate docker compose configuration"
 	@echo "  make check           Run the default local quality gate"
 	@echo "  make setup-local-deps Verify/configure local replace directives"
+
+build:
+	go build -o bin/review-service .
+
+run:
+	go run .
+
+dev: frontend-build
+	go run .
 
 fmt:
 	gofmt -w $$(git ls-files '*.go')

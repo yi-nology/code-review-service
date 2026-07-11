@@ -1,9 +1,6 @@
 import request from './request'
 import type {
   ReviewSession,
-  AgentResult,
-  Discussion,
-  FinalReport,
   ReviewProgress,
   ProgressEvent,
   SessionListResult,
@@ -32,20 +29,17 @@ export type {
 
 /**
  * 全局会话列表（跨 review 的所有审查会话）。
- * 独立命名导出，供 Sessions.vue 列表页使用；sessionApi.listSessions 仍保留向后兼容。
+ * 独立命名导出，供 Sessions.vue 列表页使用。
  */
 export async function listAllSessions(params: SessionListOptions = {}): Promise<SessionListResult> {
   return request.get('/sessions', { params }) as any
 }
 
-// Session API
+// Session API（仅保留前端实际使用的读取/创建/取消操作；
+// 其余 update*/complete*/fail*/getActiveSession 等是后端写入路径，前端从不调用，已移除。）
 export const sessionApi = {
   getSessions(reviewId: string): Promise<{ sessions: ReviewSession[] }> {
     return request.get(`/reviews/${reviewId}/sessions`)
-  },
-
-  getActiveSession(reviewId: string): Promise<ReviewSession> {
-    return request.get(`/reviews/${reviewId}/sessions/active`)
   },
 
   getSession(reviewId: string, sessionId: string): Promise<ReviewSession> {
@@ -56,46 +50,8 @@ export const sessionApi = {
     return request.post(`/reviews/${reviewId}/sessions`)
   },
 
-  updatePhase(reviewId: string, sessionId: string, phase: string, progress: number): Promise<void> {
-    return request.put(`/reviews/${reviewId}/sessions/${sessionId}/phase`, { phase, progress })
-  },
-
-  updateStatus(reviewId: string, sessionId: string, status: string): Promise<void> {
-    return request.put(`/reviews/${reviewId}/sessions/${sessionId}/status`, { status })
-  },
-
-  updateAgentResults(reviewId: string, sessionId: string, agentResults: AgentResult[]): Promise<void> {
-    return request.put(`/reviews/${reviewId}/sessions/${sessionId}/agent-results`, agentResults)
-  },
-
-  updateDiscussion(reviewId: string, sessionId: string, discussion: Discussion): Promise<void> {
-    return request.put(`/reviews/${reviewId}/sessions/${sessionId}/discussion`, discussion)
-  },
-
-  updateFinalReport(reviewId: string, sessionId: string, finalReport: FinalReport): Promise<void> {
-    return request.put(`/reviews/${reviewId}/sessions/${sessionId}/final-report`, finalReport)
-  },
-
-  completeSession(reviewId: string, sessionId: string, finalReport: FinalReport): Promise<void> {
-    return request.post(`/reviews/${reviewId}/sessions/${sessionId}/complete`, finalReport)
-  },
-
-  failSession(reviewId: string, sessionId: string, reason: string): Promise<void> {
-    return request.post(`/reviews/${reviewId}/sessions/${sessionId}/fail`, { reason })
-  },
-
   cancelSession(reviewId: string, sessionId: string): Promise<void> {
     return request.post(`/reviews/${reviewId}/sessions/${sessionId}/cancel`)
-  },
-
-  listSessions(page: number = 1, pageSize: number = 20): Promise<{
-    sessions: ReviewSession[]
-    total: number
-    page: number
-    page_size: number
-    total_pages: number
-  }> {
-    return request.get('/sessions', { params: { page, page_size: pageSize } })
   },
 }
 

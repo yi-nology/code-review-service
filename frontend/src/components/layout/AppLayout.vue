@@ -16,7 +16,7 @@
 
       <nav class="navigation" @click="sidebarOpen = false">
         <!-- 三主域导航：评审 / 洞察 / 配置，数据驱动渲染 -->
-        <template v-for="group in navGroups" :key="group.key">
+        <template v-for="group in navGroupsData" :key="group.key">
           <p class="nav-label" :class="{ 'settings-label': group.key !== 'review' }">{{ group.label }}</p>
           <router-link
             v-for="item in group.items"
@@ -44,9 +44,20 @@
         <button class="topbar-menu-btn" aria-label="打开菜单" @click="sidebarOpen = true">
           <el-icon><Menu /></el-icon>
         </button>
+        <!-- 面包屑 + 当前页标题：让用户始终知道自己在哪 -->
+        <nav v-if="crumb.group || crumb.title" class="topbar-breadcrumb" aria-label="页面位置">
+          <span v-if="crumb.group" class="crumb-group">{{ crumb.group }}</span>
+          <el-icon v-if="crumb.group && crumb.title" class="crumb-sep"><ArrowRight /></el-icon>
+          <span class="crumb-title">{{ crumb.title }}</span>
+        </nav>
+        <div class="topbar-spacer" />
+        <!-- 全局搜索入口：点击或 Cmd/Ctrl+K 唤起 -->
+        <button class="topbar-search-btn" aria-label="全局搜索" @click="searchOpen = true">
+          <el-icon><Search /></el-icon>
+          <kbd class="search-kbd">⌘K</kbd>
+        </button>
         <span class="health-dot topbar-health-dot" :class="healthStatus" />
         <span class="topbar-health-text">{{ healthLabel }}</span>
-        <div class="topbar-spacer" />
         <NotificationCenter />
         <button class="logout-button topbar-logout" aria-label="退出登录" title="退出登录" @click="logout">
           <el-icon><SwitchButton /></el-icon>
@@ -56,75 +67,32 @@
         <slot />
       </main>
     </div>
+
+    <!-- 全局搜索（Cmd/Ctrl+K 唤起） -->
+    <GlobalSearch v-model="searchOpen" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, markRaw } from 'vue'
-import {
-  Calendar,
-  Close,
-  Connection,
-  Cpu,
-  DataAnalysis,
-  Document,
-  DocumentChecked,
-  Finished,
-  FolderChecked,
-  Histogram,
-  HomeFilled,
-  List,
-  Menu,
-  Monitor,
-  Notebook,
-  Search,
-  SwitchButton,
-  Tools,
-  User,
-} from '@element-plus/icons-vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ArrowRight, Close, Finished, Menu, Search, SwitchButton } from '@element-plus/icons-vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { navGroups, resolveBreadcrumb } from '@/constants/nav'
 import NotificationCenter from './NotificationCenter.vue'
+import GlobalSearch from './GlobalSearch.vue'
 
 const sidebarOpen = ref(false)
+const searchOpen = ref(false)
 const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 
-// 三主域导航：评审（核心）/ 洞察（度量）/ 配置（治理）。
-// 数据驱动渲染，便于后续增减菜单项；按业务归属分组而非路径前缀。
-const navGroups = [
-  {
-    key: 'review',
-    label: '评审',
-    items: [
-      { path: '/reviews', label: '审查记录', icon: markRaw(DocumentChecked) },
-      { path: '/sessions', label: '审查会话', icon: markRaw(Histogram) },
-      { path: '/scan', label: '代码库扫描', icon: markRaw(Search) },
-    ],
-  },
-  {
-    key: 'insight',
-    label: '洞察',
-    items: [
-      { path: '/dashboard', label: '运营总览', icon: markRaw(HomeFilled) },
-      { path: '/contributors', label: '开发者质量', icon: markRaw(DataAnalysis) },
-      { path: '/projects/reports', label: '项目报告', icon: markRaw(Notebook) },
-      { path: '/reports/weekly', label: '周报', icon: markRaw(Calendar) },
-      { path: '/diagnostics', label: '诊断中心', icon: markRaw(Monitor) },
-    ],
-  },
-  {
-    key: 'config',
-    label: '配置',
-    items: [
-      { path: '/settings/model', label: '模型配置', icon: markRaw(Cpu) },
-      { path: '/settings/ocr', label: 'OCR 设置', icon: markRaw(Tools) },
-      { path: '/settings/platforms', label: 'Git 平台', icon: markRaw(Connection) },
-      { path: '/settings/agents', label: '审查代理', icon: markRaw(User) },
-      { path: '/settings/rules', label: '全局规则', icon: markRaw(List) },
-      { path: '/settings/projects', label: '项目策略', icon: markRaw(FolderChecked) },
-      { path: '/api-docs', label: '接口文档', icon: markRaw(Document) },
-    ],
-  },
-]
+// 菜单数据来自共享常量，GlobalSearch 与面包屑共用同一数据源。
+const navGroupsData = navGroups
+
+// 当前页面包屑：分组 → 页面标题。
+const crumb = computed(() => resolveBreadcrumb(route.path))
 
 const healthStatus = ref<'healthy' | 'down' | 'unknown'>('unknown')
 const healthLabel = computed(() => healthStatus.value === 'healthy' ? '服务运行中' : healthStatus.value === 'down' ? '服务异常' : '检测中…')
@@ -141,11 +109,22 @@ async function checkHealth() {
 
 function logout() {
   auth.clearToken()
+  // 退出后跳登录页，避免 router-view 因 token 清空而消失、用户看到空壳。
+  router.replace('/login')
+}
+
+// Cmd/Ctrl+K 唤起全局搜索；输入框聚焦时不拦截，避免与文本快捷键冲突。
+function onGlobalKeydown(e: KeyboardEvent) {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault()
+    searchOpen.value = true
+  }
 }
 
 onMounted(() => {
   checkHealth()
   healthTimer = setInterval(checkHealth, 30000)
+  window.addEventListener('keydown', onGlobalKeydown)
 })
 
 onBeforeUnmount(() => {
@@ -153,6 +132,7 @@ onBeforeUnmount(() => {
     clearInterval(healthTimer)
     healthTimer = null
   }
+  window.removeEventListener('keydown', onGlobalKeydown)
 })
 </script>
 
@@ -389,6 +369,65 @@ onBeforeUnmount(() => {
   flex: 1;
 }
 
+/* 面包屑：分组 > 页面标题，让用户始终知道自己在哪里 */
+.topbar-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.crumb-group {
+  color: #929aab;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.crumb-sep {
+  color: #c4cad6;
+  font-size: 12px;
+}
+
+.crumb-title {
+  color: var(--app-text);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 全局搜索按钮：放大镜 + 快捷键提示 */
+.topbar-search-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #6b7280;
+  background: #fff;
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.topbar-search-btn:hover {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.search-kbd {
+  padding: 1px 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 5px;
+  color: #929aab;
+  background: #f6f7f9;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .topbar-logout {
   display: grid;
   width: 34px;
@@ -453,6 +492,16 @@ onBeforeUnmount(() => {
   }
 
   .topbar-health-text {
+    display: none;
+  }
+
+  /* 移动端隐藏快捷键提示与分组前缀，只留页面标题，节省顶栏空间 */
+  .search-kbd {
+    display: none;
+  }
+
+  .crumb-group,
+  .crumb-sep {
     display: none;
   }
 }
