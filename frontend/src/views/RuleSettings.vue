@@ -82,6 +82,42 @@
               </div>
             </div>
             <el-divider v-if="rulePackages.length" />
+
+            <!-- 推荐规则包（前端预制模板，可一键应用或创建为自定义包） -->
+            <div class="card-header compact">
+              <strong>推荐规则包</strong>
+              <small>按语言/场景预置，一键应用或保存</small>
+            </div>
+            <div class="preset-package-list">
+              <div
+                v-for="tpl in rulePackageTemplates"
+                :key="tpl.name"
+                class="preset-package-item"
+              >
+                <div class="preset-package-main">
+                  <div class="preset-package-head">
+                    <span class="preset-package-name">{{ tpl.name }}</span>
+                    <el-tag
+                      v-for="lang in tpl.languages.slice(0, 3)"
+                      :key="lang"
+                      size="small"
+                      effect="plain"
+                      class="lang-tag"
+                    >{{ lang }}</el-tag>
+                  </div>
+                  <small class="preset-package-desc">{{ tpl.description }}</small>
+                  <div class="preset-package-meta">
+                    <em>{{ tpl.rules.length }} 条规则</em>
+                    <span v-if="tpl.includes.length" class="incl-text">{{ tpl.includes.join(' · ') }}</span>
+                  </div>
+                </div>
+                <div class="preset-package-actions">
+                  <el-button size="small" type="primary" plain @click="applyPresetPackage(tpl)">应用</el-button>
+                  <el-button size="small" text @click="createPackageFromTemplate(tpl)">保存为包</el-button>
+                </div>
+              </div>
+            </div>
+            <el-divider />
             <div class="card-header compact">
               <strong>语言规则模板</strong>
               <small>一键加入对应语言的审查规则</small>
@@ -246,8 +282,8 @@ import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 import { CircleCheckFilled, Plus, Refresh, ArrowRight } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import RuleEditor from '@/components/RuleEditor.vue'
-import { ruleTemplateGroups, ruleTemplates } from '@/constants/rule-templates'
-import type { RuleTemplate } from '@/constants/rule-templates'
+import { ruleTemplateGroups, ruleTemplates, rulePackageTemplates } from '@/constants/rule-templates'
+import type { RuleTemplate, RulePackageTemplate } from '@/constants/rule-templates'
 import {
   deleteRulePackage,
   getGlobalRules,
@@ -394,6 +430,42 @@ function applyRulePackage(pkg: OCRRulePackage) {
   }
   globalRules.value.push(...next)
   ElMessage.success(`已加入 ${next.length} 条规则：${pkg.name}`)
+}
+
+// 推荐规则包：把预制模板的规则去重后加入全局规则库（不校验 enabled，模板本身就是推荐）。
+function applyPresetPackage(tpl: RulePackageTemplate) {
+  const existing = new Set(normalizedRules.value.map((rule) => `${rule.path}::${rule.rule}`))
+  const next = tpl.rules
+    .map((rule) => ({ path: normalizePath(rule.path || ''), rule: rule.rule || '' }))
+    .filter((rule) => {
+      const key = `${rule.path}::${rule.rule}`
+      if (existing.has(key)) return false
+      existing.add(key)
+      return true
+    })
+  if (!next.length) {
+    ElMessage.info('该规则包的规则已经全部存在')
+    return
+  }
+  globalRules.value.push(...next)
+  ElMessage.success(`已加入 ${next.length} 条规则：${tpl.name}`)
+}
+
+// 推荐规则包：用模板数据填充"新建规则包"对话框，用户可调整后保存为自定义包。
+function createPackageFromTemplate(tpl: RulePackageTemplate) {
+  editingRulePackageID.value = undefined
+  rulePackageForm.value = {
+    name: tpl.name,
+    description: tpl.description,
+    enabled: true,
+    languagesText: tpl.languages.join(', '),
+    tagsText: tpl.tags.join(', '),
+    includesText: tpl.includes.join('\n'),
+    excludesText: tpl.excludes.join('\n'),
+    projectRefsText: '',
+    rules: tpl.rules.map((rule) => ({ ...rule })),
+  }
+  rulePackageDialog.value = true
 }
 
 function openNewRulePackage() {
@@ -866,6 +938,84 @@ onMounted(fetchGlobalRules)
   display: grid;
   justify-items: end;
   gap: 2px;
+}
+
+/* 推荐规则包（前端预制模板） */
+.preset-package-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preset-package-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e6ebf2;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #fafffefb 0%, #fff 100%);
+}
+
+.preset-package-item:hover {
+  border-color: #9db1ff;
+}
+
+.preset-package-main {
+  min-width: 0;
+}
+
+.preset-package-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.preset-package-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--app-text);
+}
+
+.lang-tag {
+  flex-shrink: 0;
+}
+
+.preset-package-desc {
+  display: block;
+  margin-top: 5px;
+  color: var(--app-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.preset-package-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.preset-package-meta em {
+  color: var(--app-primary);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.incl-text {
+  color: var(--app-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+}
+
+.preset-package-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .dialog-grid {
