@@ -216,6 +216,8 @@ func (v *Viewer) StartViewer(ctx context.Context, addr string) (*domain.ViewerSt
 // StopViewer 实现 domain.ViewerManager。
 //
 // 向进程组发送 SIGTERM；进程已退出或不存在时幂等返回未运行状态。
+// 注意：cmd.Wait() 由 StartViewer 启动的回收 goroutine 负责调用，
+// StopViewer 只发信号并轮询等待 v.cmd 被清空（即 Wait goroutine 已回收）。
 func (v *Viewer) StopViewer(_ context.Context) (*domain.ViewerStatus, error) {
 	v.mu.Lock()
 	cmd := v.cmd
@@ -225,17 +227,34 @@ func (v *Viewer) StopViewer(_ context.Context) (*domain.ViewerStatus, error) {
 		return &domain.ViewerStatus{Running: false, Message: "Viewer 未运行"}, nil
 	}
 
+	pid := cmd.Process.Pid
 	// Setpgid 让子进程成为独立进程组，用负 pid 向整组发信号（含 viewer spawn 的子进程）。
-	_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
+	_ = syscall.Kill(-pid, syscall.SIGTERM)
 
-	// 等待进程退出（最多 5s），随后兜底 SIGKILL。
-	done := make(chan struct{})
-	go func() { _, _ = cmd.Process.Wait(); close(done) }()
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		<-done
+	// 轮询等待 StartViewer 的 Wait goroutine 回收进程（清空 v.cmd），最多 5s。
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		v.mu.Lock()
+		cleared := v.cmd == nil
+		v.mu.Unlock()
+		if cleared {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// 超时仍未退出，兜底 SIGKILL。
+	if !v.isCleared() {
+		logx.Warn("ocr viewer did not exit after SIGTERM, sending SIGKILL", "pid", pid)
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+		// 再等最多 2s 让 Wait goroutine 回收。
+		deadline = time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			if v.isCleared() {
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
 	}
 
 	v.mu.Lock()
@@ -244,6 +263,13 @@ func (v *Viewer) StopViewer(_ context.Context) (*domain.ViewerStatus, error) {
 	v.mu.Unlock()
 
 	return &domain.ViewerStatus{Running: false, Message: "Viewer 已停止"}, nil
+}
+
+// isCleared 报告 v.cmd 是否已被 Wait goroutine 清空。
+func (v *Viewer) isCleared() bool {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return v.cmd == nil
 }
 
 // runningLocked 报告当前是否有一个尚未退出的 viewer 进程。调用方需持锁。
