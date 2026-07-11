@@ -512,6 +512,9 @@ const scanStartTime = ref<number | null>(null)
 const elapsedText = ref('')
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 let elapsedTimer: ReturnType<typeof setInterval> | null = null
+// 轮询保护：超过 MAX_POLL_DURATION_MS 仍 running 则放弃（防止卡死的 review 导致页面无限轮询）
+const MAX_POLL_DURATION_MS = 5 * 60 * 1000 // 5 分钟
+let pollStartTime = 0
 let pollFailureCount = 0
 
 const confirmVisible = ref(false)
@@ -888,6 +891,7 @@ async function runScan(preview: boolean) {
 
 function startPolling() {
   if (pollTimer) clearTimeout(pollTimer)
+  if (!pollStartTime) pollStartTime = Date.now()
   pollTimer = setTimeout(async () => {
     await pollReview()
     if (scanState.value === 'queued' || scanState.value === 'running') {
@@ -934,7 +938,16 @@ async function pollReview() {
       stopElapsedTimer()
       clearScanSession()
     } else if (detail.status === 'running') {
-      scanState.value = 'running'
+      // 轮询超时保护：超过 MAX_POLL_DURATION_MS 仍 running 则放弃，避免页面卡死。
+      if (pollStartTime && Date.now() - pollStartTime > MAX_POLL_DURATION_MS) {
+        scanState.value = 'failed'
+        scanError.value = '扫描超时：任务运行时间过长，可能已停止响应。请重新发起扫描。'
+        stopPolling()
+        stopElapsedTimer()
+        clearScanSession()
+      } else {
+        scanState.value = 'running'
+      }
     }
     await fetchSessions()
   } catch (e: any) {
@@ -949,6 +962,7 @@ async function pollReview() {
 
 function stopPolling() {
   if (pollTimer) { clearTimeout(pollTimer); pollTimer = null }
+  pollStartTime = 0
 }
 
 function startElapsedTimer() {

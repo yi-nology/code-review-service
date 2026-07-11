@@ -21,6 +21,9 @@
           <h1>会话详情</h1>
           <p v-if="session">
             第 {{ session.round }} 轮 · {{ getPhaseLabel(session.phase) }}
+            <el-tag :type="getSessionStatusType(session.status)" size="small" class="header-status-tag">
+              {{ getSessionStatusLabel(session.status) }}
+            </el-tag>
           </p>
         </div>
         <div
@@ -225,6 +228,7 @@
                 :session="{
                   phase: session.phase,
                   progress: session.progress,
+                  status: session.status,
                   created_at: session.created_at,
                   completed_at: session.completed_at || undefined
                 }"
@@ -397,6 +401,14 @@ onBeforeUnmount(() => {
   margin: 0;
   color: #929aab;
   font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.header-status-tag {
+  flex-shrink: 0;
 }
 
 .eyebrow {

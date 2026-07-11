@@ -69,6 +69,7 @@ const props = defineProps<{
   session: {
     phase: string
     progress: number
+    status?: string
     created_at: string
     completed_at?: string
   }
@@ -76,6 +77,11 @@ const props = defineProps<{
 
 const phases = computed(() => {
   const allPhases: Phase[] = REVIEW_PHASES.map(p => ({ ...p, status: 'pending' as const, progress: 0 }))
+
+  // 会话已完成时，所有阶段标记为 completed（包括最终的 complete 阶段）。
+  if (props.session.status === 'completed') {
+    return allPhases.map(p => ({ ...p, status: 'completed' as const, progress: 100 }))
+  }
 
   const currentIndex = allPhases.findIndex(p => p.name === props.session.phase)
   if (currentIndex !== -1) {
