@@ -514,6 +514,8 @@ let pollTimer: ReturnType<typeof setTimeout> | null = null
 let elapsedTimer: ReturnType<typeof setInterval> | null = null
 // 轮询保护：超过 MAX_POLL_DURATION_MS 仍 running 则放弃（防止卡死的 review 导致页面无限轮询）
 const MAX_POLL_DURATION_MS = 5 * 60 * 1000 // 5 分钟
+// 连续轮询失败（非 404）超过此次数也放弃，避免服务异常时无限重试。
+const MAX_POLL_FAILURES = 10
 let pollStartTime = 0
 let pollFailureCount = 0
 
@@ -733,13 +735,26 @@ async function resumeScanSession() {
     if (!raw) return
     const session = JSON.parse(raw)
     if (!session.review_id) return
+    // 恢复前先校验 review 确实存在且仍在运行/排队，避免恢复一个已失效的 session
+    // 后陷入 404 无限重试。校验失败直接清掉残留 session。
+    const detail = await getReview(session.review_id)
+    if (!['queued', 'running'].includes(detail.status)) {
+      clearScanSession()
+      return
+    }
     activeReviewId.value = session.review_id
     scanStartTime.value = session.start_time ?? null
-    scanState.value = 'running'
+    scanState.value = detail.status as ScanState
+    reviewDetail.value = detail
+    pollStartTime = Date.now()
+    pollFailureCount = 0
     startPolling()
     startElapsedTimer()
-    await pollReview()
-  } catch { /* ignore */ }
+    await fetchSessions()
+  } catch {
+    // review 不存在或查询失败：清掉残留 session，不进入卡死的轮询。
+    clearScanSession()
+  }
 }
 
 // ===== Data Loading =====
@@ -951,7 +966,28 @@ async function pollReview() {
     }
     await fetchSessions()
   } catch (e: any) {
+    // 区分"review 不存在"（404）与"网络抖动"：
+    // - 404 说明 review 已被删除或 session 数据损坏，立即放弃，避免无限重试导致页面卡死在"扫描中"。
+    // - 其它错误（超时、5xx、网络断开）按可重试处理，连续失败超过阈值后也放弃。
+    const status = e?.response?.status || e?.statusCode
+    const isNotFound = status === 404 || /not found|404/i.test(e?.message || '')
+    if (isNotFound) {
+      scanState.value = 'failed'
+      scanError.value = '扫描任务不存在或已被删除。可能是之前的扫描记录已清理，请重新发起扫描。'
+      stopPolling()
+      stopElapsedTimer()
+      clearScanSession()
+      return
+    }
     pollFailureCount += 1
+    if (pollFailureCount >= MAX_POLL_FAILURES) {
+      scanState.value = 'failed'
+      scanError.value = '连续多次无法获取扫描进度，可能服务异常。请稍后重试。'
+      stopPolling()
+      stopElapsedTimer()
+      clearScanSession()
+      return
+    }
     if (pollFailureCount >= 2) {
       scanWarning.value = e?.message
         ? `服务连接异常，正在重试：${e.message}`

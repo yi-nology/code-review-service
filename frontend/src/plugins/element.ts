@@ -22,6 +22,7 @@ import { ElOption, ElSelect } from 'element-plus/es/components/select/index'
 import { ElSegmented } from 'element-plus/es/components/segmented/index'
 import { ElPagination } from 'element-plus/es/components/pagination/index'
 import { ElPopconfirm } from 'element-plus/es/components/popconfirm/index'
+import { ElPopover } from 'element-plus/es/components/popover/index'
 import { ElProgress } from 'element-plus/es/components/progress/index'
 import { ElRadio, ElRadioGroup } from 'element-plus/es/components/radio/index'
 import { ElRow } from 'element-plus/es/components/row/index'
@@ -109,6 +110,7 @@ const components = [
   ElOption,
   ElPagination,
   ElPopconfirm,
+  ElPopover,
   ElProgress,
   ElRadio,
   ElRadioGroup,
