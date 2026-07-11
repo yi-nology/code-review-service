@@ -83,19 +83,35 @@
             </div>
             <el-divider v-if="rulePackages.length" />
             <div class="card-header compact">
-              <strong>快速模板</strong>
+              <strong>语言规则模板</strong>
+              <small>一键加入对应语言的审查规则</small>
             </div>
-            <div class="template-list">
-              <button
-                v-for="template in ruleTemplates"
-                :key="template.name"
-                class="template-item"
-                type="button"
-                @click="applyTemplate(template)"
-              >
-                <span>{{ template.name }}</span>
-                <small>{{ template.path }}</small>
-              </button>
+            <div class="template-groups">
+              <div v-for="group in ruleTemplateGroups" :key="group.category" class="template-group">
+                <button
+                  type="button"
+                  class="group-header"
+                  :class="{ expanded: expandedGroups.has(group.category) }"
+                  @click="toggleGroup(group.category)"
+                >
+                  <el-icon class="group-caret"><ArrowRight /></el-icon>
+                  <span class="group-label">{{ group.label }}</span>
+                  <em class="group-count">{{ group.templates.length }}</em>
+                </button>
+                <div v-show="expandedGroups.has(group.category)" class="group-templates">
+                  <button
+                    v-for="template in group.templates"
+                    :key="template.name"
+                    class="template-item"
+                    type="button"
+                    @click="applyTemplate(template)"
+                  >
+                    <span class="template-add"><el-icon><Plus /></el-icon></span>
+                    <span class="template-name">{{ template.name }}</span>
+                    <small class="template-path">{{ template.path }}</small>
+                  </button>
+                </div>
+              </div>
             </div>
           </el-card>
 
@@ -227,9 +243,11 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
-import { CircleCheckFilled, Refresh } from '@element-plus/icons-vue'
+import { CircleCheckFilled, Plus, Refresh, ArrowRight } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import RuleEditor from '@/components/RuleEditor.vue'
+import { ruleTemplateGroups, ruleTemplates } from '@/constants/rule-templates'
+import type { RuleTemplate } from '@/constants/rule-templates'
 import {
   deleteRulePackage,
   getGlobalRules,
@@ -241,36 +259,6 @@ import {
   updateGlobalRules,
 } from '@/api/config'
 import type { OCRAssetVersion, OCRRulePackage, ReviewRule, RulesCheckResult } from '@/types/config'
-
-type RuleTemplate = ReviewRule & { name: string }
-
-const ruleTemplates: RuleTemplate[] = [
-  {
-    name: '通用安全检查',
-    path: '**/*',
-    rule: '重点检查鉴权绕过、越权访问、敏感信息泄露、未校验输入、SQL/命令注入和不安全的默认配置。',
-  },
-  {
-    name: 'Go 后端服务',
-    path: '**/*.go',
-    rule: '重点检查 context 传递、错误处理、并发安全、事务边界、资源释放、panic 风险和日志中的敏感信息。',
-  },
-  {
-    name: '前端交互',
-    path: '**/*.{vue,ts,tsx,js,jsx}',
-    rule: '重点检查接口错误处理、加载/空状态、权限态、表单校验、响应式布局和用户操作后的反馈。',
-  },
-  {
-    name: '数据库变更',
-    path: '**/*.{sql,go}',
-    rule: '重点检查迁移兼容性、索引缺失、N+1 查询、事务一致性、软删除条件和分页查询性能。',
-  },
-  {
-    name: '测试质量',
-    path: '**/*_test.go',
-    rule: '重点检查断言是否覆盖关键分支、边界条件、失败路径、并发行为和外部依赖隔离。',
-  },
-]
 
 const globalRules = ref<ReviewRule[]>([])
 const rulePackages = ref<OCRRulePackage[]>([])
@@ -288,6 +276,15 @@ const rulePackageHistoryLoading = ref(false)
 const rulePackageHistoryRestoring = ref(false)
 const historyRulePackage = ref<OCRRulePackage | null>(null)
 const rulePackageVersions = ref<OCRAssetVersion<OCRRulePackage>[]>([])
+
+// 语言模板分组折叠状态：默认展开「通用」组，其余点击展开。
+const expandedGroups = ref<Set<string>>(new Set(['common']))
+function toggleGroup(category: string) {
+  const next = new Set(expandedGroups.value)
+  if (next.has(category)) next.delete(category)
+  else next.add(category)
+  expandedGroups.value = next
+}
 
 const normalizedRules = computed(() => {
   return globalRules.value
@@ -685,6 +682,118 @@ onMounted(fetchGlobalRules)
   gap: 8px;
 }
 
+/* 语言模板分组 */
+.template-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.template-group {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #f5f7fa;
+  color: var(--app-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.group-header:hover {
+  background: #eef2f7;
+}
+
+.group-caret {
+  color: var(--app-muted);
+  font-size: 12px;
+  transition: transform 160ms ease;
+}
+
+.group-header.expanded .group-caret {
+  transform: rotate(90deg);
+}
+
+.group-label {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.group-count {
+  padding: 1px 7px;
+  border-radius: 8px;
+  background: #e4e7ed;
+  color: var(--app-muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.group-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 4px 8px 10px;
+}
+
+.template-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid #edf0f5;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--app-text);
+  text-align: left;
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.template-item:hover {
+  border-color: #c7d2fe;
+  background: #f5f7ff;
+}
+
+.template-add {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+}
+
+.template-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.template-path {
+  flex-shrink: 0;
+  color: var(--app-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+}
+
 .package-list {
   display: grid;
   gap: 8px;
@@ -767,28 +876,6 @@ onMounted(fetchGlobalRules)
 
 .dialog-grid.two {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.template-item:hover {
-  border-color: #cfd3ff;
-  background: #fbfbff;
-}
-
-.template-item span,
-.template-item small {
-  display: block;
-}
-
-.template-item span {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.template-item small {
-  margin-top: 3px;
-  color: var(--app-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
 }
 
 .check-ok {
