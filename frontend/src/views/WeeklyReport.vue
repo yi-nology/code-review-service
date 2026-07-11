@@ -5,76 +5,140 @@
         <div>
           <div class="eyebrow">WEEKLY REPORT</div>
           <h1>项目周报</h1>
-          <p>按项目维度生成最近 7 天的 AI 代码审查周报（Markdown 格式）。</p>
+          <p>按项目维度查看最近 7 天的 AI 代码审查汇总。</p>
+        </div>
+        <div v-if="report" class="header-actions">
+          <el-button plain @click="handleCopy">
+            <el-icon><CopyDocument /></el-icon>复制 Markdown
+          </el-button>
+          <el-button plain @click="handleDownload">
+            <el-icon><Download /></el-icon>下载 .md
+          </el-button>
+          <el-button plain @click="handlePrint">
+            <el-icon><Printer /></el-icon>打印
+          </el-button>
         </div>
       </header>
 
-      <!-- 选择器 -->
+      <!-- 项目选择区 -->
       <el-card class="selector-card" shadow="never">
         <div class="selector-row">
           <el-select
             v-model="provider"
             placeholder="选择平台"
             class="provider-select"
+            clearable
             @change="onProviderChange"
           >
             <el-option v-for="p in PROVIDER_OPTIONS" :key="p.value" :label="p.label" :value="p.value" />
           </el-select>
-          <el-input
+          <el-select
             v-model="repo"
-            placeholder="仓库名，例如 owner/repo"
-            class="repo-input"
-            clearable
-            @keyup.enter="handleGenerate"
-          />
-          <el-button
-            type="primary"
-            :loading="loading"
-            :disabled="!provider || !repo.trim()"
-            @click="handleGenerate"
+            placeholder="搜索仓库（owner/repo）"
+            class="repo-select"
+            filterable
+            remote
+            reserve-keyword
+            :loading="reposLoading"
+            :remote-method="searchRepos"
+            @change="handleGenerate"
           >
-            生成周报
+            <el-option v-for="r in repos" :key="r.full_name" :label="r.full_name" :value="r.full_name" />
+          </el-select>
+          <el-button type="primary" :loading="loading" :disabled="!provider || !repo" @click="handleGenerate">
+            <el-icon><Document /></el-icon>生成周报
           </el-button>
-          <el-button v-if="report" plain @click="handleCopy">复制 Markdown</el-button>
-          <el-button v-if="report" plain @click="handleDownload">下载 .md</el-button>
         </div>
-        <p v-if="report" class="period-label">统计周期：{{ period }}</p>
+
+        <!-- 最近看过 / 有审查记录的项目：一键直达 -->
+        <div v-if="quickProjects.length" class="quick-picks">
+          <span class="quick-label">
+            <el-icon><Clock /></el-icon>
+            {{ recentProjects.length ? '最近看过' : '审查过的项目' }}
+          </span>
+          <button
+            v-for="p in quickProjects"
+            :key="`${p.provider}/${p.repo}`"
+            type="button"
+            class="quick-chip"
+            :class="{ active: p.provider === provider && p.repo === repo }"
+            @click="pickProject(p.provider, p.repo)"
+          >
+            <span class="chip-provider">{{ getProviderLabel(p.provider) }}</span>
+            <span class="chip-repo">{{ p.repo }}</span>
+            <span v-if="'review_count' in p && p.review_count" class="chip-count">{{ (p as ProjectSummary).review_count }} 次</span>
+          </button>
+        </div>
       </el-card>
 
-      <!-- 概览指标 -->
-      <section v-if="report" class="metric-strip" aria-label="周报概览">
-        <div class="metric-item">
-          <span class="metric-icon running"><el-icon><Loading /></el-icon></span>
-          <span class="metric-label">运行中</span>
-          <strong>{{ stats.running }}</strong>
-        </div>
-        <div class="metric-item">
-          <span class="metric-icon failed"><el-icon><WarningFilled /></el-icon></span>
-          <span class="metric-label">门禁失败</span>
-          <strong>{{ stats.gate_failed }}</strong>
-        </div>
-        <div class="metric-item">
-          <span class="metric-icon findings"><el-icon><Aim /></el-icon></span>
-          <span class="metric-label">发现问题</span>
-          <strong>{{ stats.findings }}</strong>
-        </div>
-        <div class="metric-item">
-          <span class="metric-icon tokens"><el-icon><Coin /></el-icon></span>
-          <span class="metric-label">累计 Tokens</span>
-          <strong>{{ stats.total_tokens ? stats.total_tokens.toLocaleString() : 0 }}</strong>
-        </div>
-      </section>
+      <!-- 加载中 -->
+      <div v-if="loading" class="state-block">
+        <el-icon class="is-loading big-spin"><Loading /></el-icon>
+        <p>正在生成周报…</p>
+      </div>
 
-      <!-- Markdown 渲染 -->
-      <el-card v-if="report" class="report-card" shadow="never">
-        <div class="report-toolbar">
-          <h2>周报正文</h2>
-        </div>
-        <div class="markdown-body" v-html="renderedHtml" />
-      </el-card>
+      <!-- 错误态 -->
+      <el-result
+        v-else-if="errorMsg"
+        icon="error"
+        title="生成失败"
+        :sub-title="errorMsg"
+      >
+        <template #extra>
+          <el-button type="primary" @click="handleGenerate">重试</el-button>
+        </template>
+      </el-result>
 
-      <!-- 空状态 -->
-      <el-empty v-else-if="!loading" description="选择平台和仓库后生成周报" />
+      <!-- 报告内容 -->
+      <template v-else-if="report">
+        <!-- 周期 + 关键指标 -->
+        <section class="overview-section">
+          <div class="period-bar">
+            <el-icon><Calendar /></el-icon>
+            <span>统计周期：<strong>{{ period }}</strong></span>
+            <span class="period-meta">{{ providerLabel }} · {{ repo }}</span>
+          </div>
+          <div class="metric-strip">
+            <div class="metric-card primary">
+              <small>活跃审查</small>
+              <strong>{{ reviewCount }}</strong>
+              <span class="metric-sub">本周进行中</span>
+            </div>
+            <div class="metric-card">
+              <small>门禁失败</small>
+              <strong :class="{ danger: stats.gate_failed > 0 }">{{ stats.gate_failed }}</strong>
+              <span class="metric-sub">{{ passRateText }}</span>
+            </div>
+            <div class="metric-card">
+              <small>发现问题</small>
+              <strong :class="{ warn: stats.findings > 0 }">{{ stats.findings }}</strong>
+              <span class="metric-sub">需关注</span>
+            </div>
+            <div class="metric-card">
+              <small>Token 消耗</small>
+              <strong>{{ formatTokens(stats.total_tokens) }}</strong>
+              <span class="metric-sub">{{ formatTokens(stats.input_tokens + stats.output_tokens) }} 输入+输出</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 周报正文（Markdown） -->
+        <el-card class="report-card" shadow="never">
+          <div class="report-toolbar">
+            <h2>周报正文</h2>
+            <span class="report-meta">Markdown 格式，可复制或下载</span>
+          </div>
+          <div class="markdown-body" v-html="renderedHtml" />
+        </el-card>
+      </template>
+
+      <!-- 空状态（首次进入，未选项目） -->
+      <div v-else class="state-block empty-state">
+        <el-icon class="empty-icon"><Document /></el-icon>
+        <h2>选择一个项目查看周报</h2>
+        <p v-if="quickProjects.length">从上方「审查过的项目」中点选，或选择平台 + 搜索仓库。</p>
+        <p v-else>先选择平台，再搜索仓库名，然后生成周报。</p>
+      </div>
     </div>
   </AppLayout>
 </template>
@@ -82,72 +146,178 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { Aim, Coin, Loading, WarningFilled } from '@element-plus/icons-vue'
+import {
+  Calendar, Clock, CopyDocument, Document, Download, Loading, Printer,
+} from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus/es/components/message/index'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { getWeeklyReport } from '@/api/report'
-import { PROVIDER_OPTIONS } from '@/utils/url-parser'
-import type { WeeklyReport as WeeklyReportType } from '@/types/report'
-import { ElMessage } from 'element-plus/es/components/message/index'
+import { getProjects } from '@/api/stats'
+import { getProviderRepos } from '@/api/config'
+import { PROVIDER_OPTIONS, getProviderLabel } from '@/utils/url-parser'
 import { renderMarkdown } from '@/utils/markdown'
+import type { WeeklyReport, AggregateStats } from '@/types/report'
+import type { ProjectSummary } from '@/types/stats'
+import type { PlatformRepo } from '@/types/config'
+
+interface RecentProject { provider: string; repo: string; ts: number }
 
 const route = useRoute()
-const provider = ref(typeof route.query.provider === 'string' ? route.query.provider : '')
-const repo = ref(typeof route.query.repo === 'string' ? route.query.repo : '')
+const provider = ref('')
+const repo = ref('')
+const repos = ref<PlatformRepo[]>([])
+const reposLoading = ref(false)
 const loading = ref(false)
-const report = ref<WeeklyReportType | null>(null)
+const report = ref<WeeklyReport | null>(null)
+const errorMsg = ref('')
 
-const stats = computed(() => report.value?.stats ?? {
+// 有审查记录的项目（用于一键快选）+ 最近看过的项目（localStorage 记忆）。
+const reviewedProjects = ref<ProjectSummary[]>([])
+const recentProjects = ref<RecentProject[]>([])
+const RECENT_KEY = 'weekly-recent-projects'
+const RECENT_MAX = 6
+
+// 快选列表：优先展示最近看过的，其次展示有审查记录的，去重合并。
+const quickProjects = computed(() => {
+  const seen = new Set<string>()
+  const out: Array<(RecentProject & { review_count?: number }) | ProjectSummary> = []
+  // 最近看过优先
+  for (const r of recentProjects.value) {
+    const k = `${r.provider}/${r.repo}`
+    if (seen.has(k)) continue
+    seen.add(k)
+    out.push({ provider: r.provider, repo: r.repo, ts: r.ts, review_count: undefined })
+  }
+  // 补充有审查记录的项目
+  for (const p of reviewedProjects.value) {
+    const k = `${p.provider}/${p.repo}`
+    if (seen.has(k)) continue
+    seen.add(k)
+    out.push(p)
+  }
+  return out.slice(0, 8)
+})
+
+const stats = computed<AggregateStats>(() => report.value?.stats ?? {
   running: 0, gate_failed: 0, findings: 0, total_tokens: 0,
   input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0,
 })
 const period = computed(() => report.value?.period ?? '')
 const renderedHtml = computed(() => renderMarkdown(report.value?.report ?? ''))
+const providerLabel = computed(() => getProviderLabel(provider.value))
+// 后端 stats 只有 running（进行中）/gate_failed/findings/tokens，无明确的"审查总数"。
+// 用 running 作为"本周活动审查数"展示，比编造一个不存在的总数更诚实。
+const reviewCount = computed(() => stats.value.running)
+const passRateText = computed(() => {
+  const total = stats.value.running + stats.value.gate_failed
+  if (total <= 0) return '本周无审查'
+  const pct = Math.round(((total - stats.value.gate_failed) / total) * 100)
+  return `通过率 ${pct}%`
+})
+
+function formatTokens(n: number) {
+  if (!n) return '0'
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
+  return String(n)
+}
+
+function onProviderChange() {
+  repo.value = ''
+  repos.value = []
+  if (provider.value) searchRepos('')
+}
+
+async function searchRepos(query: string) {
+  if (!provider.value || reposLoading.value) return
+  reposLoading.value = true
+  try {
+    repos.value = await getProviderRepos(provider.value, 1, query ? 100 : 50)
+  } catch (e: any) {
+    ElMessage.error(e.message || '搜索仓库失败')
+  } finally {
+    reposLoading.value = false
+  }
+}
+
+function pickProject(p: string, r: string) {
+  provider.value = p
+  repo.value = r
+  if (provider.value) searchRepos('')
+  handleGenerate()
+}
 
 async function handleGenerate() {
-  if (!provider.value || !repo.value.trim()) return
+  if (!provider.value || !repo.value) return
   loading.value = true
+  errorMsg.value = ''
   try {
-    report.value = await getWeeklyReport({ provider: provider.value, repo: repo.value.trim() })
+    report.value = await getWeeklyReport({ provider: provider.value, repo: repo.value })
+    recordRecent(provider.value, repo.value)
   } catch (e: any) {
-    ElMessage.error(e?.message || '生成周报失败')
     report.value = null
+    errorMsg.value = e.message || '生成周报失败，请检查平台和仓库名是否正确'
   } finally {
     loading.value = false
   }
 }
 
-function onProviderChange() {
-  // 切换平台时清空已有报告，避免显示上一个项目的内容
-  report.value = null
+function recordRecent(p: string, r: string) {
+  const list = recentProjects.value.filter((x) => !(x.provider === p && x.repo === r))
+  list.unshift({ provider: p, repo: r, ts: Date.now() })
+  recentProjects.value = list.slice(0, RECENT_MAX)
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(recentProjects.value)) } catch { /* ignore */ }
+}
+
+function loadRecent() {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY)
+    if (raw) recentProjects.value = JSON.parse(raw)
+  } catch { /* ignore */ }
+}
+
+async function loadReviewedProjects() {
+  try {
+    const res = await getProjects({ page: 1, page_size: 20 })
+    reviewedProjects.value = res.projects || []
+  } catch { /* 静默：不影响主流程 */ }
 }
 
 async function handleCopy() {
-  if (!report.value) return
+  if (!report.value?.report) return
   try {
     await navigator.clipboard.writeText(report.value.report)
-    ElMessage.success('已复制到剪贴板')
+    ElMessage.success('Markdown 已复制')
   } catch {
     ElMessage.error('复制失败，请手动选择文本复制')
   }
 }
 
 function handleDownload() {
-  if (!report.value) return
+  if (!report.value?.report) return
   const blob = new Blob([report.value.report], { type: 'text/markdown;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  const safeRepo = repo.value.trim().replace(/[^\w.-]/g, '_') || 'weekly-report'
-  a.download = `weekly-${safeRepo}.md`
-  document.body.appendChild(a)
+  a.download = `weekly-report-${provider.value}-${repo.value.replace('/', '-')}.md`
   a.click()
-  document.body.removeChild(a)
   URL.revokeObjectURL(url)
 }
 
-onMounted(() => {
-  // 从项目报告页跳转时自动带 provider+repo，直接生成
-  if (provider.value && repo.value.trim()) {
+function handlePrint() {
+  window.print()
+}
+
+onMounted(async () => {
+  loadRecent()
+  await loadReviewedProjects()
+  // 支持 query 参数预选项目（从 ProjectReports 跳转过来）
+  const qProvider = route.query.provider
+  const qRepo = route.query.repo
+  if (typeof qProvider === 'string' && typeof qRepo === 'string') {
+    provider.value = qProvider
+    repo.value = qRepo
+    if (provider.value) await searchRepos('')
     handleGenerate()
   }
 })
@@ -155,140 +325,393 @@ onMounted(() => {
 
 <style scoped>
 .weekly-report-page {
-  width: min(1440px, 100%);
+  width: min(1080px, 100%);
   margin: 0 auto;
-  padding: 28px 32px 44px;
+  padding: 28px 32px 48px;
 }
 
 .page-header {
-  margin-bottom: 24px;
-}
-.page-header .eyebrow {
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  color: var(--app-muted);
-  font-weight: 600;
-  text-transform: uppercase;
-  margin-bottom: 6px;
-}
-.page-header h1 {
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--app-text);
-  margin: 0 0 4px;
-}
-.page-header p {
-  font-size: 14px;
-  color: var(--app-muted);
-  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 18px;
 }
 
-.selector-card { border-radius: 14px; margin-bottom: 24px; }
+.eyebrow {
+  color: #929aab;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.page-header h1 {
+  margin: 4px 0;
+  font-size: 26px;
+  color: var(--app-text);
+}
+
+.page-header p {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 14px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* 选择器 */
+.selector-card {
+  margin-bottom: 18px;
+}
+
 .selector-row {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
-.provider-select { width: 160px; }
-.repo-input { width: 320px; max-width: 100%; }
-.period-label { font-size: 13px; color: var(--app-muted); margin: 12px 0 0; }
+
+.provider-select {
+  width: 180px;
+}
+
+.repo-select {
+  flex: 1;
+  min-width: 260px;
+}
+
+/* 快选 chips */
+.quick-picks {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--app-border);
+}
+
+.quick-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.quick-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 20px;
+  background: #fff;
+  color: var(--app-text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.quick-chip:hover {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.quick-chip.active {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.quick-chip.active .chip-provider,
+.quick-chip.active .chip-count {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.chip-provider {
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.chip-count {
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: #f2f4f7;
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.quick-chip.active .chip-count {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 概览 */
+.overview-section {
+  margin-bottom: 18px;
+}
+
+.period-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--app-text);
+  font-size: 14px;
+}
+
+.period-bar .el-icon {
+  color: var(--app-primary);
+}
+
+.period-meta {
+  margin-left: auto;
+  color: var(--app-muted);
+  font-size: 13px;
+}
 
 .metric-strip {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
-.metric-item {
-  background: var(--app-surface);
-  border: 1px solid var(--app-border);
-  border-radius: 14px;
-  padding: 18px 20px;
+
+.metric-card {
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-.metric-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  margin-bottom: 6px;
-}
-.metric-icon.running { background: rgba(217, 134, 22, 0.1); color: var(--app-warning); }
-.metric-icon.failed { background: rgba(216, 75, 91, 0.1); color: var(--app-danger); }
-.metric-icon.findings { background: rgba(37, 99, 235, 0.1); color: var(--app-primary); }
-.metric-icon.tokens { background: rgba(21, 149, 112, 0.1); color: var(--app-success); }
-.metric-label { font-size: 13px; color: var(--app-muted); }
-.metric-item strong { font-size: 26px; font-weight: 700; color: var(--app-text); }
-
-.report-card { border-radius: 14px; }
-.report-toolbar { margin-bottom: 16px; }
-.report-toolbar h2 { font-size: 18px; font-weight: 600; margin: 0; color: var(--app-text); }
-
-.markdown-body {
-  font-size: 14px;
-  line-height: 1.7;
-  color: var(--app-text);
-}
-.markdown-body :deep(h1),
-.markdown-body :deep(h2),
-.markdown-body :deep(h3) {
-  margin: 20px 0 10px;
-  font-weight: 600;
-  color: var(--app-text);
-}
-.markdown-body :deep(h1) { font-size: 22px; }
-.markdown-body :deep(h2) { font-size: 18px; border-bottom: 1px solid var(--app-border); padding-bottom: 6px; }
-.markdown-body :deep(h3) { font-size: 15px; }
-.markdown-body :deep(p) { margin: 8px 0; }
-.markdown-body :deep(ul),
-.markdown-body :deep(ol) { margin: 8px 0; padding-left: 24px; }
-.markdown-body :deep(li) { margin: 4px 0; }
-.markdown-body :deep(table) {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 12px 0;
-  font-size: 13px;
-}
-.markdown-body :deep(th),
-.markdown-body :deep(td) {
+  padding: 16px 18px;
   border: 1px solid var(--app-border);
-  padding: 8px 12px;
-  text-align: left;
+  border-radius: 10px;
+  background: #fff;
 }
-.markdown-body :deep(th) { background: var(--app-bg); font-weight: 600; }
+
+.metric-card.primary {
+  border-color: #bfdbfe;
+  background: linear-gradient(135deg, #eff6ff 0%, #fff 100%);
+}
+
+.metric-card small {
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.metric-card strong {
+  font-size: 28px;
+  line-height: 1.2;
+  color: var(--app-text);
+}
+
+.metric-card strong.danger {
+  color: var(--app-danger, #dc2626);
+}
+
+.metric-card strong.warn {
+  color: #d97706;
+}
+
+.metric-sub {
+  color: var(--app-muted);
+  font-size: 11px;
+}
+
+/* 报告正文 */
+.report-card {
+  overflow: hidden;
+}
+
+.report-toolbar {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.report-toolbar h2 {
+  margin: 0;
+  font-size: 17px;
+  color: var(--app-text);
+}
+
+.report-meta {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+/* Markdown 渲染样式 */
+.markdown-body {
+  color: var(--app-text);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.markdown-body :deep(h1) {
+  margin: 0 0 12px;
+  font-size: 22px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--app-border);
+}
+
+.markdown-body :deep(h2) {
+  margin: 24px 0 10px;
+  font-size: 17px;
+  color: var(--app-text);
+}
+
+.markdown-body :deep(h3) {
+  margin: 18px 0 8px;
+  font-size: 15px;
+}
+
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  margin: 8px 0;
+  padding-left: 22px;
+}
+
+.markdown-body :deep(li) {
+  margin: 4px 0;
+}
+
+.markdown-body :deep(strong) {
+  color: var(--app-text);
+}
+
 .markdown-body :deep(code) {
-  background: var(--app-bg);
   padding: 2px 6px;
   border-radius: 4px;
+  background: #f2f4f7;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
-  font-family: ui-monospace, 'SF Mono', monospace;
 }
+
 .markdown-body :deep(pre) {
-  background: var(--app-bg);
-  border: 1px solid var(--app-border);
+  margin: 10px 0;
+  padding: 14px;
   border-radius: 8px;
-  padding: 12px 16px;
+  background: #1e1e2e;
+  color: #cdd6f4;
   overflow-x: auto;
-  margin: 12px 0;
+  font-size: 13px;
+  line-height: 1.6;
 }
-.markdown-body :deep(pre code) { background: none; padding: 0; }
-.markdown-body :deep(strong) { font-weight: 600; }
-.markdown-body :deep(blockquote) {
-  border-left: 3px solid var(--app-primary);
+
+.markdown-body :deep(pre code) {
+  padding: 0;
+  background: none;
+  color: inherit;
+}
+
+.markdown-body :deep(table) {
+  width: 100%;
   margin: 12px 0;
-  padding: 4px 16px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+  padding: 8px 12px;
+  border: 1px solid var(--app-border);
+  text-align: left;
+}
+
+.markdown-body :deep(th) {
+  background: #fafbfc;
+  font-weight: 600;
+}
+
+.markdown-body :deep(hr) {
+  margin: 18px 0;
+  border: 0;
+  border-top: 1px solid var(--app-border);
+}
+
+.markdown-body :deep(blockquote) {
+  margin: 10px 0;
+  padding: 8px 14px;
+  border-left: 3px solid var(--app-primary);
+  background: #fafbfc;
   color: var(--app-muted);
 }
 
-@media (max-width: 720px) {
-  .weekly-report-page { padding: 20px 16px 32px; }
-  .metric-strip { grid-template-columns: repeat(2, 1fr); }
-  .provider-select, .repo-input { width: 100%; }
+/* 状态块（加载/空） */
+.state-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 320px;
+  color: var(--app-muted);
+}
+
+.big-spin {
+  font-size: 32px;
+  color: var(--app-primary);
+}
+
+.empty-state h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--app-text);
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.empty-icon {
+  font-size: 48px;
+  color: #c4cad6;
+}
+
+@media (max-width: 980px) {
+  .weekly-report-page {
+    padding: 22px 16px 36px;
+  }
+
+  .page-header {
+    flex-direction: column;
+  }
+
+  .selector-row {
+    flex-direction: column;
+  }
+
+  .provider-select,
+  .repo-select {
+    width: 100%;
+  }
+
+  .metric-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media print {
+  .selector-card,
+  .header-actions,
+  .page-header p {
+    display: none;
+  }
+
+  .weekly-report-page {
+    width: 100%;
+    padding: 0;
+  }
 }
 </style>
