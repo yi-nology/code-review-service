@@ -22,7 +22,7 @@ const emit = defineEmits<{
 }>()
 
 const findingsPanelRef = ref<InstanceType<typeof ReviewFindingsPanel> | null>(null)
-const ocrExpanded = ref(false)
+const ocrExpanded = ref<string[]>([])
 
 function resetPatchState() {
   findingsPanelRef.value?.resetPatchState()

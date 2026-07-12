@@ -16,7 +16,10 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       proxy: {
-        '/api': {
+        // 注意 key 带 trailing slash：'/api/' 只匹配 /api/<...>，不会误吞
+        // 前端 SPA 路径（例：/api-docs、/api-explorer）。否则任何以 /api 开头的
+        // URL 都会被 http-proxy 当成 prefix 匹配转给后端。
+        '/api/': {
           target: apiProxyTarget,
           changeOrigin: true,
         },

@@ -1,5 +1,6 @@
 import type { App } from 'vue'
 import { ElAlert } from 'element-plus/es/components/alert/index'
+import { ElAvatar } from 'element-plus/es/components/avatar/index'
 import { ElBadge } from 'element-plus/es/components/badge/index'
 import { ElButton } from 'element-plus/es/components/button/index'
 import { ElCard } from 'element-plus/es/components/card/index'
@@ -12,6 +13,7 @@ import { ElDescriptions, ElDescriptionsItem } from 'element-plus/es/components/d
 import { ElDialog } from 'element-plus/es/components/dialog/index'
 import { ElDivider } from 'element-plus/es/components/divider/index'
 import { ElDrawer } from 'element-plus/es/components/drawer/index'
+import { ElDropdown, ElDropdownItem, ElDropdownMenu } from 'element-plus/es/components/dropdown/index'
 import { ElEmpty } from 'element-plus/es/components/empty/index'
 import { ElForm, ElFormItem } from 'element-plus/es/components/form/index'
 import { ElIcon } from 'element-plus/es/components/icon/index'
@@ -24,7 +26,7 @@ import { ElPagination } from 'element-plus/es/components/pagination/index'
 import { ElPopconfirm } from 'element-plus/es/components/popconfirm/index'
 import { ElPopover } from 'element-plus/es/components/popover/index'
 import { ElProgress } from 'element-plus/es/components/progress/index'
-import { ElRadio, ElRadioGroup } from 'element-plus/es/components/radio/index'
+import { ElRadio, ElRadioButton, ElRadioGroup } from 'element-plus/es/components/radio/index'
 import { ElResult } from 'element-plus/es/components/result/index'
 import { ElStep, ElSteps } from 'element-plus/es/components/steps/index'
 import { ElRow } from 'element-plus/es/components/row/index'
@@ -35,9 +37,11 @@ import { ElTable, ElTableColumn } from 'element-plus/es/components/table/index'
 import { ElTag } from 'element-plus/es/components/tag/index'
 import { ElText } from 'element-plus/es/components/text/index'
 import { ElTimeline, ElTimelineItem } from 'element-plus/es/components/timeline/index'
+import { ElTooltip } from 'element-plus/es/components/tooltip/index'
 
 import 'element-plus/theme-chalk/base.css'
 import 'element-plus/theme-chalk/el-alert.css'
+import 'element-plus/theme-chalk/el-avatar.css'
 import 'element-plus/theme-chalk/el-badge.css'
 import 'element-plus/theme-chalk/el-button.css'
 import 'element-plus/theme-chalk/el-card.css'
@@ -52,6 +56,9 @@ import 'element-plus/theme-chalk/el-descriptions-item.css'
 import 'element-plus/theme-chalk/el-dialog.css'
 import 'element-plus/theme-chalk/el-divider.css'
 import 'element-plus/theme-chalk/el-drawer.css'
+import 'element-plus/theme-chalk/el-dropdown.css'
+import 'element-plus/theme-chalk/el-dropdown-item.css'
+import 'element-plus/theme-chalk/el-dropdown-menu.css'
 import 'element-plus/theme-chalk/el-empty.css'
 import 'element-plus/theme-chalk/el-form.css'
 import 'element-plus/theme-chalk/el-form-item.css'
@@ -69,6 +76,7 @@ import 'element-plus/theme-chalk/el-popover.css'
 import 'element-plus/theme-chalk/el-popper.css'
 import 'element-plus/theme-chalk/el-progress.css'
 import 'element-plus/theme-chalk/el-radio.css'
+import 'element-plus/theme-chalk/el-radio-button.css'
 import 'element-plus/theme-chalk/el-radio-group.css'
 import 'element-plus/theme-chalk/el-result.css'
 import 'element-plus/theme-chalk/el-row.css'
@@ -92,6 +100,7 @@ import 'element-plus/theme-chalk/el-tooltip.css'
 
 const components = [
   ElAlert,
+  ElAvatar,
   ElBadge,
   ElButton,
   ElCard,
@@ -106,6 +115,9 @@ const components = [
   ElDialog,
   ElDivider,
   ElDrawer,
+  ElDropdown,
+  ElDropdownItem,
+  ElDropdownMenu,
   ElEmpty,
   ElForm,
   ElFormItem,
@@ -118,6 +130,7 @@ const components = [
   ElPopover,
   ElProgress,
   ElRadio,
+  ElRadioButton,
   ElRadioGroup,
   ElResult,
   ElRow,
@@ -135,6 +148,7 @@ const components = [
   ElText,
   ElTimeline,
   ElTimelineItem,
+  ElTooltip,
 ]
 
 export function installElement(app: App) {
