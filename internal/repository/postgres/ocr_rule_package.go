@@ -11,6 +11,7 @@ import (
 
 	"gorm.io/datatypes"
 	gormLib "gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type OCRRulePackageRepo struct {
@@ -57,6 +58,33 @@ func (r *OCRRulePackageRepo) Save(ctx context.Context, pkg *ocrasset.RulePackage
 		}
 		return tx.Save(&m).Error
 	})
+}
+
+// InsertIfAbsent 插入 pkg；同名记录已存在时通过 ON CONFLICT (name) DO NOTHING 跳过，返回已存在记录的 ID。
+// race-safe：k8s 多副本启动并发时只有一个能真正插入，其余拿到同一 ID 而非报错。
+// pkg.ID 必须为 0；非零返回错误（语义上是 insert 不是 upsert）。
+func (r *OCRRulePackageRepo) InsertIfAbsent(ctx context.Context, pkg *ocrasset.RulePackage) (uint, error) {
+	m := rulePackageToModel(pkg)
+	if m.ID != 0 {
+		return 0, fmt.Errorf("InsertIfAbsent requires pkg.ID=0, got %d", m.ID)
+	}
+	// ON CONFLICT (name) DO NOTHING：被吞时 m.ID 仍为 0，需要重读拿现存的 ID。
+	if err := r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "name"}}, DoNothing: true}).
+		Create(&m).Error; err != nil {
+		return 0, fmt.Errorf("insert rule package: %w", err)
+	}
+	if m.ID != 0 {
+		return m.ID, nil
+	}
+	// 被 DoNothing 吞：重读拿已存在记录的 ID。
+	var existing models.OCRRulePackage
+	if err := r.db.WithContext(ctx).
+		Where("name = ?", pkg.Name).
+		First(&existing).Error; err != nil {
+		return 0, fmt.Errorf("post-conflict lookup existing rule package %q: %w", pkg.Name, err)
+	}
+	return existing.ID, nil
 }
 
 func (r *OCRRulePackageRepo) Delete(ctx context.Context, id uint) error {

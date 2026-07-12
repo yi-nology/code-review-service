@@ -66,6 +66,7 @@ type ServiceConfig struct {
 	ProjectRepo     repository.ProjectPolicyRepository
 	GlobalRulesRepo repository.GlobalRulesRepository
 	RulePackageRepo repository.OCRRulePackageRepository
+	AgentRepo       repository.ReviewerAgentRepository
 	SessionRepo     SessionRepo
 	GitProviderSvc  *gitprovider.GitProviderService
 	Policy          *policy.Engine
@@ -86,6 +87,7 @@ type Service struct {
 	projectRepo     repository.ProjectPolicyRepository
 	globalRulesRepo repository.GlobalRulesRepository
 	rulePackageRepo repository.OCRRulePackageRepository
+	agentRepo       repository.ReviewerAgentRepository
 	sessionRepo     SessionRepo
 	gitProviderSvc  *gitprovider.GitProviderService
 	policy          *policy.Engine
@@ -107,6 +109,7 @@ func NewService(cfg ServiceConfig) *Service {
 		projectRepo:     cfg.ProjectRepo,
 		globalRulesRepo: cfg.GlobalRulesRepo,
 		rulePackageRepo: cfg.RulePackageRepo,
+		agentRepo:       cfg.AgentRepo,
 		sessionRepo:     cfg.SessionRepo,
 		gitProviderSvc:  cfg.GitProviderSvc,
 		policy:          cfg.Policy,
@@ -124,6 +127,28 @@ func NewService(cfg ServiceConfig) *Service {
 		logx.Infof("review concurrency limit=%d (worker & scan shared)", cfg.Concurrency)
 	}
 	return s
+}
+
+// agentRulePackageRefs 汇总所有启用审查员的 RulePackageIDs（json.RawMessage 列表）。
+// ResolveRuleFileForAgents 内部会基于 MergeRulePackageIDs 合并去重，所以这里只做收集不去重。
+// 所有审查员共享同一份合并规则文件，因此取 RawMessage 列表交给 rules 层统一处理。
+func (s *Service) agentRulePackageRefs(ctx context.Context) [][]byte {
+	if s.agentRepo == nil {
+		return nil
+	}
+	agents, err := s.agentRepo.ListEnabled(ctx)
+	if err != nil {
+		logx.Warn("failed to load enabled agents for rule package refs", "error", err)
+		return nil
+	}
+	refs := make([][]byte, 0, len(agents))
+	for i := range agents {
+		if len(agents[i].RulePackageIDs) == 0 {
+			continue
+		}
+		refs = append(refs, agents[i].RulePackageIDs)
+	}
+	return refs
 }
 
 // acquireConcurrency 获取并发槽，支持 ctx 取消。
@@ -384,6 +409,19 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 }
 
 func (s *Service) Preview(ctx context.Context, req domain.Request) ([]string, error) {
+	return s.previewCore(ctx, req, nil, nil, true)
+}
+
+// PreviewWithScope 同 Preview，但支持限定扫描范围（paths/exclude）。
+// scan preview 用它把用户在 scan 页指定的 --path/--exclude 传给 ocr scan --preview。
+func (s *Service) PreviewWithScope(ctx context.Context, req domain.Request, paths, exclude []string) ([]string, error) {
+	return s.previewCore(ctx, req, paths, exclude, true)
+}
+
+// previewCore 是 Preview / PreviewWithScope / scanPreview 共享的单一实现。
+// includeAgentRules=false 时跳过审查员引用的规则包（仅 scan preview 用：scan 不调 LLM，
+// 收集 agent 规则是浪费一次 DB 查询，且会污染 ocr scan --preview 的输入）。
+func (s *Service) previewCore(ctx context.Context, req domain.Request, paths, exclude []string, includeAgentRules bool) ([]string, error) {
 	if err := validate(req); err != nil {
 		return nil, err
 	}
@@ -402,14 +440,12 @@ func (s *Service) Preview(ctx context.Context, req domain.Request) ([]string, er
 		defer func() { _ = os.RemoveAll(workspace.Dir) }()
 	}
 
-	projectPolicy := projectpolicy.ProjectPolicy{FailOn: "critical"}
+	projectPolicy := projectpolicy.NewDefault(req.Provider, req.Repo)
 	if s.projectRepo != nil {
-		policyRecord, err := s.projectRepo.GetByProviderRepo(ctx, req.Provider, req.Repo)
-		if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
-			logx.Warn("failed to get project policy, using default", "error", err)
-		}
-		if policyRecord != nil {
-			projectPolicy = *policyRecord
+		if policyRecord, err := s.projectRepo.GetOrCreateDefault(ctx, req.Provider, req.Repo); err == nil {
+			projectPolicy = policyRecord
+		} else if !errors.Is(err, repoerr.ErrNotFound) {
+			logx.Warn("failed to get/create project policy, using default", "error", err)
 		}
 	}
 
@@ -426,8 +462,16 @@ func (s *Service) Preview(ctx context.Context, req domain.Request) ([]string, er
 		}
 	}
 
+	// scan preview 的扫描范围限定
+	workspace.ScanPaths = paths
+	workspace.ScanExclude = exclude
+
 	if s.globalRulesRepo != nil {
-		rulePath, cleanup, ruleErr := ResolveRuleFile(ctx, projectPolicy, s.rulePackageRepo, s.globalRulesRepo)
+		var agentRefs [][]byte
+		if includeAgentRules {
+			agentRefs = s.agentRulePackageRefs(ctx)
+		}
+		rulePath, cleanup, ruleErr := ResolveRuleFileForAgents(ctx, projectPolicy, s.rulePackageRepo, s.globalRulesRepo, agentRefs...)
 		if ruleErr != nil {
 			logx.Warn("failed to resolve rule file", "error", ruleErr)
 		} else if rulePath != "" {
@@ -466,10 +510,32 @@ func (s *Service) Scan(ctx context.Context, req domain.ScanRequest) (*domain.Sca
 	}
 
 	if req.Preview {
-		return s.scanExecute(ctx, req)
+		return s.scanPreview(ctx, req)
 	}
 
 	return s.scanAsync(ctx, req)
+}
+
+// scanPreview 走轻量预览路径：clone + ocr scan --preview（秒级返回文件列表），
+// 不调用 LLM。之前走 scanExecuteWithPolicy 会跑完整 OCR scan（3-7 分钟），
+// 导致前端 120s 超时。
+//
+// scan 模式没有 PR diff 范围的概念，BaseSHA 与 HeadSHA 一致是合理的；
+// 若未来需要支持「对指定 base..head 范围做 scan preview」，需在 domain.ScanRequest
+// 增加 BaseSHA 字段并改这里。
+func (s *Service) scanPreview(ctx context.Context, req domain.ScanRequest) (*domain.ScanResult, error) {
+	domainReq := domain.Request{
+		Provider: strings.TrimSpace(req.Provider),
+		Repo:     strings.TrimSpace(req.Repo),
+		BaseSHA:  strings.TrimSpace(req.HeadSHA),
+		HeadSHA:  strings.TrimSpace(req.HeadSHA),
+	}
+	// scan 不调 LLM，跳过审查员规则包收集，避免一次 ListEnabled 查询与污染 ocr scan --preview。
+	files, err := s.previewCore(ctx, domainReq, req.Paths, req.Exclude, false)
+	if err != nil {
+		return nil, err
+	}
+	return &domain.ScanResult{PreviewFiles: files}, nil
 }
 
 func (s *Service) scanAsync(ctx context.Context, req domain.ScanRequest) (*domain.ScanResult, error) {
@@ -643,14 +709,12 @@ func (s *Service) scanExecuteWithPolicy(ctx context.Context, reviewID string, re
 		defer func() { _ = os.RemoveAll(workspace.Dir) }()
 	}
 
-	projectPolicy := projectpolicy.ProjectPolicy{FailOn: "critical"}
+	projectPolicy := projectpolicy.NewDefault(providerName, repo)
 	if s.projectRepo != nil {
-		policyRecord, err := s.projectRepo.GetByProviderRepo(ctx, providerName, repo)
-		if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
-			logx.Warn("failed to get project policy, using default", "error", err)
-		}
-		if policyRecord != nil {
-			projectPolicy = *policyRecord
+		if policyRecord, err := s.projectRepo.GetOrCreateDefault(ctx, providerName, repo); err == nil {
+			projectPolicy = policyRecord
+		} else if !errors.Is(err, repoerr.ErrNotFound) {
+			logx.Warn("failed to get/create project policy, using default", "error", err)
 		}
 	}
 	workspace.OCR = ProjectPolicyToOCROverrides(projectPolicy)
@@ -659,7 +723,7 @@ func (s *Service) scanExecuteWithPolicy(ctx context.Context, reviewID string, re
 	}
 
 	if s.globalRulesRepo != nil {
-		rulePath, cleanup, ruleErr := ResolveRuleFile(ctx, projectPolicy, s.rulePackageRepo, s.globalRulesRepo)
+		rulePath, cleanup, ruleErr := ResolveRuleFileForAgents(ctx, projectPolicy, s.rulePackageRepo, s.globalRulesRepo, s.agentRulePackageRefs(ctx)...)
 		if ruleErr != nil {
 			logx.Warn("failed to resolve rule file", "error", ruleErr)
 		} else if rulePath != "" {

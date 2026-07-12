@@ -33,3 +33,7 @@ data/*.json
 .env
 .env.local
 .playwright-mcp
+
+# Mavis / mavis local artifacts (plan files, scratchpads, agent memory dumps)
+.zcode/
+.harness/

@@ -38,6 +38,7 @@ type Service struct {
 	projectRepo     repository.ProjectPolicyRepository
 	globalRulesRepo repository.GlobalRulesRepository
 	rulePackageRepo repository.OCRRulePackageRepository
+	agentRepo       repository.ReviewerAgentRepository
 	runner          domain.Runner
 	writeback       domain.WritebackPublisher
 	notifier        domain.Notifier
@@ -61,6 +62,7 @@ type Config struct {
 	ProjectRepo     repository.ProjectPolicyRepository
 	GlobalRulesRepo repository.GlobalRulesRepository
 	RulePackageRepo repository.OCRRulePackageRepository
+	AgentRepo       repository.ReviewerAgentRepository
 	Runner          domain.Runner
 	Writeback       domain.WritebackPublisher
 	Notifier        domain.Notifier
@@ -82,6 +84,7 @@ func NewService(cfg Config) *Service {
 		projectRepo:     cfg.ProjectRepo,
 		globalRulesRepo: cfg.GlobalRulesRepo,
 		rulePackageRepo: cfg.RulePackageRepo,
+		agentRepo:       cfg.AgentRepo,
 		runner:          cfg.Runner,
 		writeback:       cfg.Writeback,
 		notifier:        cfg.Notifier,
@@ -104,6 +107,28 @@ func (s *Service) shouldUseWorkflow() bool {
 	}
 	agents := s.agentManager.GetAgents()
 	return len(agents) > 1
+}
+
+// agentRulePackageRefs 汇总所有启用审查员的 RulePackageIDs（json.RawMessage 列表）。
+// ResolveRuleFileForAgents 内部会基于 MergeRulePackageIDs 合并去重，所以这里只做收集不去重。
+// 所有审查员共享同一份合并规则文件。
+func (s *Service) agentRulePackageRefs(ctx context.Context) [][]byte {
+	if s.agentRepo == nil {
+		return nil
+	}
+	agents, err := s.agentRepo.ListEnabled(ctx)
+	if err != nil {
+		logx.Warn("failed to load enabled agents for rule package refs", "error", err)
+		return nil
+	}
+	refs := make([][]byte, 0, len(agents))
+	for i := range agents {
+		if len(agents[i].RulePackageIDs) == 0 {
+			continue
+		}
+		refs = append(refs, agents[i].RulePackageIDs)
+	}
+	return refs
 }
 
 // CancelExecution cancels a running execution for the given review ID
@@ -180,14 +205,13 @@ func (s *Service) Execute(ctx context.Context, id string, req domain.Request, pr
 		s.updateRequestSHAs(ctx, id, req)
 	}
 
-	projectPolicy := projectpolicy.ProjectPolicy{FailOn: "critical"}
+	projectPolicy := projectpolicy.NewDefault(req.Provider, req.Repo)
 	if s.projectRepo != nil {
-		p, err := s.projectRepo.GetByProviderRepo(ctx, req.Provider, req.Repo)
-		if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
-			logx.Warn("failed to get project policy, using default", "error", err)
-		}
-		if p != nil {
-			projectPolicy = *p
+		// webhook 回调审查的项目若未配置策略，自动创建默认记录落库，使其出现在项目策略页可被治理。
+		if p, err := s.projectRepo.GetOrCreateDefault(ctx, req.Provider, req.Repo); err == nil {
+			projectPolicy = p
+		} else if !errors.Is(err, repoerr.ErrNotFound) {
+			logx.Warn("failed to get/create project policy, using default", "error", err)
 		}
 	}
 	workspace.OCR = review.ProjectPolicyToOCROverrides(projectPolicy)
@@ -217,7 +241,7 @@ func (s *Service) Execute(ctx context.Context, id string, req domain.Request, pr
 	}
 
 	if s.globalRulesRepo != nil {
-		rulePath, cleanup, ruleErr := review.ResolveRuleFile(ctx, projectPolicy, s.rulePackageRepo, s.globalRulesRepo)
+		rulePath, cleanup, ruleErr := review.ResolveRuleFileForAgents(ctx, projectPolicy, s.rulePackageRepo, s.globalRulesRepo, s.agentRulePackageRefs(ctx)...)
 		if ruleErr != nil {
 			logx.Warn("failed to resolve rule file", "error", ruleErr)
 		} else if rulePath != "" {
@@ -275,6 +299,7 @@ func (s *Service) executeWithWorkflow(ctx context.Context, id string, req domain
 		Round:        1,
 		Requirements: req.Requirements,
 		Language:     workspace.OCR.Language,
+		RulePath:     workspace.RulePath,
 	}
 	// 映射临时 reviewer：domain.EphemeralReviewer → agent.EphemeralSpec（阶段 5）
 	if len(req.EphemeralReviewers) > 0 {
