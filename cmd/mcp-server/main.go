@@ -1,7 +1,7 @@
 // cmd/mcp-server 是 review-service 的 MCP 端点（独立进程）。
 //
 // 与主 HTTP 服务的区别：
-//   - 不起 Hertz：stdio 模式从 stdin 读 JSON-RPC 写到 stdout；SSE 模式由 --transport=sse 启 HTTP。
+//   - 不起 Hertz：HTTP 模式由 transport.RunHTTP 启 streamable_http server。
 //   - 复用 service 层：fx 拉 DatabaseModule / RepositoryModule / ProviderModule /
 //     RunnerModule / OCRModule / LLMModule / WritebackModule / NotificationModule /
 //     CostModule / AgentModule / WorkflowModule / ReviewModule；
@@ -11,21 +11,22 @@
 //     MCP 端点不需要。
 //   - 鉴权独立：MCP_TOKEN env 优先，fallback REVIEW_TOKEN。
 //
-// 启动方式（stdio, minicode 本地场景）：
+// 启动方式：
 //
 //	REVIEW_TOKEN=xxx DATABASE_URL=postgres://... go run ./cmd/mcp-server
 //	# 或
 //	REVIEW_TOKEN=xxx DATABASE_URL=postgres://... ./bin/mcp-server
 //
-// minicode 端 mcp_config.json 示例：
+// 端口：默认 8082，--port 覆盖，或 MCP_PORT env 覆盖。
+//
+// Claude Desktop / Cursor / minicode 等 LLM 客户端接入示例（HTTP 模式）：
 //
 //	{
 //	  "mcpServers": {
 //	    "review-service": {
-//	      "command": "/abs/path/to/bin/mcp-server",
-//	      "env": {
-//	        "REVIEW_TOKEN": "xxx",
-//	        "DATABASE_URL": "postgres://..."
+//	      "url": "http://localhost:8082/mcp",
+//	      "headers": {
+//	        "Authorization": "Bearer <MCP_TOKEN>"
 //	      }
 //	    }
 //	  }
@@ -50,7 +51,6 @@ import (
 
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
-	mcpruntime "github.com/mark3labs/mcp-go/server"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 
@@ -74,9 +74,15 @@ func init() {
 
 func main() {
 	env := flag.String("env", "local", "environment: local, dev, prod")
-	transportFlag := flag.String("transport", "stdio", "transport: stdio (default) or sse (streamable_http)")
-	portFlag := flag.Int("port", 8082, "sse mode listen port (ignored in stdio mode)")
+	portFlag := flag.Int("port", 8082, "http listen port")
 	flag.Parse()
+
+	// MCP_PORT env 覆盖 --port。
+	if p := os.Getenv("MCP_PORT"); p != "" {
+		if v, err := strconv.Atoi(p); err == nil && v > 0 {
+			*portFlag = v
+		}
+	}
 
 	config.SetCurrentEnv(*env)
 	cfg := config.LoadWithEnv(*env)
@@ -138,30 +144,36 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 选 transport。
-	tr := transport.ResolveTransport(*transportFlag)
-	logx.Infof("mcp server transport: %s", tr)
+	// 启动 HTTP transport + signal 监听并发跑，err 走 channel。
+	runCtx, runCancel := context.WithCancel(context.Background())
+	defer runCancel()
 
-	// SSE 模式下,port 可以从 --port / MCP_PORT env 覆盖。
-	if tr == transport.SSE {
-		if p := os.Getenv("MCP_PORT"); p != "" {
-			if v, err := strconv.Atoi(p); err == nil && v > 0 {
-				*portFlag = v
+	errCh := async.GoSafeWithErr(func() error {
+		return transport.RunHTTP(runCtx, mcpSrv.Runtime(), transport.Config{
+			Token: mcpToken,
+			Port:  *portFlag,
+		})
+	})
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+
+	select {
+	case sig := <-sigCh:
+		logx.Infof("received signal %s, shutting down mcp server", sig)
+		runCancel() // 触发 RunHTTP 走 ctx.Done 路径 → server.Shutdown
+		select {
+		case err := <-errCh:
+			if err != nil {
+				logx.Warnf("mcp http server ended: %v", err)
 			}
+		case <-time.After(15 * time.Second):
+			logx.Warn("mcp http server did not exit in 15s after signal")
 		}
-	}
-
-	var runErr error
-	switch tr {
-	case transport.Stdio:
-		runErr = runStdio(mcpSrv)
-	case transport.SSE:
-		runErr = runSSE(startCtx, mcpSrv, mcpToken, *portFlag)
-	default:
-		runErr = fmt.Errorf("unknown transport: %s", *transportFlag)
-	}
-	if runErr != nil {
-		logx.Warnf("mcp server %s ended: %v", tr, runErr)
+	case err := <-errCh:
+		if err != nil {
+			logx.Warnf("mcp http server ended: %v", err)
+		}
 	}
 
 	// 优雅关闭 fx：先停 MCP，再关 DB。
@@ -179,62 +191,4 @@ func tokenSource() string {
 		return "MCP_TOKEN"
 	}
 	return "REVIEW_TOKEN"
-}
-
-// runStdio 跑 stdio 传输，捕获 SIGTERM / SIGINT 触发优雅退出。
-//
-// mcp-go 的 server.ServeStdio 内部已处理 SIGINT/SIGTERM，
-// 但我们额外包一层是为了在退出前调 fx.Stop，让 DB 连接 / OCR 子进程 /
-// progress goroutine 都能正确清理。
-func runStdio(srv *mcpserver.Server) error {
-	// 独立信号通道：stdin 关闭 vs 用户按 Ctrl+C 都能触发退出。
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
-
-	errCh := async.GoSafeWithErr(func() error {
-		return mcpruntime.ServeStdio(srv.Runtime())
-	})
-
-	select {
-	case sig := <-sigCh:
-		logx.Infof("received signal %s, shutting down mcp server", sig)
-		// ServeStdio 内部会处理信号；这里不需要额外动作，让它从 stdin EOF 退出。
-		// 等待 ServeStdio 自然返回（最多 5s），避免阻塞 main。
-		select {
-		case <-errCh:
-		case <-time.After(5 * time.Second):
-			logx.Warn("stdio server did not exit in 5s after signal; force exit")
-		}
-		return nil
-	case err := <-errCh:
-		// stdin EOF 是正常退出（minicode 关闭 IDE）。
-		return err
-	}
-}
-
-// runSSE 跑 streamable_http transport。ctx 由 main 传入,signal 触发 cancel。
-func runSSE(ctx context.Context, srv *mcpserver.Server, token string, port int) error {
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
-
-	errCh := async.GoSafeWithErr(func() error {
-		return transport.RunSSE(ctx, srv.Runtime(), transport.Config{
-			Token: token,
-			Port:  port,
-		})
-	})
-
-	select {
-	case sig := <-sigCh:
-		logx.Infof("received signal %s, shutting down sse server", sig)
-		// RunSSE 在 ctx.Done() 时会优雅关闭 server。等其返回。
-		select {
-		case err := <-errCh:
-			return err
-		case <-time.After(15 * time.Second):
-			return fmt.Errorf("sse server did not exit in 15s after signal")
-		}
-	case err := <-errCh:
-		return err
-	}
 }

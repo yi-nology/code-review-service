@@ -1,14 +1,12 @@
-// Package transport 暴露 mcp-server 进程的多传输启动入口。
-//
-// 两种 transport：
-//   - stdio：minicode / Claude Desktop / Cursor 标配，本地子进程模式
-//   - sse（streamable_http）：远端部署场景，HTTP/POST + SSE 端点
+// Package transport 暴露 mcp-server 进程的 HTTP 传输启动入口。
 //
 // 选型：
 //   - mcp-go 在 0.56 同时提供 legacy SSE (server.NewSSEServer) 跟新
 //     streamable_http (server.NewStreamableHTTPServer, MCP 2025-03 spec)。
-//   - 后者是 MCP 官方推荐（2025-06 spec 进一步强化），本包只实现 streamable_http。
-//   - 客户端 spec 兼容：mcp-go 客户端、minicode、Claude Desktop 都支持。
+//   - 选 streamable_http：MCP 官方推荐（2025-06 spec 进一步强化），本包只实现这一种。
+//   - 历史 stdio transport 已删除（mcp-server 进程只服务远端 HTTP 调用场景；
+//     IDE 本地子进程 stdio 模式由 IDE 端走 HTTP 远端接入）。
+//   - 客户端 spec 兼容：mcp-go 客户端、minicode、Claude Desktop、Cursor 都支持。
 package transport
 
 import (
@@ -18,38 +16,29 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/mcp"
 	"github.com/oekit/concurrency/async"
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
 )
 
-// Transport 是 mcp-server 的传输模式。
-type Transport string
-
-const (
-	Stdio Transport = "stdio"
-	SSE   Transport = "sse"
-)
-
-// Config 包含 transport-specific 启动参数。
+// Config 包含 HTTP transport 启动参数。
 type Config struct {
-	// Token 是 Bearer token；sse 模式下启用，stdio 模式不用（client/server 同进程）。
+	// Token 是 Bearer token；空值时关闭鉴权（dev 模式 + AUTH_INSECURE=true）。
 	Token string
-	// Port 是 sse 模式监听端口，stdio 模式忽略。
+	// Port 是 HTTP 监听端口，<=0 时默认 8082。
 	Port int
 }
 
-// RunSSE 启 streamable_http transport 在 cfg.Port 端口，path = /mcp。
+// RunHTTP 启 streamable_http transport 在 cfg.Port 端口，path = /mcp。
 //
-// 鉴权：所有非 GET / healthz 请求要求 Authorization: Bearer <cfg.Token>。
+// 鉴权：所有非 /healthz / /readyz 请求要求 Authorization: Bearer <cfg.Token>。
 // 走 stdlib net/http 的 middleware 模式，避免引入额外依赖（mcp-go 不带 auth
 // middleware，需要外面套）。
 //
 // session：用 InsecureStatefulSessionIdManager（mcp-go 默认 StatelessGeneratingSessionIdManager
 // 也是 OK；选 stateful 是为了后续多 session 跟 RBAC 留扩展点 — 当前 single-tenant
 // 实际上不需要，但避免后期重构）。
-func RunSSE(ctx context.Context, srv *mcpserver.MCPServer, cfg Config) error {
+func RunHTTP(ctx context.Context, srv *mcpserver.MCPServer, cfg Config) error {
 	if cfg.Port <= 0 {
 		cfg.Port = 8082
 	}
@@ -67,7 +56,7 @@ func RunSSE(ctx context.Context, srv *mcpserver.MCPServer, cfg Config) error {
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		// SSE 模式下 fx 已经 OnStart 完毕，进程能 listen 就是 ready。
+		// HTTP 模式下 fx 已经 OnStart 完毕，进程能 listen 就是 ready。
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ready"}`))
 	})
@@ -82,13 +71,12 @@ func RunSSE(ctx context.Context, srv *mcpserver.MCPServer, cfg Config) error {
 		// SSE 长连接需要 MaxHeaderBytes 放宽,默认 1MB 够用,不动。
 	}
 
-	// 优雅退出
 	errCh := async.GoSafeWithErr(server.ListenAndServe)
 
 	select {
 	case err := <-errCh:
 		if err != nil && err != http.ErrServerClosed {
-			return fmt.Errorf("sse server: %w", err)
+			return fmt.Errorf("http server: %w", err)
 		}
 		return nil
 	case <-ctx.Done():
@@ -141,7 +129,7 @@ func equalFold(a, b string) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	for i := 0; i < len(a); i++ {
+	for i := range a {
 		ca, cb := a[i], b[i]
 		if 'A' <= ca && ca <= 'Z' {
 			ca += 'a' - 'A'
@@ -155,20 +143,3 @@ func equalFold(a, b string) bool {
 	}
 	return true
 }
-
-// ResolveTransport 把 CLI flag 字符串转成 Transport 枚举。
-// 不认识的值返 zero value (Stdio) + warning 写到 stderr, 跟 Go 惯例一致。
-func ResolveTransport(s string) Transport {
-	switch s {
-	case "stdio", "":
-		return Stdio
-	case "sse", "http":
-		return SSE
-	default:
-		return Stdio
-	}
-}
-
-// 编译期检查：保证 *mcp.Server 跟 *mcpserver.MCPServer 的转换路径存在。
-// RunSSE 接 *mcpserver.MCPServer 而非 *mcp.Server,避免 RunSSE 依赖内部 wrapper。
-var _ = mcp.ServerName

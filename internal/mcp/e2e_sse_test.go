@@ -21,20 +21,20 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 )
 
-// TestMCPSSEEndToEnd 端到端：起 testcontainers Postgres → 启动 mcp-server 二进制（SSE 模式）→
+// TestMCPSSEEndToEnd 端到端：起 testcontainers Postgres → 启动 mcp-server 二进制（HTTP 模式）→
 // 走 HTTP initialize + tools/list + tools/call(create_review)。
 //
 // 覆盖：
-//   1. SSE server 能在 :8082 listen（端口从 --port 注入避免与 stdio e2e 撞）
-//   2. /healthz 不要求鉴权
-//   3. /mcp 缺 Authorization 头返 401
-//   4. 带正确 Bearer token 的 initialize 走通
-//   5. tools/list 返 13 个 tool
-//   6. create_review 错误参数走通（走 HTTP 而不是 JSON-RPC framed over stdio）
+//  1. HTTP server 能在 :8082 listen（端口从 --port 注入避免与其他 e2e 撞）
+//  2. /healthz 不要求鉴权
+//  3. /mcp 缺 Authorization 头返 401
+//  4. 带正确 Bearer token 的 initialize 走通
+//  5. tools/list 返 13 个 tool
+//  6. create_review 错误参数走通
 //
 // HTTP transport: MCP 2025-03 spec，streamable_http。client 跟 server 之间用
 // POST /mcp 单向请求-响应（带 session-id header 标识）；本测试只覆盖 stateless 部分。
-func TestMCPSSEEndToEnd(t *testing.T) {
+func TestMCPHTTPEndToEnd(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	pg, _, err := tcdb.StartPostgres(ctx)
@@ -50,7 +50,6 @@ func TestMCPSSEEndToEnd(t *testing.T) {
 	port := freePort(t)
 
 	cmd := exec.Command(bin,
-		"--transport=sse",
 		fmt.Sprintf("--port=%d", port),
 	)
 	cmd.Env = append(os.Environ(),
@@ -239,7 +238,7 @@ func waitForHealthz(t *testing.T, base string, timeout time.Duration) {
 	t.Fatalf("healthz not ready after %s", timeout)
 }
 
-// freePort 拿一个空闲端口（避免 SSE 模式跟 stdio 模式撞 8082）。
+// freePort 拿一个空闲端口（避免本测试跟其他 e2e 撞 8082）。
 func freePort(t *testing.T) int {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -250,10 +249,7 @@ func freePort(t *testing.T) int {
 	return ln.Addr().(*net.TCPAddr).Port
 }
 
-// 复用 e2e_stdio_test.go 里的 helper（已暴露在同一 package）。
-// 这里只做编译期引用,确保 helper 真存在。
-var _ = buildMCPServerBinary
-var _ = repoRoot
-var _ = dbConnString
+// 防止 import unused：app / testcontainers 仅在函数签名 / 编译期约束里出现,
+// 写两个 blank var 让 import 不被剔除。helper 跟常量定义见 e2e_helpers_test.go。
 var _ app.ReviewService
 var _ testcontainers.Container

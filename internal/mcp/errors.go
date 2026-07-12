@@ -1,4 +1,4 @@
-// Package mcp 暴露 review-service 的能力为 MCP tool（stdio + SSE 两种传输）。
+// Package mcp 暴露 review-service 的能力为 MCP tool（HTTP / streamable_http 传输）。
 //
 // 设计要点（参考 docs/MCP_DESIGN.md，PR-23 引入）：
 //  1. 复用 internal/app.ReviewService / GitProviderManager：MCP server 不重新实现业务，

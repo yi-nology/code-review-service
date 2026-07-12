@@ -12,9 +12,9 @@ import (
 //   - 单一 MCPServer 实例，通过 Register*Tools 方法分组注册 tool，
 //     避免 9+ 个 tool 全堆在 main.go 里。
 //   - 不持有业务状态：所有依赖通过 Register 方法以函数参数注入，
-//     方便测试（可传 mock service）和后续 SSE 模式复用。
-//   - Server 本身不启 transport：ServeStdio / ServeSSE 由调用方决定。
-//     原因：stdio 与 SSE 的启动 / 关闭 / 鉴权语义不同，分开写更清晰。
+//     方便测试（可传 mock service）和 HTTP 模式复用。
+//   - Server 本身不启 transport：HTTP transport 启动由 cmd/mcp-server 决定。
+//     原因：跟 transport / 鉴权 / 优雅退出 逻辑解耦,Server 只负责 tool 注册。
 type Server struct {
 	*mcpserver.MCPServer
 }
@@ -42,11 +42,11 @@ func NewServer(cfg ServerConfig, opts ...mcpserver.ServerOption) *Server {
 	}
 }
 
-// Runtime 暴露底层 *mcpserver.MCPServer 给 stdio / SSE 启动器。
+// Runtime 暴露底层 *mcpserver.MCPServer 给 HTTP 启动器。
 //
-// Server 嵌入了 *mcpserver.MCPServer，理论上可以直接 s.MCPServer.ServeStdio，
+// Server 嵌入了 *mcpserver.MCPServer，理论上可以直接 s.MCPServer 暴露出去，
 // 但 MCPServer 字段是 unexported（避免外部直接绕过 NewServer 修改内部状态）。
-// 显式提供 Runtime() 方法让 transport 选择权放在 main / SSE 入口，
+// 显式提供 Runtime() 方法让 transport 选择权放在 main 入口，
 // 保持 Server 顶层只负责 tool 注册。
 func (s *Server) Runtime() *mcpserver.MCPServer {
 	return s.MCPServer
