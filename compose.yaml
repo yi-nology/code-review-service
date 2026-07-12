@@ -24,10 +24,6 @@ services:
       HTTP_ADDR: ":8080"
       REVIEW_TOKEN: ${REVIEW_TOKEN:-dev-token}
       DATABASE_URL: postgres://review_service:review_service@postgres:5432/review_service?sslmode=disable
-      OCR_ENABLED: ${OCR_ENABLED:-false}
-      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
-      GITLAB_TOKEN: ${GITLAB_TOKEN:-}
-      GITEA_TOKEN: ${GITEA_TOKEN:-}
     ports:
       - "8080:8080"
     healthcheck:
@@ -45,6 +41,29 @@ services:
       - review-service
     ports:
       - "80:80"
+
+  # MCP server 独立进程 — 给 minicode / Claude Desktop / Cursor 等 LLM 客户端用。
+  # stdio 模式：客户端 spawn 本进程，token 通过 env 传。
+  # SSE 模式（可选）：MCP_PORT 暴露，外部用 Bearer token 调。
+  # 复用 review-service 同一份镜像,但启动时走 cmd/mcp-server 二进制。
+  mcp-server:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      review-service:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://review_service:review_service@postgres:5432/review_service?sslmode=disable
+      # MCP_TOKEN 优先，fallback REVIEW_TOKEN。dev 默认 dev-token，跟主服务一致。
+      MCP_TOKEN: ${MCP_TOKEN:-dev-token}
+    # stdio 是默认 transport；要切 SSE 给 LLM 远端 client 用,改成：
+    # command: ["/usr/local/bin/mcp-server", "--transport=sse", "--port=8082"]
+    entrypoint: ["/usr/local/bin/mcp-server", "--transport=stdio"]
+    # 暴露 SSE 端口（仅当 --transport=sse 时有意义；stdio 模式不进容器网络）。
+    ports:
+      - "8082:8082"
+    # healthcheck 走 HTTP 不可用(stdio 模式),只在 SSE 模式有意义。
 
 volumes:
   review-postgres:

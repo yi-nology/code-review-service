@@ -38,11 +38,13 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/config"
 	mcpserver "github.com/yi-nology/code-review-service/internal/mcp"
+	"github.com/yi-nology/code-review-service/internal/mcp/transport"
 	"github.com/yi-nology/code-review-service/internal/modules"
 	"github.com/yi-nology/code-review-service/internal/observability/redact"
 
@@ -71,6 +73,8 @@ func init() {
 
 func main() {
 	env := flag.String("env", "local", "environment: local, dev, prod")
+	transportFlag := flag.String("transport", "stdio", "transport: stdio (default) or sse (streamable_http)")
+	portFlag := flag.Int("port", 8082, "sse mode listen port (ignored in stdio mode)")
 	flag.Parse()
 
 	config.SetCurrentEnv(*env)
@@ -133,9 +137,30 @@ func main() {
 		os.Exit(1)
 	}
 
-	// ServeStdio 是阻塞的，stdin EOF 或 SIGTERM 时返回。
-	if err := runStdio(mcpSrv); err != nil {
-		logx.Warnf("mcp server stdio ended: %v", err)
+	// 选 transport。
+	tr := transport.ResolveTransport(*transportFlag)
+	logx.Infof("mcp server transport: %s", tr)
+
+	// SSE 模式下,port 可以从 --port / MCP_PORT env 覆盖。
+	if tr == transport.SSE {
+		if p := os.Getenv("MCP_PORT"); p != "" {
+			if v, err := strconv.Atoi(p); err == nil && v > 0 {
+				*portFlag = v
+			}
+		}
+	}
+
+	var runErr error
+	switch tr {
+	case transport.Stdio:
+		runErr = runStdio(mcpSrv)
+	case transport.SSE:
+		runErr = runSSE(startCtx, mcpSrv, mcpToken, *portFlag)
+	default:
+		runErr = fmt.Errorf("unknown transport: %s", *transportFlag)
+	}
+	if runErr != nil {
+		logx.Warnf("mcp server %s ended: %v", tr, runErr)
 	}
 
 	// 优雅关闭 fx：先停 MCP，再关 DB。
@@ -183,6 +208,34 @@ func runStdio(srv *mcpserver.Server) error {
 		return nil
 	case err := <-errCh:
 		// stdin EOF 是正常退出（minicode 关闭 IDE）。
+		return err
+	}
+}
+
+// runSSE 跑 streamable_http transport。ctx 由 main 传入,signal 触发 cancel。
+func runSSE(ctx context.Context, srv *mcpserver.Server, token string, port int) error {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- transport.RunSSE(ctx, srv.Runtime(), transport.Config{
+			Token: token,
+			Port:  port,
+		})
+	}()
+
+	select {
+	case sig := <-sigCh:
+		logx.Infof("received signal %s, shutting down sse server", sig)
+		// RunSSE 在 ctx.Done() 时会优雅关闭 server。等其返回。
+		select {
+		case err := <-errCh:
+			return err
+		case <-time.After(15 * time.Second):
+			return fmt.Errorf("sse server did not exit in 15s after signal")
+		}
+	case err := <-errCh:
 		return err
 	}
 }
