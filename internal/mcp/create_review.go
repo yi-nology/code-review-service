@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"time"
 
 	"github.com/yi-nology/code-review-service/internal/app"
 	"github.com/yi-nology/code-review-service/internal/service/review"
@@ -89,15 +88,9 @@ func createReviewHandler(svc app.ReviewService) func(ctx context.Context, req mc
 		if v, ok := args["wait"].(bool); ok {
 			wait = v
 		}
-		timeoutSec := 180
-		if v, ok := args["timeout_seconds"].(float64); ok && v > 0 {
-			timeoutSec = int(v)
-			if timeoutSec < 10 {
-				timeoutSec = 10
-			}
-			if timeoutSec > 600 {
-				timeoutSec = 600
-			}
+		var timeoutSec float64
+		if v, ok := args["timeout_seconds"].(float64); ok {
+			timeoutSec = v
 		}
 
 		// wait=false：直接创建立刻返回 review_id（status=queued），客户端后续轮询。
@@ -122,7 +115,7 @@ func createReviewHandler(svc app.ReviewService) func(ctx context.Context, req mc
 		// 超时后 ctx.Done() 透传到 executor，会取消 OCR 子进程；
 		// 此时 service 把 review 留在 DB status=running,客户端可以继续轮询。
 		domainReq.Wait = true
-		timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSec)*time.Second)
+		timeoutCtx, cancel := context.WithTimeout(ctx, parseTimeoutSec(timeoutSec))
 		defer cancel()
 
 		idempotencyKey := optionalString(args, "idempotency_key")
@@ -137,7 +130,7 @@ func createReviewHandler(svc app.ReviewService) func(ctx context.Context, req mc
 			if errors.Is(err, context.DeadlineExceeded) {
 				return NewToolErrorf(ErrCategoryTimeout, "wait_timeout",
 					"用 list_reviews(provider, repo, head_sha) 找 status=running 的 review 继续轮询",
-					"同步等待 %ds 超时，评审仍在后台执行", timeoutSec), nil
+					"同步等待超时，评审仍在后台执行"), nil
 			}
 			return classifyCreateError(err), nil
 		}

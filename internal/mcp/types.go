@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -108,4 +109,27 @@ func JSONResult(data any) (*mcp.CallToolResult, error) {
 		Content: []mcp.Content{mcp.NewTextContent(string(raw))},
 		StructuredContent: data,
 	}, nil
+}
+
+// parseTimeoutSec 把 MCP 参数里的 timeout_seconds (float64) 转成 time.Duration，
+// 范围 [10s, 600s]，0/负值走默认 180s。create_review / rerun_review 共用。
+//
+// MCP JSON-RPC 把所有数字解成 float64,跟 ekit config.GetInt 行为一致。
+func parseTimeoutSec(v float64) time.Duration {
+	const (
+		defaultSec = 180
+		minSec     = 10
+		maxSec     = 600
+	)
+	if v <= 0 {
+		v = defaultSec
+	}
+	sec := int(v)
+	if sec < minSec {
+		sec = minSec
+	}
+	if sec > maxSec {
+		sec = maxSec
+	}
+	return time.Duration(sec) * time.Second
 }

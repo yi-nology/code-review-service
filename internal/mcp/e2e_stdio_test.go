@@ -180,6 +180,81 @@ func TestMCPStdioEndToEnd(t *testing.T) {
 	} else {
 		t.Logf("create_review(unknown provider) returned category=%s as expected", cat)
 	}
+
+	// 6. get_review 不存在的 id → not_found
+	resp = sendJSONRPC(t, stdin, stdout, 6, "tools/call", map[string]any{
+		"name":      "get_review",
+		"arguments": map[string]any{"review_id": "01HZZZ_NONEXISTENT_xxxxxxxxxxxx"},
+	})
+	if cat := assertToolError(t, resp, ErrCategoryNotFound); cat == "" {
+		t.Errorf("expected not_found for missing review, got: %s", resp)
+	} else {
+		t.Logf("get_review(missing) returned category=%s as expected", cat)
+	}
+
+	// 7. list_reviews 默认参数 → 返空列表（DB 干净）
+	resp = sendJSONRPC(t, stdin, stdout, 7, "tools/call", map[string]any{
+		"name":      "list_reviews",
+		"arguments": map[string]any{},
+	})
+	if !assertToolSuccess(t, resp) {
+		t.Errorf("expected list_reviews to succeed, got: %s", resp)
+	} else {
+		t.Logf("list_reviews(default) succeeded")
+	}
+
+	// 8. cancel_review 不存在 id → not_found
+	resp = sendJSONRPC(t, stdin, stdout, 8, "tools/call", map[string]any{
+		"name":      "cancel_review",
+		"arguments": map[string]any{"review_id": "01HZZZ_NONEXISTENT_xxxxxxxxxxxx"},
+	})
+	if cat := assertToolError(t, resp, ErrCategoryNotFound); cat == "" {
+		t.Errorf("expected not_found for cancel missing, got: %s", resp)
+	} else {
+		t.Logf("cancel_review(missing) returned category=%s as expected", cat)
+	}
+
+	// 9. get_branch_sha 未配置 platform → unsupported
+	resp = sendJSONRPC(t, stdin, stdout, 9, "tools/call", map[string]any{
+		"name": "get_branch_sha",
+		"arguments": map[string]any{
+			"provider": "foobar",
+			"owner":    "acme",
+			"repo":     "widgets",
+			"branch":   "main",
+		},
+	})
+	if cat := assertToolError(t, resp, ErrCategoryUnsupported); cat == "" {
+		t.Errorf("expected unsupported for unconfigured platform, got: %s", resp)
+	} else {
+		t.Logf("get_branch_sha(unconfigured) returned category=%s as expected", cat)
+	}
+
+	// 10. list_provider_repos 未配置 platform → unsupported
+	resp = sendJSONRPC(t, stdin, stdout, 10, "tools/call", map[string]any{
+		"name":      "list_provider_repos",
+		"arguments": map[string]any{"provider": "foobar"},
+	})
+	if cat := assertToolError(t, resp, ErrCategoryUnsupported); cat == "" {
+		t.Errorf("expected unsupported for unconfigured platform, got: %s", resp)
+	} else {
+		t.Logf("list_provider_repos(unconfigured) returned category=%s as expected", cat)
+	}
+}
+
+// assertToolSuccess 校验 CallToolResult isError=false（成功）。
+func assertToolSuccess(t *testing.T, resp []byte) bool {
+	t.Helper()
+	var call struct {
+		Result struct {
+			IsError bool `json:"isError"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(resp, &call); err != nil {
+		t.Logf("unmarshal failed: %v\nraw: %s", err, resp)
+		return false
+	}
+	return !call.Result.IsError
 }
 
 // sendJSONRPC 写一个 JSON-RPC 消息到 stdin 并从 stdout 读一行响应。

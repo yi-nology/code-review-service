@@ -3,8 +3,6 @@ package mcp
 import (
 	"context"
 
-	"github.com/yi-nology/code-review-service/internal/app"
-
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -26,50 +24,5 @@ func notImplemented(name string) func(ctx context.Context, req mcp.CallToolReque
 	}
 }
 
-func RegisterGetReview(s *Server, _ app.ReviewService) {
-	s.AddTool(getReviewTool(), notImplemented("get_review"))
-}
-
-func RegisterListReviews(s *Server, _ app.ReviewService) {
-	s.AddTool(listReviewsTool(), notImplemented("list_reviews"))
-}
-
-func RegisterCancelReview(s *Server, _ app.ReviewService) {
-	s.AddTool(cancelReviewTool(), notImplemented("cancel_review"))
-}
-
-func RegisterRerunReview(s *Server, _ app.ReviewService) {
-	s.AddTool(rerunReviewTool(), notImplemented("rerun_review"))
-}
-
-func RegisterGetReviewFindings(s *Server, _ app.ReviewService) {
-	s.AddTool(getReviewFindingsTool(), notImplemented("get_review_findings"))
-}
-
-func RegisterGetSuggestionPatch(s *Server, _ app.ReviewService) {
-	s.AddTool(getSuggestionPatchTool(), notImplemented("get_suggestion_patch"))
-}
-
-func RegisterPreviewChangeFiles(s *Server, _ app.ReviewService) {
-	s.AddTool(previewChangeFilesTool(), notImplemented("preview_change_files"))
-}
-
-func RegisterScanRepository(s *Server, _ app.ReviewService) {
-	s.AddTool(scanRepositoryTool(), notImplemented("scan_repository"))
-}
-
-func RegisterListProviderRepos(s *Server, _ app.GitProviderManager) {
-	s.AddTool(listProviderReposTool(), notImplemented("list_provider_repos"))
-}
-
-func RegisterListPullRequests(s *Server, _ app.GitProviderManager) {
-	s.AddTool(listPullRequestsTool(), notImplemented("list_pull_requests"))
-}
-
-func RegisterGetBranchSHA(s *Server, _ app.GitProviderManager) {
-	s.AddTool(getBranchSHATool(), notImplemented("get_branch_sha"))
-}
-
-func RegisterGetPullRequest(s *Server, _ app.GitProviderManager) {
-	s.AddTool(getPullRequestTool(), notImplemented("get_pull_request"))
-}
+// 所有 13 个 tool 都已由 get_review.go / findings.go / platform.go 提供。
+// stubs.go 现在只保留 notImplemented helper,供未来新增 tool 时临时挂占位。
