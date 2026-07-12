@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/oekit/concurrency/async"
 	"github.com/oekit/pkg/slicex"
 )
 
@@ -37,10 +38,10 @@ func formatIntEnv(key string, v int) string {
 // 15s 足够覆盖 tools 配置查询；ctx 到期时回收 timer，避免 lostcancel。
 func backgroundCtx() context.Context {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	go func() {
+	async.GoSafe(func() {
 		<-ctx.Done()
 		cancel()
-	}()
+	})
 	return ctx
 }
 

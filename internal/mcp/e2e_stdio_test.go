@@ -17,6 +17,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/app"
 	tcdb "github.com/yi-nology/code-review-service/internal/repository/postgres/testutil"
 
+	"github.com/oekit/concurrency/async"
+
 	"github.com/testcontainers/testcontainers-go"
 )
 
@@ -27,11 +29,11 @@ var dockerSkip = errors.New("testcontainers: docker unavailable; skipping stdio 
 // 走 stdio JSON-RPC：initialize → notifications/initialized → listTools → tools/call(create_review)。
 //
 // 覆盖：
-//   1. mcp-server 二进制能编译 + 启动 + fx wire 完整
-//   2. initialize 握手返回 serverInfo.name=review-service-mcp
-//   3. listTools 列出 13 个 tool（9 review + 4 platform）
-//   4. create_review 缺 head_sha 时返回 invalid_param 错误
-//   5. create_review 参数完整 + provider 不存在时返回 unsupported_provider 错误
+//  1. mcp-server 二进制能编译 + 启动 + fx wire 完整
+//  2. initialize 握手返回 serverInfo.name=review-service-mcp
+//  3. listTools 列出 13 个 tool（9 review + 4 platform）
+//  4. create_review 缺 head_sha 时返回 invalid_param 错误
+//  5. create_review 参数完整 + provider 不存在时返回 unsupported_provider 错误
 func TestMCPStdioEndToEnd(t *testing.T) {
 	// 启 Postgres。
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
@@ -72,12 +74,12 @@ func TestMCPStdioEndToEnd(t *testing.T) {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
 	})
-	go func() {
+	async.GoSafe(func() {
 		sc := bufio.NewScanner(stderr)
 		for sc.Scan() {
 			t.Logf("[mcp-server stderr] %s", sc.Text())
 		}
-	}()
+	})
 
 	// 等等 fx 启动：fx 在 mcp-server 内 compile-time wired，container start 后 1-3s
 	// 才能 ready。最稳的判据是发个 initialize 拿响应。
@@ -286,11 +288,11 @@ func sendJSONRPC(t *testing.T, stdin io.Writer, stdout io.Reader, id int, method
 		err  error
 	}
 	ch := make(chan result, 1)
-	go func() {
+	async.GoSafe(func() {
 		br := bufio.NewReader(stdout)
 		line, err := br.ReadBytes('\n')
 		ch <- result{line: line, err: err}
-	}()
+	})
 	select {
 	case r := <-ch:
 		if r.err != nil {

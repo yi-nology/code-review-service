@@ -98,10 +98,10 @@ func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval,
 // 的 OnStop 先于 DB 的 OnStop 执行。
 func (s *Service) Shutdown(ctx context.Context) error {
 	done := make(chan struct{})
-	go func() {
+	async.GoSafe(func() {
 		s.inFlight.Wait()
 		close(done)
-	}()
+	})
 	select {
 	case <-done:
 		return nil

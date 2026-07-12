@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/mcp"
+	"github.com/oekit/concurrency/async"
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
 )
@@ -82,17 +83,11 @@ func RunSSE(ctx context.Context, srv *mcpserver.MCPServer, cfg Config) error {
 	}
 
 	// 优雅退出
-	errCh := make(chan error, 1)
-	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			errCh <- err
-		}
-		close(errCh)
-	}()
+	errCh := async.GoSafeWithErr(server.ListenAndServe)
 
 	select {
-	case err, ok := <-errCh:
-		if ok && err != nil {
+	case err := <-errCh:
+		if err != nil && err != http.ErrServerClosed {
 			return fmt.Errorf("sse server: %w", err)
 		}
 		return nil

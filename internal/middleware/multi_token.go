@@ -10,6 +10,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/domain/auth"
 	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -51,13 +52,13 @@ func MultiTokenAuth(src TokenSource, fallbackToken string) app.HandlerFunc {
 			if name, ok := src.GetTokenByHash(ctx, hash); ok {
 				// 命中 DB token：存 name 供审计读取，异步更新 last_used_at。
 				c.Set(tokenNameStoreKey, name)
-				go func() {
+				async.GoSafe(func() {
 					bgCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 					defer cancel()
 					if err := src.UpdateLastUsed(bgCtx, hash); err != nil {
 						logx.CtxWarnf(ctx, "[auth] update token last_used failed: %v", err)
 					}
-				}()
+				})
 				c.Next(ctx)
 				return
 			}
@@ -151,7 +152,7 @@ func AuditMiddleware(repo repository.AuthRepository) app.HandlerFunc {
 		tokenName := TokenNameFromRequest(c)
 		status := c.Response.StatusCode()
 		// 异步写审计（不阻塞响应）。
-		go func() {
+		async.GoSafe(func() {
 			bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			_ = repo.WriteAudit(bgCtx, &auth.AuditEntry{
@@ -161,6 +162,6 @@ func AuditMiddleware(repo repository.AuthRepository) app.HandlerFunc {
 				Path:       path,
 				StatusCode: status,
 			})
-		}()
+		})
 	}
 }

@@ -48,6 +48,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/modules"
 	"github.com/yi-nology/code-review-service/internal/observability/redact"
 
+	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
 	mcpruntime "github.com/mark3labs/mcp-go/server"
 	"go.uber.org/fx"
@@ -190,10 +191,9 @@ func runStdio(srv *mcpserver.Server) error {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
 
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- mcpruntime.ServeStdio(srv.Runtime())
-	}()
+	errCh := async.GoSafeWithErr(func() error {
+		return mcpruntime.ServeStdio(srv.Runtime())
+	})
 
 	select {
 	case sig := <-sigCh:
@@ -217,13 +217,12 @@ func runSSE(ctx context.Context, srv *mcpserver.Server, token string, port int) 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
 
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- transport.RunSSE(ctx, srv.Runtime(), transport.Config{
+	errCh := async.GoSafeWithErr(func() error {
+		return transport.RunSSE(ctx, srv.Runtime(), transport.Config{
 			Token: token,
 			Port:  port,
 		})
-	}()
+	})
 
 	select {
 	case sig := <-sigCh:

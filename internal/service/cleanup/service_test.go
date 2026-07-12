@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/oekit/concurrency/async"
 )
 
 func TestWorkspaceCleaner_RemovesExpiredDirs(t *testing.T) {
@@ -91,10 +93,10 @@ func TestWorkspaceCleaner_StartNonBlocking(t *testing.T) {
 
 	done := make(chan struct{})
 	start := time.Now()
-	go func() {
+	async.GoSafe(func() {
 		cleaner.Start()
 		close(done)
-	}()
+	})
 	select {
 	case <-done:
 		// OK, Start returned
@@ -129,10 +131,10 @@ func TestWorkspaceCleaner_StopWaitsForGoroutine(t *testing.T) {
 	time.Sleep(20 * time.Millisecond)
 
 	stopDone := make(chan struct{})
-	go func() {
+	async.GoSafe(func() {
 		_ = cleaner.Stop(context.Background())
 		close(stopDone)
-	}()
+	})
 
 	// Stop 应当等到 doneCh 关闭后返回
 	select {
@@ -183,10 +185,10 @@ func TestWorkspaceCleaner_LoopExitsOnStop(t *testing.T) {
 	time.Sleep(20 * time.Millisecond)
 
 	// 启动 watcher：检测 doneCh 关闭
-	go func() {
+	async.GoSafe(func() {
 		<-cleaner.doneCh
 		stopGoroutineExited.Store(true)
-	}()
+	})
 
 	if err := cleaner.Stop(context.Background()); err != nil {
 		t.Fatalf("Stop err: %v", err)
