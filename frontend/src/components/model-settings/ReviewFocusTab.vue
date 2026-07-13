@@ -9,17 +9,13 @@
       />
       <div class="form-tip">当未配置代理团队时，使用此默认背景进行审查。配置代理后，各代理使用各自的审查侧重点。</div>
     </el-form-item>
-
-    <el-form-item>
-      <el-button type="primary" @click="save" :loading="saving">保存配置</el-button>
-    </el-form-item>
   </el-form>
 </template>
 
 <script setup lang="ts">
 import { useSettingsForm } from './context'
 
-const { form, saving, save } = useSettingsForm()
+const { form, saving } = useSettingsForm()
 </script>
 
 <style scoped>

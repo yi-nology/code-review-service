@@ -57,14 +57,24 @@ func (r *ReviewerAgentRepo) Create(ctx context.Context, agent *reviewer.Agent) e
 	if err == nil {
 		if existing.DeletedAt.Valid {
 			m.ID = existing.ID
-			return r.db.WithContext(ctx).Unscoped().Save(&m).Error
+			if err := r.db.WithContext(ctx).Unscoped().Save(&m).Error; err != nil {
+				return err
+			}
+			agent.ID = m.ID
+			return nil
 		}
 		return fmt.Errorf("agent 名称 %s 已存在", m.Name)
 	}
 	if !errors.Is(err, gormLib.ErrRecordNotFound) {
 		return err
 	}
-	return r.db.WithContext(ctx).Create(&m).Error
+	if err := r.db.WithContext(ctx).Create(&m).Error; err != nil {
+		return err
+	}
+	// 回填 caller 的 agent.ID：GORM Create 只回填 m.ID，不回填 agent.ID。
+	// 不回填会让 handler 返回的 response.agent.id = 0，前端无法拿新 ID 做后续操作。
+	agent.ID = m.ID
+	return nil
 }
 
 func (r *ReviewerAgentRepo) Update(ctx context.Context, agent *reviewer.Agent) error {

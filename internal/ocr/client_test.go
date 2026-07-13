@@ -2,6 +2,8 @@ package ocr
 
 import (
 	"testing"
+
+	"github.com/oekit/concurrency/async"
 )
 
 func TestClient_NewAndCfg(t *testing.T) {
@@ -35,12 +37,12 @@ func TestClient_Refresh(t *testing.T) {
 func TestClient_ConcurrentAccess(t *testing.T) {
 	c := NewClient(Defaults().ToConfig())
 	done := make(chan struct{})
-	go func() {
+	async.GoSafe(func() {
 		for i := 0; i < 100; i++ {
 			_ = c.Cfg()
 		}
 		close(done)
-	}()
+	})
 	for i := 0; i < 100; i++ {
 		cfg := Defaults().ToConfig()
 		cfg.Binary = "x"

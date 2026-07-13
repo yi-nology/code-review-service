@@ -151,6 +151,7 @@ type Record struct {
 	Score              int             `json:"score"`
 	Grade              string          `json:"grade,omitempty"`
 	Summary            string          `json:"summary,omitempty"`
+	RetryCount         int             `json:"retry_count"`
 	Request            Request         `json:"request"`
 	Response           Response        `json:"response"`
 	RawOCR             json.RawMessage `json:"raw_ocr,omitempty"`
@@ -167,21 +168,25 @@ type ListOptions struct {
 	GateStatus string
 	Provider   string
 	Repo       string
-	Page       int
-	PageSize   int
+	// From/To 限定统计时间窗口（基于 created_at）；零值表示不限制。周报用它限定最近 7 天。
+	From time.Time
+	To   time.Time
+	Page     int
+	PageSize int
 }
 
 // AggregateStats 是 Review 聚合统计结果。
+// 显式 snake_case JSON tag，与其余 review API 契约保持一致（如 ListStats）。
 type AggregateStats struct {
-	Running    int
-	GateFailed int
-	Findings   int
+	Running    int   `json:"running"`
+	GateFailed int   `json:"gate_failed"`
+	Findings   int   `json:"findings"`
 
-	TotalTokens     int64
-	InputTokens     int64
-	OutputTokens    int64
-	CacheReadTokens int64
-	CacheWriteTokens int64
+	TotalTokens      int64 `json:"total_tokens"`
+	InputTokens      int64 `json:"input_tokens"`
+	OutputTokens     int64 `json:"output_tokens"`
+	CacheReadTokens  int64 `json:"cache_read_tokens"`
+	CacheWriteTokens int64 `json:"cache_write_tokens"`
 }
 
 // ProjectStatsOptions 是项目级 OCR 统计查询条件（Review/Contributor 共享）。

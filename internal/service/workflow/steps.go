@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/ocr"
 	dsession "github.com/yi-nology/code-review-service/internal/domain/session"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/discussion"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
@@ -199,10 +199,11 @@ func (s *parallelReviewsStep) Run(ctx context.Context, req workflow.Request, ses
 
 	// 准备 workspace
 	workspace := agent.Workspace{
-		Dir:     rs.Request.Dir,
-		BaseSHA: rs.Request.BaseSHA,
-		HeadSHA: rs.Request.HeadSHA,
-		Diff:    rs.Request.Diff,
+		Dir:      rs.Request.Dir,
+		BaseSHA:  rs.Request.BaseSHA,
+		HeadSHA:  rs.Request.HeadSHA,
+		Diff:     rs.Request.Diff,
+		RulePath: rs.Request.RulePath,
 	}
 
 	// 添加 requirements 到 workspace

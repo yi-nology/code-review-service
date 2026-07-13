@@ -34,8 +34,8 @@ var handlerInst *ReviewHandler
 var webhookInst *WebhookHandler
 
 type ReviewHandler struct {
-	reviewSvc    svcApp.ReviewService
-	gitMgr       svcApp.GitProviderManager
+	reviewSvc     svcApp.ReviewService
+	gitMgr        svcApp.GitProviderManager
 	suggestionSvc *suggestion.Service
 }
 
@@ -134,6 +134,7 @@ func ListReviews(ctx context.Context, c *app.RequestContext) {
 			Author:          common.StrPtr(item.Author),
 			AuthorName:      common.StrPtr(item.AuthorName),
 			AuthorAvatar:    common.StrPtr(item.AuthorAvatar),
+			RetryCount:      ptrx.Of(int64(item.RetryCount)),
 			CreatedAt:       common.StrPtr(common.FormatTime(item.CreatedAt)),
 			UpdatedAt:       common.StrPtr(common.FormatTime(item.UpdatedAt)),
 		}
@@ -525,6 +526,7 @@ func convertDetail(r domain.Record) modelReview.ReviewDetail {
 
 		Error: common.StrPtr(r.Response.Error), Author: common.StrPtr(r.Request.Author),
 		AuthorName: common.StrPtr(r.Request.AuthorName), AuthorAvatar: common.StrPtr(r.Request.AuthorAvatar),
+		RetryCount: ptrx.Of(int64(r.RetryCount)),
 		CreatedAt: common.StrPtr(common.FormatTime(r.CreatedAt)),
 		UpdatedAt: common.StrPtr(common.FormatTime(r.UpdatedAt)),
 	}
@@ -626,6 +628,7 @@ func convertFindings(findings []domain.Finding) []*modelReview.Finding {
 			Line: ptrx.Of(int64(f.Line)), StartLine: ptrx.Of(int64(f.StartLine)), EndLine: ptrx.Of(int64(f.EndLine)),
 			Title: f.Title, Body: f.Body, ExistingCode: common.StrPtr(f.ExistingCode),
 			SuggestionCode: common.StrPtr(f.SuggestionCode),
+			Fingerprint:    common.StrPtr(f.Fingerprint),
 		}
 	})
 }

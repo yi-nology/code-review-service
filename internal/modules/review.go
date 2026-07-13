@@ -4,14 +4,17 @@ import (
 	"context"
 
 	"github.com/yi-nology/code-review-service/internal/config"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
+	"github.com/yi-nology/code-review-service/internal/service/cost"
 	"github.com/yi-nology/code-review-service/internal/service/executor"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 	svcReview "github.com/yi-nology/code-review-service/internal/service/review"
-	"github.com/yi-nology/code-review-service/internal/ocr"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/service/statuscheck"
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
 
@@ -57,6 +60,10 @@ type ExecutorDeps struct {
 	Workflow        *workflow.ReviewWorkflow
 	AgentManager    *agent.AgentManager
 	LLMMetrics      *ocr.Metrics
+	Notifier        domain.Notifier
+	GitProviderSvc  *gitProvider.GitProviderService
+	BudgetChecker   *cost.BudgetChecker
+	CostCalc        *cost.Calculator
 }
 
 func NewExecutorService(deps ExecutorDeps) *executor.Service {
@@ -65,13 +72,25 @@ func NewExecutorService(deps ExecutorDeps) *executor.Service {
 		ProjectRepo:     deps.Repos.ProjectPolicy,
 		GlobalRulesRepo: deps.Repos.GlobalRules,
 		RulePackageRepo: deps.Repos.OCRRulePackage,
+		AgentRepo:       deps.Repos.ReviewerAgent,
 		Runner:          deps.OcrRunner,
 		Writeback:       deps.WritebackPub,
-		Policy:          deps.PolicyEngine,
-		ProgressMgr:     deps.ProgressManager,
-		Workflow:        deps.Workflow,
-		AgentManager:    deps.AgentManager,
-		LLMMetrics:      deps.LLMMetrics,
+		Notifier:        deps.Notifier,
+		StatusPoster:    statuscheck.NewPoster(deps.GitProviderSvc),
+		BudgetChecker:   deps.BudgetChecker,
+		CostCalc:        deps.CostCalc,
+		ModelNameFunc: func() string {
+			// 延迟读取当前 OCR 设置的模型名（评审完成时拿最新配置）。
+			if s, err := deps.Repos.OCRSettings.Get(context.Background()); err == nil && s != nil {
+				return s.ModelName
+			}
+			return ""
+		},
+		Policy:       deps.PolicyEngine,
+		ProgressMgr:  deps.ProgressManager,
+		Workflow:     deps.Workflow,
+		AgentManager: deps.AgentManager,
+		LLMMetrics:   deps.LLMMetrics,
 	})
 }
 
@@ -96,6 +115,7 @@ func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 		ProjectRepo:     deps.Repos.ProjectPolicy,
 		GlobalRulesRepo: deps.Repos.GlobalRules,
 		RulePackageRepo: deps.Repos.OCRRulePackage,
+		AgentRepo:       deps.Repos.ReviewerAgent,
 		SessionRepo:     deps.SessionRepo,
 		GitProviderSvc:  deps.GitProviderSvc,
 		Policy:          deps.PolicyEngine,

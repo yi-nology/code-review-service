@@ -9,7 +9,7 @@ type OCRSettings struct {
 	gorm.Model      `json:"-"`
 	Enabled         bool           `gorm:"not null;default:false" json:"enabled"`
 	Binary          string         `gorm:"type:text" json:"binary,omitempty"`
-	Audience        string         `gorm:"type:text;default:'human'" json:"audience,omitempty"`
+	Audience        string         `gorm:"type:text;default:'agent'" json:"audience,omitempty"`
 	DefaultSeverity string         `gorm:"type:text;default:'major'" json:"default_severity,omitempty"`
 	Provider        string         `gorm:"type:text" json:"provider,omitempty"`
 	URL             string         `gorm:"type:text" json:"url"`
@@ -31,6 +31,7 @@ type OCRSettings struct {
 	Background              string         `gorm:"type:text" json:"background,omitempty"`
 	ToolsPath               string         `gorm:"type:text" json:"tools_path,omitempty"`
 	ToolsConfig             datatypes.JSON `gorm:"type:jsonb" json:"tools_config,omitempty"`
+	McpServers              datatypes.JSON `gorm:"type:jsonb" json:"mcp_servers,omitempty"`
 	TelemetryEnabled        bool           `gorm:"not null;default:false" json:"telemetry_enabled"`
 	TelemetryExporter       string         `gorm:"type:text" json:"telemetry_exporter,omitempty"`
 	TelemetryOTLPEndpoint   string         `gorm:"type:text;column:telemetry_otlp_endpoint" json:"telemetry_otlp_endpoint,omitempty"`

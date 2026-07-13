@@ -108,7 +108,7 @@ const phases = ref<Phase[]>(
 )
 
 const error = ref<Error | null>(null)
-let ws: WebSocket | null = null
+let wsConnection: { close: () => void } | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let shouldReconnect = true
 
@@ -309,25 +309,18 @@ async function loadInitialProgress() {
 
 function connectWebSocket() {
   closeWebSocket()
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const wsUrl = `${protocol}//${window.location.host}/api/v1/reviews/${props.reviewId}/progress`
-
-  ws = new WebSocket(wsUrl)
-
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data)
-    handleProgressUpdate(data)
-  }
-
-  ws.onerror = () => {
-    applySessionFallback()
-  }
-
-  ws.onclose = () => {
-    ws = null
-    if (!shouldReconnect || !['queued', 'running'].includes(props.reviewStatus || '')) return
-    reconnectTimer = setTimeout(connectWebSocket, 3000)
-  }
+  wsConnection = progressApi.connectProgress(
+    props.reviewId,
+    handleProgressUpdate,
+    {
+      onError: () => applySessionFallback(),
+      onClose: () => {
+        wsConnection = null
+        if (!shouldReconnect || !['queued', 'running'].includes(props.reviewStatus || '')) return
+        reconnectTimer = setTimeout(connectWebSocket, 3000)
+      },
+    },
+  )
 }
 
 function handleProgressUpdate(event: ProgressEvent | ReviewProgress | any) {
@@ -374,11 +367,9 @@ function closeWebSocket() {
     clearTimeout(reconnectTimer)
     reconnectTimer = null
   }
-  if (ws) {
-    const current = ws
-    ws = null
-    current.onclose = null
-    current.close()
+  if (wsConnection) {
+    wsConnection.close()
+    wsConnection = null
   }
 }
 
@@ -405,7 +396,7 @@ watch(
   ],
   () => {
     applySessionFallback()
-    if (['queued', 'running'].includes(props.reviewStatus || '') && !ws && shouldReconnect) {
+    if (['queued', 'running'].includes(props.reviewStatus || '') && !wsConnection && shouldReconnect) {
       connectWebSocket()
     }
   }

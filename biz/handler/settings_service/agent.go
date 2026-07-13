@@ -53,6 +53,13 @@ func CreateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	if len(req.Tags) > 0 {
 		agent.Tags = json.RawMessage(mustMarshalJSON(req.Tags))
 	}
+	if len(req.RulePackageIDs) > 0 {
+		ids := make([]uint, 0, len(req.RulePackageIDs))
+		for _, id := range req.RulePackageIDs {
+			ids = append(ids, uint(id))
+		}
+		agent.RulePackageIDs = json.RawMessage(mustMarshalJSON(ids))
+	}
 	if err := handlerInst.agentRepo.Create(ctx, agent); err != nil {
 		common.Fail(c, err)
 		return
@@ -102,6 +109,14 @@ func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	if req.Tags != nil {
 		existing.Tags = json.RawMessage(mustMarshalJSON(req.Tags))
 	}
+	// RulePackageIDs：optional，nil 表示不修改；非 nil（含空数组）表示覆盖。
+	if req.RulePackageIDs != nil {
+		ids := make([]uint, 0, len(req.RulePackageIDs))
+		for _, id := range req.RulePackageIDs {
+			ids = append(ids, uint(id))
+		}
+		existing.RulePackageIDs = json.RawMessage(mustMarshalJSON(ids))
+	}
 	if err := handlerInst.agentRepo.Update(ctx, existing); err != nil {
 		common.Fail(c, err)
 		return
@@ -140,5 +155,23 @@ func dbReviewerAgentToAPI(a *reviewer.Agent) *modelSettings.ReviewerAgentInfo {
 		Enabled: a.Enabled, Priority: int64(a.Priority), Tags: common.StrPtr(tags),
 		RuleFile: common.StrPtr(a.RuleFile), Redundancy: int64(a.Redundancy),
 		IsDefault: a.IsDefault,
+		RulePackageIDs: rulePackageIDsToAPI(a.RulePackageIDs),
 	}
+}
+
+// rulePackageIDsToAPI 把审查员引用的规则包 id（json.RawMessage, uint 数组）转成 API 的 []int64。
+// 解析失败或为空时返回 nil（前端按空数组处理）。
+func rulePackageIDsToAPI(raw json.RawMessage) []int64 {
+	if len(raw) == 0 {
+		return nil
+	}
+	var ids []uint
+	if err := json.Unmarshal(raw, &ids); err != nil {
+		return nil
+	}
+	result := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		result = append(result, int64(id))
+	}
+	return result
 }

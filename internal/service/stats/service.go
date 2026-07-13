@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/domain/stats"
+	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/slicex"

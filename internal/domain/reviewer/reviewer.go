@@ -13,6 +13,8 @@ type Agent struct {
 	Description string          `json:"description"`
 	Background  string          `json:"background"`
 	RuleFile    string          `json:"rule_file,omitempty"`
+	// RulePackageIDs 引用的规则包 id 列表（常驻审查员的规则来源）。
+	RulePackageIDs json.RawMessage `json:"rule_package_ids,omitempty"`
 	Redundancy  int             `json:"redundancy"`
 	Enabled     bool            `json:"enabled"`
 	Priority    int             `json:"priority"`
@@ -35,7 +37,7 @@ type ProjectAssignment struct {
 
 // ProjectConfig 表示某项目的完整审查员配置。
 type ProjectConfig struct {
-	Provider string             `json:"provider"`
-	Repo     string             `json:"repo"`
+	Provider string              `json:"provider"`
+	Repo     string              `json:"repo"`
 	Agents   []ProjectAssignment `json:"agents"`
 }

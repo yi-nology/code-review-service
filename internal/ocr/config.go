@@ -21,10 +21,10 @@ type Config struct {
 	MaxRetries      int
 
 	// LLM
-	URL         string
-	Model       string
-	AuthToken   string
-	AuthHeader  string
+	URL          string
+	Model        string
+	AuthToken    string
+	AuthHeader   string
 	ExtraHeaders string
 	UseAnthropic bool
 	ExtraBody    string
@@ -37,6 +37,7 @@ type Config struct {
 	MaxTools    int
 	ToolsPath   string
 	ToolsConfig string
+	McpServers  string
 
 	// 遥测
 	TelemetryEnabled        bool
@@ -62,10 +63,14 @@ type Fallback struct {
 
 // Defaults 返回合理默认的 Fallback（不读 DB / 不读 YAML）。
 // 主要供测试与 fallback fallback 使用。
+//
+// Audience 默认 "agent"：review-service 是无人值守服务，调用方始终是程序而非人，
+// 必须传 --audience agent 才能拿到纯净的 JSON 输出（OCR 的 human 模式会在 stdout
+// 混进度 UI，污染 --format json 的可解析输出）。
 func Defaults() Fallback {
 	return Fallback{
 		Binary:          "ocr",
-		Audience:        "human",
+		Audience:        "agent",
 		DefaultSeverity: "major",
 		Concurrency:     2,
 		MaxGitProcs:     4,
@@ -99,7 +104,7 @@ func (c Config) Validate() error {
 //  1. overrides — 请求级 / 项目策略级覆盖
 //  2. settings  — 数据库全局配置（SettingsData）
 //  3. fallback  — YAML 文件兜底
-//  4. 内置默认值（如 audience="human"）
+//  4. 内置默认值（audience="agent"：服务端调用方始终是程序）
 //
 // 阶段 A：本函数是原 runner.BuildConfig 的对等实现（保持行为一致）。
 // 阶段 A+1：把 settings/fallback 类型从 models.OCRSettings + OpenCodeReviewConfig
@@ -107,7 +112,7 @@ func (c Config) Validate() error {
 func BuildConfig(settings *SettingsData, overrides OCROverrides, fallback Fallback, tools ToolSettings) Config {
 	cfg := Config{
 		Binary:          firstNonBlank(settings.Binary, fallback.Binary),
-		Audience:        firstNonBlank(overrides.Audience, settings.Audience, fallback.Audience, "human"),
+		Audience:        firstNonBlank(overrides.Audience, settings.Audience, fallback.Audience, "agent"),
 		RulePath:        fallback.RulePath,
 		DefaultSeverity: firstNonBlank(overrides.DefaultSeverity, settings.DefaultSeverity, fallback.DefaultSeverity, "major"),
 		URL:             firstNonBlank(overrides.URL, settings.URL),
@@ -122,13 +127,14 @@ func BuildConfig(settings *SettingsData, overrides OCROverrides, fallback Fallba
 			settings.ReasoningBudget,
 			settings.Provider,
 		),
-		Language:        settings.Language,
-		MaxTools:        firstPositive(overrides.MaxTools, settings.MaxTools),
-		Background:      firstNonBlank(overrides.Background, settings.Background),
-		ToolsPath:       firstNonBlank(overrides.ToolsPath, settings.ToolsPath),
-		ToolsConfig:     settings.ToolsConfig,
-		ContextWindow:   settings.ContextWindow,
-		MaxOutputTokens: settings.MaxOutputTokens,
+		Language:                settings.Language,
+		MaxTools:                firstPositive(overrides.MaxTools, settings.MaxTools),
+		Background:              firstNonBlank(overrides.Background, settings.Background),
+		ToolsPath:               firstNonBlank(overrides.ToolsPath, settings.ToolsPath),
+		ToolsConfig:             settings.ToolsConfig,
+		McpServers:              settings.McpServers,
+		ContextWindow:           settings.ContextWindow,
+		MaxOutputTokens:         settings.MaxOutputTokens,
 		TelemetryEnabled:        settings.TelemetryEnabled,
 		TelemetryExporter:       settings.TelemetryExporter,
 		TelemetryOTLPEndpoint:   settings.TelemetryOTLPEndpoint,

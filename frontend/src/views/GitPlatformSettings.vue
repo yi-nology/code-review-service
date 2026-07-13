@@ -1,36 +1,18 @@
 <template>
   <AppLayout>
-    <div class="platform-settings-page">
-      <section class="page-hero">
-        <div>
-          <div class="eyebrow">INTEGRATIONS</div>
-          <h1>Git 平台配置</h1>
-          <p>集中管理代码平台凭证、API 地址和启用状态，供仓库同步、审查创建和评论写回使用。</p>
-        </div>
-        <div class="hero-actions">
+    <PageShell>
+      <PageHeader
+        eyebrow="INTEGRATIONS"
+        title="Git 平台配置"
+        description="集中管理代码平台凭证、API 地址和启用状态，供仓库同步、审查创建和评论写回使用。"
+      >
+        <template #actions>
           <el-button :icon="Refresh" :loading="loading" @click="fetchPlatforms">刷新</el-button>
           <el-button type="primary" :icon="Plus" @click="resetForm">新增平台</el-button>
-        </div>
-      </section>
+        </template>
+      </PageHeader>
 
-      <section class="metric-strip">
-        <div class="metric-item">
-          <span>已配置</span>
-          <strong>{{ platforms.length }}</strong>
-        </div>
-        <div class="metric-item">
-          <span>启用中</span>
-          <strong>{{ enabledCount }}</strong>
-        </div>
-        <div class="metric-item">
-          <span>未启用</span>
-          <strong>{{ disabledCount }}</strong>
-        </div>
-        <div class="metric-item">
-          <span>当前编辑</span>
-          <strong>{{ editing ? getProviderLabel(form.provider) : '新平台' }}</strong>
-        </div>
-      </section>
+      <StatStrip :items="platformStats" />
 
       <section class="workspace-grid">
         <aside class="platform-panel">
@@ -174,7 +156,7 @@
           </div>
         </main>
       </section>
-    </div>
+    </PageShell>
   </AppLayout>
 </template>
 
@@ -188,11 +170,15 @@ import {
   CircleCloseFilled,
   Connection,
   Delete,
+  EditPen,
   Plus,
   Refresh,
   Search,
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import StatStrip from '@/components/common/StatStrip.vue'
 import { getGitPlatforms, saveGitPlatform, deleteGitPlatform, testGitPlatform } from '@/api/config'
 import { getProviderLabel, PROVIDER_OPTIONS } from '@/utils/url-parser'
 import type { GitPlatform, GitTestResult } from '@/types/config'
@@ -232,6 +218,13 @@ const form = reactive<GitPlatform>({
 
 const enabledCount = computed(() => platforms.value.filter((p) => p.enabled).length)
 const disabledCount = computed(() => platforms.value.length - enabledCount.value)
+
+const platformStats = computed(() => [
+  { icon: Connection, label: '已配置', value: platforms.value.length, tone: 'primary' as const },
+  { icon: CircleCheckFilled, label: '启用中', value: enabledCount.value, tone: 'success' as const },
+  { icon: CircleCloseFilled, label: '未启用', value: disabledCount.value, tone: 'danger' as const },
+  { icon: EditPen, label: '当前编辑', value: editing.value ? getProviderLabel(form.provider) : '新平台', tone: 'info' as const },
+])
 const canTest = computed(() => Boolean(form.provider && form.base_url && form.token))
 const baseUrlPlaceholder = computed(() => providerDefaults[form.provider]?.baseUrl || 'https://git.example.com')
 const providerHint = computed(() => providerDefaults[form.provider]?.hint || '填写平台 API 或站点地址。')
@@ -340,8 +333,9 @@ async function handleDeleteSelected() {
 
 async function handleDelete(p: GitPlatform) {
   try {
-    await ElMessageBox.confirm(`确定删除 ${getProviderLabel(p.provider)} 平台配置？`, '确认删除')
-    await deleteGitPlatform(p.provider)
+    const inst = p.installation_id || 'default'
+    await ElMessageBox.confirm(`确定删除 ${getProviderLabel(p.provider)} 平台配置${inst !== 'default' ? `（installation: ${inst}）` : ''}？`, '确认删除')
+    await deleteGitPlatform(p.provider, p.installation_id)
     ElMessage.success('已删除')
     resetForm()
     await fetchPlatforms()
@@ -355,7 +349,8 @@ function providerInitial(provider: string) {
 }
 
 function platformKey(platform: GitPlatform) {
-  return `${platform.provider}:${platform.base_url}`
+  // 用 (provider, installation_id) 区分，支持同 provider 多 installation。
+  return `${platform.provider}:${platform.installation_id || 'default'}`
 }
 
 onMounted(() => {
@@ -365,85 +360,12 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.platform-settings-page {
-  width: min(1360px, 100%);
-  margin: 0 auto;
-  padding: 32px 36px 48px;
-}
-
-.page-hero {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 20px;
-}
-
-.page-hero h1 {
-  margin: 4px 0 8px;
-  color: var(--app-text);
-  font-size: 28px;
-  letter-spacing: 0;
-}
-
-.page-hero p {
-  max-width: 720px;
-  margin: 0;
-  color: var(--app-muted);
-  font-size: 14px;
-  line-height: 1.7;
-}
-
-.eyebrow {
-  color: var(--app-primary);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1.3px;
-}
-
-.hero-actions,
 .action-bar,
 .left-actions,
 .right-actions {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.metric-strip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-bottom: 22px;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-surface);
-}
-
-.metric-item {
-  min-width: 0;
-  padding: 16px 18px;
-  border-right: 1px solid var(--app-border);
-}
-
-.metric-item:last-child {
-  border-right: 0;
-}
-
-.metric-item span {
-  display: block;
-  margin-bottom: 6px;
-  color: var(--app-muted);
-  font-size: 12px;
-}
-
-.metric-item strong {
-  display: block;
-  overflow: hidden;
-  color: var(--app-text);
-  font-size: 24px;
-  font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .workspace-grid {
@@ -751,22 +673,9 @@ onMounted(() => {
 }
 
 @media (max-width: 1080px) {
-  .page-hero,
   .action-bar {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .metric-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .metric-item:nth-child(2) {
-    border-right: 0;
-  }
-
-  .metric-item:nth-child(-n + 2) {
-    border-bottom: 1px solid var(--app-border);
   }
 
   .workspace-grid {
@@ -775,33 +684,14 @@ onMounted(() => {
 }
 
 @media (max-width: 720px) {
-  .platform-settings-page {
-    padding: 22px 14px 36px;
-  }
-
-  .page-hero h1 {
-    font-size: 24px;
-  }
-
-  .hero-actions,
   .left-actions,
   .right-actions {
     width: 100%;
     flex-wrap: wrap;
   }
 
-  .form-grid,
-  .metric-strip {
+  .form-grid {
     grid-template-columns: 1fr;
-  }
-
-  .metric-item {
-    border-right: 0;
-    border-bottom: 1px solid var(--app-border);
-  }
-
-  .metric-item:last-child {
-    border-bottom: 0;
   }
 
   .config-panel {

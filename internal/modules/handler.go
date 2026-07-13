@@ -1,24 +1,29 @@
 package modules
 
 import (
+	"github.com/yi-nology/code-review-service/biz/handler/auth_service"
+	"github.com/yi-nology/code-review-service/biz/handler/cost_service"
 	"github.com/yi-nology/code-review-service/biz/handler/diagnostics_service"
 	"github.com/yi-nology/code-review-service/biz/handler/feedback_service"
+	"github.com/yi-nology/code-review-service/biz/handler/notification_service"
 	"github.com/yi-nology/code-review-service/biz/handler/progress_service"
 	"github.com/yi-nology/code-review-service/biz/handler/project_agent_service"
 	"github.com/yi-nology/code-review-service/biz/handler/publisher_service"
+	"github.com/yi-nology/code-review-service/biz/handler/report_service"
 	"github.com/yi-nology/code-review-service/biz/handler/review_service"
 	"github.com/yi-nology/code-review-service/biz/handler/session_service"
 	"github.com/yi-nology/code-review-service/biz/handler/settings_service"
 	"github.com/yi-nology/code-review-service/biz/handler/stats_service"
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/yi-nology/code-review-service/internal/service/cost"
 	"github.com/yi-nology/code-review-service/internal/service/diagnostics"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 	svcReview "github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/session"
-	"github.com/yi-nology/code-review-service/internal/service/suggestion"
 	statsSvc "github.com/yi-nology/code-review-service/internal/service/stats"
+	"github.com/yi-nology/code-review-service/internal/service/suggestion"
 	"github.com/yi-nology/code-review-service/internal/service/webhook"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
 
@@ -37,6 +42,10 @@ var HandlerModule = fx.Options(
 	fx.Invoke(InitProjectAgentHandler),
 	fx.Invoke(InitDiagnosticsHandler),
 	fx.Invoke(InitFeedbackHandler),
+	fx.Invoke(InitNotificationHandler),
+	fx.Invoke(InitAuthHandler),
+	fx.Invoke(InitCostHandler),
+	fx.Invoke(InitReportHandler),
 )
 
 func InitReviewHandler(reviewSvc *svcReview.Service, gitMgr *gitProvider.GitProviderService, suggestionSvc *suggestion.Service) {
@@ -91,4 +100,20 @@ func InitDiagnosticsHandler(repos *repository.RepoContainer) {
 
 func InitFeedbackHandler(repos *repository.RepoContainer) {
 	feedback_service.InitHandler(repos.FindingFeedback)
+}
+
+func InitNotificationHandler(repos *repository.RepoContainer) {
+	notification_service.InitHandler(repos.Notification)
+}
+
+func InitAuthHandler(repos *repository.RepoContainer) {
+	auth_service.InitHandler(repos.Auth)
+}
+
+func InitCostHandler(calc *cost.Calculator) {
+	cost_service.InitHandler(calc)
+}
+
+func InitReportHandler(repos *repository.RepoContainer) {
+	report_service.InitHandler(repos.Review, repos.ContributorStats)
 }

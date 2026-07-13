@@ -22,6 +22,19 @@ Review Service is a code review gateway that integrates with GitHub, GitLab, Git
 - **Session management**: Multi-round review sessions with history
 - **Review maps**: Visual code architecture maps with Mermaid diagrams
 
+### Production & Enterprise Features
+
+- **CI Status Check**: Automatically writes commit status (success/failed/error) to Git platforms, enabling review-service as a required PR quality gate
+- **Finding lifecycle**: Stable cross-review fingerprints identify recurring issues; false-positive suppression prevents re-reporting dismissed findings
+- **Notifications**: In-app notification center + external webhooks (Feishu/Lark, WeCom, DingTalk) on review completion/failure/gate-fail
+- **Cost management**: Per-model pricing table for LLM cost estimation, monthly budget limits with configurable enforcement (warn/block)
+- **Observability**: Prometheus metrics (`/metrics` endpoint) for review duration, queue depth, writeback rate, and LLM cost; ready-to-import Grafana dashboard (`deploy/grafana-dashboard.json`)
+- **Audit & auth**: Named API tokens (SHA256-hashed) with audit logging of write operations, backward-compatible with single-token mode
+- **Reliability**: Persistent review queue (PG `SKIP LOCKED`), retry-limit dead-letter handling, non-retryable error classification (DNS failures won't double-timeout)
+- **Security**: Patch path-traversal protection, sensitive-file guardrails (CI/build/hooks), protected-branch enforcement for auto-fix pushes
+- **Weekly reports**: Project-level review summary reports in Markdown
+
+
 ## Architecture
 
 ```
@@ -49,6 +62,8 @@ Review Service is a code review gateway that integrates with GitHub, GitLab, Git
 └─────────────────────────────────────────────────────────┘
 ```
 
+> **Deployment note:** In production/Docker the web console is served by a **separate nginx container** that reverse-proxies `/api`, `/swagger`, `/healthz` to the Go API service — the Go binary serves only the API, it does not embed the frontend. For local development run `cd frontend && npm run dev` (Vite dev server proxies `/api` to the backend) or `make dev`.
+
 ## Quick Start
 
 ### Prerequisites
@@ -56,6 +71,16 @@ Review Service is a code review gateway that integrates with GitHub, GitLab, Git
 - Go 1.26+
 - PostgreSQL 14+
 - Open Code Review binary (for AI-powered reviews)
+
+### Database setup
+
+The service uses **GORM AutoMigrate** — on startup it creates all required tables automatically (enabled by default; set `DATABASE_AUTO_MIGRATE=false` to disable). You only need to **pre-create the database** itself:
+
+```sh
+psql -U postgres -c "CREATE DATABASE review_service;"
+```
+
+The committed `migrations/*.sql` files are optional manual migrations for specific column/index additions already covered by AutoMigrate; they are not run automatically. The `deploy/migrations/` files are one-off manual cleanup (e.g. dropping a removed feature's table) — run them by hand if upgrading an existing deployment.
 
 ### Run
 
@@ -65,13 +90,13 @@ REVIEW_TOKEN=dev-token \
 go run .
 ```
 
+The local profile (`etc/config-local.yaml`) listens on **:8081**. Docker Compose overrides `HTTP_ADDR=:8080`. See the env var table below.
+
 ### With OCR enabled
 
-OCR runtime settings are stored in the database and can be enabled from the web console settings page or the settings API. Environment variables such as `OCR_ENABLED` and `OCR_BINARY` provide initial defaults before settings are saved.
+OCR runtime settings (binary path, LLM model, language, concurrency, etc.) are stored in the database. Enable and configure them from the web console (**Settings → Review Engine**) or the settings API after first launch. No environment variables are needed.
 
 ```sh
-OCR_ENABLED=true \
-OCR_BINARY=ocr \
 DATABASE_URL='postgres://review_service:review_service@localhost:5432/review_service?sslmode=disable' \
 REVIEW_TOKEN=dev-token \
 go run .
@@ -83,7 +108,7 @@ go run .
 docker compose up --build
 ```
 
-The compose stack starts PostgreSQL, the API service, and the web console. The API is exposed on `http://localhost:8080`, and the web console is exposed on `http://localhost/`. OCR is disabled by default so the service can become ready without an `ocr` binary; enable it after configuring OCR in the web console or settings API.
+The compose stack starts PostgreSQL, the API service, and the web console. The API is exposed on `http://localhost:8080`, and the web console is exposed on `http://localhost/`. Git platform tokens, OCR settings, and project policies are all managed from the web console after launch — no environment variables needed.
 
 ### Health check
 
@@ -145,19 +170,39 @@ curl -X POST http://localhost:8081/api/v1/webhooks \
 
 ## Configuration
 
+Business settings (Git platforms, OCR engine, project policies, review rules) are managed from the web console and stored in the database. The environment variables below are for infrastructure and deployment tuning only:
+
 | Env | Default | Description |
 |-----|---------|-------------|
-| `HTTP_ADDR` | `:8080` | HTTP listen address |
+| `HTTP_ADDR` | `:8081` | HTTP listen address |
 | `REVIEW_TOKEN` | - | Bearer token for API authentication |
 | `DATABASE_URL` | - | PostgreSQL connection URL |
-| `OCR_ENABLED` | `false` | Enable AI-powered code review |
-| `OCR_BINARY` | `ocr` | Path to Open Code Review binary |
 | `WORKER_CONCURRENCY` | `2` | Number of background review workers |
-| `POLICY_FAIL_ON` | `critical` | Severity threshold for quality gate |
-| `POLICY_MAX_COMMENTS` | `20` | Maximum inline comments per review |
-| `GITHUB_TOKEN` | - | GitHub API token |
-| `GITLAB_TOKEN` | - | GitLab API token |
-| `GITEA_TOKEN` | - | Gitea API token |
+| `WORKER_POLL_INTERVAL` | `1s` | Worker poll interval |
+| `WORKER_STALE_AFTER` | `15m` | Stale worker timeout |
+| `FEISHU_WEBHOOK_URL` | - | Feishu/Lark webhook URL for review notifications |
+| `WECOM_WEBHOOK_URL` | - | WeCom (企业微信) webhook URL for review notifications |
+
+### Notification / Cost / Metrics (optional)
+
+These are configured via `etc/config-{env}.yaml`:
+
+```yaml
+notification:
+  inapp_disabled: false          # in-app notifications (default on)
+  webhooks:
+    - type: feishu               # feishu / wecom / dingtalk / generic
+      url: "${FEISHU_WEBHOOK_URL:}"
+      on: ["failed", "gate_failed"]   # trigger conditions
+
+cost:
+  monthly_budget_usd: 100.0      # monthly LLM cost budget (USD), 0 = unlimited
+  review_action: "warn"          # warn (log only) / block (reject new reviews)
+```
+
+**Prometheus metrics** are exposed at `GET /metrics` (auth-exempt). See `deploy/grafana-dashboard.json` for a ready-to-import dashboard.
+
+**Key metrics**: `review_service_review_total`, `review_service_review_duration_seconds`, `review_service_review_queue_depth`, `review_service_writeback_findings_total`, `review_service_llm_cost_usd_total`.
 
 ## Development
 
@@ -226,6 +271,8 @@ Review Service 是一个代码评审网关，支持 GitHub、GitLab、Gitea、Gi
 └─────────────────────────────────────────────────────────┘
 ```
 
+> **部署说明：** 生产/Docker 环境下 Web 控制台由**独立的 nginx 容器**服务，nginx 把 `/api`、`/swagger`、`/healthz` 反向代理到 Go API 服务 —— Go 二进制只提供 API，不内嵌前端。本地开发可 `cd frontend && npm run dev`（Vite dev server 代理 `/api` 到后端）或 `make dev`。
+
 ## 快速开始
 
 ### 环境要求
@@ -233,6 +280,16 @@ Review Service 是一个代码评审网关，支持 GitHub、GitLab、Gitea、Gi
 - Go 1.26+
 - PostgreSQL 14+
 - Open Code Review 二进制文件（用于 AI 评审）
+
+### 数据库初始化
+
+服务使用 **GORM AutoMigrate** —— 启动时自动创建所有需要的表（默认开启，设置 `DATABASE_AUTO_MIGRATE=false` 可关闭）。你只需**预先创建数据库**本身：
+
+```sh
+psql -U postgres -c "CREATE DATABASE review_service;"
+```
+
+`migrations/*.sql` 是可选的手动迁移（AutoMigrate 已覆盖其内容，不会自动执行）；`deploy/migrations/` 是一次性手动清理脚本（如删除已下线特性的表），升级既有部署时手动执行。
 
 ### 运行
 
@@ -242,13 +299,13 @@ REVIEW_TOKEN=dev-token \
 go run .
 ```
 
+本地配置（`etc/config-local.yaml`）监听 **:8081**；Docker Compose 通过 `HTTP_ADDR=:8080` 覆盖。详见下方环境变量表。
+
 ### 启用 OCR
 
-OCR 运行时配置保存在数据库中，可在 Web 控制台设置页或 settings API 中启用。`OCR_ENABLED`、`OCR_BINARY` 等环境变量用于未保存设置前的初始默认值。
+OCR 运行时配置（二进制路径、LLM 模型、输出语言、并发数等）保存在数据库中，首次启动后在 Web 控制台（**设置 → 审查引擎**）或 settings API 中配置即可，无需环境变量。
 
 ```sh
-OCR_ENABLED=true \
-OCR_BINARY=ocr \
 DATABASE_URL='postgres://review_service:review_service@localhost:5432/review_service?sslmode=disable' \
 REVIEW_TOKEN=dev-token \
 go run .
@@ -260,7 +317,7 @@ go run .
 docker compose up --build
 ```
 
-Compose 会启动 PostgreSQL、API 服务和 Web 控制台。API 暴露在 `http://localhost:8080`，Web 控制台暴露在 `http://localhost/`。默认关闭 OCR，因此即使镜像内没有 `ocr` 二进制，服务也能先进入 ready；之后可在 Web 控制台或 settings API 配置并启用 OCR。
+Compose 会启动 PostgreSQL、API 服务和 Web 控制台。API 暴露在 `http://localhost:8080`，Web 控制台暴露在 `http://localhost/`。Git 平台 Token、OCR 设置、项目策略等业务配置均在 Web 控制台管理，无需环境变量。
 
 ### 健康检查
 
@@ -322,19 +379,16 @@ curl -X POST http://localhost:8081/api/v1/webhooks \
 
 ## 配置项
 
+业务配置（Git 平台、OCR 引擎、项目策略、审查规则）在 Web 控制台管理，已持久化到数据库。下表仅列出基础设施与部署调优相关的环境变量：
+
 | 环境变量 | 默认值 | 说明 |
 |---------|--------|------|
-| `HTTP_ADDR` | `:8080` | HTTP 监听地址 |
+| `HTTP_ADDR` | `:8081` | HTTP 监听地址（Docker Compose 覆盖为 `:8080`） |
 | `REVIEW_TOKEN` | - | API 认证 Bearer Token |
 | `DATABASE_URL` | - | PostgreSQL 连接 URL |
-| `OCR_ENABLED` | `false` | 启用 AI 代码评审 |
-| `OCR_BINARY` | `ocr` | Open Code Review 二进制路径 |
 | `WORKER_CONCURRENCY` | `2` | 后台评审 Worker 数量 |
-| `POLICY_FAIL_ON` | `critical` | 质量门禁严重级别阈值 |
-| `POLICY_MAX_COMMENTS` | `20` | 每次评审最大行内评论数 |
-| `GITHUB_TOKEN` | - | GitHub API Token |
-| `GITLAB_TOKEN` | - | GitLab API Token |
-| `GITEA_TOKEN` | - | Gitea API Token |
+| `WORKER_POLL_INTERVAL` | `1s` | Worker 轮询间隔 |
+| `WORKER_STALE_AFTER` | `15m` | Worker 超时判定 |
 
 ## 开发指南
 

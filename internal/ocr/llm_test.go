@@ -33,9 +33,9 @@ func TestLLMProvider_CompleteNotConfigured(t *testing.T) {
 func TestLLMProvider_CompletePlaceholder(t *testing.T) {
 	// 阶段 A11 完整化：不再 placeholder；该测试改为验证「未配置返回 err」。
 	p := NewLLMProvider(NewSettingsSnapshot(&SettingsData{
-		URL:        "https://api.example.com",
-		ModelName:  "gpt-4",
-		AuthToken:  "secret",
+		URL:       "https://api.example.com",
+		ModelName: "gpt-4",
+		AuthToken: "secret",
 	}))
 	// 由于 endpoint 是无效域名，调用应失败（连接错误），但不应该 panic。
 	_, err := p.Complete(context.Background(), LLMRequest{UserPrompt: "hi"})

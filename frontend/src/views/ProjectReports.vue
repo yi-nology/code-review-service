@@ -1,110 +1,51 @@
 <template>
   <AppLayout>
-    <div class="project-reports-page">
-      <header class="page-header">
-        <div>
-          <div class="eyebrow">PROJECT REPORTS</div>
-          <h1>项目报告</h1>
-          <p>按项目汇总代码审查结果，追踪仓库质量、风险分布与门禁表现。</p>
-        </div>
-      </header>
+    <PageShell>
+      <PageHeader
+        eyebrow="PROJECT REPORTS"
+        title="项目报告"
+        description="按项目汇总代码审查结果，追踪仓库质量、风险分布与门禁表现。"
+      >
+        <template #actions>
+          <el-button :icon="Refresh" circle @click="fetchProjects" :loading="loading" />
+        </template>
+      </PageHeader>
 
-      <el-row :gutter="16" class="stats-row">
-        <el-col :xs="12" :sm="12" :md="6">
-          <el-card shadow="never" class="stat-card projects">
-            <div class="stat-icon"><el-icon><FolderChecked /></el-icon></div>
-            <div class="stat-item">
-              <span>项目数</span>
-              <strong>{{ summaryStats.totalProjects }}</strong>
-              <small>有审查记录的仓库</small>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :xs="12" :sm="12" :md="6">
-          <el-card shadow="never" class="stat-card avg">
-            <div class="stat-icon"><el-icon><TrendCharts /></el-icon></div>
-            <div class="stat-item">
-              <span>平均分</span>
-              <strong>{{ summaryStats.avgScore }}</strong>
-              <small>当前列表项目均值</small>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :xs="12" :sm="12" :md="6">
-          <el-card shadow="never" class="stat-card pass">
-            <div class="stat-icon"><el-icon><CircleCheckFilled /></el-icon></div>
-            <div class="stat-item">
-              <span>平均通过率</span>
-              <strong>{{ summaryStats.avgPassRate }}%</strong>
-              <small>质量门禁通过率</small>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :xs="12" :sm="12" :md="6">
-          <el-card shadow="never" class="stat-card risks">
-            <div class="stat-icon"><el-icon><WarningFilled /></el-icon></div>
-            <div class="stat-item">
-              <span>严重问题</span>
-              <strong>{{ summaryStats.criticalCount }}</strong>
-              <small>严重风险总量</small>
-            </div>
-          </el-card>
-        </el-col>
-      </el-row>
+      <StatStrip :items="reportStats" v-loading="metricsLoading" />
 
-      <section class="ocr-observability" v-loading="metricsLoading">
-        <div class="obs-card">
-          <span>OCR Token 总量</span>
-          <strong>{{ formatNumber(ocrMetrics?.total_tokens) }}</strong>
-          <small>均值 {{ formatNumber(Math.round(ocrMetrics?.avg_tokens || 0)) }} / 次</small>
-        </div>
-        <div class="obs-card">
-          <span>扫描文件</span>
-          <strong>{{ formatNumber(ocrMetrics?.total_reviewed_files) }}</strong>
-          <small>{{ ocrMetrics?.review_count || 0 }} 次成功审查</small>
-        </div>
-        <div class="obs-card">
-          <span>问题密度</span>
-          <strong>{{ (ocrMetrics?.avg_findings_density || 0).toFixed(2) }}</strong>
-          <small>平均 findings / KLOC</small>
-        </div>
-        <div class="obs-card tools">
-          <span>工具调用</span>
-          <strong>{{ formatNumber(totalToolCalls) }}</strong>
-          <small>{{ topToolLabel }}</small>
-        </div>
-      </section>
-
-      <section class="ocr-trend-band" v-loading="metricsLoading">
-        <div class="trend-head">
+      <!-- ===== OCR 成本趋势（复用 TrendChart） ===== -->
+      <section class="panel-shell trend-panel" v-loading="metricsLoading">
+        <div class="panel-heading trend-head">
           <div>
-            <h2>OCR 成本趋势</h2>
-            <p>按天聚合 tokens、耗时、质量分与问题密度</p>
+            <strong>OCR 成本趋势</strong>
+            <span>按天聚合 Token 消耗 · 鼠标悬停查看明细</span>
           </div>
-          <span>{{ ocrTrend.length }} 天</span>
-        </div>
-        <div v-if="ocrTrend.length" class="trend-points">
-          <div v-for="point in ocrTrend.slice(-8)" :key="point.period" class="trend-point">
-            <span>{{ formatDay(point.period) }}</span>
-            <strong>{{ formatNumber(point.total_tokens) }}</strong>
-            <small>{{ point.review_count }} 次 · {{ Math.round(point.avg_elapsed_ms) }}ms · {{ point.avg_score.toFixed(1) }}分</small>
+          <div class="trend-meta">
+            <span class="meta-pill">
+              <i class="meta-dot" />
+              {{ ocrTrend.length }} 天
+            </span>
+            <span class="meta-pill" v-if="ocrMetrics?.review_count">
+              {{ ocrMetrics.review_count }} 次审查
+            </span>
           </div>
         </div>
-        <el-empty v-else description="暂无 OCR 趋势数据" :image-size="48" />
+        <div class="trend-body">
+          <TrendChart :data="trendChartData" :height="220" />
+        </div>
       </section>
 
-      <section class="reports-section">
-        <div class="reports-header">
+      <!-- ===== 项目质量报告 ===== -->
+      <section class="panel-shell reports-panel">
+        <div class="panel-heading reports-header">
           <div class="reports-title">
-            <h2>项目质量报告</h2>
-            <span class="reports-subtitle">共 {{ pagination.total }} 个项目</span>
-          </div>
-          <div class="reports-actions">
-            <el-button :icon="Refresh" circle @click="fetchProjects" />
+            <strong>项目质量报告</strong>
+            <span>共 {{ pagination.total }} 个项目</span>
           </div>
         </div>
 
-        <div class="filter-bar" aria-label="项目报告筛选">
+        <!-- 筛选条：单行紧凑布局 -->
+        <div class="filter-bar">
           <el-input
             v-model="filters.repo"
             class="filter-search"
@@ -115,29 +56,33 @@
           >
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
-          <el-select v-model="filters.provider" placeholder="全部平台" clearable @change="applyFilters" class="filter-select provider-filter">
+          <el-select
+            v-model="filters.provider"
+            placeholder="全部平台"
+            clearable
+            @change="applyFilters"
+            class="filter-select"
+          >
             <el-option v-for="p in PROVIDER_OPTIONS" :key="p.value" :label="p.label" :value="p.value" />
           </el-select>
-          <el-select v-model="filters.sort" placeholder="排序" @change="applyFilters" class="filter-select sort-filter">
+          <el-select v-model="filters.sort" placeholder="排序" @change="applyFilters" class="filter-select">
             <el-option label="按评分" value="avg_score" />
             <el-option label="按审查数" value="review_count" />
             <el-option label="按通过率" value="pass_rate" />
             <el-option label="按严重问题" value="critical_count" />
             <el-option label="按活跃度" value="last_review_at" />
           </el-select>
-          <div class="date-filter">
-            <el-date-picker
-              v-model="dateRange"
-              class="filter-date"
-              type="daterange"
-              range-separator="至"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
-              unlink-panels
-              @change="applyFilters"
-            />
-          </div>
-          <el-button v-if="hasFilters" text @click="resetFilters" class="filter-reset">
+          <el-date-picker
+            v-model="dateRange"
+            class="filter-date"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            unlink-panels
+            @change="applyFilters"
+          />
+          <el-button v-if="hasFilters" text type="primary" @click="resetFilters" class="filter-reset">
             清除筛选
           </el-button>
         </div>
@@ -150,36 +95,42 @@
           @row-click="goToDetail"
           :row-class-name="() => 'clickable-row'"
         >
-          <el-table-column label="项目" min-width="240">
+          <!-- 项目 + 次要指标合并到副文本 -->
+          <el-table-column label="项目" min-width="280">
             <template #default="{ row }">
               <div class="repo-cell">
                 <span class="provider-badge" :class="row.provider">{{ getProviderInitial(row.provider) }}</span>
                 <div class="repo-info">
                   <span class="repo-name">{{ row.repo }}</span>
-                  <span class="repo-provider">{{ providerLabel(row.provider) }}</span>
+                  <span class="repo-sub">
+                    {{ providerLabel(row.provider) }}
+                    <em class="dot-sep">·</em>
+                    {{ row.review_count }} 次审查
+                    <em class="dot-sep">·</em>
+                    {{ formatDateRelative(row.last_review_at) }}
+                  </span>
                 </div>
               </div>
             </template>
           </el-table-column>
 
-          <el-table-column label="审查" width="70" align="center">
-            <template #default="{ row }">
-              <span class="metric-value">{{ row.review_count }}</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="平均分" width="140">
+          <!-- 平均分（数值 + 进度条） -->
+          <el-table-column label="平均分" width="150">
             <template #default="{ row }">
               <div class="score-cell">
-                <span class="score-value" :class="scoreClass(row.avg_score)">{{ row.avg_score }}</span>
+                <span class="score-value" :class="scoreClass(row.avg_score)">{{ row.avg_score.toFixed(1) }}</span>
                 <div class="score-bar">
-                  <div class="score-bar-fill" :style="{ width: row.avg_score + '%', backgroundColor: getScoreColor(row.avg_score) }"></div>
+                  <div
+                    class="score-bar-fill"
+                    :style="{ width: row.avg_score + '%', backgroundColor: getScoreColor(row.avg_score) }"
+                  />
                 </div>
               </div>
             </template>
           </el-table-column>
 
-          <el-table-column label="通过率" width="80" align="center">
+          <!-- 通过率 -->
+          <el-table-column label="通过率" width="90" align="center">
             <template #default="{ row }">
               <span class="pass-rate-badge" :class="passRateClass(row.pass_rate)">
                 {{ row.pass_rate.toFixed(0) }}%
@@ -187,46 +138,63 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="问题" width="70" align="center">
+          <!-- 风险分布：堆叠条 + 数量 -->
+          <el-table-column label="风险分布" min-width="200">
             <template #default="{ row }">
-              <span class="findings-badge" :class="{ 'has-findings': row.total_findings > 0 }">
-                {{ row.total_findings }}
-              </span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="严重" width="70" align="center">
-            <template #default="{ row }">
-              <span v-if="row.critical_count > 0" class="critical-badge">{{ row.critical_count }}</span>
-              <span v-else class="zero-value">-</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="风险分布" min-width="180">
-            <template #default="{ row }">
-              <div class="risk-bars">
-                <template v-if="row.critical_count + row.major_count + row.minor_count + row.info_count > 0">
-                  <div v-if="row.critical_count > 0" class="risk-segment critical" :style="{ flex: row.critical_count }" :title="'严重: ' + row.critical_count"></div>
-                  <div v-if="row.major_count > 0" class="risk-segment major" :style="{ flex: row.major_count }" :title="'高风险: ' + row.major_count"></div>
-                  <div v-if="row.minor_count > 0" class="risk-segment minor" :style="{ flex: row.minor_count }" :title="'中风险: ' + row.minor_count"></div>
-                  <div v-if="row.info_count > 0" class="risk-segment info" :style="{ flex: row.info_count }" :title="'提示: ' + row.info_count"></div>
-                </template>
-                <span v-else class="zero-value">-</span>
+              <div class="risk-cell">
+                <div
+                  v-if="row.critical_count + row.major_count + row.minor_count + row.info_count > 0"
+                  class="risk-bars"
+                >
+                  <div
+                    v-if="row.critical_count > 0"
+                    class="risk-segment critical"
+                    :style="{ flex: row.critical_count }"
+                    :title="'严重: ' + row.critical_count"
+                  />
+                  <div
+                    v-if="row.major_count > 0"
+                    class="risk-segment major"
+                    :style="{ flex: row.major_count }"
+                    :title="'高风险: ' + row.major_count"
+                  />
+                  <div
+                    v-if="row.minor_count > 0"
+                    class="risk-segment minor"
+                    :style="{ flex: row.minor_count }"
+                    :title="'中风险: ' + row.minor_count"
+                  />
+                  <div
+                    v-if="row.info_count > 0"
+                    class="risk-segment info"
+                    :style="{ flex: row.info_count }"
+                    :title="'提示: ' + row.info_count"
+                  />
+                </div>
+                <span v-else class="risk-empty">无风险</span>
+                <span class="risk-count" :class="{ critical: row.critical_count > 0 }">
+                  {{ row.total_findings }} 项
+                  <em v-if="row.critical_count > 0" class="risk-critical-tag">{{ row.critical_count }} 严重</em>
+                </span>
               </div>
             </template>
           </el-table-column>
 
-          <el-table-column label="最近审查" width="100">
+          <!-- 操作 -->
+          <el-table-column label="操作" width="140" align="right">
             <template #default="{ row }">
-              <span class="time-value">{{ formatDateRelative(row.last_review_at) }}</span>
+              <div class="row-actions" @click.stop>
+                <el-button size="small" plain @click="goToWeekly(row)">周报</el-button>
+                <el-button size="small" type="primary" plain @click="goToDetail(row)">详情</el-button>
+              </div>
             </template>
           </el-table-column>
 
-          <el-table-column width="40" align="right">
-            <template #default>
-              <el-icon class="row-arrow"><ArrowRight /></el-icon>
-            </template>
-          </el-table-column>
+          <template #empty>
+            <el-empty description="暂无项目报告数据" :image-size="80">
+              <el-button v-if="hasFilters" type="primary" plain @click="resetFilters">清除筛选</el-button>
+            </el-empty>
+          </template>
         </el-table>
 
         <div class="pagination-wrap">
@@ -235,29 +203,26 @@
             v-model:page-size="pagination.pageSize"
             :total="pagination.total"
             :page-sizes="[20, 50, 100]"
-            layout="sizes, prev, pager, next"
+            layout="sizes, prev, pager, next, total"
             @current-change="fetchProjects"
             @size-change="handlePageSizeChange"
           />
         </div>
       </section>
-    </div>
+    </PageShell>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  ArrowRight,
-  CircleCheckFilled,
-  FolderChecked,
-  Refresh,
-  Search,
-  TrendCharts,
-  WarningFilled,
-} from '@element-plus/icons-vue'
+import { Refresh, Search, Files, TrendCharts, CircleCheckFilled, WarningFilled, Coin, Aim } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import StatStrip from '@/components/common/StatStrip.vue'
+import TrendChart from '@/components/common/TrendChart.vue'
+import type { TrendPoint } from '@/types/stats'
 import { getProjectOCRMetrics, getProjectOCRTrend, getProjects } from '@/api/stats'
 import type { ProjectOCRMetrics, ProjectOCRTrendPoint, ProjectSummary } from '@/types/stats'
 import { formatDateRelative, getProviderInitial } from '@/utils/format'
@@ -277,21 +242,57 @@ const hasFilters = computed(() => Boolean(filters.provider || filters.repo || da
 
 const summaryStats = computed(() => {
   const list = projects.value
-  if (!list.length) return { totalProjects: pagination.total, avgScore: '0', avgPassRate: 0, criticalCount: 0 }
-  const avgScore = list.reduce((sum, item) => sum + item.avg_score, 0) / list.length
+  if (!list.length) {
+    return {
+      totalProjects: pagination.total,
+      avgScore: '0.0',
+      avgScoreNum: 0,
+      avgPassRate: 0,
+      criticalCount: 0,
+    }
+  }
+  const avgScoreNum = list.reduce((sum, item) => sum + item.avg_score, 0) / list.length
   const avgPassRate = list.reduce((sum, item) => sum + item.pass_rate, 0) / list.length
   const criticalCount = list.reduce((sum, item) => sum + item.critical_count, 0)
   return {
     totalProjects: pagination.total,
-    avgScore: avgScore.toFixed(1),
+    avgScore: avgScoreNum.toFixed(1),
+    avgScoreNum,
     avgPassRate: Math.round(avgPassRate),
     criticalCount,
   }
 })
-const totalToolCalls = computed(() => (ocrMetrics.value?.tool_calls || []).reduce((sum, item) => sum + item.count, 0))
-const topToolLabel = computed(() => {
-  const first = ocrMetrics.value?.tool_calls?.[0]
-  return first ? `最多：${first.tool} ${first.count} 次` : '暂无工具调用数据'
+
+type Tone = 'primary' | 'success' | 'warning' | 'danger' | 'info'
+function scoreTone(score: number): Tone {
+  if (score >= 80) return 'success'
+  if (score >= 60) return 'warning'
+  return 'danger'
+}
+function passRateTone(rate: number): Tone {
+  if (rate >= 80) return 'success'
+  if (rate >= 50) return 'warning'
+  return 'danger'
+}
+
+const reportStats = computed(() => [
+  { icon: Files, label: '项目数', value: summaryStats.value.totalProjects, tone: 'primary' as const },
+  { icon: TrendCharts, label: '平均分', value: summaryStats.value.avgScore, tone: scoreTone(summaryStats.value.avgScoreNum) },
+  { icon: CircleCheckFilled, label: '平均通过率', value: `${summaryStats.value.avgPassRate}%`, tone: passRateTone(summaryStats.value.avgPassRate) },
+  { icon: WarningFilled, label: '严重问题', value: summaryStats.value.criticalCount, tone: 'danger' as const },
+  { icon: Coin, label: 'Token 总量', value: formatNumber(ocrMetrics.value?.total_tokens), tone: 'success' as const },
+  { icon: Aim, label: '问题密度', value: (ocrMetrics.value?.avg_findings_density || 0).toFixed(2), sublabel: 'findings / KLOC', tone: 'info' as const },
+])
+
+// 把 OCR 趋势数据适配成 TrendChart 需要的 TrendPoint 格式：
+// 用 avg_score 画评分折线，用 total_tokens 映射为 findings 柱状（次维度）。
+const trendChartData = computed<TrendPoint[]>(() => {
+  return ocrTrend.value.map((pt) => ({
+    period: pt.period,
+    avg_score: pt.avg_score,
+    review_count: pt.review_count,
+    findings: Math.round(pt.total_tokens / 1000), // 以 K Token 为单位做柱高
+  }))
 })
 
 async function fetchProjects() {
@@ -348,6 +349,13 @@ function goToDetail(row: ProjectSummary) {
   })
 }
 
+function goToWeekly(row: ProjectSummary) {
+  router.push({
+    path: '/reports/weekly',
+    query: { provider: row.provider, repo: row.repo },
+  })
+}
+
 function dateParams() {
   if (dateRange.value.length !== 2) return {}
   const [from, to] = dateRange.value
@@ -362,15 +370,15 @@ function dateParams() {
 }
 
 function scoreClass(score: number) {
-  if (score >= 80) return 'score-high'
-  if (score >= 60) return 'score-mid'
-  return 'score-low'
+  if (score >= 80) return 'tone-success'
+  if (score >= 60) return 'tone-warning'
+  return 'tone-danger'
 }
 
 function passRateClass(rate: number) {
-  if (rate >= 80) return 'high'
-  if (rate >= 50) return 'mid'
-  return 'low'
+  if (rate >= 80) return 'tone-success'
+  if (rate >= 50) return 'tone-warning'
+  return 'tone-danger'
 }
 
 function providerLabel(provider: string) {
@@ -382,300 +390,147 @@ function formatNumber(value?: number) {
   return value ? value.toLocaleString() : '0'
 }
 
-function formatDay(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })
-}
-
 onMounted(fetchProjects)
 </script>
 
 <style scoped>
-.project-reports-page {
-  width: min(1440px, 100%);
-  margin: 0 auto;
-  padding: 34px 36px 48px;
-}
+/* ===== Panels ===== */
 
-.page-header {
-  margin-bottom: 28px;
-}
-
-.page-header h1 {
-  margin: 4px 0 7px;
-  color: var(--app-text);
-  font-size: 30px;
-}
-
-.page-header p {
-  margin: 0;
-  color: var(--app-muted);
-  font-size: 14px;
-}
-
-.eyebrow {
-  color: var(--app-primary);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.4px;
-}
-
-.stats-row {
-  margin-bottom: 20px;
-}
-
-.ocr-observability {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 20px;
-}
-
-.obs-card {
-  min-height: 94px;
-  padding: 16px 18px;
+.panel-shell {
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: var(--card-radius-lg);
   background: var(--app-surface);
-}
-
-.obs-card span,
-.obs-card small {
-  display: block;
-  color: var(--app-muted);
-  font-size: 12px;
-}
-
-.obs-card strong {
-  display: block;
-  margin: 8px 0 4px;
-  color: var(--app-text);
-  font-size: 25px;
-  line-height: 1.15;
-}
-
-.obs-card.tools strong {
-  color: var(--app-primary);
-}
-
-.ocr-trend-band {
-  margin-bottom: 20px;
-  padding: 16px 18px;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-surface);
-}
-
-.trend-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.trend-head h2 {
-  margin: 0;
-  color: var(--app-text);
-  font-size: 16px;
-}
-
-.trend-head p {
-  margin: 4px 0 0;
-  color: var(--app-muted);
-  font-size: 12px;
-}
-
-.trend-head > span {
-  color: var(--app-muted);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.trend-points {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.trend-point {
-  min-width: 0;
-  padding: 10px;
-  border: 1px solid #edf0f4;
-  border-radius: 8px;
-  background: #fafbfc;
-}
-
-.trend-point span,
-.trend-point small {
-  display: block;
-  color: var(--app-muted);
-  font-size: 11px;
-}
-
-.trend-point strong {
-  display: block;
-  margin: 6px 0 4px;
-  color: var(--app-primary);
-  font-size: 16px;
-  overflow-wrap: anywhere;
-}
-
-.stats-row .el-col {
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  height: 110px;
-}
-
-.stat-card :deep(.el-card__body) {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  height: 100%;
-  padding: 20px;
-}
-
-.stat-icon {
-  display: grid;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 44px;
-  place-items: center;
-  border-radius: 12px;
-  font-size: 20px;
-}
-
-.projects .stat-icon { color: #5b5bd6; background: #eeeeff; }
-.avg .stat-icon { color: #159570; background: #e6f7f0; }
-.pass .stat-icon { color: #2878c7; background: #eaf4ff; }
-.risks .stat-icon { color: #d84b5b; background: #fff0f2; }
-
-.stat-item span {
-  display: block;
-  margin-bottom: 2px;
-  color: var(--app-muted);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.stat-item strong {
-  display: block;
-  color: var(--app-text);
-  font-size: 27px;
-  line-height: 1.15;
-}
-
-.stat-item small {
-  display: block;
-  margin-top: 4px;
-  color: #9aa2b1;
-  font-size: 11px;
-}
-
-.reports-section {
-  background: var(--app-surface);
-  border: 1px solid var(--app-border);
-  border-radius: 12px;
+  box-shadow: var(--app-shadow);
   overflow: hidden;
 }
 
-.reports-header {
+.panel-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 18px 22px;
+  gap: 12px;
+  min-height: 54px;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.panel-heading strong {
+  display: block;
+  color: var(--app-text);
+  font-size: 15px;
+}
+
+.panel-heading span {
+  display: block;
+  margin-top: 2px;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+/* ===== Trend ===== */
+
+.trend-panel {
+  margin-bottom: 16px;
+}
+
+.trend-head {
+  min-height: 58px;
+}
+
+.trend-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--app-bg);
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.meta-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--app-primary);
+}
+
+.trend-body {
+  padding: 16px 20px 20px;
+}
+
+/* ===== Reports panel ===== */
+
+.reports-header {
   border-bottom: 1px solid var(--app-border);
 }
 
 .reports-title {
   display: flex;
-  min-width: 0;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
-.reports-title h2 {
-  margin: 0;
-  color: var(--app-text);
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.reports-subtitle {
-  color: var(--app-muted);
-  font-size: 13px;
-}
+/* ===== Filter bar（单行 flex） ===== */
 
 .filter-bar {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) 132px 142px auto;
+  display: flex;
   align-items: center;
-  grid-template-areas:
-    "search provider sort reset"
-    "date date date reset";
   gap: 10px;
-  padding: 14px 22px;
+  flex-wrap: wrap;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--app-border);
-  background: #fbfcfe;
+  background: var(--app-bg);
 }
 
 .filter-search {
-  grid-area: search;
-  width: 100%;
+  flex: 1 1 240px;
+  min-width: 200px;
 }
 
 .filter-select {
-  width: 100%;
+  width: 140px;
+  flex: 0 0 auto;
 }
 
-.provider-filter {
-  grid-area: provider;
-}
-
-.sort-filter {
-  grid-area: sort;
-}
-
-.date-filter {
-  grid-area: date;
-  width: 100%;
-  max-width: 420px;
-}
-
-.date-filter :deep(.filter-date) {
-  width: 100%;
-  max-width: 100%;
+.filter-date {
+  flex: 0 0 auto;
+  width: auto;
 }
 
 .filter-reset {
-  grid-area: reset;
-  justify-self: end;
-  color: var(--app-muted);
+  flex: 0 0 auto;
 }
+
+/* ===== Table ===== */
 
 .project-table {
   --el-table-border-color: transparent;
   --el-table-header-bg-color: transparent;
-  --el-table-row-hover-bg-color: #f8f9ff;
+  --el-table-row-hover-bg-color: #f6f8ff;
 }
 
 .project-table :deep(th.el-table__cell) {
-  height: 40px;
+  height: 42px;
   color: var(--app-muted);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border-bottom: 1px solid var(--app-border);
 }
 
 .project-table :deep(td.el-table__cell) {
-  height: 56px;
-  border-bottom: 1px solid #f0f2f5;
+  height: 60px;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .project-table :deep(.clickable-row) {
@@ -684,7 +539,7 @@ onMounted(fetchProjects)
 }
 
 .project-table :deep(.clickable-row:hover td) {
-  background-color: #f8f9ff !important;
+  background-color: #f6f8ff !important;
 }
 
 /* 项目列 */
@@ -698,11 +553,11 @@ onMounted(fetchProjects)
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
   color: #fff;
   flex-shrink: 0;
 }
@@ -715,28 +570,33 @@ onMounted(fetchProjects)
 .repo-info {
   display: flex;
   flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 
 .repo-name {
   color: var(--app-text);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.repo-provider {
+.repo-sub {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   color: var(--app-muted);
   font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* 通用指标 */
-.metric-value {
-  color: var(--app-text);
-  font-size: 14px;
-  font-weight: 600;
+.dot-sep {
+  color: var(--app-border);
+  font-style: normal;
 }
 
 /* 评分列 */
@@ -747,90 +607,62 @@ onMounted(fetchProjects)
 }
 
 .score-value {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
-  min-width: 28px;
+  min-width: 34px;
 }
+
+.score-value.tone-success { color: var(--app-success); }
+.score-value.tone-warning { color: var(--app-warning); }
+.score-value.tone-danger { color: var(--app-danger); }
 
 .score-bar {
   flex: 1;
-  height: 4px;
-  background: #f0f2f5;
-  border-radius: 2px;
+  height: 5px;
+  background: var(--app-bg);
+  border-radius: 3px;
   overflow: hidden;
 }
 
 .score-bar-fill {
   height: 100%;
-  border-radius: 2px;
+  border-radius: 3px;
   transition: width 0.3s ease;
 }
-
-.score-high { color: #10b981; }
-.score-mid { color: #f59e0b; }
-.score-low { color: #ef4444; }
 
 /* 通过率 */
 .pass-rate-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 48px;
-  height: 24px;
-  border-radius: 6px;
+  min-width: 52px;
+  height: 26px;
+  border-radius: 7px;
   font-size: 12px;
-  font-weight: 600;
-}
-
-.pass-rate-badge.high { color: #10b981; background: #ecfdf5; }
-.pass-rate-badge.mid { color: #f59e0b; background: #fffbeb; }
-.pass-rate-badge.low { color: #ef4444; background: #fef2f2; }
-
-/* 问题数 */
-.findings-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 28px;
-  height: 24px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
+  background: var(--app-bg);
   color: var(--app-muted);
 }
 
-.findings-badge.has-findings {
-  color: #d97706;
-  background: #fffbeb;
-}
+.pass-rate-badge.tone-success { color: var(--app-success); background: #e3f7ef; }
+.pass-rate-badge.tone-warning { color: var(--app-warning); background: #fdf2e3; }
+.pass-rate-badge.tone-danger { color: var(--app-danger); background: #fdecee; }
 
-/* 严重问题 */
-.critical-badge {
-  display: inline-flex;
+/* 风险分布列 */
+.risk-cell {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  min-width: 28px;
-  height: 24px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #ef4444;
-  background: #fef2f2;
+  gap: 12px;
 }
 
-.zero-value {
-  color: #d1d5db;
-  font-size: 14px;
-}
-
-/* 风险分布条 */
 .risk-bars {
   display: flex;
+  flex: 1;
   height: 8px;
+  max-width: 120px;
   border-radius: 4px;
   overflow: hidden;
   gap: 2px;
-  min-width: 100px;
 }
 
 .risk-segment {
@@ -840,25 +672,46 @@ onMounted(fetchProjects)
   transition: flex 0.3s ease;
 }
 
-.risk-segment.critical { background: #ef4444; }
-.risk-segment.major { background: #f59e0b; }
-.risk-segment.minor { background: #3b82f6; }
-.risk-segment.info { background: #9ca3af; }
+.risk-segment.critical { background: var(--app-danger); }
+.risk-segment.major { background: var(--app-warning); }
+.risk-segment.minor { background: var(--app-primary); }
+.risk-segment.info { background: var(--app-success); }
 
-/* 时间 */
-.time-value {
+.risk-empty {
+  flex: 1;
   color: var(--app-muted);
   font-size: 12px;
 }
 
-/* 箭头 */
-.row-arrow {
-  color: #d1d5db;
-  transition: color 0.15s ease;
+.risk-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.clickable-row:hover .row-arrow {
-  color: var(--app-primary);
+.risk-count.critical {
+  color: var(--app-danger);
+}
+
+.risk-critical-tag {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #fdecee;
+  color: var(--app-danger);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+/* 操作 */
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* 分页 */
@@ -866,66 +719,32 @@ onMounted(fetchProjects)
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 12px 24px;
+  padding: 14px 20px;
   border-top: 1px solid var(--app-border);
 }
 
-@media (max-width: 1040px) {
-  .ocr-observability {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .trend-points {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-}
+/* ===== Responsive ===== */
 
 @media (max-width: 760px) {
-  .project-reports-page {
-    padding: 24px 16px 36px;
-  }
-
   .filter-bar {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "search"
-      "provider"
-      "sort"
-      "date"
-      "reset";
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .filter-search,
   .filter-select,
-  .date-filter,
   .filter-date {
     width: 100%;
-    max-width: none;
   }
 
   .filter-reset {
-    justify-self: start;
-  }
-}
-
-@media (max-width: 640px) {
-  .ocr-observability {
-    grid-template-columns: 1fr;
+    align-self: flex-start;
   }
 
-  .trend-head {
-    flex-direction: column;
-  }
-
-  .trend-points {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .reports-header {
+  .risk-cell {
     flex-direction: column;
     align-items: flex-start;
-    gap: 12px;
+    gap: 4px;
   }
 }
 </style>

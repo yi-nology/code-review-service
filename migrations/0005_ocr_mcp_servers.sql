@@ -1,0 +1,15 @@
+-- 0005_ocr_mcp_servers.sql
+-- 新增：OCR 设置表加 mcp_servers JSONB 列，存储 MCP（Model Context Protocol）server 配置。
+--
+-- 背景：MCP server 让 OCR 审查 agent 触达 diff 之外的上下文（Jira/工单查询、内部文档/
+-- 编码规范、自定义 linter/schema 校验器）。配置最终在评审时同步写入 OCR CLI 全局配置
+-- ~/.opencodereview/config.json 的 mcp_servers 键（上游 OCR 的 review 路径只读该文件，
+-- 刻意忽略 OCR_CONFIG_PATH）。
+--
+-- 列由 GORM auto-migrate 通过 models.OCRSettings.McpServers 的 `gorm:"type:jsonb"` 标签
+-- 自动创建。本迁移仅作文档记录，不做 schema 变更（auto-migrate 已覆盖）。
+--
+-- 跨实例注意：MCP 配置通过全局 config.json 传递，该文件不跨实例共享。单实例部署下所有
+-- 并发评审用同一份 MCP 配置（全局慢变配置，last-writer-wins 无害，进程锁串行化写入）。
+-- 若未来多实例部署，需保证所有实例的 MCP 配置一致，或改用其它传递机制。
+SELECT 1;

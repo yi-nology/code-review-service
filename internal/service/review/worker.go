@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	bizmetrics "github.com/yi-nology/code-review-service/internal/observability/metrics"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/concurrency/async"
@@ -69,6 +70,22 @@ func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval,
 			}
 		}
 	})
+
+	// 定期采集队列深度指标（每 30s 查一次 queued+running 数量）。
+	async.GoSafe(func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if depth, err := s.reviewRepo.QueueDepth(ctx); err == nil {
+					bizmetrics.ReviewQueueDepth.Set(float64(depth))
+				}
+			}
+		}
+	})
 }
 
 // Shutdown 通知 worker 停止并等待所有 in-flight review 完成或 ctx 超时。
@@ -81,10 +98,10 @@ func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval,
 // 的 OnStop 先于 DB 的 OnStop 执行。
 func (s *Service) Shutdown(ctx context.Context) error {
 	done := make(chan struct{})
-	go func() {
+	async.GoSafe(func() {
 		s.inFlight.Wait()
 		close(done)
-	}()
+	})
 	select {
 	case <-done:
 		return nil

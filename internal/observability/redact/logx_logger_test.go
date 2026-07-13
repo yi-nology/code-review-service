@@ -11,11 +11,11 @@ import (
 
 // fakeLogger 捕获所有日志输出用于测试断言。
 type fakeLogger struct {
-	lastMsg     string
-	lastKVs     []any
-	lastFormat  string
-	lastArgs    []any
-	ctxSeen     context.Context
+	lastMsg    string
+	lastKVs    []any
+	lastFormat string
+	lastArgs   []any
+	ctxSeen    context.Context
 }
 
 func (f *fakeLogger) Debug(msg string, kv ...any) { f.lastMsg = msg; f.lastKVs = kv }
@@ -23,46 +23,66 @@ func (f *fakeLogger) Info(msg string, kv ...any)  { f.lastMsg = msg; f.lastKVs =
 func (f *fakeLogger) Warn(msg string, kv ...any)  { f.lastMsg = msg; f.lastKVs = kv }
 func (f *fakeLogger) Error(msg string, kv ...any) { f.lastMsg = msg; f.lastKVs = kv }
 func (f *fakeLogger) Debugf(format string, args ...any) {
-	f.lastFormat = format; f.lastArgs = args
+	f.lastFormat = format
+	f.lastArgs = args
 }
 func (f *fakeLogger) Infof(format string, args ...any) {
-	f.lastFormat = format; f.lastArgs = args
+	f.lastFormat = format
+	f.lastArgs = args
 }
 func (f *fakeLogger) Warnf(format string, args ...any) {
-	f.lastFormat = format; f.lastArgs = args
+	f.lastFormat = format
+	f.lastArgs = args
 }
 func (f *fakeLogger) Errorf(format string, args ...any) {
-	f.lastFormat = format; f.lastArgs = args
+	f.lastFormat = format
+	f.lastArgs = args
 }
 func (f *fakeLogger) CtxDebug(ctx context.Context, msg string, kv ...any) {
-	f.ctxSeen = ctx; f.lastMsg = msg; f.lastKVs = kv
+	f.ctxSeen = ctx
+	f.lastMsg = msg
+	f.lastKVs = kv
 }
 func (f *fakeLogger) CtxInfo(ctx context.Context, msg string, kv ...any) {
-	f.ctxSeen = ctx; f.lastMsg = msg; f.lastKVs = kv
+	f.ctxSeen = ctx
+	f.lastMsg = msg
+	f.lastKVs = kv
 }
 func (f *fakeLogger) CtxWarn(ctx context.Context, msg string, kv ...any) {
-	f.ctxSeen = ctx; f.lastMsg = msg; f.lastKVs = kv
+	f.ctxSeen = ctx
+	f.lastMsg = msg
+	f.lastKVs = kv
 }
 func (f *fakeLogger) CtxError(ctx context.Context, msg string, kv ...any) {
-	f.ctxSeen = ctx; f.lastMsg = msg; f.lastKVs = kv
+	f.ctxSeen = ctx
+	f.lastMsg = msg
+	f.lastKVs = kv
 }
 func (f *fakeLogger) CtxDebugf(ctx context.Context, format string, args ...any) {
-	f.ctxSeen = ctx; f.lastFormat = format; f.lastArgs = args
+	f.ctxSeen = ctx
+	f.lastFormat = format
+	f.lastArgs = args
 }
 func (f *fakeLogger) CtxInfof(ctx context.Context, format string, args ...any) {
-	f.ctxSeen = ctx; f.lastFormat = format; f.lastArgs = args
+	f.ctxSeen = ctx
+	f.lastFormat = format
+	f.lastArgs = args
 }
 func (f *fakeLogger) CtxWarnf(ctx context.Context, format string, args ...any) {
-	f.ctxSeen = ctx; f.lastFormat = format; f.lastArgs = args
+	f.ctxSeen = ctx
+	f.lastFormat = format
+	f.lastArgs = args
 }
 func (f *fakeLogger) CtxErrorf(ctx context.Context, format string, args ...any) {
-	f.ctxSeen = ctx; f.lastFormat = format; f.lastArgs = args
+	f.ctxSeen = ctx
+	f.lastFormat = format
+	f.lastArgs = args
 }
-func (f *fakeLogger) WithCtx(ctx context.Context) logx.Logger { f.ctxSeen = ctx; return f }
-func (f *fakeLogger) WithService(name string) logx.Logger   { return f }
+func (f *fakeLogger) WithCtx(ctx context.Context) logx.Logger  { f.ctxSeen = ctx; return f }
+func (f *fakeLogger) WithService(name string) logx.Logger      { return f }
 func (f *fakeLogger) WithAttrs(attrs ...logx.Attr) logx.Logger { return f }
-func (f *fakeLogger) WithGroup(name string) logx.Logger    { return f }
-func (f *fakeLogger) SetLevel(level logx.Level)            {}
+func (f *fakeLogger) WithGroup(name string) logx.Logger        { return f }
+func (f *fakeLogger) SetLevel(level logx.Level)                {}
 
 var _ logx.Logger = (*fakeLogger)(nil)
 

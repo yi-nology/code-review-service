@@ -16,7 +16,6 @@ type ReviewService interface {
 	List(context.Context, review.ListOptions) (review.ListResult, error)
 	Preview(context.Context, domain.Request) ([]string, error)
 	Scan(context.Context, domain.ScanRequest) (*domain.ScanResult, error)
-	CompareModels(context.Context, string, review.ModelCompareOptions) (*review.ModelCompareResult, bool, error)
 	Requeue(context.Context, string) (domain.Response, error)
 	Cancel(context.Context, string) (domain.Response, error)
 }

@@ -31,6 +31,10 @@ type Review struct {
 	Response    datatypes.JSON `gorm:"type:jsonb;not null" json:"response"`
 	RawOCR      datatypes.JSON `gorm:"type:jsonb" json:"raw_ocr,omitempty"`
 	RawOCRInput datatypes.JSON `gorm:"type:jsonb" json:"raw_ocr_input,omitempty"`
+
+	// RetryCount 记录该评审被 RequeueStale 重新入队的次数。
+	// 用于防止服务重启后孤儿任务被无限重排导致的雪崩：超过上限的标记为 failed 而非重新 queued。
+	RetryCount int `gorm:"not null;default:0" json:"retry_count,omitempty"`
 }
 
 func (Review) TableName() string {

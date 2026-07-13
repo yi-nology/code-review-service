@@ -56,6 +56,7 @@ func feedbackToModel(f *feedback.Feedback) models.FindingFeedback {
 	return models.FindingFeedback{
 		ReviewID:     f.ReviewID,
 		FindingIndex: f.FindingIndex,
+		Fingerprint:  f.Fingerprint,
 		Status:       f.Status,
 		Note:         f.Note,
 		UpdatedAt:    f.UpdatedAt,
@@ -66,6 +67,7 @@ func feedbackToDomain(m models.FindingFeedback) feedback.Feedback {
 	return feedback.Feedback{
 		ReviewID:     m.ReviewID,
 		FindingIndex: m.FindingIndex,
+		Fingerprint:  m.Fingerprint,
 		Status:       m.Status,
 		Note:         m.Note,
 		CreatedAt:    m.CreatedAt,
@@ -164,7 +166,7 @@ func writebackToDomain(m models.WritebackItem) writeback.Item {
 
 func reviewerToModel(a *reviewer.Agent) models.ReviewerAgent {
 	return models.ReviewerAgent{
-		Model:      gormModel(a.ID),
+		Model:       gormModel(a.ID),
 		Name:        a.Name,
 		DisplayName: a.DisplayName,
 		Description: a.Description,
@@ -175,6 +177,7 @@ func reviewerToModel(a *reviewer.Agent) models.ReviewerAgent {
 		Priority:    a.Priority,
 		IsDefault:   a.IsDefault,
 		Tags:        dataTypeJSON(a.Tags),
+		RulePackageIDs: dataTypeJSON(a.RulePackageIDs),
 	}
 }
 
@@ -191,6 +194,7 @@ func reviewerToDomain(m models.ReviewerAgent) reviewer.Agent {
 		Priority:    m.Priority,
 		IsDefault:   m.IsDefault,
 		Tags:        rawJSON(m.Tags),
+		RulePackageIDs: rawJSON(m.RulePackageIDs),
 	}
 }
 
@@ -223,7 +227,7 @@ func projectAgentToDomain(m models.ProjectAgent) reviewer.ProjectAssignment {
 
 func customProviderToModel(c *llmprovider.Custom) models.CustomProvider {
 	return models.CustomProvider{
-		Model:     gormModel(c.ID),
+		Model:      gormModel(c.ID),
 		Name:       c.Name,
 		Protocol:   c.Protocol,
 		URL:        c.URL,
@@ -251,7 +255,8 @@ func customProviderToDomain(m models.CustomProvider) llmprovider.Custom {
 
 // ---- webhook delivery ----
 
-func deliveryToModel(d *domainWebhook.Delivery) models.WebhookDelivery {	return models.WebhookDelivery{
+func deliveryToModel(d *domainWebhook.Delivery) models.WebhookDelivery {
+	return models.WebhookDelivery{
 		Provider:       d.Provider,
 		InstallationID: d.InstallationID,
 		DeliveryID:     d.DeliveryID,
@@ -317,6 +322,7 @@ func ocrSettingsToModel(s *ocrsettings.Settings) models.OCRSettings {
 		Background:              s.Background,
 		ToolsPath:               s.ToolsPath,
 		ToolsConfig:             dataTypeJSON(s.ToolsConfig),
+		McpServers:              dataTypeJSON(s.McpServers),
 		TelemetryEnabled:        s.TelemetryEnabled,
 		TelemetryExporter:       s.TelemetryExporter,
 		TelemetryOTLPEndpoint:   s.TelemetryOTLPEndpoint,
@@ -350,6 +356,7 @@ func ocrSettingsToDomain(m models.OCRSettings) ocrsettings.Settings {
 		Background:              m.Background,
 		ToolsPath:               m.ToolsPath,
 		ToolsConfig:             rawJSON(m.ToolsConfig),
+		McpServers:              rawJSON(m.McpServers),
 		TelemetryEnabled:        m.TelemetryEnabled,
 		TelemetryExporter:       m.TelemetryExporter,
 		TelemetryOTLPEndpoint:   m.TelemetryOTLPEndpoint,
@@ -374,6 +381,7 @@ func rulePackageToModel(p *ocrasset.RulePackage) models.OCRRulePackage {
 		Enabled:     p.Enabled,
 		ProjectRefs: dataTypeJSON(p.ProjectRefs),
 		BuiltIn:     p.BuiltIn,
+		Scope:       p.Scope,
 	}
 }
 
@@ -390,6 +398,7 @@ func rulePackageToDomain(m models.OCRRulePackage) ocrasset.RulePackage {
 		Enabled:     m.Enabled,
 		ProjectRefs: rawJSON(m.ProjectRefs),
 		BuiltIn:     m.BuiltIn,
+		Scope:       m.Scope,
 	}
 }
 
@@ -470,6 +479,7 @@ func projectPolicyToModel(p *projectpolicy.ProjectPolicy) models.ProjectPolicy {
 		OCRTelemetryExporter:       p.OCRTelemetryExporter,
 		OCRTelemetryOTLPEndpoint:   p.OCRTelemetryOTLPEndpoint,
 		OCRTelemetryContentLogging: p.OCRTelemetryContentLogging,
+		RulePackageIDs:             dataTypeJSON(p.RulePackageIDs),
 	}
 }
 
@@ -500,6 +510,7 @@ func projectPolicyToDomain(m models.ProjectPolicy) projectpolicy.ProjectPolicy {
 		OCRTelemetryExporter:       m.OCRTelemetryExporter,
 		OCRTelemetryOTLPEndpoint:   m.OCRTelemetryOTLPEndpoint,
 		OCRTelemetryContentLogging: m.OCRTelemetryContentLogging,
+		RulePackageIDs:             rawJSON(m.RulePackageIDs),
 	}
 }
 
@@ -599,6 +610,7 @@ func reviewToDomain(m models.Review) domain.Record {
 		Score:              m.Score,
 		Grade:              m.Grade,
 		Summary:            m.Summary,
+		RetryCount:         m.RetryCount,
 		RawOCR:             rawJSON(m.RawOCR),
 		RawOCRInput:        rawJSON(m.RawOCRInput),
 		CreatedAt:          m.CreatedAt,

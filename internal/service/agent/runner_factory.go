@@ -53,10 +53,11 @@ type ocrRunnerAdapter struct {
 
 func (a *ocrRunnerAdapter) Run(ctx context.Context, workspace reviewWorkspace) (reviewResult, error) {
 	reviewWs := domain.Workspace{
-		Dir:     workspace.Dir,
-		BaseSHA: workspace.BaseSHA,
-		HeadSHA: workspace.HeadSHA,
-		Diff:    workspace.Diff,
+		Dir:      workspace.Dir,
+		BaseSHA:  workspace.BaseSHA,
+		HeadSHA:  workspace.HeadSHA,
+		Diff:     workspace.Diff,
+		RulePath: workspace.RulePath,
 	}
 
 	result, err := a.runner.Run(ctx, reviewWs)

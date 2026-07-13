@@ -74,12 +74,12 @@ func syncGitPlatforms(ctx context.Context, repos *repository.RepoContainer, svc 
 			continue
 		}
 		if existing == nil {
-		if err := repos.GitPlatform.Save(ctx, &platform.Platform{
-			Provider: name,
-			BaseURL:  pCfg.BaseURL,
-			Token:    pCfg.Token,
-			Enabled:  true,
-		}); err != nil {
+			if err := repos.GitPlatform.Save(ctx, &platform.Platform{
+				Provider: name,
+				BaseURL:  pCfg.BaseURL,
+				Token:    pCfg.Token,
+				Enabled:  true,
+			}); err != nil {
 				logx.Errorf("init: save git platform to DB %s: %v", name, err)
 			}
 		}

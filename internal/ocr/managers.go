@@ -2,12 +2,19 @@ package ocr
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os/exec"
 	"regexp"
 	"strings"
+	"sync"
+	"syscall"
+	"time"
 
 	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/oekit/concurrency/async"
+	"github.com/oekit/logx"
 	"github.com/google/go-github/v69/github"
 )
 
@@ -36,7 +43,9 @@ func (v *Versioner) OCRVersion(ctx context.Context) (*domain.OCRVersion, error) 
 	}
 	binary := resolveBinaryFrom(adaptSettings(data), v.resolver.fallback)
 
-	stdout, stderr, err := Run(ctx, binary, "--version")
+	// --version 是元信息探测，15s 足矣。用独立超时避免子进程挂起时阻塞 goroutine
+	// （HTTP handler 的 ctx 只在客户端断开时取消，无法兜底）。
+	stdout, stderr, err := RunWithTimeout(ctx, 15*time.Second, binary, "--version")
 	if err != nil {
 		return nil, fmt.Errorf("执行 %s --version 失败: %w; stderr: %s",
 			binary, err, strings.TrimSpace(string(stderr)))
@@ -95,9 +104,10 @@ func (l *ProviderLister) ListLLMProviders(_ context.Context) ([]domain.LLMProvid
 
 // RulesChecker 实现 domain.RulesChecker（吸收 ocr/rules_checker.go）。
 type RulesChecker struct {
-	settings Settings
-	rules    GlobalRules
-	resolver *ConfigResolver
+	settings     Settings
+	rules        GlobalRules
+	rulePackages RulePackageSource
+	resolver     *ConfigResolver
 }
 
 // GlobalRules 是 GlobalRulesSource 在 internal/ocr 包的别名。
@@ -109,21 +119,157 @@ type settingsGlobalRules interface {
 	}, error)
 }
 
+// RulePackageSource 提供 rules-check 所需的规则包规则（按 glob 文件模式）。
+// 解耦 repository.OCRRulePackageRepository，避免 ocr 包直接依赖具体领域类型。
+type RulePackageSource interface {
+	// ListEnabledRules 返回所有启用规则包的规则内容（每个元素为 [{path,rule}] 的 JSON 字节）。
+	ListEnabledRules(ctx context.Context) ([][]byte, error)
+}
+
 // NewRulesChecker 构造 RulesChecker。
 func NewRulesChecker(settings Settings, rules GlobalRules, resolver *ConfigResolver) *RulesChecker {
 	return &RulesChecker{settings: settings, rules: rules, resolver: resolver}
 }
 
-// RulesCheck 实现 domain.RulesChecker。
-func (rc *RulesChecker) RulesCheck(_ context.Context, _ string) (*domain.RulesCheckResult, error) {
-	// 阶段 A 占位
-	return &domain.RulesCheckResult{Applicable: true, Rule: "stage-a-placeholder", Message: "规则匹配成功"}, nil
+// WithRulePackages 注入规则包规则源，使 rules-check 能匹配规则集中的规则。
+func (rc *RulesChecker) WithRulePackages(src RulePackageSource) *RulesChecker {
+	rc.rulePackages = src
+	return rc
 }
 
-// Viewer 实现 domain.ViewerManager（吸收 ocr/viewer.go）。
+// RulesCheck 实现 domain.RulesChecker：用合并后的规则（全局规则 + 启用规则包）按 path glob
+// 匹配输入路径，返回首条命中规则的文本。无规则或无匹配时 Applicable=false。
+func (rc *RulesChecker) RulesCheck(ctx context.Context, input string) (*domain.RulesCheckResult, error) {
+	type entry struct {
+		Path string `json:"path"`
+		Rule string `json:"rule"`
+	}
+	var all []entry
+
+	// 1. 旧全局规则（迁移后通常已并入 scope=global 规则包，这里兜底）
+	if rc.rules != nil {
+		if g, err := rc.rules.Get(ctx); err == nil && g != nil && len(g.Rules) > 0 {
+			var entries []entry
+			if err := json.Unmarshal(g.Rules, &entries); err == nil {
+				all = append(all, entries...)
+			}
+		}
+	}
+
+	// 2. 启用规则包的规则
+	if rc.rulePackages != nil {
+		if pkgs, err := rc.rulePackages.ListEnabledRules(ctx); err == nil {
+			for _, raw := range pkgs {
+				if len(raw) == 0 {
+					continue
+				}
+				var entries []entry
+				if err := json.Unmarshal(raw, &entries); err == nil {
+					all = append(all, entries...)
+				}
+			}
+		}
+	}
+
+	if len(all) == 0 {
+		return &domain.RulesCheckResult{Applicable: false, Message: "暂无规则可匹配"}, nil
+	}
+
+	for _, e := range all {
+		pattern := strings.TrimSpace(e.Path)
+		if pattern == "" {
+			pattern = "**/*"
+		}
+		if matchGlob(pattern, input) {
+			rule := strings.TrimSpace(e.Rule)
+			return &domain.RulesCheckResult{Applicable: true, Rule: rule, Message: fmt.Sprintf("命中规则（path=%s）", pattern)}, nil
+		}
+	}
+	return &domain.RulesCheckResult{Applicable: false, Message: "输入路径未被任何规则覆盖"}, nil
+}
+
+// matchGlob 判断 path 是否匹配 glob 模式。支持：
+//   - ** 匹配任意层级目录（含零层）
+//   - * 匹配除路径分隔符 / 外的任意字符
+//   - ? 匹配单个非 / 字符
+//
+// 这是 OCR 端 glob 匹配的近似实现，用于 rules-check 预览；真实审查仍由 OCR 二进制按其规则匹配。
+func matchGlob(pattern, path string) bool {
+	p := strings.TrimSpace(pattern)
+	if p == "" || p == "**" || p == "**/*" {
+		return true
+	}
+	return globMatch(strings.ToLower(p), strings.ToLower(path))
+}
+
+// globMatch 递归匹配，支持 ** 跨段。
+func globMatch(pattern, path string) bool {
+	// 把 pattern 按段拆分；** 段特殊处理（可匹配任意数量段）。
+	pSeg := strings.Split(pattern, "/")
+	tSeg := strings.Split(path, "/")
+	return globMatchSeg(pSeg, tSeg)
+}
+
+func globMatchSeg(pSeg, tSeg []string) bool {
+	for len(pSeg) > 0 {
+		if pSeg[0] == "**" {
+			// ** 匹配零个或多个段：尝试所有可能的剩余对齐。
+			rest := pSeg[1:]
+			if len(rest) == 0 {
+				return true // ** 在末尾匹配一切
+			}
+			for i := 0; i <= len(tSeg); i++ {
+				if globMatchSeg(rest, tSeg[i:]) {
+					return true
+				}
+			}
+			return false
+		}
+		if len(tSeg) == 0 {
+			return false
+		}
+		if !singleSegMatch(pSeg[0], tSeg[0]) {
+			return false
+		}
+		pSeg = pSeg[1:]
+		tSeg = tSeg[1:]
+	}
+	return len(tSeg) == 0
+}
+
+// singleSegMatch 在单段内匹配 *（非 /）与 ?，转译为正则。
+func singleSegMatch(pattern, segment string) bool {
+	var sb strings.Builder
+	sb.WriteString("^")
+	for _, r := range pattern {
+		switch r {
+		case '*':
+			sb.WriteString("[^/]*")
+		case '?':
+			sb.WriteString("[^/]")
+		default:
+			if strings.ContainsRune(`\.+()|[]{}^$`, r) {
+				sb.WriteByte('\\')
+			}
+			sb.WriteRune(r)
+		}
+	}
+	sb.WriteString("$")
+	matched, err := regexp.MatchString(sb.String(), segment)
+	return err == nil && matched
+}
+
+// Viewer 实现 domain.ViewerManager。
+//
+// 真正通过 exec 拉起 `ocr viewer` 子进程（默认监听 localhost:5483），
+// 进程状态由 mu 保护；cmd.Wait 在独立 goroutine 中回收，退出时清空状态。
 type Viewer struct {
 	settings Settings
 	resolver *ConfigResolver
+
+	mu   sync.Mutex
+	cmd  *exec.Cmd
+	addr string
 }
 
 // NewViewer 构造 Viewer。
@@ -133,11 +279,66 @@ func NewViewer(settings Settings, resolver *ConfigResolver) *Viewer {
 
 // ViewerStatus 实现 domain.ViewerManager。
 func (v *Viewer) ViewerStatus(_ context.Context) (*domain.ViewerStatus, error) {
-	return &domain.ViewerStatus{Running: false, Message: "Viewer 未运行"}, nil
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	if !v.runningLocked() {
+		return &domain.ViewerStatus{Running: false, Message: "Viewer 未运行"}, nil
+	}
+	return &domain.ViewerStatus{Running: true, Addr: v.addr, Message: fmt.Sprintf("Viewer 运行中 (%s)", v.addr)}, nil
 }
 
 // StartViewer 实现 domain.ViewerManager。
-func (v *Viewer) StartViewer(_ context.Context, addr string) (*domain.ViewerStatus, error) {
+//
+// 幂等：已有运行中进程时直接返回当前状态。addr 为空时使用默认 localhost:5483。
+func (v *Viewer) StartViewer(ctx context.Context, addr string) (*domain.ViewerStatus, error) {
+	if strings.TrimSpace(addr) == "" {
+		addr = "localhost:5483"
+	}
+
+	v.mu.Lock()
+	if v.runningLocked() {
+		cur := &domain.ViewerStatus{Running: true, Addr: v.addr, Message: fmt.Sprintf("Viewer 已在运行 (%s)", v.addr)}
+		v.mu.Unlock()
+		return cur, nil
+	}
+	v.mu.Unlock()
+
+	binary, err := v.resolveBinary(ctx)
+	if err != nil {
+		return &domain.ViewerStatus{Running: false, Message: err.Error()}, err
+	}
+
+	cmd := exec.Command(binary, "viewer", "--addr", addr)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := cmd.Start(); err != nil {
+		msg := fmt.Sprintf("启动 Viewer 失败: %v", err)
+		return &domain.ViewerStatus{Running: false, Message: msg}, fmt.Errorf("%s", msg)
+	}
+
+	v.mu.Lock()
+	v.cmd = cmd
+	v.addr = addr
+	v.mu.Unlock()
+
+	pid := cmd.Process.Pid
+	async.GoSafe(func() {
+		waitErr := cmd.Wait()
+		v.mu.Lock()
+		// 仅当仍是同一个 cmd 时才清空（避免 Stop 后竞态覆盖）。
+		if v.cmd == cmd {
+			v.cmd = nil
+			v.addr = ""
+		}
+		v.mu.Unlock()
+		if waitErr != nil {
+			logx.Warn("ocr viewer process exited", "pid", pid, "error", waitErr)
+		} else {
+			logx.Info("ocr viewer process exited", "pid", pid)
+		}
+	})
+
+	logx.Info("ocr viewer started", "pid", pid, "addr", addr)
 	return &domain.ViewerStatus{
 		Running: true,
 		Addr:    addr,
@@ -146,15 +347,87 @@ func (v *Viewer) StartViewer(_ context.Context, addr string) (*domain.ViewerStat
 }
 
 // StopViewer 实现 domain.ViewerManager。
+//
+// 向进程组发送 SIGTERM；进程已退出或不存在时幂等返回未运行状态。
+// 注意：cmd.Wait() 由 StartViewer 启动的回收 goroutine 负责调用，
+// StopViewer 只发信号并轮询等待 v.cmd 被清空（即 Wait goroutine 已回收）。
 func (v *Viewer) StopViewer(_ context.Context) (*domain.ViewerStatus, error) {
+	v.mu.Lock()
+	cmd := v.cmd
+	v.mu.Unlock()
+
+	if cmd == nil || cmd.Process == nil {
+		return &domain.ViewerStatus{Running: false, Message: "Viewer 未运行"}, nil
+	}
+
+	pid := cmd.Process.Pid
+	// Setpgid 让子进程成为独立进程组，用负 pid 向整组发信号（含 viewer spawn 的子进程）。
+	_ = syscall.Kill(-pid, syscall.SIGTERM)
+
+	// 轮询等待 StartViewer 的 Wait goroutine 回收进程（清空 v.cmd），最多 5s。
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		v.mu.Lock()
+		cleared := v.cmd == nil
+		v.mu.Unlock()
+		if cleared {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// 超时仍未退出，兜底 SIGKILL。
+	if !v.isCleared() {
+		logx.Warn("ocr viewer did not exit after SIGTERM, sending SIGKILL", "pid", pid)
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+		// 再等最多 2s 让 Wait goroutine 回收。
+		deadline = time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			if v.isCleared() {
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+
+	v.mu.Lock()
+	v.cmd = nil
+	v.addr = ""
+	v.mu.Unlock()
+
 	return &domain.ViewerStatus{Running: false, Message: "Viewer 已停止"}, nil
+}
+
+// isCleared 报告 v.cmd 是否已被 Wait goroutine 清空。
+func (v *Viewer) isCleared() bool {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return v.cmd == nil
+}
+
+// runningLocked 报告当前是否有一个尚未退出的 viewer 进程。调用方需持锁。
+func (v *Viewer) runningLocked() bool {
+	if v.cmd == nil || v.cmd.ProcessState != nil {
+		// ProcessState 非 nil 说明 Wait 已返回（进程已退出）。
+		return false
+	}
+	return true
+}
+
+// resolveBinary 从 settings + fallback 解析 OCR 二进制路径。
+func (v *Viewer) resolveBinary(ctx context.Context) (string, error) {
+	data, err := v.settings.Get(ctx)
+	if err != nil {
+		return "", fmt.Errorf("读取 OCR 配置失败: %w", err)
+	}
+	return resolveBinaryFrom(adaptSettings(data), v.resolver.fallback), nil
 }
 
 // Upgrader 实现 domain.OCRUpgrader（吸收 ocr/upgrader.go）。
 type Upgrader struct {
-	settings Settings
-	resolver *ConfigResolver
-	versioner *Versioner
+	settings   Settings
+	resolver   *ConfigResolver
+	versioner  *Versioner
 	installDir string
 	repo       string
 }

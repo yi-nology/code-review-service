@@ -6,22 +6,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-
 )
 
 // newReview 构造一条最小可入库的 models.Review。caller 填充关键字段。
 func newReview(reviewID, provider, repo, status string) *domain.Record {
 	return &domain.Record{
-		ID:                reviewID,
+		ID:                 reviewID,
 		RequestFingerprint: "fp-" + reviewID,
-		Provider:          provider,
-		Repo:              repo,
-		Status:            status,
-		PullRequestID:     "100",
-		Request:           domain.Request{Provider: provider, Repo: repo, PullRequestID: "100"},
-		Response:          domain.Response{ReviewID: reviewID, Status: status},
+		Provider:           provider,
+		Repo:               repo,
+		Status:             status,
+		PullRequestID:      "100",
+		Request:            domain.Request{Provider: provider, Repo: repo, PullRequestID: "100"},
+		Response:           domain.Response{ReviewID: reviewID, Status: status},
 	}
 }
 
@@ -237,6 +237,65 @@ func TestReviewRepo_RequeueStale(t *testing.T) {
 	freshGot, _ := repo.GetByReviewID(ctx, "fresh-1")
 	if freshGot.Status != "running" {
 		t.Fatalf("fresh review status = %q, want running", freshGot.Status)
+	}
+}
+
+// TestReviewRepo_RequeueStale_RetryLimit 验证 RequeueStale 的雪崩防护：
+// retry_count 未达上限的重新入队且计数 +1，达到上限的标记 failed 不再重排。
+func TestReviewRepo_RequeueStale_RetryLimit(t *testing.T) {
+	resetTables(t)
+	ctx := context.Background()
+	repo := NewReviewRepo(testDB)
+
+	// 可以重排的孤儿（retry_count 在上限内）
+	retryable := newReview("retry-1", "gitea", "acme/app", "running")
+	if err := repo.Create(ctx, retryable); err != nil {
+		t.Fatalf("Create retryable: %v", err)
+	}
+	if err := testDB.Model(&models.Review{}).
+		Where("review_id = ?", "retry-1").
+		Update("updated_at", time.Now().Add(-2*time.Hour)).Error; err != nil {
+		t.Fatalf("set updated_at: %v", err)
+	}
+
+	// 已达重试上限的孤儿（应标记 failed 不再重排）
+	exhausted := newReview("exhaust-1", "gitea", "acme/other", "running")
+	if err := repo.Create(ctx, exhausted); err != nil {
+		t.Fatalf("Create exhausted: %v", err)
+	}
+	// 直接通过 DB 设置 retry_count 为上限 + updated_at 为 2 小时前（绕过 GORM 自动时间管理）。
+	if err := testDB.Model(&models.Review{}).
+		Where("review_id = ?", "exhaust-1").
+		Updates(map[string]interface{}{
+			"retry_count": MaxRequeueRetries,
+			"updated_at":  time.Now().Add(-2 * time.Hour),
+		}).Error; err != nil {
+		t.Fatalf("set retry_count+updated_at: %v", err)
+	}
+
+	n, err := repo.RequeueStale(ctx, time.Now().Add(-1*time.Hour))
+	if err != nil {
+		t.Fatalf("RequeueStale: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("expected 2 affected (1 requeued + 1 failed), got %d", n)
+	}
+
+	// retryable → queued，retry_count 应 +1
+	gotRetry, _ := repo.GetByReviewID(ctx, "retry-1")
+	if gotRetry.Status != "queued" {
+		t.Fatalf("retryable status = %q, want queued", gotRetry.Status)
+	}
+	var rc1 int
+	testDB.Model(&models.Review{}).Where("review_id = ?", "retry-1").Pluck("retry_count", &rc1)
+	if rc1 != 1 {
+		t.Fatalf("retryable retry_count = %d, want 1", rc1)
+	}
+
+	// exhausted → failed，不再重排
+	gotExhausted, _ := repo.GetByReviewID(ctx, "exhaust-1")
+	if gotExhausted.Status != "failed" {
+		t.Fatalf("exhausted status = %q, want failed (retry limit reached)", gotExhausted.Status)
 	}
 }
 

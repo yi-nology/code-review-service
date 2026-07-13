@@ -41,6 +41,8 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 		modules.OCRModule,
 		modules.LLMModule,
 		modules.WritebackModule,
+		modules.NotificationModule,
+		modules.CostModule,
 		modules.AgentModule,
 		modules.WorkflowModule,
 		modules.ReviewModule,
@@ -51,6 +53,7 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 		modules.LLMProbeModule,
 		modules.WorkerModule,
 		modules.MigrateModule,
+		modules.MigrateRulesModule,
 		modules.CleanupModule,
 		fx.WithLogger(func() fxevent.Logger { return &fxevent.ConsoleLogger{W: os.Stderr} }),
 	)

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,8 +33,24 @@ import (
 //   - Scan: 调 "ocr scan ..." 子进程，支持 batch / paths / exclude
 //
 // 阶段 A12：完整吸收 runner/runner.go + runner/preview.go + runner/scan.go 业务逻辑。
+// runnerRefreshInterval 是后台刷新 baseCfg 的间隔。
+// OCR 设置变更频率极低（人工操作），30s 足够；PUT handler 会通过 NotifyRefresh 立即触发。
+const runnerRefreshInterval = 30 * time.Second
+
 type Runner struct {
-	cfg Config
+	// baseCfg 是从 DB 解析的全局默认配置（不含 per-execution overrides）。
+	// 后台 goroutine 定时刷新；执行时通过 effectiveConfig() 读快照 + 叠加 overrides。
+	baseCfg     Config
+	baseCfgMu   sync.RWMutex
+
+	resolver    *ConfigResolver
+
+	// refreshCh 收到信号时立即刷新（不等定时器），用于 PUT settings 后加速生效。
+	refreshCh   chan struct{}
+
+	// stopCh 关闭后后台 goroutine 退出。
+	stopCh      chan struct{}
+	stopOnce    sync.Once
 }
 
 // Compile-time assertions
@@ -47,26 +62,151 @@ var (
 
 // NewRunner 从 Config 构造 Runner。
 func NewRunner(cfg Config) *Runner {
-	return &Runner{cfg: cfg}
+	return &Runner{
+		baseCfg:   cfg,
+		refreshCh: make(chan struct{}, 1),
+		stopCh:    make(chan struct{}),
+	}
 }
 
-// Cfg 返回当前 Config。
-func (r *Runner) Cfg() Config { return r.cfg }
+// WithResolver 注入 ConfigResolver 并启动后台刷新 goroutine。
+// 注入后 Runner 会每 runnerRefreshInterval 从 DB 读最新全局配置更新 baseCfg；
+// 执行时再叠加 per-execution overrides（不读 DB）。
+func (r *Runner) WithResolver(resolver *ConfigResolver) *Runner {
+	r.resolver = resolver
+	// 立即同步刷新一次，避免首次执行用 fallback。
+	r.refreshNow()
+	go r.refreshLoop()
+	return r
+}
 
-// Refresh 替换 Config。
-func (r *Runner) Refresh(cfg Config) { r.cfg = cfg }
+// NotifyRefresh 触发一次异步刷新（非阻塞）。PUT settings handler 调它加速生效。
+func (r *Runner) NotifyRefresh() {
+	select {
+	case r.refreshCh <- struct{}{}:
+	default: // channel 已有待处理信号，不重复入队
+	}
+}
+
+// Stop 停止后台刷新 goroutine（幂等，供 fx OnStop 调用）。
+func (r *Runner) Stop() {
+	r.stopOnce.Do(func() { close(r.stopCh) })
+}
+
+// refreshLoop 定时 + 信号驱动刷新 baseCfg。
+func (r *Runner) refreshLoop() {
+	ticker := time.NewTicker(runnerRefreshInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-r.stopCh:
+			return
+		case <-ticker.C:
+			r.refreshNow()
+		case <-r.refreshCh:
+			r.refreshNow()
+		}
+	}
+}
+
+// refreshNow 同步从 DB 读取最新全局配置并更新 baseCfg。
+// 无 resolver 时为 no-op（保持 fallback 不变）。
+func (r *Runner) refreshNow() {
+	if r.resolver == nil {
+		return
+	}
+	cfg, err := r.resolver.Resolve(context.Background(), OCROverrides{})
+	if err != nil || cfg.Binary == "" {
+		return
+	}
+	r.baseCfgMu.Lock()
+	r.baseCfg = cfg
+	r.baseCfgMu.Unlock()
+}
+
+// effectiveConfig 返回本次执行应使用的 Config：baseCfg 快照 + workspace overrides。
+// 纯内存操作（不读 DB），用 BuildConfig 把 overrides 叠加到已缓存的 baseCfg 上。
+func (r *Runner) effectiveConfig(overrides OCROverrides) Config {
+	r.baseCfgMu.RLock()
+	base := r.baseCfg
+	r.baseCfgMu.RUnlock()
+	return mergeOverrides(base, overrides)
+}
+
+// Cfg 返回当前全局默认 Config 的快照（不含 overrides）。
+func (r *Runner) Cfg() Config {
+	r.baseCfgMu.RLock()
+	defer r.baseCfgMu.RUnlock()
+	return r.baseCfg
+}
+
+// Refresh 替换 baseCfg（供外部强制注入，如测试）。生产路径走后台自动刷新。
+func (r *Runner) Refresh(cfg Config) {
+	r.baseCfgMu.Lock()
+	r.baseCfg = cfg
+	r.baseCfgMu.Unlock()
+}
+
+// mergeOverrides 把 per-execution overrides 叠加到已从 DB 解析的 base Config 上。
+// 语义与 BuildConfig 中 overrides 层一致（overrides 非零值优先），但不再读 DB。
+func mergeOverrides(base Config, ov OCROverrides) Config {
+	out := base
+	if ov.Audience != "" {
+		out.Audience = ov.Audience
+	}
+	if ov.DefaultSeverity != "" {
+		out.DefaultSeverity = ov.DefaultSeverity
+	}
+	if ov.URL != "" {
+		out.URL = ov.URL
+	}
+	if ov.Model != "" {
+		out.Model = ov.Model
+	}
+	if ov.AuthToken != "" {
+		out.AuthToken = ov.AuthToken
+	}
+	if ov.AuthHeader != "" {
+		out.AuthHeader = ov.AuthHeader
+	}
+	if ov.ExtraHeaders != "" {
+		out.ExtraHeaders = ov.ExtraHeaders
+	}
+	if ov.UseAnthropic {
+		out.UseAnthropic = true
+	}
+	if ov.ExtraBody != "" {
+		out.ExtraBody = ov.ExtraBody
+	}
+	if ov.MaxTools > 0 {
+		out.MaxTools = ov.MaxTools
+	}
+	if ov.Background != "" {
+		out.Background = ov.Background
+	}
+	if ov.ToolsPath != "" {
+		out.ToolsPath = ov.ToolsPath
+	}
+	return out
+}
 
 // Previewer / Scanner 包装 Runner。
 func (r *Runner) Previewer() domain.PreviewRunner { return r }
-func (r *Runner) Scanner() domain.ScanRunner { return r }
+func (r *Runner) Scanner() domain.ScanRunner      { return r }
 
-// defaultOCRMaxRetries 默认不重试。
-const defaultOCRMaxRetries = 0
+// defaultOCRMaxRetries 默认重试 1 次。
+// OCR 评审是 LLM 调用，LLM 端点偶发 5xx / 超时很常见，0 重试会让网关服务过于脆弱。
+// 1 次重试 + 指数退避在「多救一次瞬时抖动」与「不显著拉长评审耗时」间取平衡。
+// BinaryMissingError（二进制根本不存在）和 ctx 取消不重试——重试无意义。
+const defaultOCRMaxRetries = 1
+
+// retryBaseBackoff 是首次重试前的指数退避基准。
+const retryBaseBackoff = 2 * time.Second
 
 // Run 实现 domain.Runner。
 //
 // 阶段 A12 完整化：直接调 ocr 二进制，保留原 runner.OpenCodeReviewRunner 的所有行为：
-//   - 超时 + 重试（默认 0 次，配置可调）
+//   - 超时 + 重试（默认 1 次，配置可调）+ 指数退避
 //   - ctx cancel → SIGKILL 三段式
 //   - stderr 行级回调（用于 progress 解析）
 //   - JSON 输出解析
@@ -75,12 +215,17 @@ func (r *Runner) Run(ctx context.Context, workspace domain.Workspace) (domain.Re
 		return domain.Result{}, fmt.Errorf("open-code-review requires a checked out workspace")
 	}
 
-	timeout := time.Duration(r.cfg.TimeoutMinutes) * time.Minute
+	gc := r.Cfg()
+	timeout := time.Duration(gc.TimeoutMinutes) * time.Minute
 	if timeout <= 0 {
 		timeout = 10 * time.Minute
 	}
 
-	maxRetries := r.cfg.MaxRetries
+	// MaxRetries <= 0 表示「未显式配置」，用默认 1 次重试。
+	// 注意：Config.MaxRetries 目前不暴露到 settings/overrides，BuildConfig 不设置它，
+	// 因此零值必然是「未配置」而非「显式禁用」。若未来要支持显式禁用重试，
+	// 应给 Config 加一个独立的 disable 标志，而非复用零值语义。
+	maxRetries := gc.MaxRetries
 	if maxRetries <= 0 {
 		maxRetries = defaultOCRMaxRetries
 	}
@@ -113,8 +258,26 @@ func (r *Runner) Run(ctx context.Context, workspace domain.Workspace) (domain.Re
 		}
 		lastErr = err
 
+		// ctx 已取消：不再重试。
 		if ctx.Err() != nil {
 			break
+		}
+		// 二进制缺失：重试无意义（ocr 不存在，再试也是不存在）。
+		if IsBinaryMissing(err) {
+			break
+		}
+		// 不可重试错误（如 DNS 解析失败、认证失败、配置错误）：重试只会双倍超时，不重试。
+		if IsPermanent(err) {
+			break
+		}
+		// 还有重试机会：指数退避后再试。
+		if attempt < attempts {
+			backoff := retryBaseBackoff * (1 << (attempt - 1)) // 2s, 4s, 8s, ...
+			select {
+			case <-ctx.Done():
+				return domain.Result{}, ctx.Err()
+			case <-time.After(backoff):
+			}
 		}
 	}
 	return domain.Result{}, lastErr
@@ -127,13 +290,13 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 		fromRef = "HEAD"
 	}
 
-	if lang := strings.TrimSpace(r.cfg.Language); lang != "" {
-		ensureOCRLanguage(r.cfg.Binary, lang)
-	}
+	// 取全局默认配置快照 + 叠加 workspace 的项目级 overrides（纯内存，不读 DB）。
+	// 全局配置由后台 goroutine 定时从 DB 刷新到 baseCfg。
+	cfg := r.effectiveConfig(workspace.OCR)
 
-	audience := r.cfg.Audience
+	audience := cfg.Audience
 	if audience == "" {
-		audience = "human"
+		audience = "agent"
 	}
 
 	args := []string{
@@ -142,22 +305,22 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 		"--from", fromRef,
 		"--to", toRef,
 		"--format", "json",
-		"--concurrency", convert.IntToStr(r.cfg.Concurrency),
-		"--max-git-procs", convert.IntToStr(r.cfg.MaxGitProcs),
-		"--timeout", convert.IntToStr(r.cfg.TimeoutMinutes),
+		"--concurrency", convert.IntToStr(cfg.Concurrency),
+		"--max-git-procs", convert.IntToStr(cfg.MaxGitProcs),
+		"--timeout", convert.IntToStr(cfg.TimeoutMinutes),
 		"--audience", audience,
 	}
-	rulePath := r.cfg.RulePath
+	rulePath := cfg.RulePath
 	if strings.TrimSpace(workspace.RulePath) != "" {
 		rulePath = workspace.RulePath
 	}
 	if strings.TrimSpace(rulePath) != "" {
 		args = append(args, "--rule", rulePath)
 	}
-	if r.cfg.MaxTools > 0 {
-		args = append(args, "--max-tools", convert.IntToStr(r.cfg.MaxTools))
+	if cfg.MaxTools > 0 {
+		args = append(args, "--max-tools", convert.IntToStr(cfg.MaxTools))
 	}
-	toolsArgs, cleanupTools, err := appendToolsArgs(args, r.cfg)
+	toolsArgs, cleanupTools, err := appendToolsArgs(args, cfg)
 	if err != nil {
 		return domain.Result{}, err
 	}
@@ -165,17 +328,23 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 	if cleanupTools != nil {
 		defer cleanupTools()
 	}
-	if strings.TrimSpace(r.cfg.Background) != "" {
-		args = append(args, "--background", r.cfg.Background)
+	if strings.TrimSpace(cfg.Background) != "" {
+		args = append(args, "--background", cfg.Background)
 	}
 
-	cmd := exec.CommandContext(ctx, r.cfg.Binary, args...)
+	cmd := exec.CommandContext(ctx, cfg.Binary, args...)
 	cmd.Dir = workspace.Dir
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	env := os.Environ()
-	env = r.cfg.AppendEnv(env)
+	env = cfg.AppendEnv(env)
 	cmd.Env = env
+
+	// MCP server 配置只能通过 OCR 全局 config.json 的 mcp_servers 键传递(上游限制:
+	// review 路径忽略 OCR_CONFIG_PATH,无 --mcp flag)。在 spawn 前同步一次。
+	// MCP 是全局慢变配置(所有并发评审用同一套 server),用进程锁串行化即可,
+	// 与 per-review 的 language 不同(last-writer-wins 在这里无害)。
+	syncMCPConfigIfSet(cfg.McpServers)
 
 	stdout := newCappedBuffer(maxSubprocessOutput)
 	cmd.Stdout = stdout
@@ -188,7 +357,7 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 	progressReporter := progress.ProgressReporterFromContext(ctx)
 
 	if err := cmd.Start(); err != nil {
-		return domain.Result{}, &BinaryMissingError{Binary: r.cfg.Binary, Err: err}
+		return domain.Result{}, &BinaryMissingError{Binary: cfg.Binary, Err: err}
 	}
 
 	var stderrLines []string
@@ -238,9 +407,11 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 		return domain.Result{}, classifyExitError(ctx, err, timeout, message)
 	}
 
-	return parseOpenCodeReviewOutput(stdout.Bytes(), r.cfg.DefaultSeverity), nil
+	result := parseOpenCodeReviewOutput(stdout.Bytes(), cfg.DefaultSeverity)
+	// 填充当前配置的模型名（用于成本归因，parseOpenCodeReviewOutput 无配置上下文）。
+	result.OCR.Model = cfg.Model
+	return result, nil
 }
-
 
 // ---- 工具函数（从 runner 包迁移） ----
 
@@ -368,12 +539,44 @@ func (b *cappedBuffer) Write(p []byte) (int, error) {
 func (b *cappedBuffer) Bytes() []byte  { return b.buf.Bytes() }
 func (b *cappedBuffer) String() string { return b.buf.String() }
 
-// classifyExitError 把 cmd.Wait 的失败归类为 TimeoutError 或 ExitError。
+// classifyExitError 把 cmd.Wait 的失败归类为 TimeoutError、PermanentError 或 ExitError。
 func classifyExitError(ctx context.Context, runErr error, timeout time.Duration, stderr string) error {
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return &TimeoutError{Timeout: timeout}
 	}
+	// DNS 解析失败 / 未知主机这类错误不可恢复（ocr 子进程调用 LLM 端点时 DNS 查不到），
+	// 重试只会再多等一个 timeout。识别 stderr 中的特征文本，归类为 PermanentError。
+	combined := stderr
+	if runErr != nil {
+		combined = combined + " " + runErr.Error()
+	}
+	if isPermanentMessage(combined) {
+		return &PermanentError{Stderr: stderr, Err: runErr}
+	}
 	return &ExitError{Stderr: stderr, Err: runErr}
+}
+
+// permanentMessagePatterns 匹配不可恢复（重试无意义）的错误特征。
+// 主要是 DNS 解析失败类：ocr 子进程访问 LLM 端点时域名解析不到，
+// 短时间内不会自愈，重试只会双倍超时。
+var permanentMessagePatterns = []string{
+	"no such host",          // DNS NXDOMAIN（getaddrinfo 标准措辞）
+	"lookup",                // DNS 解析失败前缀（如 "lookup xxx on ..."）
+	"ENOTFOUND",             // Node.js DNS 错误码（ocr 可能用 node）
+	"ECONNREFUSED",          // 连接被拒（端口未开，非瞬时抖动）
+	"nodename nor servname", // macOS DNS 失败措辞
+	"server misbehaving",    // DNS SERVFAIL
+}
+
+// isPermanentMessage 判断错误文本是否属于不可重试类别（大小写不敏感）。
+func isPermanentMessage(s string) bool {
+	lower := strings.ToLower(s)
+	for _, pat := range permanentMessagePatterns {
+		if strings.Contains(lower, pat) {
+			return true
+		}
+	}
+	return false
 }
 
 // TimeoutError 表示 OCR 评审超过 context deadline。
@@ -404,7 +607,33 @@ func (e *ExitError) Error() string {
 
 func (e *ExitError) Unwrap() error { return e.Err }
 
-// IsBinaryMissing / IsTimeout / IsExit 供上层用 errors.As 判断。
+// PermanentError 表示不可重试的错误（如 DNS 解析失败、认证失败）。
+// 重试只会双倍超时，Run 循环遇到此类错误立即终止。
+type PermanentError struct {
+	Stderr string
+	Err    error
+}
+
+func (e *PermanentError) Error() string {
+	msg := strings.TrimSpace(e.Stderr)
+	if msg == "" && e.Err != nil {
+		msg = e.Err.Error()
+	}
+	if msg == "" {
+		return "ocr 评审遇到不可重试错误"
+	}
+	return fmt.Sprintf("ocr 评审遇到不可重试错误: %s", msg)
+}
+
+func (e *PermanentError) Unwrap() error { return e.Err }
+
+// IsPermanentError 供 errors.As 判断是否为 PermanentError。
+func IsPermanentError(err error) bool {
+	var e *PermanentError
+	return errors.As(err, &e)
+}
+
+// IsBinaryMissing / IsTimeout / IsExit / IsPermanent 供上层用 errors.As 判断。
 func IsBinaryMissing(err error) bool {
 	var e *BinaryMissingError
 	return errors.As(err, &e)
@@ -418,6 +647,11 @@ func IsTimeout(err error) bool {
 func IsExit(err error) bool {
 	var e *ExitError
 	return errors.As(err, &e)
+}
+
+// IsPermanent 判断错误是否不可重试（含 PermanentError 及其包装）。
+func IsPermanent(err error) bool {
+	return IsPermanentError(err)
 }
 
 // parseOpenCodeReviewOutput 解析 `ocr review --format json` 的 JSON 输出。
@@ -540,50 +774,8 @@ func findingTitle(content string) string {
 	return title
 }
 
-// ocrConfigMu 保护 ~/.opencodereview/config.json 的读-改-写。
-// 此前并发评审/agent 各自 read-modify-write 同一文件，不同 language 互相覆盖
-// 甚至写出损坏的 JSON。加锁后串行化，避免丢失更新与撕裂写。
-// 注意：锁只保证不损坏，不同 language 的并发评审仍会「最后写入者胜」——
-// 彻底解决需改为按评审传入 language（CLI flag/env），属更大改造。
-var ocrConfigMu sync.Mutex
-
-// ensureOCRLanguage 将 language 写入 ~/.opencodereview/config.json。
-func ensureOCRLanguage(binary, language string) {
-	if language == "" {
-		return
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return
-	}
-	dir := filepath.Join(home, ".opencodereview")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		logx.Warnf("ensureOCRLanguage: create config dir %q failed: %v", dir, err)
-		return
-	}
-	path := filepath.Join(dir, "config.json")
-
-	ocrConfigMu.Lock()
-	defer ocrConfigMu.Unlock()
-
-	var cfg map[string]any
-	if data, err := os.ReadFile(path); err == nil {
-		if err := json.Unmarshal(data, &cfg); err != nil {
-			logx.Warnf("ensureOCRLanguage: parse existing config %q failed, will overwrite: %v", path, err)
-		}
-	}
-	if cfg == nil {
-		cfg = make(map[string]any)
-	}
-	if cfg["language"] == language {
-		return
-	}
-	cfg["language"] = language
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return
-	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		logx.Warnf("ensureOCRLanguage: write config %q failed: %v", path, err)
-	}
-}
+// 注：language 不再写 ~/.opencodereview/config.json。
+// 此前 ensureOCRLanguage 把 language 写入全局共享配置文件，多语言并发评审会互相覆盖
+// （锁只能防文件损坏，「最后写入者胜」仍导致评审用错语言）。
+// 现在 language 通过 OCR_LANGUAGE 环境变量传递（见 Config.AppendEnv），
+// env 是 per-process 的，天然并发安全。

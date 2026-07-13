@@ -1,6 +1,10 @@
 package domain
 
-import "context"
+import (
+	"context"
+
+	"github.com/yi-nology/code-review-service/internal/domain/notification"
+)
 
 // 本文件是评审核心接口（review.go 风格），不含 OCR 管理接口。
 // OCR 管理接口（LLMTester/Lister/Checker/Versioner/Viewer/Upgrader）
@@ -24,6 +28,12 @@ type Runner interface {
 // WritebackPublisher 将评审结果回写到 git 平台。
 type WritebackPublisher interface {
 	PublishWithDiff(ctx context.Context, req Request, result Result, diff string) (*WritebackResult, error)
+}
+
+// Notifier 在评审事件发生时推送通知（站内 + 外部 webhook）。
+// 实现见 internal/service/notification。executor 用它做 fire-and-forget 通知。
+type Notifier interface {
+	Notify(ctx context.Context, event notification.Event) error
 }
 
 type WritebackResult struct {

@@ -1,13 +1,12 @@
 <template>
   <AppLayout>
-    <div class="dashboard-page">
-      <header class="dashboard-hero">
-        <div>
-          <div class="eyebrow">OPERATIONS OVERVIEW</div>
-          <h1>运营总览</h1>
-          <p>审查队列、质量风险、项目表现与配置入口集中在一个工作台。</p>
-        </div>
-        <div class="hero-actions">
+    <PageShell>
+      <PageHeader
+        eyebrow="OPERATIONS OVERVIEW"
+        title="运营总览"
+        description="审查队列、质量风险、项目表现与配置入口集中在一个工作台。"
+      >
+        <template #actions>
           <el-button plain size="large" :loading="loading" @click="refreshAll">
             <el-icon><Refresh /></el-icon>
             刷新
@@ -16,8 +15,8 @@
             <el-icon><Plus /></el-icon>
             发起审查
           </el-button>
-        </div>
-      </header>
+        </template>
+      </PageHeader>
 
       <section class="health-band">
         <div class="health-card service" :class="healthStatus">
@@ -41,10 +40,10 @@
             <strong>{{ failedCount }}</strong>
           </div>
         </router-link>
-        <router-link class="health-card" to="/settings/model">
+        <router-link class="health-card" to="/settings/engine">
           <span class="card-icon config"><el-icon><Cpu /></el-icon></span>
           <div>
-            <span>模型配置</span>
+            <span>审查引擎</span>
             <strong>就绪</strong>
           </div>
         </router-link>
@@ -77,6 +76,9 @@
         </div>
       </section>
 
+      <!-- 新用户引导 checklist（配置完 4 步后自动消失） -->
+      <OnboardingGuide :step-status="configStatus" :completed-steps="onboardingProgress" class="onboarding-section" />
+
       <section class="dashboard-grid">
         <el-card class="panel-card queue-card" shadow="never">
           <template #header>
@@ -88,6 +90,33 @@
               <router-link to="/reviews">全部记录 <el-icon><ArrowRight /></el-icon></router-link>
             </div>
           </template>
+
+          <!-- 实时活跃审查面板（仅有活跃任务时显示） -->
+          <div v-if="activeReviews.length > 0" class="active-reviews">
+            <div class="active-header">
+              <span class="active-pulse" />
+              <strong>正在执行</strong>
+              <small>{{ activeReviews.length }} 个任务</small>
+            </div>
+            <router-link
+              v-for="item in activeReviews"
+              :key="item.review_id"
+              class="active-item"
+              :to="`/reviews/${item.review_id}`"
+            >
+              <div class="active-item-main">
+                <strong>{{ shortId(item.review_id) }}</strong>
+                <small>{{ getPhaseLabel(item.phase) }} · 第 {{ item.round }} 轮</small>
+              </div>
+              <el-progress
+                :percentage="Math.round(item.progress)"
+                :stroke-width="6"
+                :show-text="false"
+                class="active-item-progress"
+              />
+              <span class="active-item-pct">{{ Math.round(item.progress) }}%</span>
+            </router-link>
+          </div>
 
           <div v-loading="loading" class="review-feed">
             <router-link
@@ -204,12 +233,12 @@
         @created="handleCreated"
         @goto="(id) => router.push(`/reviews/${id}`)"
       />
-    </div>
+    </PageShell>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Aim,
@@ -227,13 +256,18 @@ import {
   WarningFilled,
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import OnboardingGuide from '@/components/common/OnboardingGuide.vue'
 import ReviewCreateDialog from '@/components/ReviewCreateDialog.vue'
 import { getReviews } from '@/api/review'
 import { getProjects } from '@/api/stats'
+import { progressApi } from '@/api/session'
+import { getGitPlatforms, getOCRSettings } from '@/api/config'
 import type { ListStats, Review } from '@/types/review'
 import type { ProjectSummary } from '@/types/stats'
-import { formatDateRelative, getProviderInitial } from '@/utils/format'
-import { getStatusLabel } from '@/utils/status'
+import { formatDateRelative, getProviderInitial, shortId } from '@/utils/format'
+import { getStatusLabel, getPhaseLabel } from '@/utils/status'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -251,6 +285,40 @@ const listStats = ref<ListStats>({
   findings: 0,
   total_tokens: 0,
 })
+
+/** 活跃审查实时面板：展示正在执行的审查及其阶段/进度。 */
+interface ActiveReview {
+  review_id: string
+  session_id: string
+  round: number
+  phase: string
+  status: string
+  progress: number
+  start_time: string
+  updated_at: string
+}
+const activeReviews = ref<ActiveReview[]>([])
+let activePollTimer: ReturnType<typeof setInterval> | null = null
+
+// onboarding 真实配置探测：查询实际配置项判断各步骤是否完成，避免「/ping 通就误判已配置」。
+// 任一查询失败时该步骤保守视为未完成，引导用户去配置。
+const configStatus = ref({ git: false, llm: false, ocr: false, reviewed: false })
+
+async function probeConfigStatus() {
+  try {
+    const platforms = await getGitPlatforms()
+    configStatus.value.git = Boolean(platforms?.items?.some((p) => p.enabled))
+  } catch { /* 查询失败保守视为未配置 */ }
+  try {
+    const ocr = await getOCRSettings()
+    // LLM 步骤：provider + url + model 齐备视为配置完成。
+    configStatus.value.llm = Boolean(ocr?.url && ocr?.model)
+    // OCR 引擎步骤：enabled=true 视为已启用。
+    configStatus.value.ocr = Boolean(ocr?.enabled)
+  } catch { /* 查询失败保守视为未配置 */ }
+  // reviewed 步骤沿用 listStats.total。
+  configStatus.value.reviewed = listStats.value.total > 0
+}
 
 const healthLabel = computed(() => {
   if (healthStatus.value === 'healthy') return '运行中'
@@ -280,16 +348,10 @@ const riskProjects = computed(() => {
 
 const readinessItems = computed(() => [
   {
-    title: '模型配置',
-    desc: '默认模型、推理参数与审查关注点',
-    to: '/settings/model',
+    title: '审查引擎',
+    desc: '服务商、模型、推理参数与执行配置',
+    to: '/settings/engine',
     state: healthStatus.value === 'healthy' ? 'ok' : 'warn',
-  },
-  {
-    title: 'OCR 设置',
-    desc: '扫描引擎、工具包与规则包',
-    to: '/settings/ocr',
-    state: 'ok',
   },
   {
     title: '审查规则',
@@ -304,6 +366,18 @@ const readinessItems = computed(() => [
     state: 'ok',
   },
 ])
+
+// onboarding 进度：基于真实配置探测（不再用 /ping 通误判）。
+// reviewed 步骤依赖 listStats，在数据加载后同步刷新。
+const onboardingProgress = computed(() => {
+  const s = configStatus.value
+  let n = 0
+  if (s.git) n = Math.max(n, 1)
+  if (s.llm) n = Math.max(n, 2)
+  if (s.ocr) n = Math.max(n, 3)
+  if (s.reviewed) n = Math.max(n, 4)
+  return n
+})
 
 function scoreClass(score: number) {
   if (score >= 85) return 'good'
@@ -330,6 +404,8 @@ async function fetchReviews() {
     recentReviews.value = latest.items || []
     listStats.value = latest.stats || listStats.value
     failedCount.value = failed.total || 0
+    // 同步 onboarding 的 reviewed 步骤。
+    configStatus.value.reviewed = listStats.value.total > 0
   } catch (err: any) {
     ElMessage.error(err?.message || '加载审查概览失败')
   } finally {
@@ -350,7 +426,30 @@ async function fetchProjects() {
 }
 
 async function refreshAll() {
-  await Promise.all([checkHealth(), fetchReviews(), fetchProjects()])
+  await Promise.all([checkHealth(), fetchReviews(), fetchProjects(), fetchActiveReviews(), probeConfigStatus()])
+}
+
+async function fetchActiveReviews() {
+  try {
+    const result = await progressApi.getActiveReviews()
+    activeReviews.value = result?.reviews || []
+  } catch {
+    activeReviews.value = []
+  }
+  syncActivePolling()
+}
+
+/** 仅在有活跃任务时轮询（5s），减少无谓请求。 */
+function syncActivePolling() {
+  const hasActive = activeReviews.value.length > 0 || listStats.value.running > 0
+  if (hasActive && !activePollTimer) {
+    activePollTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchActiveReviews()
+    }, 5000)
+  } else if (!hasActive && activePollTimer) {
+    clearInterval(activePollTimer)
+    activePollTimer = null
+  }
 }
 
 function handleCreated() {
@@ -358,57 +457,25 @@ function handleCreated() {
   refreshAll()
 }
 
-onMounted(refreshAll)
+onMounted(() => {
+  refreshAll().then(syncActivePolling)
+})
+
+onBeforeUnmount(() => {
+  if (activePollTimer) { clearInterval(activePollTimer); activePollTimer = null }
+})
 </script>
 
 <style scoped>
-.dashboard-page {
-  min-height: 100vh;
-  padding: 30px;
-}
-
-.dashboard-hero {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 20px;
-}
-
-.eyebrow {
-  margin-bottom: 8px;
-  color: #2563eb;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0;
-}
-
-.dashboard-hero h1 {
-  margin: 0;
-  color: var(--app-text);
-  font-size: 32px;
-  letter-spacing: 0;
-}
-
-.dashboard-hero p {
-  max-width: 620px;
-  margin: 10px 0 0;
-  color: var(--app-muted);
-  line-height: 1.7;
-}
-
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
 .health-band,
 .kpi-grid,
 .dashboard-grid {
   display: grid;
   gap: 16px;
+}
+
+.onboarding-section {
+  margin-bottom: 16px;
 }
 
 .health-band {
@@ -570,6 +637,65 @@ onMounted(refreshAll)
   font-size: 13px;
   font-weight: 700;
   text-decoration: none;
+}
+
+.active-reviews {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.active-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.active-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--app-warning);
+  animation: active-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes active-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(217, 134, 22, 0.4); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(217, 134, 22, 0); }
+}
+
+.active-header strong { font-size: 14px; color: var(--app-text); }
+.active-header small { font-size: 12px; color: var(--app-muted); }
+
+.active-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  text-decoration: none;
+  color: var(--app-text);
+  background: #fffbeb;
+  transition: border-color 160ms ease;
+}
+.active-item:last-child { margin-bottom: 0; }
+.active-item:hover { border-color: #f0c674; }
+
+.active-item-main { min-width: 120px; flex-shrink: 0; }
+.active-item-main strong { display: block; font-size: 13px; color: var(--app-text); }
+.active-item-main small { display: block; margin-top: 2px; font-size: 11px; color: var(--app-muted); }
+
+.active-item-progress { flex: 1; }
+
+.active-item-pct {
+  width: 36px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--app-warning);
 }
 
 .review-feed,
@@ -777,23 +903,6 @@ button.action-item {
 }
 
 @media (max-width: 720px) {
-  .dashboard-page {
-    padding: 18px;
-  }
-
-  .dashboard-hero {
-    display: block;
-  }
-
-  .dashboard-hero h1 {
-    font-size: 27px;
-  }
-
-  .hero-actions {
-    justify-content: flex-start;
-    margin-top: 18px;
-  }
-
   .health-band,
   .kpi-grid {
     grid-template-columns: 1fr;

@@ -114,6 +114,7 @@ struct Finding {
     8: string body (api.body="body")
     9: optional string existing_code (api.body="existing_code")
     10: optional string suggestion_code (api.body="suggestion_code")
+    11: optional string fingerprint (api.body="fingerprint")
 }
 
 struct ReviewResponse {
@@ -161,6 +162,7 @@ struct ReviewDetail {
     22: optional string author_name (api.body="author_name")
     23: optional string author_avatar (api.body="author_avatar")
     24: optional OCRInput raw_ocr_input (api.body="raw_ocr_input")
+    25: optional i64 retry_count (api.body="retry_count")
 }
 
 struct OCRInputWorkspace {
@@ -207,6 +209,7 @@ struct ListItem {
     13: optional string author (api.body="author")
     14: optional string author_name (api.body="author_name")
     15: optional string author_avatar (api.body="author_avatar")
+    16: optional i64 retry_count (api.body="retry_count")
 }
 
 struct ListStats {

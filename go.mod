@@ -11,7 +11,9 @@ require (
 	github.com/hertz-contrib/swagger v0.1.1
 	github.com/hertz-contrib/websocket v0.2.0
 	github.com/jackc/pgx/v5 v5.9.2
+	github.com/mark3labs/mcp-go v0.56.0
 	github.com/oklog/ulid/v2 v2.1.1
+	github.com/prometheus/client_golang v1.23.2
 	github.com/swaggo/files v1.0.1
 	github.com/testcontainers/testcontainers-go v0.43.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.43.0
@@ -114,6 +116,7 @@ require (
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
+	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/google/pprof v0.0.0-20240727154555-813a5fbdbec8 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
@@ -166,7 +169,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
@@ -174,11 +176,13 @@ require (
 	github.com/quic-go/quic-go v0.57.1 // indirect
 	github.com/redis/go-redis/v9 v9.21.0 // indirect
 	github.com/refraction-networking/utls v1.8.1 // indirect
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.5 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/skeema/knownhosts v1.3.2 // indirect
 	github.com/sony/gobreaker v1.0.0 // indirect
+	github.com/spf13/cast v1.7.1 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/swaggo/swag v1.16.1 // indirect
 	github.com/tidwall/gjson v1.17.3 // indirect
@@ -190,6 +194,7 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/yi-nology/gitcode_api v0.3.0 // indirect
+	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	gitlab.com/gitlab-org/api/client-go/v2 v2.43.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect

@@ -11,8 +11,10 @@ type ReviewerAgent struct {
 	DisplayName string `gorm:"type:text;not null" json:"display_name"`
 	Description string `gorm:"type:text" json:"description"`
 	Background  string `gorm:"type:text" json:"background"`
-	// RuleFile 是按 glob 文件模式的 rule JSON 内容，透传给 OCR 的 --rule（路径 A1）
+	// RuleFile 是按 glob 文件模式的 rule JSON 内容，透传给 OCR 的 --rule（路径 A1，主要用于临时审查员）
 	RuleFile string `gorm:"type:text" json:"rule_file,omitempty"`
+	// RulePackageIDs 引用的规则包 id 列表（常驻审查员的规则来源，单一数据源，避免副本）。
+	RulePackageIDs datatypes.JSON `gorm:"type:jsonb" json:"rule_package_ids,omitempty"`
 	// Redundancy 是同一 persona 重复运行次数（路径 A4），默认 1
 	Redundancy int  `gorm:"not null;default:1" json:"redundancy"`
 	Enabled    bool `gorm:"not null;default:true" json:"enabled"`

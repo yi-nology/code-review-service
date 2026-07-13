@@ -45,6 +45,7 @@ type ScopeMetadata struct {
 
 type OCRMetadata struct {
 	Engine           string             `json:"engine,omitempty"`
+	Model            string             `json:"model,omitempty"`
 	Status           string             `json:"status,omitempty"`
 	FilesReviewed    int64              `json:"files_reviewed,omitempty"`
 	Comments         int64              `json:"comments,omitempty"`
@@ -90,6 +91,11 @@ type Workspace struct {
 	Scope           ScopeMetadata
 	RulePath        string
 	OCR             OCROverrides
+
+	// ScanPaths / ScanExclude 仅供 scan preview 使用（传给 ocr scan --preview --path/--exclude）。
+	// 普通 review preview 留空 = 扫描整个仓库。
+	ScanPaths   []string
+	ScanExclude []string
 }
 
 type OCROverrides struct {

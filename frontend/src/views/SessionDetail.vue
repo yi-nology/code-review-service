@@ -1,10 +1,10 @@
 <template>
   <AppLayout>
-    <div
-      v-loading="loading"
-      class="session-detail-page"
-    >
-      <header class="page-header">
+    <PageShell>
+      <div
+        v-loading="loading"
+        class="session-detail-content"
+      >
         <el-button
           class="back-button"
           circle
@@ -14,41 +14,39 @@
         >
           <el-icon><ArrowLeft /></el-icon>
         </el-button>
-        <div>
-          <div class="eyebrow">
-            SESSION DETAIL
-          </div>
-          <h1>会话详情</h1>
-          <p v-if="session">
-            第 {{ session.round }} 轮 · {{ getPhaseLabel(session.phase) }}
-          </p>
-        </div>
-        <div
-          v-if="session"
-          class="header-actions"
+        <PageHeader
+          eyebrow="SESSION DETAIL"
+          title="会话详情"
+          :description="session ? `第 ${session.round} 轮 · ${getPhaseLabel(session.phase)}` : undefined"
         >
-          <el-button
-            v-if="session.status === 'active'"
-            type="danger"
-            plain
-            size="small"
-            :loading="acting"
-            @click="handleCancel"
-          >
-            取消会话
-          </el-button>
-          <el-button
-            v-if="session.status === 'completed' || session.status === 'failed'"
-            type="primary"
-            plain
-            size="small"
-            :loading="acting"
-            @click="handleNewRound"
-          >
-            发起新一轮
-          </el-button>
-        </div>
-      </header>
+          <template #actions>
+            <el-tag v-if="session" :type="getSessionStatusType(session.status)" size="small">
+              {{ getSessionStatusLabel(session.status) }}
+            </el-tag>
+            <template v-if="session">
+              <el-button
+                v-if="session.status === 'active'"
+                type="danger"
+                plain
+                size="small"
+                :loading="acting"
+                @click="handleCancel"
+              >
+                取消会话
+              </el-button>
+              <el-button
+                v-if="session.status === 'completed' || session.status === 'failed'"
+                type="primary"
+                plain
+                size="small"
+                :loading="acting"
+                @click="handleNewRound"
+              >
+                发起新一轮
+              </el-button>
+            </template>
+          </template>
+        </PageHeader>
 
       <div
         v-if="!loading && !session"
@@ -225,6 +223,7 @@
                 :session="{
                   phase: session.phase,
                   progress: session.progress,
+                  status: session.status,
                   created_at: session.created_at,
                   completed_at: session.completed_at || undefined
                 }"
@@ -246,7 +245,8 @@
           </el-col>
         </el-row>
       </div>
-    </div>
+      </div>
+    </PageShell>
   </AppLayout>
 </template>
 
@@ -255,6 +255,8 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 import DiscussionViewer from '@/components/DiscussionViewer.vue'
 import SessionTimeline from '@/components/SessionTimeline.vue'
 import RequirementsCoverage from '@/components/RequirementsCoverage.vue'
@@ -368,51 +370,9 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.session-detail-page {
-  width: min(1440px, 100%);
-  margin: 0 auto;
-  padding: 34px 36px 48px;
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 22px;
-}
-
-.page-header > div:nth-child(2) {
-  flex: 1;
-  min-width: 0;
-}
-
-.page-header h1 {
-  margin: 3px 0 4px;
-  color: var(--app-text);
-  font-size: 28px;
-  letter-spacing: -0.6px;
-}
-
-.page-header p {
-  margin: 0;
-  color: #929aab;
-  font-size: 12px;
-}
-
-.eyebrow {
-  color: var(--app-primary);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1.3px;
-}
-
 .back-button {
   flex: 0 0 auto;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .empty {
@@ -457,7 +417,7 @@ code {
   padding: 16px;
   background: #f7f8fc;
   border: 1px solid var(--app-border);
-  border-radius: 10px;
+  border-radius: var(--card-radius);
   margin-bottom: 12px;
 }
 
@@ -545,18 +505,6 @@ code {
 }
 
 @media (max-width: 720px) {
-  .session-detail-page {
-    padding: 22px 14px 36px;
-  }
-
-  .page-header h1 {
-    font-size: 21px;
-  }
-
-  .page-header .eyebrow {
-    display: none;
-  }
-
   .progress-card {
     position: static;
   }

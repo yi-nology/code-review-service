@@ -7,6 +7,14 @@ import (
 	"time"
 )
 
+// 规则集 Scope 取值常量。空值（含未设置）按 project 处理（向后兼容历史数据）。
+const (
+	// ScopeGlobal 全局规则集：始终合并到每次审查，无需被引用。
+	ScopeGlobal = "global"
+	// ScopeProject 可引用规则集：需被 agent/project 显式引用，或 project_refs 匹配当前项目。
+	ScopeProject = "project"
+)
+
 // RulePackage 是 OCR 规则包（rule package）配置。
 // 多个 JSONB 字段用 json.RawMessage 解耦 GORM datatypes.JSON。
 type RulePackage struct {
@@ -21,6 +29,8 @@ type RulePackage struct {
 	Enabled     bool            `json:"enabled"`
 	ProjectRefs json.RawMessage `json:"project_refs,omitempty"`
 	BuiltIn     bool            `json:"built_in"`
+	// Scope 区分规则集合并来源：global=全局始终合并；project=需引用或 project_refs 匹配。空视为 project。
+	Scope string `json:"scope,omitempty"`
 }
 
 // RulePackageVersion 是规则包的版本快照。

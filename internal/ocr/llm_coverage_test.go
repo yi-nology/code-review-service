@@ -80,9 +80,9 @@ func TestNewNoopProvider(t *testing.T) {
 // TestLLMProvider_CompleteJSON 验证 CompleteJSON 便捷方法。
 func TestLLMProvider_CompleteJSON(t *testing.T) {
 	settings := NewSettingsSnapshot(&SettingsData{
-		URL:        "https://api.example.com",
-		ModelName:  "gpt-4",
-		AuthToken:  "test-token",
+		URL:       "https://api.example.com",
+		ModelName: "gpt-4",
+		AuthToken: "test-token",
 	})
 	provider := NewLLMProvider(settings)
 

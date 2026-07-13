@@ -1,0 +1,49 @@
+{
+  "annotations": {"list": []},
+  "title": "Review Service",
+  "uid": "review-service",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {"list": []},
+  "panels": [
+    {
+      "title": "评审总数 (by status)",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0},
+      "targets": [{"expr": "sum(increase(review_service_review_total[1h])) by (status)", "legendFormat": "{{status}}"}]
+    },
+    {
+      "title": "评审耗时分布 (p50/p90/p99)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 6, "y": 0},
+      "targets": [
+        {"expr": "histogram_quantile(0.50, sum(rate(review_service_review_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p50"},
+        {"expr": "histogram_quantile(0.90, sum(rate(review_service_review_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p90"},
+        {"expr": "histogram_quantile(0.99, sum(rate(review_service_review_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p99"}
+      ]
+    },
+    {
+      "title": "队列深度",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0},
+      "targets": [{"expr": "review_service_review_queue_depth", "legendFormat": "queued+running"}]
+    },
+    {
+      "title": "LLM 成本累计 (USD, by model)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [{"expr": "sum(increase(review_service_llm_cost_usd_total[1h])) by (model)", "legendFormat": "{{model}}"}]
+    },
+    {
+      "title": "回写 Finding (published vs failed)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {"expr": "sum(rate(review_service_writeback_findings_total{status=\"published\"}[5m])) by (provider)", "legendFormat": "published {{provider}}"},
+        {"expr": "sum(rate(review_service_writeback_findings_total{status=\"failed\"}[5m])) by (provider)", "legendFormat": "failed {{provider}}"}
+      ]
+    }
+  ]
+}

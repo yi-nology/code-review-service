@@ -1,44 +1,20 @@
 <template>
   <AppLayout>
-    <div class="reviews-page">
-      <header class="page-header">
-        <div>
-          <h1>代码审查</h1>
-          <p>跟踪审查队列、质量门禁和风险项处理状态。</p>
-        </div>
-        <el-button type="primary" size="large" @click="openCreateDialog">
-          <el-icon><Plus /></el-icon>
-          发起审查
-        </el-button>
-      </header>
+    <PageShell>
+      <PageHeader
+        eyebrow="REVIEWS"
+        title="审查记录"
+        description="跟踪审查队列、质量门禁和风险项处理状态。"
+      >
+        <template #actions>
+          <el-button type="primary" size="large" @click="openCreateDialog">
+            <el-icon><Plus /></el-icon>
+            发起审查
+          </el-button>
+        </template>
+      </PageHeader>
 
-      <section class="metric-strip" aria-label="审查概览">
-        <div class="metric-item">
-          <span class="metric-icon total"><el-icon><Files /></el-icon></span>
-          <span class="metric-label">审查总数</span>
-          <strong>{{ stats.total }}</strong>
-        </div>
-        <div class="metric-item">
-          <span class="metric-icon running"><el-icon><Loading /></el-icon></span>
-          <span class="metric-label">正在执行</span>
-          <strong>{{ stats.running }}</strong>
-        </div>
-        <div class="metric-item">
-          <span class="metric-icon failed"><el-icon><WarningFilled /></el-icon></span>
-          <span class="metric-label">门禁未通过</span>
-          <strong>{{ stats.gate_failed }}</strong>
-        </div>
-        <div class="metric-item">
-          <span class="metric-icon findings"><el-icon><Aim /></el-icon></span>
-          <span class="metric-label">发现问题</span>
-          <strong>{{ stats.findings }}</strong>
-        </div>
-        <div class="metric-item">
-          <span class="metric-icon tokens"><el-icon><Coin /></el-icon></span>
-          <span class="metric-label">累计 Tokens</span>
-          <strong>{{ stats.total_tokens ? stats.total_tokens.toLocaleString() : 0 }}</strong>
-        </div>
-      </section>
+      <StatStrip :items="reviewStats" />
 
       <el-card class="records-card">
         <div class="records-toolbar">
@@ -69,7 +45,7 @@
           <el-input
             v-model="filters.repo"
             class="repo-search"
-            placeholder="搜索仓库，例如 owner/repo"
+            placeholder="搜索仓库名（按 owner/repo 模糊匹配）"
             clearable
             @keyup.enter="applyFilters"
             @clear="applyFilters"
@@ -77,22 +53,39 @@
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
           <el-select v-model="filters.provider" placeholder="全部平台" clearable @change="applyFilters">
-              <el-option v-for="p in PROVIDER_OPTIONS" :key="p.value" :label="p.label" :value="p.value" />
+            <el-option v-for="p in PROVIDER_OPTIONS" :key="p.value" :label="p.label" :value="p.value" />
           </el-select>
           <el-select v-model="filters.status" placeholder="全部状态" clearable @change="applyFilters">
-              <el-option label="排队中" value="queued" />
-              <el-option label="审查中" value="running" />
-              <el-option label="已完成" value="success" />
-              <el-option label="执行失败" value="failed" />
+            <el-option label="排队中" value="queued" />
+            <el-option label="审查中" value="running" />
+            <el-option label="已完成" value="success" />
+            <el-option label="执行失败" value="failed" />
           </el-select>
           <el-select v-model="filters.gate_status" placeholder="全部门禁" clearable @change="applyFilters">
-              <el-option label="门禁通过" value="passed" />
-              <el-option label="门禁失败" value="failed" />
-              <el-option label="待评估" value="pending" />
+            <el-option label="门禁通过" value="passed" />
+            <el-option label="门禁失败" value="failed" />
+            <el-option label="待评估" value="pending" />
           </el-select>
           <el-button type="primary" plain @click="applyFilters">筛选</el-button>
           <el-button v-if="hasFilters" link @click="resetFilters">重置</el-button>
         </div>
+
+        <!-- 批量操作条：有选中时出现 -->
+        <transition name="bulk-slide">
+          <div v-if="selectedRows.length" class="bulk-action-bar">
+            <span>已选 <strong>{{ selectedRows.length }}</strong> 条</span>
+            <span class="bulk-hint">
+              （可取消 {{ cancellableRows(selectedRows).length }} · 可重审 {{ rerunnableRows(selectedRows).length }}）
+            </span>
+            <div class="bulk-spacer" />
+            <el-button size="small" type="danger" plain :loading="bulkAction" :disabled="!cancellableRows(selectedRows).length" @click="handleBulkCancel">
+              批量取消
+            </el-button>
+            <el-button size="small" type="primary" plain :loading="bulkAction" :disabled="!rerunnableRows(selectedRows).length" @click="handleBulkRerun">
+              批量重新审查
+            </el-button>
+          </div>
+        </transition>
 
         <el-table
           :data="reviews"
@@ -100,8 +93,11 @@
           class="review-table desktop-table"
           row-class-name="review-row"
           empty-text="暂无符合条件的审查记录"
+          row-key="review_id"
           @row-click="goToDetail"
+          @selection-change="handleSelectionChange"
         >
+          <el-table-column type="selection" width="42" :selectable="() => true" />
           <el-table-column label="仓库" min-width="240">
             <template #default="{ row }">
               <div class="repo-cell">
@@ -143,7 +139,7 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="质量评分" width="130">
+          <el-table-column label="质量评分" width="130" sortable :sort-method="(a: Review, b: Review) => a.score - b.score">
             <template #default="{ row }">
               <div v-if="row.report_generated" class="score-cell">
                 <strong>{{ row.score }}</strong>
@@ -152,12 +148,12 @@
               <span v-else class="muted-value">尚未生成</span>
             </template>
           </el-table-column>
-          <el-table-column label="问题" width="90" align="center">
+          <el-table-column label="问题" width="90" align="center" sortable :sort-method="(a: Review, b: Review) => a.findings - b.findings">
             <template #default="{ row }">
               <span class="finding-count" :class="{ active: row.findings > 0 }">{{ row.findings }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="最后更新" width="150">
+          <el-table-column label="最后更新" width="160" sortable prop="updated_at">
             <template #default="{ row }">
               <div class="time-cell">
                 <strong>{{ formatDateShort(row.updated_at) }}</strong>
@@ -165,7 +161,7 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column width="120" align="right">
+          <el-table-column width="140" align="right">
             <template #default="{ row }">
               <div class="row-actions" @click.stop>
                 <el-button
@@ -177,6 +173,16 @@
                   @click="handleCancel(row)"
                 >
                   取消
+                </el-button>
+                <el-button
+                  v-if="isDeadLetter(row)"
+                  size="small"
+                  type="warning"
+                  plain
+                  :loading="actingId === row.review_id"
+                  @click="handleRequeue(row)"
+                >
+                  重新入队
                 </el-button>
                 <el-button
                   v-if="row.status === 'failed' || row.status === 'success'"
@@ -226,6 +232,16 @@
                   取消
                 </el-button>
                 <el-button
+                  v-if="isDeadLetter(row)"
+                  size="small"
+                  type="warning"
+                  plain
+                  :loading="actingId === row.review_id"
+                  @click="handleRequeue(row)"
+                >
+                  重新入队
+                </el-button>
+                <el-button
                   v-if="row.status === 'failed' || row.status === 'success'"
                   size="small"
                   type="primary"
@@ -264,7 +280,7 @@
         @created="handleReviewCreated"
         @goto="(id) => router.push(`/reviews/${id}`)"
       />
-    </div>
+    </PageShell>
   </AppLayout>
 </template>
 
@@ -287,8 +303,11 @@ import {
   WarningFilled,
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import StatStrip from '@/components/common/StatStrip.vue'
 import ReviewCreateDialog from '@/components/ReviewCreateDialog.vue'
-import { getReviews, cancelReview, rerunReview } from '@/api/review'
+import { getReviews, cancelReview, rerunReview, requeueReview } from '@/api/review'
 import { getProviderLabel, PROVIDER_OPTIONS } from '@/utils/url-parser'
 import { getStatusLabel } from '@/utils/status'
 import { getScoreColor } from '@/utils/colors'
@@ -297,11 +316,15 @@ import type { Review, ListStats } from '@/types/review'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 import { useListPage } from '@/composables/useListPage'
+import { DEAD_LETTER_THRESHOLD } from '@/constants/review'
 
 const router = useRouter()
 const route = useRoute()
 const showCreateDialog = ref(false)
 const actingId = ref('')
+// 批量选择：对运行中/失败/成功的记录支持批量取消 / 批量重新审查。
+const selectedRows = ref<Review[]>([])
+const bulkAction = ref(false)
 const initialFilters = {
   repo: typeof route.query.repo === 'string' ? route.query.repo : '',
   provider: typeof route.query.provider === 'string' ? route.query.provider : '',
@@ -346,6 +369,14 @@ const {
 })
 
 const stats = computed<ListStats>(() => (extraData.value as { stats?: ListStats }).stats ?? { total: 0, running: 0, gate_failed: 0, findings: 0, total_tokens: 0 })
+
+const reviewStats = computed(() => [
+  { icon: Files, label: '审查总数', value: stats.value.total, tone: 'primary' as const },
+  { icon: Loading, label: '正在执行', value: stats.value.running, tone: 'info' as const },
+  { icon: WarningFilled, label: '门禁未通过', value: stats.value.gate_failed, tone: 'danger' as const },
+  { icon: Aim, label: '发现问题', value: stats.value.findings, tone: 'warning' as const },
+  { icon: Coin, label: '累计 Tokens', value: stats.value.total_tokens ? stats.value.total_tokens.toLocaleString() : 0, tone: 'success' as const },
+])
 
 const activeSavedView = computed<SavedViewKey | ''>(() => {
   if (!filters.repo && !filters.provider && !filters.status && !filters.gate_status) return 'all'
@@ -417,6 +448,36 @@ async function handleRerun(row: Review) {
   }
 }
 
+/**
+ * 死信重排队：仅对 retry_count 达上限的 failed 评审显示。
+ * 后端校验条件，非死信返回 404（前端按 retry_count>=5 精确判断显示）。
+ */
+async function handleRequeue(row: Review) {
+  try {
+    await ElMessageBox.confirm(
+      `这条审查因重试次数耗尽被标记为死信（重试 ${row.retry_count} 次）。确定重新入队？`,
+      '重新入队',
+      { type: 'warning', confirmButtonText: '重新入队', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  actingId.value = row.review_id
+  try {
+    await requeueReview(row.review_id)
+    ElMessage.success('已从死信队列重新入队')
+    refreshBackground()
+  } catch {
+    ElMessage.error('重新入队失败，该评审可能不满足死信条件')
+  } finally {
+    actingId.value = ''
+  }
+}
+
+function isDeadLetter(row: Review): boolean {
+  return row.status === 'failed' && (row.retry_count ?? 0) >= DEAD_LETTER_THRESHOLD
+}
+
 function getGateLabel(row: Review) {
   if (row.gate?.status === 'pending') return '待评估'
   return row.gate?.passed ? '已通过' : '未通过'
@@ -430,120 +491,71 @@ function getGateClass(row: Review) {
 function handleReviewCreated() {
   refresh()
 }
+
+// ---- 批量操作 ----
+// 可批量取消：运行中/排队中。可批量重审：失败/成功。
+function cancellableRows(rows: Review[]) {
+  return rows.filter((r) => r.status === 'queued' || r.status === 'running')
+}
+function rerunnableRows(rows: Review[]) {
+  return rows.filter((r) => r.status === 'failed' || r.status === 'success')
+}
+
+function handleSelectionChange(rows: Review[]) {
+  selectedRows.value = rows
+}
+
+async function handleBulkRerun() {
+  const targets = rerunnableRows(selectedRows.value)
+  if (!targets.length) {
+    ElMessage.warning('选中记录中没有可重新审查的（仅失败/成功可重审）')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `将对选中的 ${targets.length} 条记录重新发起审查，确定继续？`,
+      '批量重新审查',
+      { type: 'warning', confirmButtonText: '批量重审', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  bulkAction.value = true
+  let ok = 0
+  await Promise.allSettled(targets.map((r) => rerunReview(r.review_id).then(() => ok++)))
+  ElMessage.success(`已重新加入审查队列：${ok}/${targets.length}`)
+  bulkAction.value = false
+  refreshBackground()
+}
+
+async function handleBulkCancel() {
+  const targets = cancellableRows(selectedRows.value)
+  if (!targets.length) {
+    ElMessage.warning('选中记录中没有可取消的（仅运行中/排队中可取消）')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `将取消选中的 ${targets.length} 条审查任务，确定继续？`,
+      '批量取消',
+      { type: 'warning', confirmButtonText: '批量取消', cancelButtonText: '再想想' },
+    )
+  } catch {
+    return
+  }
+  bulkAction.value = true
+  let ok = 0
+  await Promise.allSettled(targets.map((r) => cancelReview(r.review_id).then(() => ok++)))
+  ElMessage.success(`已取消审查任务：${ok}/${targets.length}`)
+  bulkAction.value = false
+  refreshBackground()
+}
 </script>
 
 <style scoped>
-.reviews-page {
-  width: min(1440px, 100%);
-  margin: 0 auto;
-  padding: 28px 32px 44px;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 24px;
-  margin-bottom: 18px;
-}
-
-.page-header h1 {
-  margin: 0 0 5px;
-  color: var(--app-text);
-  font-size: 26px;
-  letter-spacing: 0;
-}
-
-.page-header p {
-  margin: 0;
-  color: var(--app-muted);
-  font-size: 14px;
-}
-
-.page-header .el-button {
-  min-height: 40px;
-  padding-inline: 16px;
-  border-radius: 8px;
-  box-shadow: none;
-}
-
-.metric-strip {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  margin-bottom: 16px;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: var(--app-shadow);
-}
-
-.metric-item {
-  display: grid;
-  min-width: 0;
-  grid-template-columns: 34px 1fr;
-  grid-template-rows: auto auto;
-  column-gap: 10px;
-  padding: 16px 18px;
-  border-right: 1px solid var(--app-border);
-}
-
-.metric-item:last-child {
-  border-right: 0;
-}
-
-.metric-icon {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  grid-row: 1 / span 2;
-  place-items: center;
-  border-radius: 8px;
-  font-size: 17px;
-}
-
-.metric-icon.total {
-  color: #2563eb;
-  background: #eff6ff;
-}
-
-.metric-icon.running {
-  color: #0891b2;
-  background: #ecfeff;
-}
-
-.metric-icon.failed {
-  color: #dc2626;
-  background: #fef2f2;
-}
-
-.metric-icon.findings {
-  color: #d97706;
-  background: #fffbeb;
-}
-
-.metric-icon.tokens {
-  color: #059669;
-  background: #ecfdf5;
-}
-
-.metric-label {
-  min-width: 0;
-  color: var(--app-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.metric-item strong {
-  overflow: hidden;
-  color: var(--app-text);
-  font-size: 22px;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .records-card {
   overflow: hidden;
+  border-radius: var(--card-radius-lg);
   box-shadow: var(--app-shadow);
 }
 
@@ -621,6 +633,41 @@ function handleReviewCreated() {
 
 .filter-bar .el-select {
   width: 148px;
+}
+
+/* 批量操作条：选中行时滑出，与筛选条视觉延续 */
+.bulk-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--app-border);
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 13px;
+}
+
+.bulk-hint {
+  color: #6366f1;
+  font-size: 12px;
+}
+
+.bulk-spacer {
+  flex: 1;
+}
+
+.bulk-slide-enter-active,
+.bulk-slide-leave-active {
+  transition: all 180ms ease;
+  overflow: hidden;
+}
+
+.bulk-slide-enter-from,
+.bulk-slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .review-table {
@@ -853,26 +900,6 @@ function handleReviewCreated() {
 }
 
 @media (max-width: 1100px) {
-  .reviews-page {
-    padding-inline: 24px;
-  }
-
-  .metric-strip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .metric-item {
-    border-bottom: 1px solid var(--app-border);
-  }
-
-  .metric-item:nth-child(3n) {
-    border-right: 0;
-  }
-
-  .metric-item:nth-last-child(-n + 2) {
-    border-bottom: 0;
-  }
-
   .filter-bar {
     flex-wrap: wrap;
   }
@@ -883,60 +910,6 @@ function handleReviewCreated() {
 }
 
 @media (max-width: 720px) {
-  .reviews-page {
-    padding: 22px 14px 36px;
-  }
-
-  .page-header {
-    align-items: center;
-    margin-bottom: 20px;
-  }
-
-  .page-header h1 {
-    font-size: 25px;
-  }
-
-  .page-header p {
-    display: none;
-  }
-
-  .page-header .el-button {
-    min-height: 40px;
-  }
-
-  .metric-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .metric-item {
-    grid-template-columns: 1fr;
-    padding: 12px;
-  }
-
-  .metric-item:nth-child(3n) {
-    border-right: 1px solid var(--app-border);
-  }
-
-  .metric-item:nth-child(2n) {
-    border-right: 0;
-  }
-
-  .metric-item:nth-last-child(-n + 2) {
-    border-bottom: 1px solid var(--app-border);
-  }
-
-  .metric-item:last-child {
-    border-bottom: 0;
-  }
-
-  .metric-icon {
-    display: none;
-  }
-
-  .metric-item strong {
-    font-size: 20px;
-  }
-
   .filter-bar .el-select {
     width: calc(50% - 5px);
   }

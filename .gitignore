@@ -6,6 +6,15 @@
 *.dylib
 review-service
 code-review-service
+# Platform-specific Go build artifacts
+*-linux-amd64
+*-linux-arm64
+*-darwin-amd64
+*-darwin-arm64
+*-windows-amd64.exe
+# Compiled binary directories
+bin/
+cmd/*/bin/
 
 # Go
 vendor/
@@ -25,6 +34,17 @@ Thumbs.db
 dist/
 build/
 
+# Test artifacts
+*.test
+*.out
+coverage.html
+# Loose PNG/JPG at repo root (use frontend/tests/fixtures/ or testdata/ for legitimate fixtures)
+/*.png
+/*.jpg
+/*.jpeg
+/*.gif
+/*.webp
+
 # Data (local development)
 data/*.json
 !data/.gitkeep
@@ -33,3 +53,7 @@ data/*.json
 .env
 .env.local
 .playwright-mcp
+
+# Mavis / mavis local artifacts (plan files, scratchpads, agent memory dumps)
+.zcode/
+.harness/

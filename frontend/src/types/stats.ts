@@ -26,6 +26,7 @@ export interface TrendPoint {
   period: string
   avg_score: number
   review_count: number
+  findings?: number
 }
 
 export interface CategoryStat {

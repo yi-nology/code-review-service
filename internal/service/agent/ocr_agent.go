@@ -15,10 +15,11 @@ type reviewRunner interface {
 
 // reviewWorkspace represents a review workspace
 type reviewWorkspace struct {
-	Dir     string
-	BaseSHA string
-	HeadSHA string
-	Diff    string
+	Dir      string
+	BaseSHA  string
+	HeadSHA  string
+	Diff     string
+	RulePath string
 }
 
 // reviewResult represents a review result.
@@ -84,10 +85,11 @@ func (a *ocrAgent) IsDefault() bool {
 // Review performs the code review using OCR
 func (a *ocrAgent) Review(ctx context.Context, workspace Workspace) (AgentResult, error) {
 	reviewWs := reviewWorkspace{
-		Dir:     workspace.Dir,
-		BaseSHA: workspace.BaseSHA,
-		HeadSHA: workspace.HeadSHA,
-		Diff:    workspace.Diff,
+		Dir:      workspace.Dir,
+		BaseSHA:  workspace.BaseSHA,
+		HeadSHA:  workspace.HeadSHA,
+		Diff:     workspace.Diff,
+		RulePath: workspace.RulePath,
 	}
 
 	startTime := time.Now()

@@ -4,10 +4,16 @@ import { useAuthStore } from '@/stores/auth'
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    // 根路径不渲染任何内容，由下方 beforeEach 守卫重定向到登录页或总览页。
     {
       path: '/',
+      redirect: '/dashboard',
+    },
+    {
+      path: '/login',
       name: 'Login',
-      component: { render: () => null },
+      component: () => import('@/views/Login.vue'),
+      meta: { public: true },
     },
     {
       path: '/dashboard',
@@ -35,6 +41,11 @@ const router = createRouter({
       component: () => import('@/views/SessionDetail.vue'),
     },
     {
+      path: '/sessions',
+      name: 'Sessions',
+      component: () => import('@/views/Sessions.vue'),
+    },
+    {
       path: '/contributors',
       name: 'Contributors',
       component: () => import('@/views/Contributors.vue'),
@@ -50,6 +61,11 @@ const router = createRouter({
       component: () => import('@/views/ProjectReports.vue'),
     },
     {
+      path: '/reports/weekly',
+      name: 'WeeklyReport',
+      component: () => import('@/views/WeeklyReport.vue'),
+    },
+    {
       path: '/diagnostics',
       name: 'Diagnostics',
       component: () => import('@/views/Diagnostics.vue'),
@@ -60,14 +76,18 @@ const router = createRouter({
       component: () => import('@/views/ProjectReportDetail.vue'),
     },
     {
+      path: '/settings/engine',
+      name: 'EngineSettings',
+      component: () => import('@/views/EngineSettings.vue'),
+    },
+    // 旧路由保留书签兼容，重定向到合并后的「审查引擎」页。
+    {
       path: '/settings/model',
-      name: 'ModelSettings',
-      component: () => import('@/views/ModelSettings.vue'),
+      redirect: '/settings/engine',
     },
     {
       path: '/settings/ocr',
-      name: 'OcrSettings',
-      component: () => import('@/views/OcrSettings.vue'),
+      redirect: '/settings/engine',
     },
     {
       path: '/settings/projects',
@@ -105,14 +125,17 @@ const router = createRouter({
   ],
 })
 
+// 守卫：未登录访问受保护页 → 带上 redirect 跳登录页；已登录访问登录页 → 进总览。
+// 这样邮件/书签里的深链（如 /reviews/123）在登录后能回到原目标页。
 router.beforeEach((to) => {
   const auth = useAuthStore()
+  const isPublic = to.meta.public === true
 
-  if (!auth.isAuthenticated && to.path !== '/') {
-    return { path: '/' }
+  if (!auth.isAuthenticated && !isPublic) {
+    return { path: '/login', query: to.fullPath === '/' ? undefined : { redirect: to.fullPath } }
   }
 
-  if (auth.isAuthenticated && to.path === '/') {
+  if (auth.isAuthenticated && to.path === '/login') {
     return { path: '/dashboard' }
   }
 })

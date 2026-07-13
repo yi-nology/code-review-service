@@ -27,6 +27,7 @@ type ListItem struct {
 	Score           int         `json:"score"`
 	Grade           string      `json:"grade,omitempty"`
 	ReportGenerated bool        `json:"report_generated"`
+	RetryCount      int         `json:"retry_count,omitempty"`
 	Author          string      `json:"author,omitempty"`
 	AuthorName      string      `json:"author_name,omitempty"`
 	AuthorAvatar    string      `json:"author_avatar,omitempty"`

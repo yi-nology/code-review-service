@@ -1,17 +1,16 @@
 <template>
   <AppLayout>
-    <div class="project-report-detail">
-      <header class="page-header">
-        <div>
-          <button class="back-link" type="button" @click="router.push('/projects/reports')">
-            <el-icon><ArrowLeft /></el-icon>
-            返回项目报告
-          </button>
-          <div class="eyebrow">PROJECT QUALITY REPORT</div>
-          <h1>{{ repo || '项目报告' }}</h1>
-          <p>{{ providerLabel(provider) }} 项目维度代码审查报告</p>
-        </div>
-        <div class="header-actions">
+    <PageShell>
+      <button class="back-link" type="button" @click="router.push('/projects/reports')">
+        <el-icon><ArrowLeft /></el-icon>
+        返回项目报告
+      </button>
+      <PageHeader
+        eyebrow="PROJECT QUALITY REPORT"
+        :title="repo || '项目报告'"
+        :description="`${providerLabel(provider)} 项目维度代码审查报告`"
+      >
+        <template #actions>
           <el-button :disabled="!detail" @click="exportJSON">
             <el-icon><Download /></el-icon>
             导出 JSON
@@ -20,8 +19,8 @@
             <el-icon><Download /></el-icon>
             导出 Markdown
           </el-button>
-        </div>
-      </header>
+        </template>
+      </PageHeader>
 
       <div v-if="missingParams" class="empty-state">
         缺少项目参数，请从项目报告列表进入。
@@ -44,36 +43,7 @@
           <el-button v-if="hasDateRange" link @click="clearDateRange">清除时间范围</el-button>
         </div>
 
-        <el-row v-if="detail" :gutter="16" class="stats-row">
-          <el-col :xs="12" :sm="12" :md="6">
-            <el-card shadow="never" class="stat-card score">
-              <span>平均分</span>
-              <strong :class="scoreClass(detail.avg_score)">{{ detail.avg_score }}</strong>
-              <small>中位数 {{ detail.median_score }}</small>
-            </el-card>
-          </el-col>
-          <el-col :xs="12" :sm="12" :md="6">
-            <el-card shadow="never" class="stat-card pass">
-              <span>门禁通过率</span>
-              <strong>{{ detail.pass_rate.toFixed(0) }}%</strong>
-              <small>{{ detail.review_count }} 次审查</small>
-            </el-card>
-          </el-col>
-          <el-col :xs="12" :sm="12" :md="6">
-            <el-card shadow="never" class="stat-card findings">
-              <span>问题总数</span>
-              <strong>{{ detail.total_findings }}</strong>
-              <small>平均 {{ detail.avg_findings }} 个 / 次</small>
-            </el-card>
-          </el-col>
-          <el-col :xs="12" :sm="12" :md="6">
-            <el-card shadow="never" class="stat-card critical">
-              <span>严重问题</span>
-              <strong>{{ detail.critical_count }}</strong>
-              <small>高风险 {{ detail.major_count }} 个</small>
-            </el-card>
-          </el-col>
-        </el-row>
+        <StatStrip v-if="detail" :items="detailStats" />
 
         <div v-if="detail" class="report-grid">
           <section class="panel trend-panel">
@@ -234,7 +204,7 @@
           暂未找到该项目的审查报告数据。
         </div>
       </div>
-    </div>
+    </PageShell>
   </AppLayout>
 </template>
 
@@ -242,8 +212,11 @@
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, ArrowRight, Download } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, Download, TrendCharts, CircleCheckFilled, Aim, WarningFilled } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import StatStrip from '@/components/common/StatStrip.vue'
 import TrendChart from '@/components/common/TrendChart.vue'
 import {
   getProject,
@@ -372,6 +345,23 @@ function scoreClass(score: number) {
   if (score >= 60) return 'score-mid'
   return 'score-low'
 }
+
+type Tone = 'primary' | 'success' | 'warning' | 'danger' | 'info'
+function scoreTone(score: number): Tone {
+  if (score >= 80) return 'success'
+  if (score >= 60) return 'warning'
+  return 'danger'
+}
+
+const detailStats = computed(() => {
+  if (!detail.value) return []
+  return [
+    { icon: TrendCharts, label: '平均分', value: detail.value.avg_score, sublabel: `中位数 ${detail.value.median_score}`, tone: scoreTone(detail.value.avg_score) },
+    { icon: CircleCheckFilled, label: '门禁通过率', value: `${detail.value.pass_rate.toFixed(0)}%`, sublabel: `${detail.value.review_count} 次审查`, tone: 'info' as const },
+    { icon: Aim, label: '问题总数', value: detail.value.total_findings, sublabel: `平均 ${detail.value.avg_findings} 个 / 次`, tone: 'warning' as const },
+    { icon: WarningFilled, label: '严重问题', value: detail.value.critical_count, sublabel: `高风险 ${detail.value.major_count} 个`, tone: 'danger' as const },
+  ]
+})
 
 async function loadFileFindings(filePath: string) {
   if (fileFindingsMap.value[filePath]) return
@@ -503,20 +493,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.project-report-detail {
-  width: min(1440px, 100%);
-  margin: 0 auto;
-  padding: 34px 36px 48px;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 24px;
-}
-
 .back-link {
   display: inline-flex;
   align-items: center;
@@ -528,32 +504,6 @@ onMounted(() => {
   background: transparent;
   font-size: 13px;
   cursor: pointer;
-}
-
-.eyebrow {
-  color: var(--app-primary);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.4px;
-}
-
-.page-header h1 {
-  margin: 4px 0 7px;
-  color: var(--app-text);
-  font-size: 30px;
-}
-
-.page-header p {
-  margin: 0;
-  color: var(--app-muted);
-  font-size: 14px;
-}
-
-.header-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 10px;
 }
 
 .report-controls {
@@ -585,45 +535,6 @@ onMounted(() => {
 .date-filter :deep(.el-range-separator) {
   min-width: 20px;
   padding: 0 6px;
-}
-
-.stats-row {
-  margin-bottom: 16px;
-}
-
-.stats-row .el-col {
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  height: 108px;
-}
-
-.stat-card :deep(.el-card__body) {
-  display: flex;
-  height: 100%;
-  flex-direction: column;
-  justify-content: center;
-  padding: 18px 20px;
-}
-
-.stat-card span {
-  color: var(--app-muted);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.stat-card strong {
-  margin-top: 4px;
-  color: var(--app-text);
-  font-size: 28px;
-  line-height: 1.1;
-}
-
-.stat-card small {
-  margin-top: 5px;
-  color: #9aa2b1;
-  font-size: 11px;
 }
 
 .report-grid {
@@ -865,18 +776,6 @@ onMounted(() => {
 }
 
 @media (max-width: 960px) {
-  .project-report-detail {
-    padding: 24px 16px 36px;
-  }
-
-  .page-header {
-    flex-direction: column;
-  }
-
-  .header-actions {
-    justify-content: flex-start;
-  }
-
   .report-controls {
     grid-template-columns: 1fr;
     align-items: stretch;

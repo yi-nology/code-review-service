@@ -41,6 +41,10 @@ type Registry struct {
 	upgrader  domain.OCRUpgrader
 
 	llmProvider Provider
+
+	// configRefresh 在 settings 变更后通知 Runner 立即重载 DB 配置。
+	// 由 WithRunner 注入；nil 时 NotifyConfigChange 为 no-op。
+	configRefresh func()
 }
 
 // New 从已构造的子 manager 构造 Registry。
@@ -86,7 +90,26 @@ func (r *Registry) WithRunner(rr domain.Runner, pp domain.PreviewRunner, ss doma
 	r.runner = rr
 	r.previewer = pp
 	r.scanner = ss
+	// 如果 Runner 是具体 *Runner（支持后台刷新），绑定 NotifyRefresh 到 configRefresh。
+	if cr, ok := rr.(*Runner); ok {
+		r.configRefresh = cr.NotifyRefresh
+	}
 	return r
+}
+
+// NotifyConfigChange 在 OCR settings 被 PUT 保存后调用，通知 Runner 立即重载 DB 配置。
+// 未绑定具体 Runner 时为 no-op。
+func (r *Registry) NotifyConfigChange() {
+	if r.configRefresh != nil {
+		r.configRefresh()
+	}
+}
+
+// StopRunner 停止 Runner 的后台刷新 goroutine（供 fx OnStop 调用，幂等）。
+func (r *Registry) StopRunner() {
+	if cr, ok := r.runner.(*Runner); ok {
+		cr.Stop()
+	}
 }
 
 // -------- 能力 getter --------

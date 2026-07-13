@@ -28,11 +28,16 @@ func (r *ReviewRepo) Create(ctx context.Context, review *domain.Record) error {
 	if err != nil {
 		return err
 	}
+	now := time.Now()
 	if !review.CreatedAt.IsZero() {
 		m.CreatedAt = review.CreatedAt
+	} else {
+		m.CreatedAt = now
 	}
 	if !review.UpdatedAt.IsZero() {
 		m.UpdatedAt = review.UpdatedAt
+	} else {
+		m.UpdatedAt = now
 	}
 	return r.db.WithContext(ctx).Create(&m).Error
 }
@@ -47,12 +52,18 @@ func (r *ReviewRepo) Save(ctx context.Context, review *domain.Record) error {
 	var existing models.Review
 	if err := r.db.WithContext(ctx).Where("review_id = ?", review.ID).First(&existing).Error; err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			// 不存在：创建（保留 domain 时间戳）
+			// 不存在：创建。domain 时间戳优先，零值则用当前时间（GORM autoCreateTime
+			// 对零值 time.Time 不一定填充，显式设值更可靠）。
+			now := time.Now()
 			if !review.CreatedAt.IsZero() {
 				m.CreatedAt = review.CreatedAt
+			} else {
+				m.CreatedAt = now
 			}
 			if !review.UpdatedAt.IsZero() {
 				m.UpdatedAt = review.UpdatedAt
+			} else {
+				m.UpdatedAt = now
 			}
 			return r.db.WithContext(ctx).Create(&m).Error
 		}
@@ -181,15 +192,42 @@ func (r *ReviewRepo) ClaimQueued(ctx context.Context, limit int) ([]domain.Recor
 	return out, nil
 }
 
+// MaxRequeueRetries 是单个评审被 RequeueStale 重新入队的最大次数。
+// 超过此上限的孤儿任务视为永久失败（status='failed'），不再无谓重排，
+// 防止服务频繁重启时持续失败的任务反复涌入队列造成雪崩。
+// 5 次对应约 5 次重启/重排周期，足以覆盖临时故障恢复窗口。
+const MaxRequeueRetries = 5
+
 func (r *ReviewRepo) RequeueStale(ctx context.Context, before time.Time) (int64, error) {
-	result := r.db.WithContext(ctx).
-		Model(&models.Review{}).
-		Where("status = 'running' AND updated_at < ?", before).
-		Updates(map[string]interface{}{
-			"status":     "queued",
-			"updated_at": time.Now(),
-		})
-	return result.RowsAffected, result.Error
+	var total int64
+	err := ekitGorm.InTransactionContext(ctx, r.db, func(tx *gormLib.DB) error {
+		// 1. 超过重试上限的孤儿任务直接标记 failed，不再重新入队。
+		failed := tx.Model(&models.Review{}).
+			Where("status = 'running' AND updated_at < ? AND retry_count >= ?", before, MaxRequeueRetries).
+			Updates(map[string]interface{}{
+				"status":     "failed",
+				"updated_at": time.Now(),
+			})
+		if failed.Error != nil {
+			return failed.Error
+		}
+
+		// 2. 未超上限的重新入队，retry_count + 1。
+		requeued := tx.Model(&models.Review{}).
+			Where("status = 'running' AND updated_at < ? AND retry_count < ?", before, MaxRequeueRetries).
+			Updates(map[string]interface{}{
+				"status":      "queued",
+				"retry_count": gormLib.Expr("retry_count + 1"),
+				"updated_at":  time.Now(),
+			})
+		if requeued.Error != nil {
+			return requeued.Error
+		}
+
+		total = failed.RowsAffected + requeued.RowsAffected
+		return nil
+	})
+	return total, err
 }
 
 // UpdateInTransaction 在事务内把 model 映射为 domain.Record 交给回调，
@@ -230,6 +268,12 @@ func (r *ReviewRepo) AggregateStats(ctx context.Context, opts domain.ListOptions
 		if opts.Repo != "" {
 			db = db.Where("repo ILIKE ?", "%"+opts.Repo+"%")
 		}
+		if !opts.From.IsZero() {
+			db = db.Where("created_at >= ?", opts.From)
+		}
+		if !opts.To.IsZero() {
+			db = db.Where("created_at < ?", opts.To)
+		}
 		return db
 	}
 
@@ -253,10 +297,10 @@ func (r *ReviewRepo) AggregateStats(ctx context.Context, opts domain.ListOptions
 	}
 
 	type tokenSums struct {
-		Total     int64
-		Input     int64
-		Output    int64
-		CacheRead int64
+		Total      int64
+		Input      int64
+		Output     int64
+		CacheRead  int64
 		CacheWrite int64
 	}
 	var tokens tokenSums
@@ -272,13 +316,13 @@ func (r *ReviewRepo) AggregateStats(ctx context.Context, opts domain.ListOptions
 	}
 
 	return &domain.AggregateStats{
-		Running:         int(running),
-		GateFailed:      int(gateFailed),
-		Findings:        int(totalFindings),
-		TotalTokens:     tokens.Total,
-		InputTokens:     tokens.Input,
-		OutputTokens:    tokens.Output,
-		CacheReadTokens: tokens.CacheRead,
+		Running:          int(running),
+		GateFailed:       int(gateFailed),
+		Findings:         int(totalFindings),
+		TotalTokens:      tokens.Total,
+		InputTokens:      tokens.Input,
+		OutputTokens:     tokens.Output,
+		CacheReadTokens:  tokens.CacheRead,
 		CacheWriteTokens: tokens.CacheWrite,
 	}, nil
 }
@@ -379,6 +423,77 @@ func (r *ReviewRepo) ProjectOCRMetrics(ctx context.Context, opts domain.ProjectS
 		GradeDistribution:  gradeDistribution,
 		ToolCalls:          toolCalls,
 	}, nil
+}
+
+// MonthlyTokenUsage 返回当前自然月（UTC）所有成功评审的 token 用量汇总。
+// 用于预算检查：Calculator 估算成本时按 model 查单价，这里只取 token 总量和按模型分组。
+type ModelTokenUsage struct {
+	Model        string
+	InputTokens  int64
+	OutputTokens int64
+	CacheRead    int64
+	CacheWrite   int64
+}
+
+func (r *ReviewRepo) MonthlyTokenUsage(ctx context.Context) ([]ModelTokenUsage, error) {
+	type row struct {
+		Model        string
+		InputTokens  int64
+		OutputTokens int64
+		CacheRead    int64
+		CacheWrite   int64
+	}
+	var rows []row
+	// 按当前自然月聚合，按 model 分组（model 从 response.report.ocr.model 取）。
+	query := `SELECT
+			COALESCE(NULLIF(response #>> '{report,ocr,model}',''),'unknown') AS model,
+			COALESCE((response #>> '{report,ocr,input_tokens}')::bigint, 0) AS input_tokens,
+			COALESCE((response #>> '{report,ocr,output_tokens}')::bigint, 0) AS output_tokens,
+			COALESCE((response #>> '{report,ocr,cache_read_tokens}')::bigint, 0) AS cache_read,
+			COALESCE((response #>> '{report,ocr,cache_write_tokens}')::bigint, 0) AS cache_write
+		FROM reviews
+		WHERE status = 'success'
+			AND deleted_at IS NULL
+			AND date_trunc('month', created_at) = date_trunc('month', NOW())`
+	if err := r.db.WithContext(ctx).Raw(query).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]ModelTokenUsage, len(rows))
+	for i, r := range rows {
+		out[i] = ModelTokenUsage{
+			Model: r.Model, InputTokens: r.InputTokens, OutputTokens: r.OutputTokens,
+			CacheRead: r.CacheRead, CacheWrite: r.CacheWrite,
+		}
+	}
+	return out, nil
+}
+
+// QueueDepth 返回当前队列深度（queued + running 的 review 数），供 Prometheus 指标采集。
+func (r *ReviewRepo) QueueDepth(ctx context.Context) (int64, error) {
+	var n int64
+	err := r.db.WithContext(ctx).Model(&models.Review{}).
+		Where("status IN ?", []string{"queued", "running"}).Count(&n).Error
+	return n, err
+}
+
+// RequeueFromDeadLetter 把一条死信评审（failed 且 retry_count 达上限）重新入队，
+// 重置 retry_count 为 0，给它在重启的 worker 上重新执行的机会。
+// 仅对 retry_count >= MaxRequeueRetries 的 failed 评审生效，避免误重排正常失败的评审。
+func (r *ReviewRepo) RequeueFromDeadLetter(ctx context.Context, reviewID string) error {
+	result := r.db.WithContext(ctx).Model(&models.Review{}).
+		Where("review_id = ? AND status = 'failed' AND retry_count >= ?", reviewID, MaxRequeueRetries).
+		Updates(map[string]interface{}{
+			"status":      "queued",
+			"retry_count": 0,
+			"updated_at":  time.Now(),
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("%w: %s (not a dead-letter review)", repoerr.ErrNotFound, reviewID)
+	}
+	return nil
 }
 
 func (r *ReviewRepo) ProjectOCRTrend(ctx context.Context, opts domain.ProjectStatsOptions) ([]domain.ProjectOCRTrendPoint, error) {

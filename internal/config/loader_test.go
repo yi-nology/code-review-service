@@ -32,9 +32,9 @@ func TestParsePort(t *testing.T) {
 
 func TestValidate_ProdRequiresToken(t *testing.T) {
 	cfg := &Config{
-		Port: 8080,
+		Port:     8080,
 		Database: DatabaseConfig{DSN: "postgres://x/y"},
-		Auth:  AuthConfig{}, // 空 token
+		Auth:     AuthConfig{}, // 空 token
 	}
 	err := cfg.Validate("prod")
 	if err == nil || !strings.Contains(err.Error(), "REVIEW_TOKEN") {
@@ -44,9 +44,9 @@ func TestValidate_ProdRequiresToken(t *testing.T) {
 
 func TestValidate_ProdRejectsInsecure(t *testing.T) {
 	cfg := &Config{
-		Port: 8080,
+		Port:     8080,
 		Database: DatabaseConfig{DSN: "postgres://x/y"},
-		Auth:  AuthConfig{Insecure: true, Token: "abc123"},
+		Auth:     AuthConfig{Insecure: true, Token: "abc123"},
 	}
 	err := cfg.Validate("prod")
 	if err == nil || !strings.Contains(err.Error(), "AUTH_INSECURE") {
@@ -56,9 +56,9 @@ func TestValidate_ProdRejectsInsecure(t *testing.T) {
 
 func TestValidate_DevAllowsInsecureEmptyToken(t *testing.T) {
 	cfg := &Config{
-		Port: 8080,
+		Port:     8080,
 		Database: DatabaseConfig{DSN: "postgres://x/y"},
-		Auth:  AuthConfig{Insecure: true},
+		Auth:     AuthConfig{Insecure: true},
 	}
 	if err := cfg.Validate("dev"); err != nil {
 		t.Fatalf("expected nil err for dev + insecure, got %v", err)
@@ -67,9 +67,9 @@ func TestValidate_DevAllowsInsecureEmptyToken(t *testing.T) {
 
 func TestValidate_DevEmptyTokenWithoutInsecure(t *testing.T) {
 	cfg := &Config{
-		Port: 8080,
+		Port:     8080,
 		Database: DatabaseConfig{DSN: "postgres://x/y"},
-		Auth:  AuthConfig{},
+		Auth:     AuthConfig{},
 	}
 	err := cfg.Validate("dev")
 	if err == nil || !strings.Contains(err.Error(), "AUTH_INSECURE") {
@@ -79,9 +79,9 @@ func TestValidate_DevEmptyTokenWithoutInsecure(t *testing.T) {
 
 func TestValidate_ProdRejectsDevToken(t *testing.T) {
 	cfg := &Config{
-		Port: 8080,
+		Port:     8080,
 		Database: DatabaseConfig{DSN: "postgres://x/y"},
-		Auth:  AuthConfig{Token: "dev-token"},
+		Auth:     AuthConfig{Token: "dev-token"},
 	}
 	err := cfg.Validate("prod")
 	if err == nil || !strings.Contains(err.Error(), "dev-token") {

@@ -1,204 +1,191 @@
 <template>
   <AppLayout>
-    <div class="scan-page">
-      <header class="page-header">
-        <div>
-          <h1>代码库扫描</h1>
-          <p>对整个仓库或指定目录执行全量代码审查</p>
-        </div>
-        <div class="header-status">
-          <el-tag
-            v-if="scanState === 'idle'"
-            :type="canRun ? 'success' : 'info'"
-            size="large"
-          >
-            {{ canRun ? '已配置' : '待配置' }}
-          </el-tag>
-          <el-tag
-            v-else-if="scanState === 'queued'"
-            type="warning"
-            size="large"
-          >
-            排队中
-          </el-tag>
-          <el-tag
-            v-else-if="scanState === 'running'"
-            type="primary"
-            size="large"
-            effect="light"
-          >
-            <el-icon class="is-loading">
+    <PageShell>
+      <PageHeader
+        eyebrow="REPOSITORY SCAN"
+        title="代码库扫描"
+        description="对整个仓库或指定目录执行全量代码审查，在合并前一次性看清风险全貌。"
+      >
+        <template #actions>
+          <span class="status-pill" :class="scanState">
+            <el-icon v-if="scanState === 'queued' || scanState === 'running'" class="is-loading">
               <Loading />
             </el-icon>
-            扫描中
-          </el-tag>
-          <el-tag
-            v-else-if="scanState === 'success'"
-            type="success"
-            size="large"
-          >
-            已完成
-          </el-tag>
-          <el-tag
-            v-else-if="scanState === 'failed'"
-            type="danger"
-            size="large"
-          >
-            扫描失败
-          </el-tag>
-        </div>
-      </header>
+            <el-icon v-else-if="scanState === 'success'"><CircleCheckFilled /></el-icon>
+            <el-icon v-else-if="scanState === 'failed'"><CircleCloseFilled /></el-icon>
+            <el-icon v-else><SetUp /></el-icon>
+            {{ statusLabel }}
+          </span>
+        </template>
+      </PageHeader>
+
+      <StatStrip :items="scanStats" />
+
+      <!-- ===== Restore hint ===== -->
+      <el-alert
+        v-if="restoredFromCache"
+        class="restore-hint"
+        type="info"
+        :closable="false"
+        show-icon
+        title="已恢复上次扫描配置"
+      >
+        <template #default>
+          <div class="restore-body">
+            <span>可直接发起扫描，或清除后重新填写。</span>
+            <el-button size="small" plain @click="clearForm">清除重填</el-button>
+          </div>
+        </template>
+      </el-alert>
 
       <div class="scan-grid">
         <!-- ===== Left: Config ===== -->
-        <section class="panel config-panel">
+        <section class="panel-shell config-panel">
+          <div class="panel-heading">
+            <div>
+              <strong>扫描配置</strong>
+              <span>填写仓库与范围后即可发起扫描</span>
+            </div>
+          </div>
+
           <el-form
             ref="formRef"
+            class="config-form"
             label-position="top"
             :model="form"
             :rules="formRules"
             :disabled="scanState === 'queued' || scanState === 'running'"
           >
-            <!-- Card 1: Basic Info -->
-            <div class="form-card">
-              <div class="form-card-title">
-                基础信息
-              </div>
+            <!-- Step 1: Basic Info -->
+            <div class="form-step">
+              <div class="step-index">1</div>
+              <div class="form-card">
+                <div class="form-card-title">基础信息</div>
 
-              <el-form-item
-                label="代码平台"
-                prop="provider"
-              >
-                <el-select
-                  v-model="form.provider"
-                  placeholder="选择平台"
-                  @change="handleProviderChange"
-                >
-                  <el-option
-                    v-for="p in platforms"
-                    :key="p.provider"
-                    :label="p.provider"
-                    :value="p.provider"
-                  />
-                </el-select>
-              </el-form-item>
-
-              <el-form-item
-                label="仓库"
-                prop="repo"
-              >
-                <el-select
-                  v-model="form.repo"
-                  filterable
-                  remote
-                  reserve-keyword
-                  :loading="reposLoading"
-                  :remote-method="searchRepos"
-                  placeholder="搜索仓库名称"
-                  @change="handleRepoChange"
-                  @visible-change="(v: boolean) => v && repos.length === 0 && searchRepos('')"
-                >
-                  <el-option
-                    v-for="repo in repos"
-                    :key="repo.full_name"
-                    :label="repo.full_name"
-                    :value="repo.full_name"
-                  />
-                </el-select>
-              </el-form-item>
-
-              <el-form-item label="分支 / 提交">
-                <div class="branch-row">
+                <el-form-item label="代码平台" prop="provider">
                   <el-select
-                    v-model="branch"
-                    filterable
-                    allow-create
-                    default-first-option
-                    :loading="branchesLoading"
-                    placeholder="分支名或 commit SHA"
-                    @focus="loadBranches"
-                    @change="resolveHead"
+                    v-model="form.provider"
+                    placeholder="选择平台"
+                    @change="handleProviderChange"
                   >
                     <el-option
-                      v-for="b in branches"
-                      :key="b.name"
-                      :label="b.name"
-                      :value="b.name"
+                      v-for="p in platforms"
+                      :key="p.provider"
+                      :label="p.provider"
+                      :value="p.provider"
                     />
                   </el-select>
-                </div>
-                <div
-                  v-if="form.head_sha"
-                  class="form-tip"
-                >
-                  <el-icon><Check /></el-icon>
-                  <code>{{ form.head_sha }}</code>
-                </div>
-                <div
-                  v-else-if="branchTouched && !form.head_sha"
-                  class="form-tip error-tip"
-                >
-                  <el-icon><Warning /></el-icon>
-                  分支尚未解析，请在选择后等待自动解析
-                </div>
-              </el-form-item>
-            </div>
+                </el-form-item>
 
-            <!-- Card 2: Scan Scope -->
-            <div class="form-card">
-              <div class="form-card-title">
-                扫描范围
+                <el-form-item label="仓库" prop="repo">
+                  <el-select
+                    v-model="form.repo"
+                    filterable
+                    remote
+                    reserve-keyword
+                    :loading="reposLoading"
+                    :remote-method="searchRepos"
+                    placeholder="搜索仓库名称"
+                    @change="handleRepoChange"
+                    @visible-change="(v: boolean) => v && repos.length === 0 && searchRepos('')"
+                  >
+                    <el-option
+                      v-for="repo in repos"
+                      :key="repo.full_name"
+                      :label="repo.full_name"
+                      :value="repo.full_name"
+                    />
+                  </el-select>
+                </el-form-item>
+
+                <el-form-item label="分支 / 提交">
+                  <div class="branch-row">
+                    <el-select
+                      v-model="branch"
+                      filterable
+                      allow-create
+                      default-first-option
+                      :loading="branchesLoading"
+                      placeholder="分支名或 commit SHA"
+                      @focus="loadBranches"
+                      @change="resolveHead"
+                    >
+                      <el-option
+                        v-for="b in branches"
+                        :key="b.name"
+                        :label="b.name"
+                        :value="b.name"
+                      />
+                    </el-select>
+                  </div>
+                  <div v-if="form.head_sha" class="form-tip">
+                    <el-icon><Check /></el-icon>
+                    <code>{{ form.head_sha }}</code>
+                  </div>
+                  <div
+                    v-else-if="branchTouched && !form.head_sha"
+                    class="form-tip error-tip"
+                  >
+                    <el-icon><Warning /></el-icon>
+                    分支尚未解析，请在选择后等待自动解析
+                  </div>
+                </el-form-item>
               </div>
-
-              <el-form-item label="扫描路径">
-                <el-input
-                  v-model="pathsText"
-                  type="textarea"
-                  :rows="3"
-                  placeholder="每行一个目录或文件，留空扫描整个仓库&#10;internal&#10;frontend/src"
-                />
-              </el-form-item>
-
-              <el-form-item label="排除路径">
-                <el-input
-                  v-model="excludeText"
-                  type="textarea"
-                  :rows="3"
-                  placeholder="每行一个 gitignore 风格规则&#10;**/generated/**&#10;vendor/**"
-                />
-              </el-form-item>
-
-              <el-form-item label="业务背景">
-                <el-input
-                  v-model="form.background"
-                  type="textarea"
-                  :rows="2"
-                  placeholder="例如：迁移前质量体检，重点关注兼容性和安全风险"
-                />
-              </el-form-item>
-
-              <el-form-item label="超时时间（分钟）">
-                <el-input-number
-                  v-model="form.timeout_minutes"
-                  :min="5"
-                  :max="120"
-                  :step="5"
-                  :defaultValue="60"
-                  controls-position="right"
-                  style="width: 100%"
-                />
-              </el-form-item>
             </div>
 
-            <!-- Card 3: Advanced (collapsible) -->
-            <el-collapse
-              v-model="advancedOpen"
-              class="advanced-collapse"
-            >
-              <el-collapse-item
-                title="高级选项"
-                name="advanced"
-              >
+            <!-- Step 2: Scan Scope -->
+            <div class="form-step">
+              <div class="step-index">2</div>
+              <div class="form-card">
+                <div class="form-card-title">扫描范围</div>
+
+                <el-form-item label="扫描路径">
+                  <el-input
+                    v-model="pathsText"
+                    type="textarea"
+                    :rows="3"
+                    placeholder="每行一个目录或文件，留空扫描整个仓库&#10;internal&#10;frontend/src"
+                  />
+                </el-form-item>
+
+                <el-form-item label="排除路径">
+                  <el-input
+                    v-model="excludeText"
+                    type="textarea"
+                    :rows="3"
+                    placeholder="每行一个 gitignore 风格规则&#10;**/generated/**&#10;vendor/**"
+                  />
+                </el-form-item>
+
+                <el-form-item label="业务背景">
+                  <el-input
+                    v-model="form.background"
+                    type="textarea"
+                    :rows="2"
+                    placeholder="例如：迁移前质量体检，重点关注兼容性和安全风险"
+                  />
+                </el-form-item>
+
+                <el-form-item label="超时时间（分钟）">
+                  <el-input-number
+                    v-model="form.timeout_minutes"
+                    :min="5"
+                    :max="120"
+                    :step="5"
+                    :defaultValue="60"
+                    controls-position="right"
+                    style="width: 100%"
+                  />
+                </el-form-item>
+              </div>
+            </div>
+
+            <!-- Step 3: Advanced (collapsible) -->
+            <el-collapse v-model="advancedOpen" class="advanced-collapse">
+              <el-collapse-item name="advanced">
+                <template #title>
+                  <span class="advanced-title">高级选项</span>
+                </template>
                 <div class="inline-fields">
                   <el-form-item label="Token 预算上限">
                     <el-input-number
@@ -211,36 +198,18 @@
                   </el-form-item>
                   <el-form-item label="分批策略">
                     <el-select v-model="form.batch">
-                      <el-option
-                        label="默认"
-                        value=""
-                      />
-                      <el-option
-                        label="按语言"
-                        value="by-language"
-                      />
-                      <el-option
-                        label="按目录"
-                        value="by-directory"
-                      />
-                      <el-option
-                        label="不分批"
-                        value="none"
-                      />
+                      <el-option label="默认" value="" />
+                      <el-option label="按语言" value="by-language" />
+                      <el-option label="按目录" value="by-directory" />
+                      <el-option label="不分批" value="none" />
                     </el-select>
                   </el-form-item>
                 </div>
 
                 <div class="switch-row">
-                  <el-checkbox v-model="form.no_plan">
-                    跳过计划
-                  </el-checkbox>
-                  <el-checkbox v-model="form.no_dedup">
-                    跳过去重
-                  </el-checkbox>
-                  <el-checkbox v-model="form.no_summary">
-                    跳过总结
-                  </el-checkbox>
+                  <el-checkbox v-model="form.no_plan">跳过计划</el-checkbox>
+                  <el-checkbox v-model="form.no_dedup">跳过去重</el-checkbox>
+                  <el-checkbox v-model="form.no_summary">跳过总结</el-checkbox>
                 </div>
               </el-collapse-item>
             </el-collapse>
@@ -248,6 +217,7 @@
             <!-- Action row -->
             <div class="action-row">
               <el-button
+                plain
                 :loading="previewing"
                 :disabled="!canRun || scanRunning"
                 @click="runScan(true)"
@@ -257,6 +227,7 @@
               </el-button>
               <el-button
                 type="primary"
+                size="large"
                 :loading="starting"
                 :disabled="!canRun || scanRunning"
                 @click="confirmScan"
@@ -269,99 +240,30 @@
         </section>
 
         <!-- ===== Right: Execution / Results ===== -->
-        <section class="panel result-panel">
+        <section class="panel-shell result-panel">
           <!-- Idle -->
-          <div
-            v-if="scanState === 'idle' && !hasPreview"
-            class="result-empty"
-          >
-            <el-empty description="先选择仓库，预览或开始扫描" />
+          <div v-if="scanState === 'idle' && !hasPreview" class="result-empty">
+            <div class="empty-card">
+              <el-icon class="empty-icon"><Search /></el-icon>
+              <h3>尚未扫描</h3>
+              <p>填写左侧配置，即可对整个仓库发起全量审查。</p>
+              <ol class="empty-steps">
+                <li><strong>选平台</strong><span class="step-sep">—</span>选择代码托管平台</li>
+                <li><strong>选仓库</strong><span class="step-sep">—</span>搜索并定位目标仓库与分支</li>
+                <li><strong>点扫描</strong><span class="step-sep">—</span>预览范围或直接开始全量扫描</li>
+              </ol>
+            </div>
           </div>
 
           <!-- Preview -->
-          <div
+          <ScanPreviewPanel
             v-if="hasPreview && scanState === 'idle'"
-            class="preview-section"
-          >
-            <div class="section-head">
-              <h2>文件预览</h2>
-              <div class="section-actions">
-                <el-input
-                  v-model="previewFilter"
-                  size="small"
-                  placeholder="搜索文件…"
-                  style="width: 200px"
-                  clearable
-                />
-                <el-button
-                  text
-                  type="primary"
-                  @click="clearPreview"
-                >
-                  清空
-                </el-button>
-              </div>
-            </div>
-            <div
-              class="preview-summary"
-              :class="{ 'has-excluded': previewInfo.excluded.length > 0 }"
-            >
-              <div class="preview-stat">
-                <span>总变更</span>
-                <strong>{{ previewInfo.totalChanged || previewInfo.reviewable.length + previewInfo.excluded.length }}</strong>
-              </div>
-              <div class="preview-stat primary">
-                <span>将审查</span>
-                <strong>{{ filteredPreviewFiles.length }}</strong>
-              </div>
-              <div
-                v-if="previewInfo.excluded.length"
-                class="preview-stat"
-              >
-                <span>已排除</span>
-                <strong>{{ previewInfo.excluded.length }}</strong>
-              </div>
-            </div>
-            <div class="file-list" :class="{ empty: filteredPreviewFiles.length === 0 }">
-              <div
-                v-for="file in filteredPreviewFiles"
-                :key="file"
-                class="file-row"
-              >
-                <span class="file-badge">审查</span>
-                <code>{{ file }}</code>
-              </div>
-              <div
-                v-if="filteredPreviewFiles.length === 0"
-                class="file-list-empty"
-              >
-                没有匹配的可审查文件
-              </div>
-            </div>
-            <el-collapse
-              v-if="filteredExcludedFiles.length"
-              class="excluded-collapse"
-            >
-              <el-collapse-item :title="`已排除文件 (${filteredExcludedFiles.length})`" name="excluded">
-                <div class="file-list excluded-list">
-                  <div
-                    v-for="file in filteredExcludedFiles"
-                    :key="file"
-                    class="file-row"
-                  >
-                    <span class="file-badge muted">排除</span>
-                    <code>{{ file }}</code>
-                  </div>
-                </div>
-              </el-collapse-item>
-            </el-collapse>
-          </div>
+            :files="previewFiles"
+            @clear="clearPreview"
+          />
 
           <!-- Running: Progress Tracker -->
-          <div
-            v-if="scanRunning && activeReviewId"
-            class="progress-section"
-          >
+          <div v-if="scanRunning && activeReviewId" class="progress-section">
             <ProgressTracker
               :review-id="activeReviewId"
               :review-status="scanState === 'queued' ? 'queued' : 'running'"
@@ -377,7 +279,7 @@
               :closable="false"
               :title="scanWarning"
             />
-            <div class="progress-actions">
+            <div class="progress-toolbar">
               <el-button
                 type="danger"
                 plain
@@ -387,81 +289,100 @@
                 <el-icon><Close /></el-icon>
                 取消扫描
               </el-button>
-              <span
-                v-if="elapsedText"
-                class="elapsed"
-              >已用时 {{ elapsedText }}</span>
+              <el-tag v-if="elapsedText" type="info" effect="plain" round>
+                已用时 {{ elapsedText }}
+              </el-tag>
             </div>
           </div>
 
           <!-- Failed -->
-          <div
-            v-if="scanState === 'failed'"
-            class="failed-section"
-          >
-            <el-alert
-              type="error"
-              :closable="false"
-              title="扫描失败"
-              show-icon
-            >
+          <div v-if="scanState === 'failed'" class="failed-section">
+            <el-alert type="error" :closable="false" title="扫描失败" show-icon>
               <template #default>
-                <p class="error-message">
-                  {{ scanError || '未知错误' }}
-                </p>
+                <p class="error-message">{{ scanError || '未知错误' }}</p>
               </template>
             </el-alert>
-            <el-button
-              type="primary"
-              @click="resetScan"
-            >
-              重新配置
-            </el-button>
+            <div class="failed-actions">
+              <el-button type="primary" @click="resetScan">
+                <el-icon><RefreshLeft /></el-icon>
+                重新配置
+              </el-button>
+              <el-button plain @click="copyError">
+                <el-icon><CopyDocument /></el-icon>
+                复制错误信息
+              </el-button>
+            </div>
           </div>
 
           <!-- Success: Results -->
-          <div
-            v-if="scanState === 'success' && reviewDetail"
-            class="scan-result"
-          >
-            <el-alert
-              v-if="reviewDetail.review_id"
-              class="saved-alert"
-              type="success"
-              :closable="false"
-              title="扫描报告已保存"
-            >
-              <template #default>
-                <div class="saved-alert-body">
+          <div v-if="scanState === 'success' && reviewDetail" class="scan-result">
+            <div class="result-toolbar">
+              <div class="result-toolbar-id">
+                <el-icon class="result-toolbar-icon"><CircleCheckFilled /></el-icon>
+                <div>
+                  <small>扫描报告已保存</small>
                   <code>{{ reviewDetail.review_id }}</code>
-                  <div class="saved-alert-actions">
-                    <el-button
-                      size="small"
-                      type="success"
-                      plain
-                      @click="router.push(`/reviews/${reviewDetail.review_id}`)"
-                    >
-                      查看详情
-                    </el-button>
-                    <el-button
-                      size="small"
-                      @click="resetScan"
-                    >
-                      新建扫描
-                    </el-button>
-                  </div>
                 </div>
-              </template>
-            </el-alert>
+              </div>
+              <div class="result-toolbar-actions">
+                <el-dropdown trigger="click" @command="exportScan">
+                  <el-button plain>
+                    <el-icon><Download /></el-icon>
+                    导出报告
+                    <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                  </el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="markdown">Markdown</el-dropdown-item>
+                      <el-dropdown-item command="json">JSON</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+                <el-button type="primary" @click="router.push(`/reviews/${reviewDetail.review_id}`)">
+                  查看详情
+                </el-button>
+                <el-button @click="resetScan">新建扫描</el-button>
+              </div>
+            </div>
 
             <div class="metric-strip">
               <div
                 v-for="m in metrics"
                 :key="m.label"
                 class="metric-card"
+                :class="m.tone"
               >
                 <small>{{ m.label }}</small>
-                <strong :class="m.class">{{ m.value }}</strong>
+                <strong>{{ m.value }}</strong>
+              </div>
+            </div>
+
+            <!-- Severity breakdown bar -->
+            <div v-if="severityBreakdown.total > 0" class="severity-bar-wrap">
+              <div class="severity-bar-label">
+                <span>风险分布</span>
+                <small>共 {{ severityBreakdown.total }} 项发现</small>
+              </div>
+              <div class="severity-bar">
+                <div
+                  v-for="seg in severityBreakdown.segments"
+                  :key="seg.key"
+                  class="severity-seg"
+                  :class="seg.key"
+                  :style="{ width: seg.percent + '%' }"
+                  :title="`${seg.label}: ${seg.count}`"
+                />
+              </div>
+              <div class="severity-legend">
+                <span
+                  v-for="seg in severityBreakdown.segments"
+                  :key="seg.key"
+                  class="legend-item"
+                >
+                  <i class="legend-dot" :class="seg.key" />
+                  {{ seg.label }}
+                  <strong>{{ seg.count }}</strong>
+                </span>
               </div>
             </div>
 
@@ -474,201 +395,7 @@
             />
 
             <!-- Findings Table -->
-            <div class="findings-section">
-              <div class="section-head">
-                <h2>问题列表</h2>
-                <div class="section-actions">
-                  <el-select
-                    v-model="severityFilter"
-                    multiple
-                    collapse-tags
-                    collapse-tags-tooltip
-                    placeholder="严重级别"
-                    size="small"
-                    style="width: 200px"
-                    clearable
-                  >
-                    <el-option
-                      label="Critical"
-                      value="critical"
-                    />
-                    <el-option
-                      label="Major"
-                      value="major"
-                    />
-                    <el-option
-                      label="Minor"
-                      value="minor"
-                    />
-                    <el-option
-                      label="Info"
-                      value="info"
-                    />
-                  </el-select>
-                  <el-select
-                    v-model="groupByPath"
-                    size="small"
-                    style="width: 120px"
-                  >
-                    <el-option
-                      label="不分组"
-                      :value="false"
-                    />
-                    <el-option
-                      label="按文件"
-                      :value="true"
-                    />
-                  </el-select>
-                </div>
-              </div>
-
-              <el-empty
-                v-if="!filteredFindings.length"
-                description="未发现问题"
-                :image-size="80"
-              />
-
-              <template v-else-if="groupByPath">
-                <el-collapse
-                  v-model="expandedGroups"
-                  class="finding-groups"
-                >
-                  <el-collapse-item
-                    v-for="group in groupedFindings"
-                    :key="group.path"
-                    :name="group.path"
-                  >
-                    <template #title>
-                      <code class="group-path">{{ group.path }}</code>
-                      <el-badge
-                        :value="group.items.length"
-                        class="group-badge"
-                      />
-                    </template>
-                    <div class="finding-cards">
-                      <article
-                        v-for="(finding, idx) in group.items"
-                        :key="idx"
-                        class="finding-card"
-                      >
-                        <div class="finding-head">
-                          <el-tag
-                            :type="severityType(finding.severity)"
-                            size="small"
-                          >
-                            {{ finding.severity }}
-                          </el-tag>
-                          <strong>{{ finding.title }}</strong>
-                          <span
-                            v-if="finding.start_line"
-                            class="finding-line"
-                          >L{{ finding.start_line }}</span>
-                        </div>
-                        <p class="finding-body">
-                          {{ finding.body }}
-                        </p>
-                        <div
-                          v-if="finding.existing_code || finding.suggestion_code"
-                          class="finding-code"
-                        >
-                          <div
-                            v-if="finding.existing_code"
-                            class="code-block"
-                          >
-                            <small>当前代码</small>
-                            <pre>{{ finding.existing_code }}</pre>
-                          </div>
-                          <div
-                            v-if="finding.suggestion_code"
-                            class="code-block"
-                          >
-                            <small>建议代码</small>
-                            <pre>{{ finding.suggestion_code }}</pre>
-                          </div>
-                        </div>
-                      </article>
-                    </div>
-                  </el-collapse-item>
-                </el-collapse>
-              </template>
-
-              <el-table
-                v-else
-                :data="pagedFindings"
-                stripe
-              >
-                <el-table-column type="expand">
-                  <template #default="{ row }">
-                    <p class="finding-body">
-                      {{ row.body }}
-                    </p>
-                    <div
-                      v-if="row.existing_code || row.suggestion_code"
-                      class="finding-code"
-                    >
-                      <div
-                        v-if="row.existing_code"
-                        class="code-block"
-                      >
-                        <small>当前代码</small>
-                        <pre>{{ row.existing_code }}</pre>
-                      </div>
-                      <div
-                        v-if="row.suggestion_code"
-                        class="code-block"
-                      >
-                        <small>建议代码</small>
-                        <pre>{{ row.suggestion_code }}</pre>
-                      </div>
-                    </div>
-                  </template>
-                </el-table-column>
-                <el-table-column
-                  width="100"
-                  label="级别"
-                >
-                  <template #default="{ row }">
-                    <el-tag
-                      :type="severityType(row.severity)"
-                      size="small"
-                    >
-                      {{ row.severity }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column
-                  label="标题"
-                  min-width="200"
-                  show-overflow-tooltip
-                >
-                  <template #default="{ row }">
-                    <strong>{{ row.title }}</strong>
-                  </template>
-                </el-table-column>
-                <el-table-column
-                  label="文件"
-                  min-width="200"
-                  show-overflow-tooltip
-                >
-                  <template #default="{ row }">
-                    <code class="finding-path">{{ row.path }}{{ row.start_line ? `:${row.start_line}` : '' }}</code>
-                  </template>
-                </el-table-column>
-              </el-table>
-
-              <div
-                v-if="filteredFindings.length > findingsPageSize"
-                class="pagination-wrap"
-              >
-                <el-pagination
-                  v-model:current-page="findingsPage"
-                  :page-size="findingsPageSize"
-                  :total="filteredFindings.length"
-                  layout="prev, pager, next"
-                  small
-                />
-              </div>
-            </div>
+            <ScanFindingsPanel :findings="reviewDetail?.findings ?? []" />
           </div>
         </section>
       </div>
@@ -728,7 +455,7 @@
           </el-button>
         </template>
       </el-dialog>
-    </div>
+    </PageShell>
   </AppLayout>
 </template>
 
@@ -736,15 +463,26 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { Files, Search, Check, Warning, Loading, Close } from '@element-plus/icons-vue'
+import {
+  Files, Search, Check, Warning, Loading, Close,
+  CircleCheckFilled, CircleCloseFilled, SetUp, RefreshLeft,
+  CopyDocument, Download, ArrowDown,
+  Connection, FolderOpened, Discount, Aim,
+} from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import StatStrip from '@/components/common/StatStrip.vue'
 import ProgressTracker from '@/components/ProgressTracker.vue'
 import { getBranchSHA, getGitPlatforms, getProviderBranches, getProviderRepos } from '@/api/config'
 import { cancelReview, getReview, scanRepository } from '@/api/review'
 import { sessionApi, type ReviewSession } from '@/api/session'
 import type { GitPlatform, PlatformBranch, PlatformRepo } from '@/types/config'
-import type { ReviewDetail, Finding } from '@/types/review'
+import type { ReviewDetail } from '@/types/review'
+import ScanFindingsPanel from '@/components/scan/ScanFindingsPanel.vue'
+import ScanPreviewPanel from '@/components/scan/ScanPreviewPanel.vue'
 import type { PhaseDefinition } from '@/constants/phases'
+import { exportReport, type ReviewReport } from '@/utils/export'
 
 const router = useRouter()
 const formRef = ref<FormInstance>()
@@ -760,7 +498,6 @@ const previewing = ref(false)
 const starting = ref(false)
 const cancelling = ref(false)
 const previewFiles = ref<string[]>([])
-const previewFilter = ref('')
 const branch = ref('')
 const branchTouched = ref(false)
 const pathsText = ref('')
@@ -777,15 +514,16 @@ const scanStartTime = ref<number | null>(null)
 const elapsedText = ref('')
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 let elapsedTimer: ReturnType<typeof setInterval> | null = null
+// 轮询保护：超过 MAX_POLL_DURATION_MS 仍 running 则放弃（防止卡死的 review 导致页面无限轮询）
+const MAX_POLL_DURATION_MS = 5 * 60 * 1000 // 5 分钟
+// 连续轮询失败（非 404）超过此次数也放弃，避免服务异常时无限重试。
+const MAX_POLL_FAILURES = 10
+let pollStartTime = 0
 let pollFailureCount = 0
 
-const severityFilter = ref<string[]>([])
-const groupByPath = ref(false)
-const expandedGroups = ref<string[]>([])
-const findingsPage = ref(1)
-const findingsPageSize = 20
-
 const confirmVisible = ref(false)
+// 标记本次表单是否从 localStorage 恢复过（用于展示"已恢复上次配置"提示）
+const restoredFromCache = ref(false)
 
 const STORAGE_KEY = 'scan-form-state'
 const SCAN_SESSION_KEY = 'scan-session'
@@ -853,57 +591,82 @@ const formRules: FormRules = {
 
 const canRun = computed(() => Boolean(form.provider && form.repo && form.head_sha))
 const scanRunning = computed(() => scanState.value === 'queued' || scanState.value === 'running')
-const previewInfo = computed(() => normalizePreviewOutput(previewFiles.value))
-const hasPreview = computed(() => previewFiles.value.length > 0 || previewInfo.value.reviewable.length > 0 || previewInfo.value.excluded.length > 0)
+const hasPreview = computed(() => previewFiles.value.length > 0)
 
-const filteredPreviewFiles = computed(() => {
-  const files = previewInfo.value.reviewable
-  if (!previewFilter.value) return files
-  const q = previewFilter.value.toLowerCase()
-  return files.filter((f) => f.toLowerCase().includes(q))
-})
-
-const filteredExcludedFiles = computed(() => {
-  const files = previewInfo.value.excluded
-  if (!previewFilter.value) return files
-  const q = previewFilter.value.toLowerCase()
-  return files.filter((f) => f.toLowerCase().includes(q))
-})
-
-const allFindings = computed<Finding[]>(() => reviewDetail.value?.findings ?? [])
-
-const filteredFindings = computed(() => {
-  if (!severityFilter.value.length) return allFindings.value
-  return allFindings.value.filter((f) => severityFilter.value.includes(f.severity))
-})
-
-const pagedFindings = computed(() => {
-  const start = (findingsPage.value - 1) * findingsPageSize
-  return filteredFindings.value.slice(start, start + findingsPageSize)
-})
-
-const groupedFindings = computed(() => {
-  const groups: Record<string, Finding[]> = {}
-  for (const f of filteredFindings.value) {
-    const key = f.path || '(unknown)'
-    if (!groups[key]) groups[key] = []
-    groups[key].push(f)
+const statusLabel = computed(() => {
+  switch (scanState.value) {
+    case 'idle': return canRun.value ? '已配置' : '待配置'
+    case 'queued': return '排队中'
+    case 'running': return '扫描中'
+    case 'success': return '已完成'
+    case 'failed': return '扫描失败'
+    default: return ''
   }
-  return Object.entries(groups)
-    .map(([path, items]) => ({ path, items }))
-    .sort((a, b) => b.items.length - a.items.length)
 })
+
+// 预计范围：基于扫描路径条数或"全仓库"
+const scopeLabel = computed(() => {
+  const count = lines(pathsText.value).length
+  if (count > 0) return `${count} 个路径`
+  return '整个仓库'
+})
+
+const scanStats = computed(() => [
+  { icon: Connection, label: '代码平台', value: form.provider || '—', tone: 'primary' as const },
+  { icon: FolderOpened, label: '目标仓库', value: form.repo || '—', tone: 'info' as const },
+  { icon: Discount, label: '当前分支', value: branch.value || '—', tone: 'warning' as const },
+  { icon: Aim, label: '预计范围', value: scopeLabel.value, tone: 'success' as const },
+])
+
+// 质量评分着色：≥80 成功 / 60-79 警告 / <60 危险
+function scoreTone(score?: number) {
+  if (score == null) return ''
+  if (score >= 80) return 'tone-success'
+  if (score >= 60) return 'tone-warning'
+  return 'tone-danger'
+}
 
 const metrics = computed(() => {
   const detail = reviewDetail.value
   if (!detail) return []
   const ocr = detail.report?.ocr
+  const findingCount = detail.findings?.length ?? 0
+  const scoreValue = detail.report?.score?.value
   return [
-    { label: '发现问题', value: detail.findings?.length ?? 0, class: '' },
-    { label: '扫描文件', value: ocr?.files_reviewed ?? 0, class: '' },
-    { label: 'Tokens', value: formatNumber(ocr?.total_tokens), class: '' },
-    { label: '质量评分', value: detail.report?.score?.value ?? '-', class: 'score' },
+    {
+      label: '发现问题',
+      value: findingCount,
+      tone: findingCount > 0 ? 'tone-warning' : 'tone-success',
+    },
+    { label: '扫描文件', value: ocr?.files_reviewed ?? 0, tone: '' },
+    { label: 'Tokens', value: formatNumber(ocr?.total_tokens), tone: '' },
+    {
+      label: '质量评分',
+      value: scoreValue ?? '-',
+      tone: scoreTone(scoreValue),
+    },
   ]
+})
+
+// 严重级别分布：用于成功态的堆叠条
+const severityBreakdown = computed(() => {
+  const findings = reviewDetail.value?.findings ?? []
+  const total = findings.length
+  const defs = [
+    { key: 'critical', label: 'Critical' },
+    { key: 'major', label: 'Major' },
+    { key: 'minor', label: 'Minor' },
+    { key: 'info', label: 'Info' },
+  ]
+  const segments = defs.map((d) => {
+    const count = findings.filter((f) => f.severity === d.key).length
+    return {
+      ...d,
+      count,
+      percent: total > 0 ? (count / total) * 100 : 0,
+    }
+  })
+  return { total, segments }
 })
 
 function lines(value: string) {
@@ -917,13 +680,6 @@ function splitRepo(repo: string) {
 
 function formatNumber(value?: number) {
   return value ? value.toLocaleString() : '-'
-}
-
-function severityType(severity?: string) {
-  if (severity === 'critical') return 'danger'
-  if (severity === 'major') return 'warning'
-  if (severity === 'minor') return 'info'
-  return 'success'
 }
 
 function stripAnsi(value: string) {
@@ -1008,6 +764,9 @@ function restoreFormState() {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return
     const saved = JSON.parse(raw)
+    // 只有恢复出有效字段（platform/repo/branch 之一）才提示
+    const hasAny = saved.provider || saved.repo || saved.branch
+    restoredFromCache.value = Boolean(hasAny)
     form.provider = saved.provider || ''
     form.repo = saved.repo || ''
     branch.value = saved.branch || ''
@@ -1047,13 +806,26 @@ async function resumeScanSession() {
     if (!raw) return
     const session = JSON.parse(raw)
     if (!session.review_id) return
+    // 恢复前先校验 review 确实存在且仍在运行/排队，避免恢复一个已失效的 session
+    // 后陷入 404 无限重试。校验失败直接清掉残留 session。
+    const detail = await getReview(session.review_id)
+    if (!['queued', 'running'].includes(detail.status)) {
+      clearScanSession()
+      return
+    }
     activeReviewId.value = session.review_id
     scanStartTime.value = session.start_time ?? null
-    scanState.value = 'running'
+    scanState.value = detail.status as ScanState
+    reviewDetail.value = detail
+    pollStartTime = Date.now()
+    pollFailureCount = 0
     startPolling()
     startElapsedTimer()
-    await pollReview()
-  } catch { /* ignore */ }
+    await fetchSessions()
+  } catch {
+    // review 不存在或查询失败：清掉残留 session，不进入卡死的轮询。
+    clearScanSession()
+  }
 }
 
 // ===== Data Loading =====
@@ -1205,6 +977,7 @@ async function runScan(preview: boolean) {
 
 function startPolling() {
   if (pollTimer) clearTimeout(pollTimer)
+  if (!pollStartTime) pollStartTime = Date.now()
   pollTimer = setTimeout(async () => {
     await pollReview()
     if (scanState.value === 'queued' || scanState.value === 'running') {
@@ -1251,11 +1024,41 @@ async function pollReview() {
       stopElapsedTimer()
       clearScanSession()
     } else if (detail.status === 'running') {
-      scanState.value = 'running'
+      // 轮询超时保护：超过 MAX_POLL_DURATION_MS 仍 running 则放弃，避免页面卡死。
+      if (pollStartTime && Date.now() - pollStartTime > MAX_POLL_DURATION_MS) {
+        scanState.value = 'failed'
+        scanError.value = '扫描超时：任务运行时间过长，可能已停止响应。请重新发起扫描。'
+        stopPolling()
+        stopElapsedTimer()
+        clearScanSession()
+      } else {
+        scanState.value = 'running'
+      }
     }
     await fetchSessions()
   } catch (e: any) {
+    // 区分"review 不存在"（404）与"网络抖动"：
+    // - 404 说明 review 已被删除或 session 数据损坏，立即放弃，避免无限重试导致页面卡死在"扫描中"。
+    // - 其它错误（超时、5xx、网络断开）按可重试处理，连续失败超过阈值后也放弃。
+    const status = e?.response?.status || e?.statusCode
+    const isNotFound = status === 404 || /not found|404/i.test(e?.message || '')
+    if (isNotFound) {
+      scanState.value = 'failed'
+      scanError.value = '扫描任务不存在或已被删除。可能是之前的扫描记录已清理，请重新发起扫描。'
+      stopPolling()
+      stopElapsedTimer()
+      clearScanSession()
+      return
+    }
     pollFailureCount += 1
+    if (pollFailureCount >= MAX_POLL_FAILURES) {
+      scanState.value = 'failed'
+      scanError.value = '连续多次无法获取扫描进度，可能服务异常。请稍后重试。'
+      stopPolling()
+      stopElapsedTimer()
+      clearScanSession()
+      return
+    }
     if (pollFailureCount >= 2) {
       scanWarning.value = e?.message
         ? `服务连接异常，正在重试：${e.message}`
@@ -1266,6 +1069,7 @@ async function pollReview() {
 
 function stopPolling() {
   if (pollTimer) { clearTimeout(pollTimer); pollTimer = null }
+  pollStartTime = 0
 }
 
 function startElapsedTimer() {
@@ -1312,18 +1116,85 @@ function resetScan() {
   scanStartTime.value = null
   elapsedText.value = ''
   previewFiles.value = []
-  previewFilter.value = ''
   clearScanSession()
 }
 
 function clearPreview() {
   previewFiles.value = []
-  previewFilter.value = ''
+}
+
+// 清除表单回到空白（用户点击"清除重填"）
+function clearForm() {
+  form.provider = ''
+  form.repo = ''
+  form.head_sha = ''
+  form.background = ''
+  form.max_tokens_budget = 0
+  form.batch = ''
+  form.no_plan = false
+  form.no_dedup = false
+  form.no_summary = false
+  form.timeout_minutes = 60
+  branch.value = ''
+  branchTouched.value = false
+  pathsText.value = ''
+  excludeText.value = ''
+  repos.value = []
+  branches.value = []
+  restoredFromCache.value = false
+  try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
+}
+
+// 复制失败错误信息，便于反馈/排查
+async function copyError() {
+  const text = scanError.value || '未知错误'
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage.success('错误信息已复制')
+  } catch {
+    ElMessage.warning('复制失败，请手动选择文本复制')
+  }
+}
+
+// 导出当前扫描结果（复用通用 exportReport 工具）
+function exportScan(format: 'markdown' | 'json') {
+  const detail = reviewDetail.value
+  if (!detail) return
+  const report: ReviewReport = {
+    reviewId: detail.review_id,
+    provider: detail.provider,
+    repo: detail.repo,
+    status: detail.status,
+    summary: detail.summary || detail.analysis?.overview || '',
+    score: detail.report?.score?.value ?? 0,
+    grade: detail.report?.score?.grade || '',
+    createdAt: detail.created_at,
+    updatedAt: detail.updated_at,
+    findings: (detail.findings ?? []).map((f) => ({
+      severity: f.severity,
+      category: f.category || '',
+      path: f.path || '',
+      line: f.start_line ?? f.line ?? 0,
+      title: f.title,
+      body: f.body,
+      suggestion: f.suggestion_code,
+    })),
+  }
+  try {
+    exportReport(report, {
+      format,
+      includeDetails: true,
+      includeFindings: true,
+      includeSummary: true,
+    })
+    ElMessage.success(`已导出 ${format.toUpperCase()} 报告`)
+  } catch (e: any) {
+    ElMessage.error(e?.message || '导出失败')
+  }
 }
 
 watch(() => form, saveFormState, { deep: true })
 watch([branch, pathsText, excludeText], saveFormState)
-watch([severityFilter, groupByPath], () => { findingsPage.value = 1 })
 
 function onVisibilityChange() {
   if (document.visibilityState === 'visible' && scanRunning.value && !pollTimer) {
@@ -1350,75 +1221,151 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.scan-page {
-  width: min(1320px, 100%);
-  margin: 0 auto;
-  padding: 34px 36px 48px;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
+.status-pill {
+  display: inline-flex;
   align-items: center;
-  gap: 18px;
-  margin-bottom: 24px;
-}
-
-.page-header h1 {
-  margin: 0;
-  font-size: 26px;
-  color: var(--app-text);
-}
-
-.page-header p {
-  margin: 4px 0 0;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--app-bg);
   color: var(--app-muted);
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid var(--app-border);
 }
 
-.header-status .el-tag .el-icon {
-  margin-right: 4px;
+.status-pill.idle { color: var(--app-muted); }
+.status-pill.queued,
+.status-pill.running {
+  color: var(--app-primary);
+  background: #eaf1ff;
+  border-color: #cdddff;
 }
+.status-pill.success {
+  color: var(--app-success);
+  background: #e3f7ef;
+  border-color: #c3ebd9;
+}
+.status-pill.failed {
+  color: var(--app-danger);
+  background: #fdecee;
+  border-color: #f8d2d7;
+}
+
+.status-pill .is-loading {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Restore hint ===== */
+
+.restore-hint {
+  --el-alert-padding: 10px 14px;
+  margin-bottom: 16px;
+  border-radius: var(--card-radius);
+}
+
+.restore-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+/* ===== Grid / Panels ===== */
 
 .scan-grid {
   display: grid;
   grid-template-columns: minmax(380px, 440px) minmax(0, 1fr);
-  gap: 18px;
+  gap: 16px;
   align-items: start;
 }
 
-.panel {
+.panel-shell {
   border: 1px solid var(--app-border);
-  border-radius: 10px;
+  border-radius: var(--card-radius-lg);
   background: var(--app-surface);
+  box-shadow: var(--app-shadow);
 }
 
 .config-panel {
-  padding: 20px;
+  overflow: hidden;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 54px;
+  padding: 15px 20px 12px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.panel-heading strong {
+  display: block;
+  color: var(--app-text);
+  font-size: 15px;
+}
+
+.panel-heading span {
+  display: block;
+  margin-top: 2px;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.config-form {
+  padding: 18px 20px 20px;
 }
 
 .result-panel {
   padding: 20px;
-  min-height: 400px;
+  min-height: 420px;
 }
 
-/* ===== Form Cards ===== */
+/* ===== Form steps ===== */
+
+.form-step {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+.form-step + .form-step {
+  padding-top: 4px;
+}
+
+.step-index {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: var(--app-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 24px;
+  flex: 0 0 auto;
+}
 
 .form-card {
-  padding-bottom: 8px;
-  margin-bottom: 8px;
-}
-
-.form-card + .form-card {
-  padding-top: 16px;
-  border-top: 1px solid var(--app-border);
+  min-width: 0;
 }
 
 .form-card-title {
+  margin-bottom: 12px;
+  color: var(--app-text);
   font-size: 14px;
   font-weight: 700;
-  color: var(--app-text);
-  margin-bottom: 14px;
 }
 
 .branch-row {
@@ -1438,6 +1385,13 @@ onBeforeUnmount(() => {
   margin-top: 6px;
   font-size: 12px;
   color: var(--app-muted);
+}
+
+.form-tip code {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .form-tip.error-tip {
@@ -1468,6 +1422,10 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid var(--app-border);
 }
 
+.advanced-title {
+  font-size: 14px;
+}
+
 .advanced-collapse :deep(.el-collapse-item__wrap) {
   border-bottom: none;
 }
@@ -1481,154 +1439,72 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--app-border);
 }
 
-/* ===== Result: Empty / Preview ===== */
+/* ===== Result: Empty ===== */
 
 .result-empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
+  min-height: 420px;
 }
 
-.preview-section {
+.empty-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-.section-head {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.section-head h2 {
-  margin: 0;
-  font-size: 18px;
-  color: var(--app-text);
-}
-
-.section-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.preview-summary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.preview-summary.has-excluded {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.preview-stat {
-  padding: 12px;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-bg);
-}
-
-.preview-stat span,
-.preview-stat strong {
-  display: block;
-}
-
-.preview-stat span {
-  color: var(--app-muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.preview-stat strong {
-  margin-top: 4px;
-  color: var(--app-text);
-  font-size: 22px;
-}
-
-.preview-stat.primary strong {
-  color: var(--app-primary);
-}
-
-.file-list {
-  display: grid;
-  max-height: 500px;
-  overflow: auto;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-bg);
-}
-
-.file-list.empty {
-  display: block;
-}
-
-.file-row {
-  display: grid;
-  grid-template-columns: 54px minmax(0, 1fr);
-  gap: 10px;
-  align-items: center;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--app-border);
-}
-
-.file-row:last-child {
-  border-bottom: 0;
-}
-
-.file-row code {
-  overflow: hidden;
-  color: var(--app-text);
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.file-badge {
-  display: inline-flex;
-  justify-content: center;
-  width: 42px;
-  border-radius: 6px;
-  color: #0f766e;
-  background: #dff7f1;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 22px;
-}
-
-.file-badge.muted {
-  color: #7a8292;
-  background: #edf0f5;
-}
-
-.file-list-empty {
-  padding: 24px;
+  max-width: 420px;
+  padding: 32px 24px;
   text-align: center;
-  color: var(--app-muted);
 }
 
-.excluded-collapse {
-  border-top: 1px solid var(--app-border);
-  border-bottom: 0;
+.empty-icon {
+  font-size: 44px;
+  color: var(--app-primary);
+  opacity: 0.55;
+  margin-bottom: 12px;
 }
 
-.excluded-collapse :deep(.el-collapse-item__header) {
+.empty-card h3 {
+  margin: 0 0 6px;
+  color: var(--app-text);
+  font-size: 18px;
+}
+
+.empty-card p {
+  margin: 0 0 18px;
   color: var(--app-muted);
   font-size: 13px;
-  font-weight: 700;
 }
 
-.excluded-collapse :deep(.el-collapse-item__wrap) {
-  border-bottom: 0;
+.empty-steps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 14px 18px;
+  list-style: none;
+  text-align: left;
+  background: var(--app-bg);
+  border: 1px solid var(--app-border);
+  border-radius: var(--card-radius);
 }
 
-.excluded-list {
-  max-height: 260px;
+.empty-steps li {
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.empty-steps strong {
+  color: var(--app-text);
+}
+
+.step-sep {
+  margin: 0 8px;
+  color: var(--app-muted);
 }
 
 /* ===== Progress ===== */
@@ -1643,15 +1519,10 @@ onBeforeUnmount(() => {
   border-radius: 8px;
 }
 
-.progress-actions {
+.progress-toolbar {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.elapsed {
-  font-size: 13px;
-  color: var(--app-muted);
 }
 
 /* ===== Failed ===== */
@@ -1662,13 +1533,19 @@ onBeforeUnmount(() => {
   gap: 16px;
 }
 
+.failed-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .error-message {
   margin: 0;
   word-break: break-word;
   white-space: pre-wrap;
 }
 
-/* ===== Results ===== */
+/* ===== Success ===== */
 
 .scan-result {
   display: flex;
@@ -1676,35 +1553,80 @@ onBeforeUnmount(() => {
   gap: 16px;
 }
 
-.saved-alert {
-  --el-alert-padding: 12px 14px;
-}
-
-.saved-alert-body {
+.result-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 6px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--card-radius);
+  background: var(--app-bg);
 }
 
-.saved-alert-actions {
+.result-toolbar-id {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.result-toolbar-icon {
+  font-size: 22px;
+  color: var(--app-success);
+  flex: 0 0 auto;
+}
+
+.result-toolbar-id small {
+  display: block;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.result-toolbar-id code {
+  display: block;
+  color: var(--app-text);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-toolbar-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .metric-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .metric-card {
-  padding: 14px;
+  position: relative;
+  padding: 16px;
   border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-bg);
+  border-radius: var(--card-radius);
+  background: var(--app-surface);
+  overflow: hidden;
 }
+
+.metric-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--app-border);
+}
+
+.metric-card.tone-success::before { background: var(--app-success); }
+.metric-card.tone-warning::before { background: var(--app-warning); }
+.metric-card.tone-danger::before { background: var(--app-danger); }
 
 .metric-card small {
   display: block;
@@ -1714,154 +1636,118 @@ onBeforeUnmount(() => {
 }
 
 .metric-card strong {
-  font-size: 24px;
+  color: var(--app-text);
+  font-size: 26px;
+  line-height: 1;
+}
+
+.metric-card.tone-success strong { color: var(--app-success); }
+.metric-card.tone-warning strong { color: var(--app-warning); }
+.metric-card.tone-danger strong { color: var(--app-danger); }
+
+/* ===== Severity breakdown bar ===== */
+
+.severity-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.severity-bar-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.severity-bar-label span {
+  color: var(--app-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.severity-bar-label small {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.severity-bar {
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--app-bg);
+}
+
+.severity-seg {
+  height: 100%;
+  min-width: 2px;
+  transition: width 200ms ease;
+}
+
+.severity-seg.critical { background: var(--app-danger); }
+.severity-seg.major { background: var(--app-warning); }
+.severity-seg.minor { background: var(--app-primary); }
+.severity-seg.info { background: var(--app-success); }
+
+.severity-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.legend-item strong {
   color: var(--app-text);
 }
 
-.metric-card strong.score {
-  color: var(--app-primary);
+.legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--app-muted);
 }
+
+.legend-dot.critical { background: var(--app-danger); }
+.legend-dot.major { background: var(--app-warning); }
+.legend-dot.minor { background: var(--app-primary); }
+.legend-dot.info { background: var(--app-success); }
 
 .overview {
   --el-alert-padding: 12px 14px;
 }
 
-.findings-section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* Findings table */
-.finding-path {
-  color: var(--app-primary);
-  font-size: 12px;
-}
-
-.finding-body {
-  margin: 0;
-  color: var(--app-muted);
-  white-space: pre-wrap;
-  line-height: 1.6;
-}
-
-/* Finding cards (grouped view) */
-.finding-groups :deep(.el-collapse-item__header) {
-  gap: 8px;
-}
-
-.group-path {
-  font-size: 13px;
-  color: var(--app-primary);
-}
-
-.group-badge {
-  margin-left: auto;
-  margin-right: 12px;
-}
-
-.finding-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.finding-card {
-  padding: 14px;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-surface);
-}
-
-.finding-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-}
-
-.finding-line {
-  font-size: 12px;
-  color: var(--app-muted);
-  margin-left: auto;
-}
-
-.finding-code {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-@media (max-width: 720px) {
-  .finding-code {
-    grid-template-columns: 1fr;
-  }
-}
-
-.code-block small {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 11px;
-  color: var(--app-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.code-block pre {
-  margin: 0;
-  padding: 10px;
-  background: var(--app-bg);
-  border: 1px solid var(--app-border);
-  border-radius: 6px;
-  font-size: 12px;
-  line-height: 1.5;
-  overflow-x: auto;
-  max-height: 200px;
-}
-
-.pagination-wrap {
-  display: flex;
-  justify-content: center;
-  margin-top: 8px;
-}
-
-/* ===== Confirm Dialog ===== */
-
-.confirm-body p {
-  margin: 0 0 12px;
-  color: var(--app-muted);
-}
-
 /* ===== Responsive ===== */
 
-@media (max-width: 1100px) {
-  .metric-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 980px) {
-  .scan-page {
-    padding: 22px 16px 32px;
-  }
-
   .scan-grid {
     grid-template-columns: 1fr;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
   }
 
   .inline-fields {
     grid-template-columns: 1fr;
   }
+}
 
-  .preview-summary {
-    grid-template-columns: 1fr;
+@media (max-width: 560px) {
+  .result-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .result-toolbar-actions {
+    justify-content: stretch;
+  }
+
+  .result-toolbar-actions .el-button {
+    flex: 1;
   }
 }
 </style>

@@ -17,18 +17,18 @@ import (
 // NormalizedPayload 是 webhook 原始 payload 的解析中间结构。
 // 5 个平台 normalizer 都先解析出 NormalizedPayload，再做平台特定字段映射。
 type NormalizedPayload struct {
-	Raw           map[string]any
-	SenderLogin   string
-	SenderName    string
-	Action        string
-	Repository    string
-	RepositoryID  string
-	Number        int
-	BaseSHA       string
-	HeadSHA       string
-	StartSHA      string
+	Raw            map[string]any
+	SenderLogin    string
+	SenderName     string
+	Action         string
+	Repository     string
+	RepositoryID   string
+	Number         int
+	BaseSHA        string
+	HeadSHA        string
+	StartSHA       string
 	PullRequestURL string
-	IsDraft       bool
+	IsDraft        bool
 }
 
 // ParseNormalizedPayload 把 raw body 解析为 NormalizedPayload。

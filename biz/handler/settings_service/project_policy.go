@@ -118,6 +118,7 @@ func dbProjectPolicyToAPI(p *projectpolicy.ProjectPolicy) *modelSettings.Project
 		OcrTelemetryExporter:       common.StrPtr(p.OCRTelemetryExporter),
 		OcrTelemetryOtlpEndpoint:   common.StrPtr(p.OCRTelemetryOTLPEndpoint),
 		OcrTelemetryContentLogging: ptrx.Of(p.OCRTelemetryContentLogging),
+		RulePackageIDs:             rulePackageIDsToAPI(p.RulePackageIDs),
 	}
 }
 
@@ -154,6 +155,13 @@ func apiProjectPolicyToDB(p *modelSettings.ProjectPolicy) *projectpolicy.Project
 	}
 	if p.IsSetRules() && p.Rules != nil && *p.Rules != "" {
 		db.Rules = json.RawMessage(*p.Rules)
+	}
+	if len(p.RulePackageIDs) > 0 {
+		ids := make([]uint, 0, len(p.RulePackageIDs))
+		for _, id := range p.RulePackageIDs {
+			ids = append(ids, uint(id))
+		}
+		db.RulePackageIDs = json.RawMessage(mustMarshalJSON(ids))
 	}
 	return db
 }

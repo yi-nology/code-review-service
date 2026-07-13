@@ -1,8 +1,9 @@
 import request from './request'
 import type {
   ReviewDetail, ListResult, ListOptions, CreateReviewOptions, FindingFeedback,
-  ModelCompareCandidate, ModelCompareResult, PublishStatus, ScanRepositoryOptions, ScanRepositoryResult, SuggestionPatchApplyResult, SuggestionPatchCheck, SuggestionPatchPreview,
+  PublishStatus, ScanRepositoryOptions, ScanRepositoryResult, SuggestionPatchApplyResult, SuggestionPatchCheck, SuggestionPatchPreview,
 } from '@/types/review'
+import { DEAD_LETTER_THRESHOLD } from '@/constants/review'
 
 export async function getReviews(params: ListOptions): Promise<ListResult> {
   return request.get('/reviews', { params }) as any
@@ -51,6 +52,14 @@ export async function cancelReview(id: string): Promise<ReviewDetail> {
 export async function rerunReview(id: string): Promise<ReviewDetail> {
   const res: any = await request.post(`/reviews/${id}/rerun`)
   return res?.review ?? res
+}
+
+/**
+ * 死信重排队：把因重试次数耗尽（retry_count >= DEAD_LETTER_THRESHOLD）而 failed 的评审重新入队。
+ * 仅对死信评审生效，后端会校验条件，非死信评审返回 404。
+ */
+export async function requeueReview(id: string): Promise<{ ok: boolean; review_id: string }> {
+  return request.post(`/reviews/${id}/requeue`) as any
 }
 
 export async function previewComment(reviewId: string, mode?: 'team'): Promise<{
@@ -134,10 +143,6 @@ export async function applySuggestionPatch(reviewId: string, options: {
   }, { timeout: 300000 }) as any
 }
 
-export async function compareReviewModels(reviewId: string, candidates: ModelCompareCandidate[]): Promise<ModelCompareResult> {
-  return request.post(`/reviews/${reviewId}/model-compare`, { candidates }, { timeout: 900000 }) as any
-}
-
 export async function getFindingFeedback(reviewId: string): Promise<FindingFeedback[]> {
   const data: any = await request.get(`/reviews/${reviewId}/findings/feedback`)
   return data?.items ?? []
@@ -146,6 +151,18 @@ export async function getFindingFeedback(reviewId: string): Promise<FindingFeedb
 export async function saveFindingFeedback(reviewId: string, index: number, data: {
   status: string
   note?: string
+  fingerprint?: string
 }): Promise<FindingFeedback> {
   return request.post(`/reviews/${reviewId}/findings/${index}/feedback`, data) as any
+}
+
+/**
+ * 按指纹批量查询历史反馈，用于跨 review 误报抑制。
+ * 返回这些指纹所有历史反馈记录（含 false_positive/fixed 等）。
+ * 前端可据此标注"该问题曾被标记为误报"。
+ */
+export async function lookupFeedbackByFingerprints(fingerprints: string[]): Promise<FindingFeedback[]> {
+  if (fingerprints.length === 0) return []
+  const data: any = await request.post('/findings/feedback/lookup', { fingerprints })
+  return data?.items ?? []
 }

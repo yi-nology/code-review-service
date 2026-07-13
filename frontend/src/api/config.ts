@@ -2,7 +2,7 @@ import request from './request'
 import type {
   OCRSettings, ProjectPolicy, ProjectPolicyList, GitPlatform, GitPlatformList,
   GitTestResult, GlobalRules, TestLLMResult, PlatformRepo, PlatformBranch,
-  PlatformPullRequest, ReviewerAgent, LLMProvider, CustomProvider,
+  PlatformPullRequest, ReviewerAgent, LLMProvider,
   RulesCheckResult, OCRVersion, ViewerStatus, OCRAssetVersion, OCRRulePackage, OCRToolPackage,
   OCRUpdateInfo, OCRUpgradeStatus, ViewerSessionLocation
 } from '@/types/config'
@@ -72,45 +72,6 @@ export async function listLLMProviders(): Promise<LLMProvider[]> {
   return resp?.built_in ?? []
 }
 
-// ==================== Custom Providers ====================
-
-export async function listCustomProviders(): Promise<CustomProvider[]> {
-  const resp: any = await request.get('/settings/ocr/custom-providers')
-  return resp?.items ?? []
-}
-
-export async function createCustomProvider(data: {
-  name: string
-  protocol: string
-  url?: string
-  api_key?: string
-  model?: string
-  auth_header?: string
-  extra_body?: string
-  enabled?: boolean
-}): Promise<CustomProvider> {
-  const resp: any = await request.post('/settings/ocr/custom-providers', data)
-  return resp?.provider ?? resp
-}
-
-export async function updateCustomProvider(id: number, data: {
-  name?: string
-  protocol?: string
-  url?: string
-  api_key?: string
-  model?: string
-  auth_header?: string
-  extra_body?: string
-  enabled?: boolean
-}): Promise<CustomProvider> {
-  const resp: any = await request.put(`/settings/ocr/custom-providers/${id}`, data)
-  return resp?.provider ?? resp
-}
-
-export async function deleteCustomProvider(id: number): Promise<void> {
-  return request.delete(`/settings/ocr/custom-providers/${id}`) as any
-}
-
 // ==================== Rules Check ====================
 
 export async function rulesCheck(path: string): Promise<RulesCheckResult> {
@@ -121,7 +82,9 @@ export async function rulesCheck(path: string): Promise<RulesCheckResult> {
 // ==================== OCR Version ====================
 
 export async function getOCRVersion(): Promise<OCRVersion> {
-  return request.get('/settings/ocr/version') as any
+  // 后端会 exec `ocr --version` 子进程（已加 15s 服务端超时），给足往返余量。
+  // 元信息接口，失败由调用方静默处理，不弹全局错误 toast。
+  return request.get('/settings/ocr/version', { timeout: 35000, __silent: true }) as any
 }
 
 // ==================== OCR Upgrade ====================
@@ -300,8 +263,10 @@ export async function saveGitPlatform(data: GitPlatform): Promise<GitPlatform> {
   return request.put('/settings/platforms', data) as any
 }
 
-export async function deleteGitPlatform(provider: string): Promise<void> {
-  return request.delete('/settings/platforms', { params: { provider } }) as any
+export async function deleteGitPlatform(provider: string, installationID?: string): Promise<void> {
+  const params: Record<string, string> = { provider }
+  if (installationID) params.installation_id = installationID
+  return request.delete('/settings/platforms', { params }) as any
 }
 
 export async function testGitPlatform(data: {
@@ -350,6 +315,8 @@ export async function createReviewerAgent(data: {
   is_default?: boolean
   priority?: number
   tags?: string[]
+  rule_file?: string
+  rule_package_ids?: number[]
 }): Promise<ReviewerAgent> {
   const resp: any = await request.post('/settings/agents', data)
   return parseReviewerAgent(resp?.agent)
@@ -363,6 +330,8 @@ export async function updateReviewerAgent(id: number, data: {
   is_default?: boolean
   priority?: number
   tags?: string[]
+  rule_file?: string
+  rule_package_ids?: number[]
 }): Promise<ReviewerAgent> {
   const resp: any = await request.put(`/settings/agents/${id}`, data)
   return parseReviewerAgent(resp?.agent)

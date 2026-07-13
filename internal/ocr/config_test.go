@@ -15,12 +15,12 @@ func TestBuildConfig_PriorityOrder(t *testing.T) {
 		AuthToken:       "settings-token",
 	}
 	overrides := OCROverrides{
-		URL:    "https://override.example.com",
-		Model:  "override-model",
+		URL:   "https://override.example.com",
+		Model: "override-model",
 	}
 	fallback := Fallback{
 		Binary:          "from-fallback",
-		Audience:        "human",
+		Audience:        "agent",
 		DefaultSeverity: "minor",
 	}
 
@@ -38,7 +38,7 @@ func TestBuildConfig_PriorityOrder(t *testing.T) {
 	if cfg.AuthToken != "settings-token" {
 		t.Errorf("expected AuthToken from settings (no override), got %q", cfg.AuthToken)
 	}
-	if cfg.Audience != "human" {
+	if cfg.Audience != "agent" {
 		t.Errorf("expected Audience from fallback, got %q", cfg.Audience)
 	}
 }
@@ -49,8 +49,8 @@ func TestBuildConfig_DefaultsWhenNothing(t *testing.T) {
 	if cfg.Binary != "ocr" {
 		t.Errorf("expected default Binary=ocr, got %q", cfg.Binary)
 	}
-	if cfg.Audience != "human" {
-		t.Errorf("expected default Audience=human, got %q", cfg.Audience)
+	if cfg.Audience != "agent" {
+		t.Errorf("expected default Audience=agent, got %q", cfg.Audience)
 	}
 	if cfg.DefaultSeverity != "major" {
 		t.Errorf("expected default DefaultSeverity=major, got %q", cfg.DefaultSeverity)
@@ -63,6 +63,23 @@ func TestBuildConfig_DefaultsWhenNothing(t *testing.T) {
 	}
 	if cfg.MaxGitProcs != 4 {
 		t.Errorf("expected default MaxGitProcs=4, got %d", cfg.MaxGitProcs)
+	}
+}
+
+func TestBuildConfig_McpServersFromSettings(t *testing.T) {
+	// McpServers 是 settings-only（无 override 层），应从 settings 贯通到 Config。
+	settings := &SettingsData{
+		McpServers: `{"docs":{"command":"npx"}}`,
+	}
+	cfg := BuildConfig(settings, OCROverrides{}, Defaults(), nil)
+	if cfg.McpServers != `{"docs":{"command":"npx"}}` {
+		t.Errorf("expected McpServers from settings, got %q", cfg.McpServers)
+	}
+
+	// settings 为空时 Config.McpServers 也为空。
+	cfg2 := BuildConfig(&SettingsData{}, OCROverrides{}, Defaults(), nil)
+	if cfg2.McpServers != "" {
+		t.Errorf("expected empty McpServers, got %q", cfg2.McpServers)
 	}
 }
 
@@ -98,11 +115,11 @@ func TestConfig_Validate(t *testing.T) {
 
 func TestConfig_AppendEnv(t *testing.T) {
 	cfg := Config{
-		URL:        "https://api.example.com",
-		Model:      "gpt-4",
-		AuthToken:  "secret",
-		Language:   "go",
-		UseAnthropic: true,
+		URL:           "https://api.example.com",
+		Model:         "gpt-4",
+		AuthToken:     "secret",
+		Language:      "go",
+		UseAnthropic:  true,
 		ContextWindow: 100000,
 	}
 	env := cfg.AppendEnv([]string{"PATH=/usr/bin"})

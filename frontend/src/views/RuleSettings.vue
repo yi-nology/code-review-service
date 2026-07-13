@@ -1,13 +1,12 @@
 <template>
   <AppLayout>
-    <div class="rule-settings-page">
-      <header class="page-header">
-        <div>
-          <div class="eyebrow">REVIEW RULES</div>
-          <h1>审查规则</h1>
-          <p>全局规则会合并到每一次模型审查中；项目策略里的规则会与这里的规则一起生效。</p>
-        </div>
-        <div class="header-actions">
+    <PageShell>
+      <PageHeader
+        eyebrow="REVIEW RULES"
+        title="审查规则"
+        description="这里是规则集的统一维护入口。标为「全局」的规则集始终合并到每次审查；其余规则集可被审查员（「审查员」页）或项目（「项目策略」页）引用。项目策略里的内联规则也会叠加生效。"
+      >
+        <template #actions>
           <el-button plain @click="fetchGlobalRules" :loading="globalLoading">
             <el-icon><Refresh /></el-icon>
             刷新
@@ -18,23 +17,10 @@
           <el-button type="primary" @click="saveGlobalRules" :loading="globalSaving" :disabled="hasBlockingIssues">
             保存规则
           </el-button>
-        </div>
-      </header>
+        </template>
+      </PageHeader>
 
-      <section class="summary-grid">
-        <div class="summary-card">
-          <span>规则总数</span>
-          <strong>{{ normalizedRules.length }}</strong>
-        </div>
-        <div class="summary-card">
-          <span>覆盖路径</span>
-          <strong>{{ coveredPathCount }}</strong>
-        </div>
-        <div class="summary-card warning" :class="{ active: validationIssues.length > 0 }">
-          <span>待处理问题</span>
-          <strong>{{ validationIssues.length }}</strong>
-        </div>
-      </section>
+      <StatStrip :items="ruleStats" />
 
       <div class="content-grid">
         <el-card class="rules-card" v-loading="globalLoading">
@@ -69,7 +55,10 @@
                 class="package-item"
               >
                 <button type="button" class="package-main" @click="applyRulePackage(pkg)">
-                  <span>{{ pkg.name }}</span>
+                  <span>
+                    {{ pkg.name }}
+                    <el-tag v-if="(pkg.scope || 'project') === 'global'" size="small" type="warning" effect="plain" class="scope-tag">全局</el-tag>
+                  </span>
                   <small>{{ pkg.description || (pkg.rules.length + ' 条规则') }}</small>
                   <em>{{ pkg.built_in ? '内置' : '自定义' }} · {{ pkg.enabled ? '启用' : '停用' }}</em>
                 </button>
@@ -82,20 +71,72 @@
               </div>
             </div>
             <el-divider v-if="rulePackages.length" />
+
+            <!-- 推荐规则包（前端预制模板，可一键应用或创建为自定义包） -->
             <div class="card-header compact">
-              <strong>快速模板</strong>
+              <strong>推荐规则包</strong>
+              <small>按语言/场景预置，一键应用或保存</small>
             </div>
-            <div class="template-list">
-              <button
-                v-for="template in ruleTemplates"
-                :key="template.name"
-                class="template-item"
-                type="button"
-                @click="applyTemplate(template)"
+            <div class="preset-package-list">
+              <div
+                v-for="tpl in rulePackageTemplates"
+                :key="tpl.name"
+                class="preset-package-item"
               >
-                <span>{{ template.name }}</span>
-                <small>{{ template.path }}</small>
-              </button>
+                <div class="preset-package-main">
+                  <div class="preset-package-head">
+                    <span class="preset-package-name">{{ tpl.name }}</span>
+                    <el-tag
+                      v-for="lang in tpl.languages.slice(0, 3)"
+                      :key="lang"
+                      size="small"
+                      effect="plain"
+                      class="lang-tag"
+                    >{{ lang }}</el-tag>
+                  </div>
+                  <small class="preset-package-desc">{{ tpl.description }}</small>
+                  <div class="preset-package-meta">
+                    <em>{{ tpl.rules.length }} 条规则</em>
+                    <span v-if="tpl.includes.length" class="incl-text">{{ tpl.includes.join(' · ') }}</span>
+                  </div>
+                </div>
+                <div class="preset-package-actions">
+                  <el-button size="small" type="primary" plain @click="applyPresetPackage(tpl)">应用</el-button>
+                  <el-button size="small" text @click="createPackageFromTemplate(tpl)">保存为包</el-button>
+                </div>
+              </div>
+            </div>
+            <el-divider />
+            <div class="card-header compact">
+              <strong>语言规则模板</strong>
+              <small>一键加入对应语言的审查规则</small>
+            </div>
+            <div class="template-groups">
+              <div v-for="group in ruleTemplateGroups" :key="group.category" class="template-group">
+                <button
+                  type="button"
+                  class="group-header"
+                  :class="{ expanded: expandedGroups.has(group.category) }"
+                  @click="toggleGroup(group.category)"
+                >
+                  <el-icon class="group-caret"><ArrowRight /></el-icon>
+                  <span class="group-label">{{ group.label }}</span>
+                  <em class="group-count">{{ group.templates.length }}</em>
+                </button>
+                <div v-show="expandedGroups.has(group.category)" class="group-templates">
+                  <button
+                    v-for="template in group.templates"
+                    :key="template.name"
+                    class="template-item"
+                    type="button"
+                    @click="applyTemplate(template)"
+                  >
+                    <span class="template-add"><el-icon><Plus /></el-icon></span>
+                    <span class="template-name">{{ template.name }}</span>
+                    <small class="template-path">{{ template.path }}</small>
+                  </button>
+                </div>
+              </div>
             </div>
           </el-card>
 
@@ -161,6 +202,12 @@
           <el-form-item label="描述">
             <el-input v-model="rulePackageForm.description" type="textarea" :rows="2" placeholder="这个规则包适合什么项目、解决什么问题" />
           </el-form-item>
+          <el-form-item label="作用范围">
+            <el-radio-group v-model="rulePackageForm.scope">
+              <el-radio value="project">可引用（默认，需被审查员/项目引用或 project_refs 匹配）</el-radio>
+              <el-radio value="global">全局（始终合并到每次审查）</el-radio>
+            </el-radio-group>
+          </el-form-item>
           <div class="dialog-grid two">
             <el-form-item label="语言">
               <el-input v-model="rulePackageForm.languagesText" placeholder="java, go, vue" />
@@ -219,7 +266,7 @@
           <el-empty v-if="!rulePackageVersions.length" description="暂无历史版本" :image-size="56" />
         </div>
       </el-dialog>
-    </div>
+    </PageShell>
   </AppLayout>
 </template>
 
@@ -227,9 +274,14 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
-import { CircleCheckFilled, Refresh } from '@element-plus/icons-vue'
+import { CircleCheckFilled, Plus, Refresh, ArrowRight, Files, FolderOpened, WarningFilled } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import StatStrip from '@/components/common/StatStrip.vue'
 import RuleEditor from '@/components/RuleEditor.vue'
+import { ruleTemplateGroups, ruleTemplates, rulePackageTemplates } from '@/constants/rule-templates'
+import type { RuleTemplate, RulePackageTemplate } from '@/constants/rule-templates'
 import {
   deleteRulePackage,
   getGlobalRules,
@@ -241,36 +293,6 @@ import {
   updateGlobalRules,
 } from '@/api/config'
 import type { OCRAssetVersion, OCRRulePackage, ReviewRule, RulesCheckResult } from '@/types/config'
-
-type RuleTemplate = ReviewRule & { name: string }
-
-const ruleTemplates: RuleTemplate[] = [
-  {
-    name: '通用安全检查',
-    path: '**/*',
-    rule: '重点检查鉴权绕过、越权访问、敏感信息泄露、未校验输入、SQL/命令注入和不安全的默认配置。',
-  },
-  {
-    name: 'Go 后端服务',
-    path: '**/*.go',
-    rule: '重点检查 context 传递、错误处理、并发安全、事务边界、资源释放、panic 风险和日志中的敏感信息。',
-  },
-  {
-    name: '前端交互',
-    path: '**/*.{vue,ts,tsx,js,jsx}',
-    rule: '重点检查接口错误处理、加载/空状态、权限态、表单校验、响应式布局和用户操作后的反馈。',
-  },
-  {
-    name: '数据库变更',
-    path: '**/*.{sql,go}',
-    rule: '重点检查迁移兼容性、索引缺失、N+1 查询、事务一致性、软删除条件和分页查询性能。',
-  },
-  {
-    name: '测试质量',
-    path: '**/*_test.go',
-    rule: '重点检查断言是否覆盖关键分支、边界条件、失败路径、并发行为和外部依赖隔离。',
-  },
-]
 
 const globalRules = ref<ReviewRule[]>([])
 const rulePackages = ref<OCRRulePackage[]>([])
@@ -289,6 +311,15 @@ const rulePackageHistoryRestoring = ref(false)
 const historyRulePackage = ref<OCRRulePackage | null>(null)
 const rulePackageVersions = ref<OCRAssetVersion<OCRRulePackage>[]>([])
 
+// 语言模板分组折叠状态：默认展开「通用」组，其余点击展开。
+const expandedGroups = ref<Set<string>>(new Set(['common']))
+function toggleGroup(category: string) {
+  const next = new Set(expandedGroups.value)
+  if (next.has(category)) next.delete(category)
+  else next.add(category)
+  expandedGroups.value = next
+}
+
 const normalizedRules = computed(() => {
   return globalRules.value
     .map((rule) => ({
@@ -301,6 +332,12 @@ const normalizedRules = computed(() => {
 const previewJson = computed(() => JSON.stringify({ rules: normalizedRules.value }, null, 2))
 const dirty = computed(() => JSON.stringify(normalizedRules.value) !== originalJson.value)
 const coveredPathCount = computed(() => new Set(normalizedRules.value.map((rule) => rule.path)).size)
+
+const ruleStats = computed(() => [
+  { icon: Files, label: '规则总数', value: normalizedRules.value.length, tone: 'primary' as const },
+  { icon: FolderOpened, label: '覆盖路径', value: coveredPathCount.value, tone: 'info' as const },
+  { icon: WarningFilled, label: '待处理问题', value: validationIssues.value.length, tone: validationIssues.value.length > 0 ? ('danger' as const) : ('success' as const) },
+])
 
 const validationIssues = computed(() => {
   const issues: string[] = []
@@ -330,6 +367,7 @@ const rulePackageForm = ref({
   name: '',
   description: '',
   enabled: true,
+  scope: 'project' as 'global' | 'project',
   languagesText: '',
   tagsText: '',
   includesText: '',
@@ -399,12 +437,50 @@ function applyRulePackage(pkg: OCRRulePackage) {
   ElMessage.success(`已加入 ${next.length} 条规则：${pkg.name}`)
 }
 
+// 推荐规则包：把预制模板的规则去重后加入全局规则库（不校验 enabled，模板本身就是推荐）。
+function applyPresetPackage(tpl: RulePackageTemplate) {
+  const existing = new Set(normalizedRules.value.map((rule) => `${rule.path}::${rule.rule}`))
+  const next = tpl.rules
+    .map((rule) => ({ path: normalizePath(rule.path || ''), rule: rule.rule || '' }))
+    .filter((rule) => {
+      const key = `${rule.path}::${rule.rule}`
+      if (existing.has(key)) return false
+      existing.add(key)
+      return true
+    })
+  if (!next.length) {
+    ElMessage.info('该规则包的规则已经全部存在')
+    return
+  }
+  globalRules.value.push(...next)
+  ElMessage.success(`已加入 ${next.length} 条规则：${tpl.name}`)
+}
+
+// 推荐规则包：用模板数据填充"新建规则包"对话框，用户可调整后保存为自定义包。
+function createPackageFromTemplate(tpl: RulePackageTemplate) {
+  editingRulePackageID.value = undefined
+  rulePackageForm.value = {
+    name: tpl.name,
+    description: tpl.description,
+    enabled: true,
+    scope: 'project',
+    languagesText: tpl.languages.join(', '),
+    tagsText: tpl.tags.join(', '),
+    includesText: tpl.includes.join('\n'),
+    excludesText: tpl.excludes.join('\n'),
+    projectRefsText: '',
+    rules: tpl.rules.map((rule) => ({ ...rule })),
+  }
+  rulePackageDialog.value = true
+}
+
 function openNewRulePackage() {
   editingRulePackageID.value = undefined
   rulePackageForm.value = {
     name: '',
     description: '',
     enabled: true,
+    scope: 'project',
     languagesText: '',
     tagsText: '',
     includesText: '',
@@ -421,6 +497,7 @@ function editRulePackage(pkg: OCRRulePackage) {
     name: pkg.built_in ? `${pkg.name} 副本` : pkg.name,
     description: pkg.description || '',
     enabled: pkg.enabled,
+    scope: pkg.scope || 'project',
     languagesText: (pkg.languages || []).join(', '),
     tagsText: (pkg.tags || []).join(', '),
     includesText: (pkg.includes || []).join('\n'),
@@ -519,6 +596,7 @@ async function saveRulePackageForm() {
       name: form.name.trim(),
       description: form.description.trim(),
       enabled: form.enabled,
+      scope: form.scope,
       languages: splitInline(form.languagesText),
       tags: splitInline(form.tagsText),
       includes: splitLines(form.includesText),
@@ -565,80 +643,10 @@ onMounted(fetchGlobalRules)
 </script>
 
 <style scoped>
-.rule-settings-page {
-  width: min(1320px, 100%);
-  margin: 0 auto;
-  padding: 34px 36px 48px;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 22px;
-}
-
-.page-header h1 {
-  margin: 4px 0 8px;
-  color: var(--app-text);
-  font-size: 30px;
-  letter-spacing: -0.6px;
-}
-
-.page-header p {
-  max-width: 680px;
-  margin: 0;
-  color: var(--app-muted);
-  font-size: 14px;
-  line-height: 1.7;
-}
-
-.eyebrow {
-  color: var(--app-primary);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.4px;
-}
-
-.header-actions {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 10px;
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
-}
-
-.summary-card {
-  min-height: 92px;
-  padding: 18px 20px;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-surface);
-}
-
-.summary-card span,
 .card-header span {
   display: block;
   color: var(--app-muted);
   font-size: 12px;
-}
-
-.summary-card strong {
-  display: block;
-  margin-top: 8px;
-  color: var(--app-text);
-  font-size: 28px;
-  line-height: 1;
-}
-
-.summary-card.warning.active strong {
-  color: var(--app-danger);
 }
 
 .content-grid {
@@ -683,6 +691,118 @@ onMounted(fetchGlobalRules)
 .template-list {
   display: grid;
   gap: 8px;
+}
+
+/* 语言模板分组 */
+.template-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.template-group {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #f5f7fa;
+  color: var(--app-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.group-header:hover {
+  background: #eef2f7;
+}
+
+.group-caret {
+  color: var(--app-muted);
+  font-size: 12px;
+  transition: transform 160ms ease;
+}
+
+.group-header.expanded .group-caret {
+  transform: rotate(90deg);
+}
+
+.group-label {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.group-count {
+  padding: 1px 7px;
+  border-radius: 8px;
+  background: #e4e7ed;
+  color: var(--app-muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.group-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 4px 8px 10px;
+}
+
+.template-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid #edf0f5;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--app-text);
+  text-align: left;
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.template-item:hover {
+  border-color: #c7d2fe;
+  background: #f5f7ff;
+}
+
+.template-add {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+}
+
+.template-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.template-path {
+  flex-shrink: 0;
+  color: var(--app-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
 }
 
 .package-list {
@@ -736,8 +856,17 @@ onMounted(fetchGlobalRules)
 }
 
 .package-item span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
   font-size: 13px;
   font-weight: 800;
+}
+
+.scope-tag {
+  flex-shrink: 0;
+  font-weight: 400;
 }
 
 .package-item small {
@@ -759,6 +888,84 @@ onMounted(fetchGlobalRules)
   gap: 2px;
 }
 
+/* 推荐规则包（前端预制模板） */
+.preset-package-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preset-package-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e6ebf2;
+  border-radius: var(--card-radius);
+  background: linear-gradient(135deg, #fafffefb 0%, #fff 100%);
+}
+
+.preset-package-item:hover {
+  border-color: #9db1ff;
+}
+
+.preset-package-main {
+  min-width: 0;
+}
+
+.preset-package-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.preset-package-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--app-text);
+}
+
+.lang-tag {
+  flex-shrink: 0;
+}
+
+.preset-package-desc {
+  display: block;
+  margin-top: 5px;
+  color: var(--app-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.preset-package-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.preset-package-meta em {
+  color: var(--app-primary);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.incl-text {
+  color: var(--app-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+}
+
+.preset-package-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 .dialog-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 120px;
@@ -767,28 +974,6 @@ onMounted(fetchGlobalRules)
 
 .dialog-grid.two {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.template-item:hover {
-  border-color: #cfd3ff;
-  background: #fbfbff;
-}
-
-.template-item span,
-.template-item small {
-  display: block;
-}
-
-.template-item span {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.template-item small {
-  margin-top: 3px;
-  color: var(--app-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
 }
 
 .check-ok {
@@ -888,26 +1073,6 @@ onMounted(fetchGlobalRules)
 }
 
 @media (max-width: 720px) {
-  .rule-settings-page {
-    padding: 22px 14px 36px;
-  }
-
-  .page-header {
-    display: block;
-  }
-
-  .page-header h1 {
-    font-size: 24px;
-  }
-
-  .header-actions {
-    margin-top: 16px;
-  }
-
-  .summary-grid {
-    grid-template-columns: 1fr;
-  }
-
   .package-item,
   .dialog-grid,
   .dialog-grid.two {
