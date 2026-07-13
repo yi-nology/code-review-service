@@ -1,22 +1,21 @@
 <template>
   <AppLayout>
-    <div class="detail-page" v-loading="loading">
-      <!-- 页头 -->
-      <header class="page-header">
+    <PageShell>
+      <div v-loading="loading" class="detail-content">
         <el-button class="back-button" circle plain aria-label="返回审查列表" @click="router.push('/reviews')">
           <el-icon><ArrowLeft /></el-icon>
         </el-button>
-        <div class="header-title">
-          <div class="eyebrow">REVIEW REPORT</div>
-          <h1>{{ detail?.repo || '审查详情' }}</h1>
-          <p v-if="detail">{{ getProviderLabel(detail.provider) }} · {{ detail.review_id }}</p>
-        </div>
-        <div class="header-actions">
-          <el-button class="debug-toggle-btn" :type="debugMode ? 'warning' : 'default'" plain size="small" @click="toggleDebugMode">
-            {{ debugMode ? 'Debug ON' : 'Debug' }}
-          </el-button>
-        </div>
-      </header>
+        <PageHeader
+          eyebrow="REVIEW REPORT"
+          :title="detail?.repo || '审查详情'"
+          :description="detail ? `${getProviderLabel(detail.provider)} · ${detail.review_id}` : undefined"
+        >
+          <template #actions>
+            <el-button class="debug-toggle-btn" :type="debugMode ? 'warning' : 'default'" plain size="small" @click="toggleDebugMode">
+              {{ debugMode ? 'Debug ON' : 'Debug' }}
+            </el-button>
+          </template>
+        </PageHeader>
 
       <template v-if="detail">
         <!-- 失败告警 -->
@@ -73,7 +72,8 @@
       <el-empty v-else-if="!loading" description="未找到这条审查记录">
         <el-button type="primary" @click="router.push('/reviews')">返回审查列表</el-button>
       </el-empty>
-    </div>
+      </div>
+    </PageShell>
   </AppLayout>
 </template>
 
@@ -82,6 +82,8 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 import ProgressTracker from '@/components/ProgressTracker.vue'
 import ReviewSummarySidebar from '@/components/review-detail/ReviewSummarySidebar.vue'
 import ReviewContentArea from '@/components/review-detail/ReviewContentArea.vue'
@@ -216,45 +218,7 @@ function schedulePolling() {
 </script>
 
 <style scoped>
-.detail-page {
-  width: min(1440px, 100%);
-  margin: 0 auto;
-  padding: 24px 28px 48px;
-}
-
-/* 页头 */
-.page-header {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 20px;
-}
-.header-title { min-width: 0; flex: 1; }
-.page-header h1 {
-  margin: 2px 0 3px;
-  overflow: hidden;
-  color: var(--app-text);
-  font-size: 24px;
-  letter-spacing: -0.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.page-header p {
-  margin: 0;
-  overflow: hidden;
-  color: #929aab;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.eyebrow {
-  color: var(--app-primary);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1.3px;
-}
-.back-button { flex: 0 0 auto; }
+.back-button { flex: 0 0 auto; margin-bottom: 12px; }
 
 /* 失败告警 */
 .failure-alert { margin-bottom: 18px; }

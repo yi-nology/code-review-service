@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { Document, FolderOpened } from '@element-plus/icons-vue'
 
 const props = defineProps<{
   files: string[]
@@ -69,12 +70,23 @@ const filteredExcluded = computed(() => {
 <template>
   <div class="preview-section">
     <div class="section-head">
-      <h2>文件预览</h2>
+      <div class="section-title">
+        <el-icon class="section-icon"><FolderOpened /></el-icon>
+        <h2>文件预览</h2>
+        <span class="section-count">{{ previewInfo.reviewable.length }} 个文件待审查</span>
+      </div>
       <div class="section-actions">
-        <el-input v-model="previewFilter" size="small" placeholder="搜索文件…" style="width: 200px" clearable />
+        <el-input
+          v-model="previewFilter"
+          size="small"
+          placeholder="搜索文件…"
+          style="width: 200px"
+          clearable
+        />
         <el-button text type="primary" @click="emit('clear')">清空</el-button>
       </div>
     </div>
+
     <div class="preview-summary" :class="{ 'has-excluded': previewInfo.excluded.length > 0 }">
       <div class="preview-stat">
         <span>总变更</span>
@@ -89,13 +101,17 @@ const filteredExcluded = computed(() => {
         <strong>{{ previewInfo.excluded.length }}</strong>
       </div>
     </div>
+
     <div class="file-list" :class="{ empty: filteredReviewable.length === 0 }">
       <div v-for="file in filteredReviewable" :key="file" class="file-row">
-        <span class="file-badge">审查</span>
+        <span class="file-badge"><el-icon><Document /></el-icon></span>
         <code>{{ file }}</code>
       </div>
-      <div v-if="filteredReviewable.length === 0" class="file-list-empty">没有匹配的可审查文件</div>
+      <div v-if="filteredReviewable.length === 0" class="file-list-empty">
+        没有匹配的可审查文件
+      </div>
     </div>
+
     <el-collapse v-if="filteredExcluded.length" class="excluded-collapse">
       <el-collapse-item :title="`已排除文件 (${filteredExcluded.length})`" name="excluded">
         <div class="file-list excluded-list">
@@ -111,98 +127,177 @@ const filteredExcluded = computed(() => {
 
 <style scoped>
 .preview-section {
-  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
+
 .section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  gap: 12px;
 }
-.section-head h2 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1f2937;
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-icon {
+  color: var(--app-primary);
+}
+
+.section-title h2 {
   margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--app-text);
 }
+
+.section-count {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
 .section-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
+
 .preview-summary {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 12px;
-  padding: 12px 16px;
-  background: #f9fafb;
-  border-radius: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  background: var(--app-border);
 }
+
+.preview-summary.has-excluded {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .preview-stat {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  padding: 12px 16px;
+  background: var(--app-surface);
 }
+
 .preview-stat span {
-  font-size: 11px;
-  color: #6b7280;
+  display: block;
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 700;
 }
+
 .preview-stat strong {
-  font-size: 18px;
-  color: #1f2937;
+  display: block;
+  color: var(--app-text);
+  font-size: 22px;
+  line-height: 1;
 }
+
 .preview-stat.primary strong {
-  color: #4f46e5;
+  color: var(--app-primary);
 }
+
 .file-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-height: 280px;
+  max-height: 320px;
   overflow-y: auto;
-  padding: 4px 0;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  background: var(--app-bg);
 }
+
 .file-list.empty {
-  display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 60px;
+  min-height: 80px;
 }
+
 .file-list-empty {
-  color: #9ca3af;
+  color: var(--app-muted);
   font-size: 13px;
 }
+
 .file-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 10px;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--app-border);
+  transition: background 140ms ease;
 }
+
+.file-row:last-child {
+  border-bottom: 0;
+}
+
 .file-row:hover {
-  background: #f3f4f6;
+  background: var(--app-surface);
 }
+
 .file-row code {
-  font-size: 12px;
-  color: #374151;
+  overflow: hidden;
+  color: var(--app-text);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
 .file-badge {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: #dcfce7;
-  color: #16a34a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  border-radius: 6px;
+  background: #dff7f1;
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 800;
 }
+
 .file-badge.muted {
-  background: #f3f4f6;
-  color: #9ca3af;
+  background: var(--app-bg);
+  color: var(--app-muted);
 }
+
 .excluded-collapse {
-  margin-top: 8px;
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: 10px;
 }
+
+.excluded-collapse :deep(.el-collapse-item__header) {
+  padding: 0 12px;
+  color: var(--app-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.excluded-collapse :deep(.el-collapse-item__wrap) {
+  border-bottom: 0;
+}
+
 .excluded-list {
-  max-height: 200px;
+  max-height: 240px;
+  border: 0;
+  border-top: 1px solid var(--app-border);
+  border-radius: 0;
+}
+
+@media (max-width: 720px) {
+  .preview-summary,
+  .preview-summary.has-excluded {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

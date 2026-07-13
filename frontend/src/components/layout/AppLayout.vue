@@ -4,10 +4,10 @@
 
     <aside class="sidebar" :class="{ open: sidebarOpen }">
       <div class="brand">
-        <span class="brand-mark"><el-icon><Finished /></el-icon></span>
+        <BrandMark :size="40" />
         <div class="brand-copy">
-          <strong>Review Hub</strong>
-          <span>代码质量控制台</span>
+          <strong>AI Code Review</strong>
+          <span>AI 代码审查引擎</span>
         </div>
         <button class="close-sidebar" aria-label="关闭菜单" @click="sidebarOpen = false">
           <el-icon><Close /></el-icon>
@@ -33,8 +33,8 @@
       <div class="sidebar-footer">
         <span class="health-dot" :class="healthStatus" />
         <div class="service-status">
-          <strong>Review Service</strong>
-          <span>AI 代码评审控制台</span>
+          <strong>AI Code Review</strong>
+          <span>服务运行中</span>
         </div>
       </div>
     </aside>
@@ -75,10 +75,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { ArrowRight, Close, Finished, Menu, Search, SwitchButton } from '@element-plus/icons-vue'
+import { ArrowRight, Close, Menu, Search, SwitchButton } from '@element-plus/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { navGroups, resolveBreadcrumb } from '@/constants/nav'
+import BrandMark from '@/components/common/BrandMark.vue'
 import NotificationCenter from './NotificationCenter.vue'
 import GlobalSearch from './GlobalSearch.vue'
 
@@ -161,19 +162,6 @@ onBeforeUnmount(() => {
   min-height: 74px;
   padding: 0 18px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.brand-mark {
-  display: grid;
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
-  place-items: center;
-  border-radius: 8px;
-  color: #fff;
-  background: #2563eb;
-  box-shadow: none;
-  font-size: 21px;
 }
 
 .brand-copy {

@@ -2,10 +2,10 @@ package ocr
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"syscall"
 
@@ -17,17 +17,26 @@ import (
 // Preview 实现 domain.PreviewRunner（吸收 runner/preview.go）。
 //
 // 调 "ocr scan --preview" 子进程，返回将参与评审的文件列表。
+// 注意：ocr --preview 不支持 --format json，输出为带 ANSI 颜色的纯文本，
+// 需要从文本中提取 "Will review" 区块的文件路径。
 func (r *Runner) Preview(ctx context.Context, workspace domain.Workspace) (*domain.PreviewResult, error) {
 	if strings.TrimSpace(workspace.Dir) == "" {
 		return nil, fmt.Errorf("需要已检出的工作区")
 	}
 
+	cfg := r.effectiveConfig(workspace.OCR)
+
 	args := []string{
 		"scan", "--preview",
 		"--repo", workspace.Dir,
-		"--format", "json",
 	}
-	toolsArgs, cleanupTools, err := appendToolsArgs(args, r.cfg)
+	if len(workspace.ScanPaths) > 0 {
+		args = append(args, "--path", strings.Join(workspace.ScanPaths, ","))
+	}
+	if len(workspace.ScanExclude) > 0 {
+		args = append(args, "--exclude", strings.Join(workspace.ScanExclude, ","))
+	}
+	toolsArgs, cleanupTools, err := appendToolsArgs(args, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -36,10 +45,10 @@ func (r *Runner) Preview(ctx context.Context, workspace domain.Workspace) (*doma
 		defer cleanupTools()
 	}
 
-	cmd := exec.CommandContext(ctx, r.cfg.Binary, args...)
+	cmd := exec.CommandContext(ctx, cfg.Binary, args...)
 	cmd.Dir = workspace.Dir
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Env = r.cfg.AppendEnv(os.Environ())
+	cmd.Env = cfg.AppendEnv(os.Environ())
 
 	stdout := newCappedBuffer(maxSubprocessOutput)
 	stderr := newCappedBuffer(maxSubprocessOutput)
@@ -47,7 +56,7 @@ func (r *Runner) Preview(ctx context.Context, workspace domain.Workspace) (*doma
 	cmd.Stderr = stderr
 
 	if err := cmd.Start(); err != nil {
-		return nil, &BinaryMissingError{Binary: r.cfg.Binary, Err: err}
+		return nil, &BinaryMissingError{Binary: cfg.Binary, Err: err}
 	}
 
 	done := make(chan struct{})
@@ -70,11 +79,24 @@ func (r *Runner) Preview(ctx context.Context, workspace domain.Workspace) (*doma
 		return nil, fmt.Errorf("ocr preview 失败: %s", strings.TrimSpace(stderr.String()))
 	}
 
-	var out domain.PreviewResult
-	if err := json.Unmarshal(stdout.Bytes(), &out); err != nil {
-		return nil, fmt.Errorf("parse ocr preview output: %w", err)
+	// 返回去 ANSI 后的原始文本行，由前端解析 "Will review" / "Excluded" 分段。
+	// 前端 RepositoryScan.vue 和 ScanPreviewPanel.vue 各有解析逻辑。
+	rawText := ansiStrip(stdout.String())
+	var files []string
+	for _, line := range strings.Split(rawText, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			files = append(files, line)
+		}
 	}
-	return &out, nil
+	return &domain.PreviewResult{Files: files}, nil
+}
+
+// ansiStrip 去除 ANSI 转义序列（颜色码等）。
+var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+func ansiStrip(s string) string {
+	return ansiRe.ReplaceAllString(s, "")
 }
 
 // Scan 实现 domain.ScanRunner（吸收 runner/scan.go）。
@@ -82,6 +104,9 @@ func (r *Runner) Preview(ctx context.Context, workspace domain.Workspace) (*doma
 // 调 "ocr scan" 子进程（不带 --preview），返回全量扫描结果。
 // 支持 batch / paths / exclude / background / tools 等参数。
 func (r *Runner) Scan(ctx context.Context, workspace domain.Workspace, req domain.ScanRequest) (*domain.ScanResult, error) {
+	// 从 DB 动态解析最新配置（含 binary、language 等），合并 workspace 的项目级 overrides。
+	cfg := r.effectiveConfig(workspace.OCR)
+
 	args := []string{
 		"scan",
 		"--repo", workspace.Dir,
@@ -96,10 +121,14 @@ func (r *Runner) Scan(ctx context.Context, workspace domain.Workspace, req domai
 	if len(req.Exclude) > 0 {
 		args = append(args, "--exclude", strings.Join(req.Exclude, ","))
 	}
-	if req.Background != "" {
-		args = append(args, "--background", req.Background)
+	bg := req.Background
+	if strings.TrimSpace(bg) == "" {
+		bg = cfg.Background
 	}
-	toolsArgs, cleanupTools, err := appendToolsArgs(args, r.cfg)
+	if strings.TrimSpace(bg) != "" {
+		args = append(args, "--background", bg)
+	}
+	toolsArgs, cleanupTools, err := appendToolsArgs(args, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -108,10 +137,10 @@ func (r *Runner) Scan(ctx context.Context, workspace domain.Workspace, req domai
 		defer cleanupTools()
 	}
 
-	cmd := exec.CommandContext(ctx, r.cfg.Binary, args...)
+	cmd := exec.CommandContext(ctx, cfg.Binary, args...)
 	cmd.Dir = workspace.Dir
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Env = r.cfg.AppendEnv(os.Environ())
+	cmd.Env = cfg.AppendEnv(os.Environ())
 
 	stdout := newCappedBuffer(maxSubprocessOutput)
 	stderr := newCappedBuffer(maxSubprocessOutput)
@@ -119,7 +148,7 @@ func (r *Runner) Scan(ctx context.Context, workspace domain.Workspace, req domai
 	cmd.Stderr = stderr
 
 	if err := cmd.Start(); err != nil {
-		return nil, &BinaryMissingError{Binary: r.cfg.Binary, Err: err}
+		return nil, &BinaryMissingError{Binary: cfg.Binary, Err: err}
 	}
 
 	done := make(chan struct{})
@@ -142,9 +171,13 @@ func (r *Runner) Scan(ctx context.Context, workspace domain.Workspace, req domai
 		return nil, fmt.Errorf("ocr scan 失败: %s", strings.TrimSpace(stderr.String()))
 	}
 
-	var out domain.ScanResult
-	if err := json.Unmarshal(stdout.Bytes(), &out); err != nil {
-		return nil, fmt.Errorf("parse ocr scan output: %w", err)
+	// OCR scan 输出格式与 review 相同（{status, summary, comments}），
+	// 用 parseOpenCodeReviewOutput 转换为 domain.Result 再包装成 ScanResult。
+	// 不能直接 json.Unmarshal 到 ScanResult——那会因字段不匹配导致 Result 为 nil。
+	severity := cfg.DefaultSeverity
+	if strings.TrimSpace(severity) == "" {
+		severity = "major"
 	}
-	return &out, nil
+	result := parseOpenCodeReviewOutput(stdout.Bytes(), severity)
+	return &domain.ScanResult{Result: &result}, nil
 }

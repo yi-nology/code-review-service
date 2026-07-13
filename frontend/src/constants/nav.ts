@@ -12,7 +12,6 @@ import {
   Monitor,
   Notebook,
   Search,
-  Tools,
   User,
 } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
@@ -55,15 +54,14 @@ export const navGroups: NavGroup[] = [
   {
     key: 'config',
     label: '配置',
-    items: [
-      { path: '/settings/model', label: '模型配置', icon: Cpu },
-      { path: '/settings/ocr', label: 'OCR 设置', icon: Tools },
-      { path: '/settings/platforms', label: 'Git 平台', icon: Connection },
-      { path: '/settings/agents', label: '审查代理', icon: User },
-      { path: '/settings/rules', label: '全局规则', icon: List },
-      { path: '/settings/projects', label: '项目策略', icon: FolderChecked },
-      { path: '/api-docs', label: '接口文档', icon: Document },
-    ],
+      items: [
+        { path: '/settings/engine', label: '审查引擎', icon: Cpu },
+        { path: '/settings/platforms', label: 'Git 平台', icon: Connection },
+        { path: '/settings/agents', label: '审查代理', icon: User },
+        { path: '/settings/rules', label: '全局规则', icon: List },
+        { path: '/settings/projects', label: '项目策略', icon: FolderChecked },
+        { path: '/api-docs', label: '接口文档', icon: Document },
+      ],
   },
 ]
 

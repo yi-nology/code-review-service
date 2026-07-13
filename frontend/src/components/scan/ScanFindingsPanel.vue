@@ -12,6 +12,13 @@ const expandedGroups = ref<string[]>([])
 const findingsPage = ref(1)
 const findingsPageSize = 20
 
+const severityOptions = [
+  { value: 'critical', label: 'Critical' },
+  { value: 'major', label: 'Major' },
+  { value: 'minor', label: 'Minor' },
+  { value: 'info', label: 'Info' },
+]
+
 const filteredFindings = computed(() => {
   if (!severityFilter.value.length) return props.findings
   return props.findings.filter((f) => severityFilter.value.includes(f.severity))
@@ -57,10 +64,15 @@ function severityType(severity?: string) {
           style="width: 200px"
           clearable
         >
-          <el-option label="Critical" value="critical" />
-          <el-option label="Major" value="major" />
-          <el-option label="Minor" value="minor" />
-          <el-option label="Info" value="info" />
+          <el-option
+            v-for="opt in severityOptions"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value"
+          >
+            <span class="sev-dot" :class="opt.value" />
+            {{ opt.label }}
+          </el-option>
         </el-select>
         <el-select v-model="groupByPath" size="small" style="width: 120px">
           <el-option label="不分组" :value="false" />
@@ -147,100 +159,162 @@ function severityType(severity?: string) {
 
 <style scoped>
 .findings-section {
-  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
+
 .section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  gap: 12px;
 }
+
 .section-head h2 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1f2937;
   margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--app-text);
 }
+
 .section-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
+
+/* severity color dots — shared with the parent breakdown bar */
+.sev-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--app-muted);
+}
+
+.sev-dot.critical {
+  background: var(--app-danger);
+}
+
+.sev-dot.major {
+  background: var(--app-warning);
+}
+
+.sev-dot.minor {
+  background: var(--app-primary);
+}
+
+.sev-dot.info {
+  background: var(--app-success);
+}
+
 .finding-groups {
   border: 1px solid var(--app-border);
-  border-radius: 8px;
+  border-radius: 10px;
 }
+
+.finding-groups :deep(.el-collapse-item__header) {
+  gap: 8px;
+}
+
 .group-path {
   font-size: 13px;
-  color: #4f46e5;
+  color: var(--app-primary);
   margin-right: 8px;
 }
+
 .group-badge {
   margin-left: 4px;
 }
+
 .finding-cards {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   padding: 4px 0;
 }
+
 .finding-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
   padding: 14px;
-  background: #fff;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
 }
+
 .finding-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 6px;
-}
-.finding-head strong {
-  font-size: 14px;
-  color: #1f2937;
-}
-.finding-line {
-  font-size: 12px;
-  color: #9ca3af;
-  margin-left: auto;
-}
-.finding-body {
-  font-size: 13px;
-  color: #6b7280;
-  line-height: 1.6;
-  margin: 0 0 8px;
-}
-.finding-code {
-  display: flex;
-  gap: 12px;
+  margin-bottom: 8px;
   flex-wrap: wrap;
 }
-.code-block {
-  flex: 1;
-  min-width: 200px;
+
+.finding-head strong {
+  font-size: 14px;
+  color: var(--app-text);
 }
+
+.finding-line {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--app-muted);
+}
+
+.finding-body {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.finding-code {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
 .code-block small {
   display: block;
-  font-size: 11px;
-  color: #9ca3af;
   margin-bottom: 4px;
+  color: var(--app-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
+
 .code-block pre {
   margin: 0;
   padding: 10px;
-  background: #f5f5f5;
+  background: var(--app-bg);
+  border: 1px solid var(--app-border);
   border-radius: 6px;
   font-size: 12px;
+  line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;
+  overflow-x: auto;
+  max-height: 200px;
 }
+
 .finding-path {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--app-muted);
 }
+
 .pagination-wrap {
-  margin-top: 16px;
   display: flex;
   justify-content: center;
+  margin-top: 4px;
+}
+
+@media (max-width: 720px) {
+  .finding-code {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -8506,6 +8506,7 @@ type ProjectPolicy struct {
 	OcrTelemetryExporter       *string `thrift:"ocr_telemetry_exporter,23,optional" form:"ocr_telemetry_exporter" json:"ocr_telemetry_exporter,omitempty"`
 	OcrTelemetryOtlpEndpoint   *string `thrift:"ocr_telemetry_otlp_endpoint,24,optional" form:"ocr_telemetry_otlp_endpoint" json:"ocr_telemetry_otlp_endpoint,omitempty"`
 	OcrTelemetryContentLogging *bool   `thrift:"ocr_telemetry_content_logging,25,optional" form:"ocr_telemetry_content_logging" json:"ocr_telemetry_content_logging,omitempty"`
+	RulePackageIDs             []int64 `thrift:"rule_package_ids,26,optional" form:"rule_package_ids" json:"rule_package_ids,omitempty"`
 }
 
 func NewProjectPolicy() *ProjectPolicy {
@@ -12963,6 +12964,7 @@ type ReviewerAgentInfo struct {
 	RuleFile    *string `thrift:"rule_file,9,optional" form:"rule_file" json:"rule_file,omitempty"`
 	Redundancy  int64   `thrift:"redundancy,10" form:"redundancy" json:"redundancy"`
 	IsDefault   bool    `thrift:"is_default,11" form:"is_default" json:"is_default"`
+	RulePackageIDs []int64 `thrift:"rule_package_ids,12,optional" form:"rule_package_ids" json:"rule_package_ids,omitempty"`
 }
 
 func NewReviewerAgentInfo() *ReviewerAgentInfo {
@@ -13766,6 +13768,7 @@ type CreateReviewerAgentReq struct {
 	RuleFile    *string  `thrift:"rule_file,8,optional" form:"rule_file" json:"rule_file,omitempty"`
 	Redundancy  *int64   `thrift:"redundancy,9,optional" form:"redundancy" json:"redundancy,omitempty"`
 	IsDefault   *bool    `thrift:"is_default,10,optional" form:"is_default" json:"is_default,omitempty"`
+	RulePackageIDs []int64 `thrift:"rule_package_ids,11,optional" form:"rule_package_ids" json:"rule_package_ids,omitempty"`
 }
 
 func NewCreateReviewerAgentReq() *CreateReviewerAgentReq {
@@ -14563,6 +14566,7 @@ type UpdateReviewerAgentReq struct {
 	RuleFile    *string  `thrift:"rule_file,8,optional" form:"rule_file" json:"rule_file,omitempty"`
 	Redundancy  *int64   `thrift:"redundancy,9,optional" form:"redundancy" json:"redundancy,omitempty"`
 	IsDefault   *bool    `thrift:"is_default,10,optional" form:"is_default" json:"is_default,omitempty"`
+	RulePackageIDs []int64 `thrift:"rule_package_ids,11,optional" form:"rule_package_ids" json:"rule_package_ids,omitempty"`
 }
 
 func NewUpdateReviewerAgentReq() *UpdateReviewerAgentReq {
@@ -15606,6 +15610,7 @@ type RulePackage struct {
 	Enabled     bool                `thrift:"enabled,9" form:"enabled" json:"enabled"`
 	ProjectRefs []string            `thrift:"project_refs,10,optional,list<string>" form:"project_refs" json:"project_refs,omitempty"`
 	BuiltIn     *bool               `thrift:"built_in,11,optional" form:"built_in" json:"built_in,omitempty"`
+	Scope       *string             `thrift:"scope,12,optional" form:"scope" json:"scope,omitempty"`
 }
 
 func NewRulePackage() *RulePackage {

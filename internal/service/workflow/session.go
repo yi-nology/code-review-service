@@ -43,6 +43,9 @@ type ReviewRequest struct {
 	Round        int
 	// Language 控制 TechLeadAnalysis 等 LLM 生成内容的回复语言。
 	Language string
+	// RulePath 是合并后的规则文件路径（项目+规则包+全局规则），透传给每个 agent 的 --rule。
+	// 修复：workflow 路径此前丢失该字段，导致多 agent 模式下全局/项目规则不生效。
+	RulePath string
 	// EphemeralReviewers 是本次评审临时加入的 reviewer（阶段 5），不入库。
 	EphemeralReviewers []agent.EphemeralSpec
 }

@@ -4,16 +4,44 @@
       <p>
         MCP（Model Context Protocol）server 让审查 agent 触达 diff 之外的上下文：
         Issue/工单查询、内部文档/编码规范、自定义 linter/schema 校验器等。
-        配置最终写入 OCR 全局 <code>~/.opencodereview/config.json</code> 的 <code>mcp_servers</code> 键。
+        配置保存后作为全局默认，所有评审共享同一套 MCP server。
       </p>
       <p class="mcp-tip">
-        每个并发评审都从全局配置读取 MCP server —— 所有评审共享同一套配置。
         <strong>command</strong> 必填；其余可选。
       </p>
     </div>
 
+    <!-- 模板快捷入口：填入表单（不自动保存），需用户补密钥后显式保存 -->
+    <div class="mcp-templates">
+      <span class="mt-label">常见模板：</span>
+      <el-dropdown trigger="click" @command="applyTemplate">
+        <el-button size="small">
+          <el-icon><Plus /></el-icon>
+          加载模板
+          <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item
+              v-for="t in mcpTemplates"
+              :key="t.key"
+              :command="t.key"
+              :disabled="existingNames.has(t.serverName)"
+            >
+              <div class="mt-item">
+                <strong>{{ t.label }}</strong>
+                <small v-if="t.requires">{{ t.requires }}</small>
+                <small>{{ t.description }}</small>
+              </div>
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+      <el-button size="small" plain @click="addServer">+ 手动新增</el-button>
+    </div>
+
     <div v-if="!servers.length" class="mcp-empty">
-      <el-empty description="尚未配置 MCP server" :image-size="64">
+      <el-empty description="尚未配置 MCP server，点上方「加载模板」快速开始" :image-size="64">
         <el-button type="primary" plain @click="addServer">+ 新增 MCP Server</el-button>
       </el-empty>
     </div>
@@ -99,9 +127,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
+import { Plus, ArrowDown } from '@element-plus/icons-vue'
 import { useSettingsForm } from './context'
+import { mcpTemplates } from '@/constants/mcp-templates'
 import type { McpServer } from '@/types/config'
 
 interface ServerRow {
@@ -114,6 +144,9 @@ interface ServerRow {
 
 const { form } = useSettingsForm()
 const servers = ref<ServerRow[]>([])
+
+// 已存在的 server 名集合，用于模板下拉禁用同名项。
+const existingNames = computed(() => new Set(servers.value.map((s) => s.name.trim())))
 
 // lines → array：空行/空白丢弃。
 function linesToArray(text: string): string[] {
@@ -214,6 +247,30 @@ function addServer() {
   })
 }
 
+// 模板 → 表单行（合并进现有列表，不覆盖已有同名 server）。
+function applyTemplate(key: string) {
+  const tpl = mcpTemplates.find((t) => t.key === key)
+  if (!tpl) return
+  if (existingNames.value.has(tpl.serverName)) {
+    ElMessage.info(`已存在名为「${tpl.serverName}」的 server`)
+    return
+  }
+  const cfg = tpl.config
+  servers.value.push({
+    name: tpl.serverName,
+    config: {
+      command: cfg.command,
+      setup: cfg.setup,
+    },
+    argsText: arrayToLines(cfg.args),
+    envText: arrayToLines(cfg.env),
+    toolsText: (cfg.tools || []).join(', '),
+  })
+  const envHint = cfg.env?.length ? '，请补填 env 中的密钥' : ''
+  ElMessage.success(`已加载模板「${tpl.label}」${envHint}，记得保存`)
+  syncToForm()
+}
+
 function removeServer(idx: number) {
   servers.value.splice(idx, 1)
   syncToForm()
@@ -279,5 +336,35 @@ watch(
 }
 .mcp-raw {
   margin-top: 8px;
+}
+
+/* 模板快捷入口 */
+.mcp-templates {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.mt-label {
+  font-size: 13px;
+  color: #606266;
+}
+.mt-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+  max-width: 340px;
+}
+.mt-item strong {
+  font-size: 13px;
+  color: #303133;
+}
+.mt-item small {
+  font-size: 11px;
+  color: #909399;
+}
+.mt-item small:nth-child(2) {
+  color: #e6a23c;
 }
 </style>

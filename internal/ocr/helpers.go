@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/oekit/concurrency/async"
 	"github.com/oekit/pkg/slicex"
 )
 
@@ -35,13 +34,11 @@ func formatIntEnv(key string, v int) string {
 
 // backgroundCtx 返回与请求 ctx 解耦、但带超时的 ctx（用于 tools 查询等不应被请求取消打断的场景）。
 // 此前返回裸 context.Background() 无 deadline，DB/LLM 查询可能无限期堆积。
-// 15s 足够覆盖 tools 配置查询；ctx 到期时回收 timer，避免 lostcancel。
+// 15s 足够覆盖 tools 配置查询；用 context.AfterFunc 在 ctx 到期时回收 timer，
+// 避免 lostcancel 且无需起额外 goroutine。
 func backgroundCtx() context.Context {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	async.GoSafe(func() {
-		<-ctx.Done()
-		cancel()
-	})
+	context.AfterFunc(ctx, cancel)
 	return ctx
 }
 

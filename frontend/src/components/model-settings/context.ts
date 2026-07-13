@@ -6,6 +6,8 @@ export interface SettingsFormContext {
   form: OCRSettings
   saving: Ref<boolean>
   testingLLM: Ref<boolean>
+  /** LLM 鉴权 token 输入框（留空表示保持已保存值不改动）。 */
+  authToken: Ref<string>
   extraBodyText: Ref<string>
   save: () => void
   testLLM: () => void

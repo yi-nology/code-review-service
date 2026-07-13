@@ -1,13 +1,12 @@
 <template>
   <AppLayout>
-    <div class="weekly-report-page">
-      <header class="page-header">
-        <div>
-          <div class="eyebrow">WEEKLY REPORT</div>
-          <h1>项目周报</h1>
-          <p>按项目维度查看最近 7 天的 AI 代码审查汇总。</p>
-        </div>
-        <div v-if="report" class="header-actions">
+    <PageShell>
+      <PageHeader
+        eyebrow="WEEKLY REPORT"
+        title="项目周报"
+        description="按项目维度查看最近 7 天的 AI 代码审查汇总。"
+      >
+        <template v-if="report" #actions>
           <el-button plain @click="handleCopy">
             <el-icon><CopyDocument /></el-icon>复制 Markdown
           </el-button>
@@ -17,8 +16,8 @@
           <el-button plain @click="handlePrint">
             <el-icon><Printer /></el-icon>打印
           </el-button>
-        </div>
-      </header>
+        </template>
+      </PageHeader>
 
       <!-- 项目选择区 -->
       <el-card class="selector-card" shadow="never">
@@ -30,7 +29,7 @@
             clearable
             @change="onProviderChange"
           >
-            <el-option v-for="p in PROVIDER_OPTIONS" :key="p.value" :label="p.label" :value="p.value" />
+            <el-option v-for="p in providerOptions" :key="p.value" :label="p.label" :value="p.value" />
           </el-select>
           <el-select
             v-model="repo"
@@ -122,6 +121,37 @@
           </div>
         </section>
 
+        <!-- 提交人排行（交互式卡片，数据同 Markdown 正文里的表格） -->
+        <el-card v-if="contributors.length" class="contributors-card" shadow="never">
+          <div class="report-toolbar">
+            <h2>提交人排行</h2>
+            <span class="report-meta">本周按审查次数排序，共 {{ contributors.length }} 位</span>
+          </div>
+          <div class="contributor-grid">
+            <div v-for="(ct, idx) in contributors" :key="ct.author" class="contributor-item">
+              <span class="rank">{{ idx + 1 }}</span>
+              <el-avatar v-if="ct.author_avatar" :src="ct.author_avatar" :size="34" />
+              <span v-else class="avatar-fallback">{{ initialOf(ct) }}</span>
+              <div class="contributor-main">
+                <div class="contributor-head">
+                  <strong>{{ ct.author_name || ct.author }}</strong>
+                  <span class="contributor-reviews">{{ ct.review_count }} 次审查</span>
+                </div>
+                <div class="contributor-stats">
+                  <span class="stat-chip danger" v-if="ct.critical_count">严重 {{ ct.critical_count }}</span>
+                  <span class="stat-chip warn" v-if="ct.major_count">高 {{ ct.major_count }}</span>
+                  <span class="stat-chip" v-if="ct.minor_count">中 {{ ct.minor_count }}</span>
+                  <span class="stat-chip muted" v-if="ct.info_count">低 {{ ct.info_count }}</span>
+                  <span class="stat-total">共 {{ ct.total_findings }} 个问题</span>
+                  <span class="stat-pass" :class="{ ok: ct.pass_rate >= 0.8, bad: ct.pass_rate < 0.6 }">
+                    通过率 {{ Math.round(ct.pass_rate * 100) }}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-card>
+
         <!-- 周报正文（Markdown） -->
         <el-card class="report-card" shadow="never">
           <div class="report-toolbar">
@@ -139,7 +169,7 @@
         <p v-if="quickProjects.length">从上方「审查过的项目」中点选，或选择平台 + 搜索仓库。</p>
         <p v-else>先选择平台，再搜索仓库名，然后生成周报。</p>
       </div>
-    </div>
+    </PageShell>
   </AppLayout>
 </template>
 
@@ -151,10 +181,12 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 import { getWeeklyReport } from '@/api/report'
 import { getProjects } from '@/api/stats'
-import { getProviderRepos } from '@/api/config'
-import { PROVIDER_OPTIONS, getProviderLabel } from '@/utils/url-parser'
+import { getProviderRepos, getGitPlatforms } from '@/api/config'
+import { getProviderLabel } from '@/utils/url-parser'
 import { renderMarkdown } from '@/utils/markdown'
 import type { WeeklyReport, AggregateStats } from '@/types/report'
 import type { ProjectSummary } from '@/types/stats'
@@ -170,6 +202,19 @@ const reposLoading = ref(false)
 const loading = ref(false)
 const report = ref<WeeklyReport | null>(null)
 const errorMsg = ref('')
+
+// 平台下拉只展示 DB 中已配置（有 token）的平台，避免选到未配置平台时 400 报错。
+const providerOptions = ref<{ label: string; value: string }[]>([])
+
+async function loadPlatforms() {
+  try {
+    const res = await getGitPlatforms()
+    const items = (res as any)?.items || []
+    providerOptions.value = items
+      .filter((p: any) => p.enabled)
+      .map((p: any) => ({ label: getProviderLabel(p.provider), value: p.provider }))
+  } catch { /* 静默：不影响主流程 */ }
+}
 
 // 有审查记录的项目（用于一键快选）+ 最近看过的项目（localStorage 记忆）。
 const reviewedProjects = ref<ProjectSummary[]>([])
@@ -204,6 +249,7 @@ const stats = computed<AggregateStats>(() => report.value?.stats ?? {
 })
 const period = computed(() => report.value?.period ?? '')
 const renderedHtml = computed(() => renderMarkdown(report.value?.report ?? ''))
+const contributors = computed(() => report.value?.contributors ?? [])
 const providerLabel = computed(() => getProviderLabel(provider.value))
 // 后端 stats 只有 running（进行中）/gate_failed/findings/tokens，无明确的"审查总数"。
 // 用 running 作为"本周活动审查数"展示，比编造一个不存在的总数更诚实。
@@ -220,6 +266,12 @@ function formatTokens(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
   if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
   return String(n)
+}
+
+// 提交人无头像时取首字母占位。
+function initialOf(ct: { author_name?: string; author: string }): string {
+  const name = ct.author_name || ct.author || '?'
+  return name.charAt(0).toUpperCase()
 }
 
 function onProviderChange() {
@@ -310,7 +362,7 @@ function handlePrint() {
 
 onMounted(async () => {
   loadRecent()
-  await loadReviewedProjects()
+  await Promise.all([loadPlatforms(), loadReviewedProjects()])
   // 支持 query 参数预选项目（从 ProjectReports 跳转过来）
   const qProvider = route.query.provider
   const qRepo = route.query.repo
@@ -324,45 +376,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.weekly-report-page {
-  width: min(1080px, 100%);
-  margin: 0 auto;
-  padding: 28px 32px 48px;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 18px;
-  margin-bottom: 18px;
-}
-
-.eyebrow {
-  color: #929aab;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1px;
-}
-
-.page-header h1 {
-  margin: 4px 0;
-  font-size: 26px;
-  color: var(--app-text);
-}
-
-.page-header p {
-  margin: 0;
-  color: var(--app-muted);
-  font-size: 14px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
 /* 选择器 */
 .selector-card {
   margin-bottom: 18px;
@@ -493,7 +506,7 @@ onMounted(async () => {
   gap: 4px;
   padding: 16px 18px;
   border: 1px solid var(--app-border);
-  border-radius: 10px;
+  border-radius: var(--card-radius);
   background: #fff;
 }
 
@@ -530,6 +543,124 @@ onMounted(async () => {
 /* 报告正文 */
 .report-card {
   overflow: hidden;
+}
+
+/* 提交人排行 */
+.contributors-card {
+  margin-bottom: 18px;
+}
+
+.contributor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.contributor-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--card-radius);
+  background: #fff;
+}
+
+.rank {
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+  color: var(--app-muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.avatar-fallback {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.contributor-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.contributor-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.contributor-head strong {
+  font-size: 14px;
+  color: var(--app-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contributor-reviews {
+  flex-shrink: 0;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.contributor-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.stat-chip {
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: #f2f4f7;
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.stat-chip.danger {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.stat-chip.warn {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.stat-chip.muted {
+  color: #9ca3af;
+}
+
+.stat-total {
+  color: var(--app-muted);
+  font-size: 11px;
+}
+
+.stat-pass {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.stat-pass.ok {
+  color: #059669;
+}
+
+.stat-pass.bad {
+  color: #dc2626;
 }
 
 .report-toolbar {
@@ -680,14 +811,6 @@ onMounted(async () => {
 }
 
 @media (max-width: 980px) {
-  .weekly-report-page {
-    padding: 22px 16px 36px;
-  }
-
-  .page-header {
-    flex-direction: column;
-  }
-
   .selector-row {
     flex-direction: column;
   }
@@ -696,22 +819,11 @@ onMounted(async () => {
   .repo-select {
     width: 100%;
   }
-
-  .metric-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media print {
-  .selector-card,
-  .header-actions,
-  .page-header p {
+  .selector-card {
     display: none;
-  }
-
-  .weekly-report-page {
-    width: 100%;
-    padding: 0;
   }
 }
 </style>

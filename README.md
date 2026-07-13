@@ -94,11 +94,9 @@ The local profile (`etc/config-local.yaml`) listens on **:8081**. Docker Compose
 
 ### With OCR enabled
 
-OCR runtime settings are stored in the database and can be enabled from the web console settings page or the settings API. Environment variables such as `OCR_ENABLED` and `OCR_BINARY` provide initial defaults before settings are saved.
+OCR runtime settings (binary path, LLM model, language, concurrency, etc.) are stored in the database. Enable and configure them from the web console (**Settings → Review Engine**) or the settings API after first launch. No environment variables are needed.
 
 ```sh
-OCR_ENABLED=true \
-OCR_BINARY=ocr \
 DATABASE_URL='postgres://review_service:review_service@localhost:5432/review_service?sslmode=disable' \
 REVIEW_TOKEN=dev-token \
 go run .
@@ -110,7 +108,7 @@ go run .
 docker compose up --build
 ```
 
-The compose stack starts PostgreSQL, the API service, and the web console. The API is exposed on `http://localhost:8080`, and the web console is exposed on `http://localhost/`. OCR is disabled by default so the service can become ready without an `ocr` binary; enable it after configuring OCR in the web console or settings API.
+The compose stack starts PostgreSQL, the API service, and the web console. The API is exposed on `http://localhost:8080`, and the web console is exposed on `http://localhost/`. Git platform tokens, OCR settings, and project policies are all managed from the web console after launch — no environment variables needed.
 
 ### Health check
 
@@ -172,19 +170,16 @@ curl -X POST http://localhost:8081/api/v1/webhooks \
 
 ## Configuration
 
+Business settings (Git platforms, OCR engine, project policies, review rules) are managed from the web console and stored in the database. The environment variables below are for infrastructure and deployment tuning only:
+
 | Env | Default | Description |
 |-----|---------|-------------|
 | `HTTP_ADDR` | `:8081` | HTTP listen address |
 | `REVIEW_TOKEN` | - | Bearer token for API authentication |
 | `DATABASE_URL` | - | PostgreSQL connection URL |
-| `OCR_ENABLED` | `false` | Enable AI-powered code review |
-| `OCR_BINARY` | `ocr` | Path to Open Code Review binary |
 | `WORKER_CONCURRENCY` | `2` | Number of background review workers |
-| `POLICY_FAIL_ON` | `critical` | Severity threshold for quality gate |
-| `POLICY_MAX_COMMENTS` | `20` | Maximum inline comments per review |
-| `GITHUB_TOKEN` | - | GitHub API token |
-| `GITLAB_TOKEN` | - | GitLab API token |
-| `GITEA_TOKEN` | - | Gitea API token |
+| `WORKER_POLL_INTERVAL` | `1s` | Worker poll interval |
+| `WORKER_STALE_AFTER` | `15m` | Stale worker timeout |
 | `FEISHU_WEBHOOK_URL` | - | Feishu/Lark webhook URL for review notifications |
 | `WECOM_WEBHOOK_URL` | - | WeCom (企业微信) webhook URL for review notifications |
 
@@ -308,11 +303,9 @@ go run .
 
 ### 启用 OCR
 
-OCR 运行时配置保存在数据库中，可在 Web 控制台设置页或 settings API 中启用。`OCR_ENABLED`、`OCR_BINARY` 等环境变量用于未保存设置前的初始默认值。
+OCR 运行时配置（二进制路径、LLM 模型、输出语言、并发数等）保存在数据库中，首次启动后在 Web 控制台（**设置 → 审查引擎**）或 settings API 中配置即可，无需环境变量。
 
 ```sh
-OCR_ENABLED=true \
-OCR_BINARY=ocr \
 DATABASE_URL='postgres://review_service:review_service@localhost:5432/review_service?sslmode=disable' \
 REVIEW_TOKEN=dev-token \
 go run .
@@ -324,7 +317,7 @@ go run .
 docker compose up --build
 ```
 
-Compose 会启动 PostgreSQL、API 服务和 Web 控制台。API 暴露在 `http://localhost:8080`，Web 控制台暴露在 `http://localhost/`。默认关闭 OCR，因此即使镜像内没有 `ocr` 二进制，服务也能先进入 ready；之后可在 Web 控制台或 settings API 配置并启用 OCR。
+Compose 会启动 PostgreSQL、API 服务和 Web 控制台。API 暴露在 `http://localhost:8080`，Web 控制台暴露在 `http://localhost/`。Git 平台 Token、OCR 设置、项目策略等业务配置均在 Web 控制台管理，无需环境变量。
 
 ### 健康检查
 
@@ -386,19 +379,16 @@ curl -X POST http://localhost:8081/api/v1/webhooks \
 
 ## 配置项
 
+业务配置（Git 平台、OCR 引擎、项目策略、审查规则）在 Web 控制台管理，已持久化到数据库。下表仅列出基础设施与部署调优相关的环境变量：
+
 | 环境变量 | 默认值 | 说明 |
 |---------|--------|------|
 | `HTTP_ADDR` | `:8081` | HTTP 监听地址（Docker Compose 覆盖为 `:8080`） |
 | `REVIEW_TOKEN` | - | API 认证 Bearer Token |
 | `DATABASE_URL` | - | PostgreSQL 连接 URL |
-| `OCR_ENABLED` | `false` | 启用 AI 代码评审 |
-| `OCR_BINARY` | `ocr` | Open Code Review 二进制路径 |
 | `WORKER_CONCURRENCY` | `2` | 后台评审 Worker 数量 |
-| `POLICY_FAIL_ON` | `critical` | 质量门禁严重级别阈值 |
-| `POLICY_MAX_COMMENTS` | `20` | 每次评审最大行内评论数 |
-| `GITHUB_TOKEN` | - | GitHub API Token |
-| `GITLAB_TOKEN` | - | GitLab API Token |
-| `GITEA_TOKEN` | - | Gitea API Token |
+| `WORKER_POLL_INTERVAL` | `1s` | Worker 轮询间隔 |
+| `WORKER_STALE_AFTER` | `15m` | Worker 超时判定 |
 
 ## 开发指南
 

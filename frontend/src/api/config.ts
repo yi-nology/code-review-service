@@ -82,7 +82,9 @@ export async function rulesCheck(path: string): Promise<RulesCheckResult> {
 // ==================== OCR Version ====================
 
 export async function getOCRVersion(): Promise<OCRVersion> {
-  return request.get('/settings/ocr/version') as any
+  // 后端会 exec `ocr --version` 子进程（已加 15s 服务端超时），给足往返余量。
+  // 元信息接口，失败由调用方静默处理，不弹全局错误 toast。
+  return request.get('/settings/ocr/version', { timeout: 35000, __silent: true }) as any
 }
 
 // ==================== OCR Upgrade ====================
@@ -313,6 +315,8 @@ export async function createReviewerAgent(data: {
   is_default?: boolean
   priority?: number
   tags?: string[]
+  rule_file?: string
+  rule_package_ids?: number[]
 }): Promise<ReviewerAgent> {
   const resp: any = await request.post('/settings/agents', data)
   return parseReviewerAgent(resp?.agent)
@@ -326,6 +330,8 @@ export async function updateReviewerAgent(id: number, data: {
   is_default?: boolean
   priority?: number
   tags?: string[]
+  rule_file?: string
+  rule_package_ids?: number[]
 }): Promise<ReviewerAgent> {
   const resp: any = await request.put(`/settings/agents/${id}`, data)
   return parseReviewerAgent(resp?.agent)

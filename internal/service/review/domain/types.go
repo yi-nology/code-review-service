@@ -168,8 +168,11 @@ type ListOptions struct {
 	GateStatus string
 	Provider   string
 	Repo       string
-	Page       int
-	PageSize   int
+	// From/To 限定统计时间窗口（基于 created_at）；零值表示不限制。周报用它限定最近 7 天。
+	From time.Time
+	To   time.Time
+	Page     int
+	PageSize int
 }
 
 // AggregateStats 是 Review 聚合统计结果。

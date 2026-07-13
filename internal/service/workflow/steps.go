@@ -199,10 +199,11 @@ func (s *parallelReviewsStep) Run(ctx context.Context, req workflow.Request, ses
 
 	// 准备 workspace
 	workspace := agent.Workspace{
-		Dir:     rs.Request.Dir,
-		BaseSHA: rs.Request.BaseSHA,
-		HeadSHA: rs.Request.HeadSHA,
-		Diff:    rs.Request.Diff,
+		Dir:      rs.Request.Dir,
+		BaseSHA:  rs.Request.BaseSHA,
+		HeadSHA:  rs.Request.HeadSHA,
+		Diff:     rs.Request.Diff,
+		RulePath: rs.Request.RulePath,
 	}
 
 	// 添加 requirements 到 workspace

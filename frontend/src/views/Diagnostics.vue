@@ -1,13 +1,12 @@
 <template>
   <AppLayout>
-    <div class="diagnostics-page">
-      <header class="page-header">
-        <div>
-          <div class="eyebrow">OPERATIONS DIAGNOSTICS</div>
-          <h1>诊断中心</h1>
-          <p>集中查看 Webhook 投递、写回发布和近期故障线索。</p>
-        </div>
-        <div class="header-actions">
+    <PageShell>
+      <PageHeader
+        eyebrow="OPERATIONS DIAGNOSTICS"
+        title="诊断中心"
+        description="集中查看 Webhook 投递、写回发布和近期故障线索。"
+      >
+        <template #actions>
           <el-select v-model="hours" class="hours-select" @change="fetchSnapshot">
             <el-option label="最近 24 小时" :value="24" />
             <el-option label="最近 7 天" :value="168" />
@@ -17,36 +16,10 @@
             <el-icon><Refresh /></el-icon>
             刷新
           </el-button>
-        </div>
-      </header>
+        </template>
+      </PageHeader>
 
-      <section class="metric-grid">
-        <div class="metric-card">
-          <span class="metric-icon webhooks"><el-icon><Connection /></el-icon></span>
-          <span>Webhook 成功</span>
-          <strong>{{ webhookAccepted }}</strong>
-          <small>{{ snapshot?.since_hours || hours }} 小时窗口</small>
-        </div>
-        <div class="metric-card">
-          <span class="metric-icon warning"><el-icon><WarningFilled /></el-icon></span>
-          <span>Webhook 异常 / 忽略</span>
-          <strong>{{ webhookProblems }}</strong>
-          <small v-if="webhookErrors || webhookIgnored">{{ webhookErrors }} 错误 · {{ webhookIgnored }} 忽略</small>
-          <small v-else>error / ignored</small>
-        </div>
-        <div class="metric-card">
-          <span class="metric-icon published"><el-icon><Promotion /></el-icon></span>
-          <span>写回成功</span>
-          <strong>{{ writebackPublished }}</strong>
-          <small>已发布评论或总结</small>
-        </div>
-        <div class="metric-card">
-          <span class="metric-icon failed"><el-icon><CircleCloseFilled /></el-icon></span>
-          <span>写回待处理</span>
-          <strong>{{ writebackProblems }}</strong>
-          <small>failed / pending</small>
-        </div>
-      </section>
+      <StatStrip :items="diagnosticStats" />
 
       <section class="recommendations">
         <div
@@ -139,7 +112,7 @@
           </el-table>
         </el-card>
       </section>
-    </div>
+    </PageShell>
   </AppLayout>
 </template>
 
@@ -156,6 +129,9 @@ import {
   WarningFilled,
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import StatStrip from '@/components/common/StatStrip.vue'
 import { getDiagnostics } from '@/api/diagnostics'
 import type { DiagnosticsSnapshot } from '@/types/diagnostics'
 import { formatDateTime, getProviderInitial } from '@/utils/format'
@@ -170,6 +146,13 @@ const webhookIgnored = computed(() => snapshot.value?.webhooks.ignored || 0)
 const webhookProblems = computed(() => webhookErrors.value + webhookIgnored.value)
 const writebackPublished = computed(() => snapshot.value?.writebacks.published || 0)
 const writebackProblems = computed(() => (snapshot.value?.writebacks.failed || 0) + (snapshot.value?.writebacks.pending || 0))
+
+const diagnosticStats = computed(() => [
+  { icon: Connection, label: 'Webhook 成功', value: webhookAccepted.value, sublabel: `${snapshot.value?.since_hours || hours.value} 小时窗口`, tone: 'primary' as const },
+  { icon: WarningFilled, label: 'Webhook 异常 / 忽略', value: webhookProblems.value, sublabel: (webhookErrors.value || webhookIgnored.value) ? `${webhookErrors.value} 错误 · ${webhookIgnored.value} 忽略` : 'error / ignored', tone: 'warning' as const },
+  { icon: Promotion, label: '写回成功', value: writebackPublished.value, sublabel: '已发布评论或总结', tone: 'success' as const },
+  { icon: CircleCloseFilled, label: '写回待处理', value: writebackProblems.value, sublabel: 'failed / pending', tone: 'danger' as const },
+])
 
 function statusTag(status: string) {
   if (['accepted', 'published', 'success'].includes(status)) return 'success'
@@ -191,107 +174,8 @@ onMounted(fetchSnapshot)
 </script>
 
 <style scoped>
-.diagnostics-page {
-  min-height: 100vh;
-  padding: 28px;
-  color: #111827;
-  background: #f6f7f9;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 22px;
-}
-
-.eyebrow {
-  color: #6b7280;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0;
-}
-
-h1,
-h2,
-p {
-  margin: 0;
-}
-
-h1 {
-  margin-top: 6px;
-  font-size: 30px;
-}
-
-.page-header p {
-  margin-top: 8px;
-  color: #6b7280;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .hours-select {
   width: 150px;
-}
-
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
-}
-
-.metric-card {
-  display: grid;
-  gap: 7px;
-  padding: 18px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #fff;
-}
-
-.metric-icon {
-  display: grid;
-  width: 38px;
-  height: 38px;
-  place-items: center;
-  border-radius: 8px;
-  color: #fff;
-  font-size: 19px;
-}
-
-.metric-icon.webhooks {
-  background: #2563eb;
-}
-
-.metric-icon.warning {
-  background: #d97706;
-}
-
-.metric-icon.published {
-  background: #059669;
-}
-
-.metric-icon.failed {
-  background: #dc2626;
-}
-
-.metric-card span:not(.metric-icon) {
-  color: #6b7280;
-  font-size: 13px;
-}
-
-.metric-card strong {
-  font-size: 28px;
-}
-
-.metric-card small {
-  color: #9ca3af;
 }
 
 .recommendations {
@@ -404,27 +288,7 @@ h1 {
   color: #9ca3af;
 }
 
-@media (max-width: 1080px) {
-  .metric-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 720px) {
-  .diagnostics-page {
-    padding: 18px;
-  }
-
-  .page-header,
-  .header-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .metric-grid {
-    grid-template-columns: 1fr;
-  }
-
   .hours-select {
     width: 100%;
   }

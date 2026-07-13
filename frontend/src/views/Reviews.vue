@@ -1,44 +1,20 @@
 <template>
   <AppLayout>
-    <div class="reviews-page">
-      <header class="page-header">
-        <div>
-          <h1>审查记录</h1>
-          <p>跟踪审查队列、质量门禁和风险项处理状态。</p>
-        </div>
-        <el-button type="primary" size="large" @click="openCreateDialog">
-          <el-icon><Plus /></el-icon>
-          发起审查
-        </el-button>
-      </header>
+    <PageShell>
+      <PageHeader
+        eyebrow="REVIEWS"
+        title="审查记录"
+        description="跟踪审查队列、质量门禁和风险项处理状态。"
+      >
+        <template #actions>
+          <el-button type="primary" size="large" @click="openCreateDialog">
+            <el-icon><Plus /></el-icon>
+            发起审查
+          </el-button>
+        </template>
+      </PageHeader>
 
-      <section class="metric-strip" aria-label="审查概览">
-        <div class="metric-item">
-          <span class="metric-icon total"><el-icon><Files /></el-icon></span>
-          <span class="metric-label">审查总数</span>
-          <strong>{{ stats.total }}</strong>
-        </div>
-        <div class="metric-item">
-          <span class="metric-icon running"><el-icon><Loading /></el-icon></span>
-          <span class="metric-label">正在执行</span>
-          <strong>{{ stats.running }}</strong>
-        </div>
-        <div class="metric-item">
-          <span class="metric-icon failed"><el-icon><WarningFilled /></el-icon></span>
-          <span class="metric-label">门禁未通过</span>
-          <strong>{{ stats.gate_failed }}</strong>
-        </div>
-        <div class="metric-item">
-          <span class="metric-icon findings"><el-icon><Aim /></el-icon></span>
-          <span class="metric-label">发现问题</span>
-          <strong>{{ stats.findings }}</strong>
-        </div>
-        <div class="metric-item">
-          <span class="metric-icon tokens"><el-icon><Coin /></el-icon></span>
-          <span class="metric-label">累计 Tokens</span>
-          <strong>{{ stats.total_tokens ? stats.total_tokens.toLocaleString() : 0 }}</strong>
-        </div>
-      </section>
+      <StatStrip :items="reviewStats" />
 
       <el-card class="records-card">
         <div class="records-toolbar">
@@ -304,7 +280,7 @@
         @created="handleReviewCreated"
         @goto="(id) => router.push(`/reviews/${id}`)"
       />
-    </div>
+    </PageShell>
   </AppLayout>
 </template>
 
@@ -327,6 +303,9 @@ import {
   WarningFilled,
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import StatStrip from '@/components/common/StatStrip.vue'
 import ReviewCreateDialog from '@/components/ReviewCreateDialog.vue'
 import { getReviews, cancelReview, rerunReview, requeueReview } from '@/api/review'
 import { getProviderLabel, PROVIDER_OPTIONS } from '@/utils/url-parser'
@@ -390,6 +369,14 @@ const {
 })
 
 const stats = computed<ListStats>(() => (extraData.value as { stats?: ListStats }).stats ?? { total: 0, running: 0, gate_failed: 0, findings: 0, total_tokens: 0 })
+
+const reviewStats = computed(() => [
+  { icon: Files, label: '审查总数', value: stats.value.total, tone: 'primary' as const },
+  { icon: Loading, label: '正在执行', value: stats.value.running, tone: 'info' as const },
+  { icon: WarningFilled, label: '门禁未通过', value: stats.value.gate_failed, tone: 'danger' as const },
+  { icon: Aim, label: '发现问题', value: stats.value.findings, tone: 'warning' as const },
+  { icon: Coin, label: '累计 Tokens', value: stats.value.total_tokens ? stats.value.total_tokens.toLocaleString() : 0, tone: 'success' as const },
+])
 
 const activeSavedView = computed<SavedViewKey | ''>(() => {
   if (!filters.repo && !filters.provider && !filters.status && !filters.gate_status) return 'all'
@@ -566,117 +553,9 @@ async function handleBulkCancel() {
 </script>
 
 <style scoped>
-.reviews-page {
-  width: min(1440px, 100%);
-  margin: 0 auto;
-  padding: 28px 32px 44px;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 24px;
-  margin-bottom: 18px;
-}
-
-.page-header h1 {
-  margin: 0 0 5px;
-  color: var(--app-text);
-  font-size: 26px;
-  letter-spacing: 0;
-}
-
-.page-header p {
-  margin: 0;
-  color: var(--app-muted);
-  font-size: 14px;
-}
-
-.page-header .el-button {
-  min-height: 40px;
-  padding-inline: 16px;
-  border-radius: 8px;
-  box-shadow: none;
-}
-
-.metric-strip {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  margin-bottom: 16px;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: var(--app-shadow);
-}
-
-.metric-item {
-  display: grid;
-  min-width: 0;
-  grid-template-columns: 34px 1fr;
-  grid-template-rows: auto auto;
-  column-gap: 10px;
-  padding: 16px 18px;
-  border-right: 1px solid var(--app-border);
-}
-
-.metric-item:last-child {
-  border-right: 0;
-}
-
-.metric-icon {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  grid-row: 1 / span 2;
-  place-items: center;
-  border-radius: 8px;
-  font-size: 17px;
-}
-
-.metric-icon.total {
-  color: #2563eb;
-  background: #eff6ff;
-}
-
-.metric-icon.running {
-  color: #0891b2;
-  background: #ecfeff;
-}
-
-.metric-icon.failed {
-  color: #dc2626;
-  background: #fef2f2;
-}
-
-.metric-icon.findings {
-  color: #d97706;
-  background: #fffbeb;
-}
-
-.metric-icon.tokens {
-  color: #059669;
-  background: #ecfdf5;
-}
-
-.metric-label {
-  min-width: 0;
-  color: var(--app-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.metric-item strong {
-  overflow: hidden;
-  color: var(--app-text);
-  font-size: 22px;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .records-card {
   overflow: hidden;
+  border-radius: var(--card-radius-lg);
   box-shadow: var(--app-shadow);
 }
 
@@ -1021,26 +900,6 @@ async function handleBulkCancel() {
 }
 
 @media (max-width: 1100px) {
-  .reviews-page {
-    padding-inline: 24px;
-  }
-
-  .metric-strip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .metric-item {
-    border-bottom: 1px solid var(--app-border);
-  }
-
-  .metric-item:nth-child(3n) {
-    border-right: 0;
-  }
-
-  .metric-item:nth-last-child(-n + 2) {
-    border-bottom: 0;
-  }
-
   .filter-bar {
     flex-wrap: wrap;
   }
@@ -1051,60 +910,6 @@ async function handleBulkCancel() {
 }
 
 @media (max-width: 720px) {
-  .reviews-page {
-    padding: 22px 14px 36px;
-  }
-
-  .page-header {
-    align-items: center;
-    margin-bottom: 20px;
-  }
-
-  .page-header h1 {
-    font-size: 25px;
-  }
-
-  .page-header p {
-    display: none;
-  }
-
-  .page-header .el-button {
-    min-height: 40px;
-  }
-
-  .metric-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .metric-item {
-    grid-template-columns: 1fr;
-    padding: 12px;
-  }
-
-  .metric-item:nth-child(3n) {
-    border-right: 1px solid var(--app-border);
-  }
-
-  .metric-item:nth-child(2n) {
-    border-right: 0;
-  }
-
-  .metric-item:nth-last-child(-n + 2) {
-    border-bottom: 1px solid var(--app-border);
-  }
-
-  .metric-item:last-child {
-    border-bottom: 0;
-  }
-
-  .metric-icon {
-    display: none;
-  }
-
-  .metric-item strong {
-    font-size: 20px;
-  }
-
   .filter-bar .el-select {
     width: calc(50% - 5px);
   }

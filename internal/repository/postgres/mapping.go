@@ -177,6 +177,7 @@ func reviewerToModel(a *reviewer.Agent) models.ReviewerAgent {
 		Priority:    a.Priority,
 		IsDefault:   a.IsDefault,
 		Tags:        dataTypeJSON(a.Tags),
+		RulePackageIDs: dataTypeJSON(a.RulePackageIDs),
 	}
 }
 
@@ -193,6 +194,7 @@ func reviewerToDomain(m models.ReviewerAgent) reviewer.Agent {
 		Priority:    m.Priority,
 		IsDefault:   m.IsDefault,
 		Tags:        rawJSON(m.Tags),
+		RulePackageIDs: rawJSON(m.RulePackageIDs),
 	}
 }
 
@@ -379,6 +381,7 @@ func rulePackageToModel(p *ocrasset.RulePackage) models.OCRRulePackage {
 		Enabled:     p.Enabled,
 		ProjectRefs: dataTypeJSON(p.ProjectRefs),
 		BuiltIn:     p.BuiltIn,
+		Scope:       p.Scope,
 	}
 }
 
@@ -395,6 +398,7 @@ func rulePackageToDomain(m models.OCRRulePackage) ocrasset.RulePackage {
 		Enabled:     m.Enabled,
 		ProjectRefs: rawJSON(m.ProjectRefs),
 		BuiltIn:     m.BuiltIn,
+		Scope:       m.Scope,
 	}
 }
 
@@ -475,6 +479,7 @@ func projectPolicyToModel(p *projectpolicy.ProjectPolicy) models.ProjectPolicy {
 		OCRTelemetryExporter:       p.OCRTelemetryExporter,
 		OCRTelemetryOTLPEndpoint:   p.OCRTelemetryOTLPEndpoint,
 		OCRTelemetryContentLogging: p.OCRTelemetryContentLogging,
+		RulePackageIDs:             dataTypeJSON(p.RulePackageIDs),
 	}
 }
 
@@ -505,6 +510,7 @@ func projectPolicyToDomain(m models.ProjectPolicy) projectpolicy.ProjectPolicy {
 		OCRTelemetryExporter:       m.OCRTelemetryExporter,
 		OCRTelemetryOTLPEndpoint:   m.OCRTelemetryOTLPEndpoint,
 		OCRTelemetryContentLogging: m.OCRTelemetryContentLogging,
+		RulePackageIDs:             rawJSON(m.RulePackageIDs),
 	}
 }
 

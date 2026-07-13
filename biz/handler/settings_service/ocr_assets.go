@@ -29,7 +29,9 @@ type rulePackageDTO struct {
 	Enabled     bool                   `json:"enabled"`
 	ProjectRefs []string               `json:"project_refs,omitempty"`
 	BuiltIn     bool                   `json:"built_in,omitempty"`
-	Meta        map[string]interface{} `json:"meta,omitempty"`
+	// Scope 区分规则集来源：global=全局始终合并；project=需引用或 project_refs 匹配。空视为 project。
+	Scope string                 `json:"scope,omitempty"`
+	Meta  map[string]interface{} `json:"meta,omitempty"`
 }
 
 type toolPackageDTO struct {
@@ -343,6 +345,7 @@ func dtoToRulePackage(req rulePackageDTO) (*ocrasset.RulePackage, error) {
 		Enabled:     req.Enabled,
 		ProjectRefs: marshalJSON(req.ProjectRefs),
 		BuiltIn:     req.BuiltIn,
+		Scope:       strings.TrimSpace(req.Scope),
 	}, nil
 }
 
@@ -481,7 +484,7 @@ func dbRulePackageToDTO(pkg *ocrasset.RulePackage) rulePackageDTO {
 	return rulePackageDTO{
 		ID: pkg.ID, Name: pkg.Name, Description: pkg.Description, Languages: languages,
 		Tags: tags, Includes: includes, Excludes: excludes, Rules: rules,
-		Enabled: pkg.Enabled, ProjectRefs: refs, BuiltIn: pkg.BuiltIn,
+		Enabled: pkg.Enabled, ProjectRefs: refs, BuiltIn: pkg.BuiltIn, Scope: pkg.Scope,
 	}
 }
 

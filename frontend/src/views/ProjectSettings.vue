@@ -1,28 +1,15 @@
 <template>
   <AppLayout>
-    <div class="project-settings-page">
-      <header class="policy-hero">
-        <div class="hero-copy">
-          <div class="eyebrow">PROJECT POLICY</div>
-          <h1>项目策略工作台</h1>
-          <p>为每个仓库定义门禁、审查范围、引擎覆盖和专属规则，让高风险变更在合并前被清楚拦住。</p>
-        </div>
-
-        <div class="summary-strip">
-          <div class="summary-item">
-            <span>已配置</span>
-            <strong>{{ policies.length }}</strong>
-          </div>
-          <div class="summary-item">
-            <span>严格门禁</span>
-            <strong>{{ strictPolicyCount }}</strong>
-          </div>
-          <div class="summary-item">
-            <span>项目规则</span>
-            <strong>{{ totalRuleCount }}</strong>
-          </div>
-        </div>
-      </header>
+    <PageShell>
+      <PageHeader
+        eyebrow="PROJECT POLICY"
+        title="项目策略工作台"
+        description="为每个仓库定义门禁、审查范围、引擎覆盖和专属规则，让高风险变更在合并前被清楚拦住。"
+      >
+        <template #actions>
+          <StatStrip :items="policyStats" />
+        </template>
+      </PageHeader>
 
       <div class="content-grid">
         <!-- 左栏：策略库 -->
@@ -53,9 +40,13 @@
           </el-input>
 
           <el-empty v-if="!loading && filteredPolicies.length === 0 && policies.length === 0" description="暂无项目策略">
+            <template #description>
+              <p>暂无项目策略</p>
+              <p class="empty-hint">被回调审查过的项目会自动生成默认策略；也可手动创建。</p>
+            </template>
             <el-button type="primary" @click="startCreate">
               <el-icon><Plus /></el-icon>
-              创建第一条策略
+              创建策略
             </el-button>
           </el-empty>
 
@@ -261,8 +252,16 @@
               </el-tab-pane>
 
               <el-tab-pane label="项目专属规则" name="rules">
-                <p class="tab-hint">这里只写该仓库特有要求，通用规则放到「审查规则」页面。</p>
+                <p class="tab-hint">这里只写该仓库特有要求；通用规则在「审查规则」页维护，可在下方引用。</p>
                 <RuleEditor v-model="form.rules" :issues="projectRuleIssues" empty-description="当前没有项目专属规则" />
+
+                <div class="rule-package-section">
+                  <div class="section-title">
+                    <strong>引用规则包</strong>
+                    <span>勾选的规则集会与项目专属规则一起生效；规则集中维护，改了自动同步</span>
+                  </div>
+                  <RulePackagePicker v-model="form.rule_package_ids" />
+                </div>
               </el-tab-pane>
             </el-tabs>
 
@@ -309,7 +308,7 @@
           :repo="currentProject.repo"
         />
       </el-dialog>
-    </div>
+    </PageShell>
   </AppLayout>
 </template>
 
@@ -324,20 +323,28 @@ import {
   Refresh,
   Search,
   User,
+  Files,
+  Lock,
+  Document,
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import StatStrip from '@/components/common/StatStrip.vue'
 import ProjectAgentConfig from '@/components/ProjectAgentConfig.vue'
 import RuleEditor from '@/components/RuleEditor.vue'
+import RulePackagePicker from '@/components/RulePackagePicker.vue'
 import OCREngineOverride from '@/components/project-settings/OCREngineOverride.vue'
 import { getProjectPolicies, putProjectPolicy, deleteProjectPolicy, getProviderRepos, getGitPlatforms } from '@/api/config'
 import type { ProjectPolicy, ReviewRule, PlatformRepo, GitPlatform } from '@/types/config'
 
 type OCREnabledMode = 'inherit' | 'enabled' | 'disabled'
-type ProjectPolicyForm = Omit<ProjectPolicy, 'ignore_paths' | 'rules' | 'ocr_enabled'> & {
+type ProjectPolicyForm = Omit<ProjectPolicy, 'ignore_paths' | 'rules' | 'ocr_enabled' | 'rule_package_ids'> & {
   ignore_paths: string[]
   rules: ReviewRule[]
   ocr_enabled: boolean | null
   ocr_default_severity: ProjectPolicy['ocr_default_severity']
+  rule_package_ids: number[]
 }
 
 const failOnOptions = [
@@ -389,6 +396,7 @@ const form = reactive<ProjectPolicyForm>({
   ocr_telemetry_exporter: '',
   ocr_telemetry_otlp_endpoint: '',
   ocr_telemetry_content_logging: null as any,
+  rule_package_ids: [] as number[],
 })
 
 const ignorePathsText = ref('')
@@ -432,6 +440,7 @@ const payloadPreview = computed<ProjectPolicy>(() => ({
   ocr_telemetry_exporter: form.ocr_telemetry_exporter || '',
   ocr_telemetry_otlp_endpoint: form.ocr_telemetry_otlp_endpoint?.trim() || '',
   ocr_telemetry_content_logging: form.ocr_telemetry_content_logging as any,
+  rule_package_ids: [...form.rule_package_ids],
 }))
 
 const previewJson = computed(() => JSON.stringify(payloadPreview.value, null, 2))
@@ -455,6 +464,12 @@ const currentPolicyKey = computed(() => form.provider && form.repo ? `${form.pro
 const editingExisting = computed(() => policies.value.some((policy) => policyKey(policy) === currentPolicyKey.value))
 const strictPolicyCount = computed(() => policies.value.filter((policy) => ['major', 'minor', 'info'].includes(policy.fail_on)).length)
 const totalRuleCount = computed(() => policies.value.reduce((sum, policy) => sum + (policy.rules?.length || 0), 0))
+
+const policyStats = computed(() => [
+  { icon: Files, label: '已配置', value: policies.value.length, tone: 'primary' as const },
+  { icon: Lock, label: '严格门禁', value: strictPolicyCount.value, tone: 'danger' as const },
+  { icon: Document, label: '项目规则', value: totalRuleCount.value, tone: 'info' as const },
+])
 const ocrOverrideSummary = computed(() => {
   const items: string[] = []
   if (ocrEnabledMode.value !== 'inherit') items.push(ocrEnabledMode.value === 'enabled' ? '启用' : '禁用')
@@ -613,6 +628,7 @@ function handleEdit(policy: ProjectPolicy) {
   form.ocr_telemetry_exporter = policy.ocr_telemetry_exporter || ''
   form.ocr_telemetry_otlp_endpoint = policy.ocr_telemetry_otlp_endpoint || ''
   form.ocr_telemetry_content_logging = policy.ocr_telemetry_content_logging ?? null as any
+  form.rule_package_ids = policy.rule_package_ids ? [...policy.rule_package_ids] : []
   ignorePathsText.value = (policy.ignore_paths || []).join('\n')
   syncOriginal()
   fetchRepos()
@@ -646,6 +662,7 @@ function startCreate() {
   form.ocr_telemetry_exporter = ''
   form.ocr_telemetry_otlp_endpoint = ''
   form.ocr_telemetry_content_logging = null as any
+  form.rule_package_ids = []
   ignorePathsText.value = ''
   syncOriginal()
   if (form.provider) fetchRepos()
@@ -719,72 +736,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.project-settings-page {
-  width: min(1520px, 100%);
-  margin: 0 auto;
-  padding: 30px 34px 48px;
-}
-
-.policy-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 20px;
-  align-items: start;
-  margin-bottom: 16px;
-  padding: 22px 24px;
-  border: 1px solid var(--app-border);
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: var(--app-shadow);
-}
-
-.hero-copy h1 {
-  margin: 5px 0 8px;
-  color: var(--app-text);
-  font-size: 31px;
-  line-height: 1.18;
-  letter-spacing: 0;
-}
-
-.hero-copy p {
-  max-width: 760px;
-  margin: 0;
-  color: var(--app-muted);
-  font-size: 14px;
-  line-height: 1.7;
-}
-
-.eyebrow {
-  color: var(--app-primary);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.4px;
-}
-
-.hero-actions {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 10px;
-}
-
-.summary-strip {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1px;
-  overflow: hidden;
-  border: 1px solid var(--app-border);
-  border-radius: 10px;
-  background: var(--app-border);
-}
-
-.summary-item {
-  min-height: 68px;
-  padding: 12px 16px;
-  background: #fff;
-}
-
-.summary-item span,
 .panel-heading span,
 .section-title span,
 .editor-header small,
@@ -792,18 +743,6 @@ onMounted(async () => {
   display: block;
   color: var(--app-muted);
   font-size: 12px;
-}
-
-.summary-item strong {
-  display: block;
-  margin-top: 4px;
-  color: var(--app-text);
-  font-size: 24px;
-  line-height: 1;
-}
-
-.summary-item.warning.active strong {
-  color: var(--app-danger);
 }
 
 .content-grid {
@@ -815,8 +754,8 @@ onMounted(async () => {
 
 .panel-shell {
   border: 1px solid var(--app-border);
-  border-radius: 14px;
-  background: #fff;
+  border-radius: var(--card-radius-lg);
+  background: var(--app-surface);
   box-shadow: var(--app-shadow);
 }
 
@@ -873,7 +812,7 @@ onMounted(async () => {
   width: 100%;
   padding: 11px 12px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--card-radius);
   background: #f7f8fc;
   text-align: left;
   cursor: pointer;
@@ -883,8 +822,8 @@ onMounted(async () => {
 .policy-item:hover,
 .policy-item.active {
   border-color: var(--app-primary);
-  background: #fff;
-  box-shadow: 0 4px 14px rgba(91, 91, 214, 0.08);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
 }
 
 .policy-main {
@@ -1051,7 +990,7 @@ onMounted(async () => {
   min-height: 76px;
   padding: 13px 15px;
   border: 1px solid var(--app-border);
-  border-radius: 10px;
+  border-radius: var(--card-radius);
   background: #f7f8fc;
   color: var(--app-text);
   text-align: left;
@@ -1061,8 +1000,8 @@ onMounted(async () => {
 
 .gate-option.active {
   border-color: var(--app-primary);
-  background: #fff;
-  box-shadow: 0 4px 14px rgba(91, 91, 214, 0.1);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
 }
 
 .gate-option strong,
@@ -1127,7 +1066,7 @@ onMounted(async () => {
   overflow: hidden;
   margin-bottom: 0;
   border: 1px solid var(--app-border);
-  border-radius: 10px;
+  border-radius: var(--card-radius);
   background: var(--app-border);
 }
 
@@ -1151,7 +1090,7 @@ onMounted(async () => {
 .advanced-collapse {
   margin-top: 16px;
   border: 1px solid var(--app-border);
-  border-radius: 10px;
+  border-radius: var(--card-radius);
   overflow: hidden;
 }
 
@@ -1274,6 +1213,22 @@ onMounted(async () => {
   font-size: 13px;
 }
 
+.empty-hint {
+  margin: 4px 0 0;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.rule-package-section {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--app-border);
+}
+
+.rule-package-section .section-title {
+  margin-bottom: 12px;
+}
+
 .editor-footer-info {
   display: flex;
   align-items: center;
@@ -1282,7 +1237,7 @@ onMounted(async () => {
   margin-top: 16px;
   padding: 12px 16px;
   border: 1px solid var(--app-border);
-  border-radius: 10px;
+  border-radius: var(--card-radius);
   background: #fafbfc;
   flex-wrap: wrap;
 }
@@ -1351,9 +1306,9 @@ onMounted(async () => {
   margin-top: 16px;
   padding: 12px 20px;
   border: 1px solid var(--app-border);
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+  border-radius: var(--card-radius);
+  background: var(--app-surface);
+  box-shadow: var(--shadow-sticky);
   transition: border-color 200ms ease;
 }
 
@@ -1404,10 +1359,6 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 
-  .summary-strip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .sticky-save-bar {
     flex-direction: column;
     align-items: stretch;
@@ -1415,22 +1366,6 @@ onMounted(async () => {
 }
 
 @media (max-width: 720px) {
-  .project-settings-page {
-    padding: 22px 14px 36px;
-  }
-
-  .policy-hero {
-    padding: 18px;
-  }
-
-  .hero-copy h1 {
-    font-size: 24px;
-  }
-
-  .summary-strip {
-    grid-template-columns: 1fr;
-  }
-
   .wizard-body,
   .wizard-nav,
   .editor-tabs {

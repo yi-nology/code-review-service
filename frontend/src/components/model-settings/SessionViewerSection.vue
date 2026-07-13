@@ -66,7 +66,7 @@ onMounted(refresh)
       </div>
     </div>
     <div v-if="embedViewer && viewerStatus?.running" class="viewer-frame">
-      <iframe title="OCR Viewer" :src="viewerProxyUrl" />
+      <iframe title="Session Viewer" :src="viewerProxyUrl" />
     </div>
   </div>
 </template>

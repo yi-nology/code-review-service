@@ -258,7 +258,7 @@ onMounted(refresh)
           </el-form-item>
           <div class="tool-editor-actions">
             <el-button @click="validateDraft(false)" :loading="validatingDraft">JSON 校验</el-button>
-            <el-button type="success" plain @click="validateDraft(true)" :loading="validatingDraft">OCR dry-run</el-button>
+            <el-button type="success" plain @click="validateDraft(true)" :loading="validatingDraft">dry-run</el-button>
             <el-button type="primary" @click="saveDraft" :loading="savingPkg">保存工具包</el-button>
           </div>
         </el-form>

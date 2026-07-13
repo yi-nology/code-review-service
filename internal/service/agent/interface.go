@@ -23,6 +23,9 @@ type Workspace struct {
 	BaseSHA      string
 	HeadSHA      string
 	Diff         string
+	// RulePath 是合并后的规则文件路径（项目+规则包+全局规则），透传给 OCR 的 --rule。
+	// 由 review/executor 在解析规则后注入，覆盖 agent 自身的 cfg.RulePath。
+	RulePath      string
 	Requirements *Requirements
 	Context      map[string]interface{}
 }

@@ -1,259 +1,207 @@
 <template>
   <AppLayout>
-    <div class="agent-settings-page">
-      <header class="page-header">
-        <div>
-          <div class="eyebrow">REVIEWER AGENTS</div>
-          <h1>审查员</h1>
-          <p>维护全局审查员能力库。项目未配置团队时，会使用所有启用的审查员；项目策略可覆盖启用范围和优先级。</p>
-        </div>
-        <div class="header-actions">
-          <el-button plain @click="startCreate">
-            <el-icon><Plus /></el-icon>
-            新建审查员
-          </el-button>
-          <el-button type="primary" @click="handleSave" :loading="submitting" :disabled="validationIssues.length > 0">
-            保存审查员
-          </el-button>
-        </div>
-      </header>
+    <PageShell>
+      <PageHeader
+        eyebrow="REVIEWER AGENTS"
+        title="审查员"
+        description="维护审查员能力库。项目未配置团队时按技术栈自动匹配启用的审查员；可在「全局规则」页给审查员引用规则集。"
+      >
+        <template #actions>
+          <el-dropdown trigger="click" @command="(cmd: string) => applyPreset(presets.find((p) => p.name === cmd)!)">
+            <el-button plain>
+              <el-icon><MagicStick /></el-icon>从模板创建
+              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-for="p in presets" :key="p.name" :command="p.name">
+                  <div class="preset-option">
+                    <strong>{{ p.display_name }}</strong>
+                    <small>{{ p.description }}</small>
+                  </div>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </template>
+      </PageHeader>
 
-      <section class="summary-grid">
-        <div class="summary-card">
-          <span>审查员总数</span>
-          <strong>{{ agents.length }}</strong>
-        </div>
-        <div class="summary-card">
-          <span>全局启用</span>
-          <strong>{{ enabledCount }}</strong>
-        </div>
-        <div class="summary-card">
-          <span>能力标签</span>
-          <strong>{{ tagCount }}</strong>
-        </div>
-        <div class="summary-card warning" :class="{ active: validationIssues.length > 0 }">
-          <span>待处理问题</span>
-          <strong>{{ validationIssues.length }}</strong>
-        </div>
-      </section>
+      <StatStrip :items="agentStats" />
 
       <div class="content-grid">
-        <aside class="agent-sidebar">
-          <el-card class="panel-card">
-            <template #header>
-              <div class="card-header">
-                <div>
-                  <strong>审查员池</strong>
-                  <span>按优先级从小到大执行</span>
-                </div>
-                <el-button text @click="fetchAgents" :loading="loading">
-                  <el-icon><Refresh /></el-icon>
-                </el-button>
-              </div>
-            </template>
-
-            <el-input v-model="keyword" class="agent-search" clearable placeholder="搜索名称、标识或标签">
-              <template #prefix><el-icon><Search /></el-icon></template>
-            </el-input>
-
-            <el-empty v-if="!loading && filteredAgents.length === 0" description="暂无审查员">
-              <el-button type="primary" @click="applyPreset(presets[0])">从推荐模板开始</el-button>
-            </el-empty>
-
-            <div v-else v-loading="loading" class="agent-list">
-              <button
-                v-for="agent in filteredAgents"
-                :key="agent.id"
-                class="agent-item"
-                :class="{ active: selectedAgent?.id === agent.id, disabled: !agent.enabled }"
-                type="button"
-                @click="editAgent(agent)"
-              >
-                <span class="agent-title">
-                  <strong>{{ agent.display_name }}</strong>
-                  <span class="priority-badge">P{{ agent.priority ?? 0 }}</span>
-                  <span v-if="agent.is_default" class="default-badge">DEFAULT</span>
-                </span>
-                <span class="agent-meta">
-                  {{ agent.name }} / {{ agent.enabled ? '启用' : '禁用' }}
-                </span>
-                <span v-if="agent.tags?.length" class="tag-row">
-                  <span v-for="tag in agent.tags.slice(0, 3)" :key="tag">{{ tag }}</span>
-                </span>
-              </button>
+        <!-- 左栏：审查员列表 -->
+        <aside class="agent-sidebar panel-shell">
+          <div class="panel-heading">
+            <div>
+              <strong>审查员池</strong>
+              <span>按优先级排序</span>
             </div>
-          </el-card>
+            <el-button circle text aria-label="刷新" @click="fetchAgents" :loading="loading">
+              <el-icon><Refresh /></el-icon>
+            </el-button>
+          </div>
+
+          <el-button type="primary" plain class="new-agent-btn" @click="startCreate">
+            <el-icon><Plus /></el-icon>新建审查员
+          </el-button>
+
+          <el-input v-if="agents.length" v-model="keyword" class="agent-search" clearable placeholder="搜索名称或标签">
+            <template #prefix><el-icon><Search /></el-icon></template>
+          </el-input>
+
+          <el-empty v-if="!loading && filteredAgents.length === 0 && agents.length === 0" description="暂无审查员">
+            <el-button type="primary" @click="applyPreset(presets[0])">从推荐模板开始</el-button>
+          </el-empty>
+
+          <div v-else v-loading="loading" class="agent-list">
+            <button
+              v-for="agent in filteredAgents"
+              :key="agent.id"
+              class="agent-item"
+              :class="{ active: selectedAgent?.id === agent.id, disabled: !agent.enabled }"
+              type="button"
+              @click="editAgent(agent)"
+            >
+              <span class="agent-title">
+                <strong>{{ agent.display_name }}</strong>
+                <span class="priority-badge">P{{ agent.priority ?? 0 }}</span>
+                <span v-if="agent.is_default" class="default-badge">默认</span>
+              </span>
+              <span class="agent-meta">{{ agent.name }} · {{ agent.enabled ? '启用' : '禁用' }}</span>
+              <span v-if="agent.tags?.length" class="tag-row">
+                <span v-for="tag in agent.tags.slice(0, 3)" :key="tag">{{ tag }}</span>
+              </span>
+            </button>
+          </div>
         </aside>
 
-        <main class="editor-column">
-          <el-card class="panel-card">
-            <template #header>
-              <div class="card-header">
-                <div>
-                  <strong>{{ selectedAgent ? '编辑审查员' : '新建审查员' }}</strong>
-                  <span>{{ dirty ? '有未保存修改' : '当前表单已同步' }}</span>
-                </div>
-                <el-switch
-                  v-model="form.enabled"
-                  inline-prompt
-                  active-text="启用"
-                  inactive-text="禁用"
-                />
-                <el-switch
-                  v-model="form.is_default"
-                  inline-prompt
-                  active-text="默认"
-                  inactive-text="非默认"
-                />
-              </div>
-            </template>
+        <!-- 右栏：编辑器（标签页） -->
+        <main class="editor-column panel-shell">
+          <div class="editor-header">
+            <div class="editor-title">
+              <span class="editor-state">{{ editingExisting ? '编辑中' : '新建' }}</span>
+              <strong>{{ form.display_name || form.name || '未命名审查员' }}</strong>
+              <small v-if="dirty" class="dirty-tag">有未保存修改</small>
+            </div>
+            <div class="editor-toggles">
+              <label class="toggle-chip">
+                <span>启用</span>
+                <el-switch v-model="form.enabled" size="small" />
+              </label>
+              <label class="toggle-chip">
+                <span>默认</span>
+                <el-switch v-model="form.is_default" size="small" />
+              </label>
+            </div>
+          </div>
 
-            <div class="editor-layout">
-              <section class="form-section">
-                <div class="section-title">
-                  <strong>1. 基本信息</strong>
-                  <span>标识名创建后不可修改，用于项目配置和审查结果归档</span>
-                </div>
-                <div class="field-grid two-columns">
+          <div class="editor-tabs">
+            <el-tabs v-model="activeTab">
+              <el-tab-pane label="基本信息" name="basic">
+                <div class="tab-body">
+                  <div class="field-grid two-columns">
+                    <label class="field-block">
+                      <span>标识名</span>
+                      <el-input v-model="form.name" placeholder="security" :disabled="editingExisting" />
+                      <small class="field-hint">小写字母开头，创建后不可改</small>
+                    </label>
+                    <label class="field-block">
+                      <span>显示名称</span>
+                      <el-input v-model="form.display_name" placeholder="安全审查员" />
+                    </label>
+                  </div>
                   <label class="field-block">
-                    <span>标识名</span>
-                    <el-input v-model="form.name" placeholder="security" :disabled="!!selectedAgent" />
+                    <span>职责描述</span>
+                    <el-input v-model="form.description" placeholder="说明这个审查员负责什么风险面" />
                   </label>
-                  <label class="field-block">
-                    <span>显示名称</span>
-                    <el-input v-model="form.display_name" placeholder="安全审查员" />
-                  </label>
+                  <div class="field-grid two-columns">
+                    <label class="field-block">
+                      <span>全局优先级</span>
+                      <el-input-number v-model="form.priority" :min="0" :max="100" />
+                      <small class="field-hint">数字越小越靠前；项目策略可覆盖</small>
+                    </label>
+                    <label class="field-block">
+                      <span>能力标签</span>
+                      <div class="tags-input">
+                        <el-tag v-for="tag in form.tags" :key="tag" closable @close="removeTag(tag)">{{ tag }}</el-tag>
+                        <el-input
+                          v-if="tagInputVisible"
+                          ref="tagInputRef"
+                          v-model="tagInputValue"
+                          size="small"
+                          class="tag-input"
+                          @keyup.enter="addTag"
+                          @blur="addTag"
+                        />
+                        <el-button v-else size="small" @click="showTagInput">+ 添加</el-button>
+                      </div>
+                      <small class="field-hint">含 always 标签的审查员在所有项目自动选中</small>
+                    </label>
+                  </div>
                 </div>
-                <label class="field-block full">
-                  <span>职责描述</span>
-                  <el-input v-model="form.description" placeholder="说明这个审查员负责什么风险面" />
-                </label>
-              </section>
+              </el-tab-pane>
 
-              <section class="form-section">
-                <div class="section-title">
-                  <strong>2. 执行策略</strong>
-                  <span>全局优先级用于默认团队；项目策略里可单独覆盖</span>
-                </div>
-                <div class="field-grid two-columns">
-                  <label class="field-block">
-                    <span>全局优先级</span>
-                    <el-input-number v-model="form.priority" :min="0" :max="100" />
-                  </label>
-                  <label class="field-block">
-                    <span>能力标签</span>
-                    <div class="tags-input">
-                      <el-tag
-                        v-for="tag in form.tags"
-                        :key="tag"
-                        closable
-                        @close="removeTag(tag)"
-                      >
-                        {{ tag }}
-                      </el-tag>
-                      <el-input
-                        v-if="tagInputVisible"
-                        ref="tagInputRef"
-                        v-model="tagInputValue"
-                        size="small"
-                        class="tag-input"
-                        @keyup.enter="addTag"
-                        @blur="addTag"
-                      />
-                      <el-button v-else size="small" @click="showTagInput">添加标签</el-button>
-                    </div>
-                  </label>
-                </div>
-              </section>
-
-              <section class="form-section">
-                <div class="section-title">
-                  <strong>3. 审查侧重点</strong>
-                  <span>这段内容会作为模型审查背景，决定审查员从哪个角度看代码</span>
-                </div>
+              <el-tab-pane label="审查侧重点" name="focus">
+                <p class="tab-hint">这段内容作为模型审查背景，决定审查员从哪个角度看代码。</p>
                 <el-input
                   v-model="form.background"
                   type="textarea"
-                  :rows="9"
+                  :autosize="{ minRows: 8, maxRows: 18 }"
                   placeholder="例如：重点关注鉴权绕过、越权访问、敏感信息泄露、输入校验和不安全配置。"
                 />
-              </section>
+              </el-tab-pane>
+
+              <el-tab-pane label="引用规则包" name="rules">
+                <p class="tab-hint">勾选要应用的规则集，会与全局规则一起生效。规则集在「全局规则」页集中维护，改了自动同步，无需副本。</p>
+                <RulePackagePicker v-model="form.rule_package_ids" />
+              </el-tab-pane>
+            </el-tabs>
+
+            <!-- 校验 + 危险操作（折叠到标签页下方） -->
+            <div class="editor-footer-info">
+              <div v-if="validationIssues.length" class="issues-inline">
+                <strong>需处理（{{ validationIssues.length }}）：</strong>
+                <span v-for="(issue, i) in validationIssues.slice(0, 3)" :key="i" class="issue-chip">{{ issue }}</span>
+                <span v-if="validationIssues.length > 3" class="issue-more">等 {{ validationIssues.length }} 项</span>
+              </div>
+              <div v-else class="issues-inline ok">
+                <el-icon><CircleCheckFilled /></el-icon> 校验通过，可保存
+              </div>
+              <el-button v-if="editingExisting" type="danger" plain size="small" @click="handleDeleteSelected">
+                <el-icon><Delete /></el-icon>删除审查员
+              </el-button>
             </div>
-          </el-card>
+          </div>
         </main>
-
-        <aside class="inspector-column">
-          <el-card class="panel-card">
-            <template #header>
-              <div class="card-header compact">
-                <strong>保存前检查</strong>
-              </div>
-            </template>
-            <div v-if="validationIssues.length === 0" class="check-ok">
-              <el-icon><CircleCheckFilled /></el-icon>
-              可以保存
-            </div>
-            <ul v-else class="issue-list">
-              <li v-for="issue in validationIssues" :key="issue">{{ issue }}</li>
-            </ul>
-          </el-card>
-
-          <el-card class="panel-card">
-            <template #header>
-              <div class="card-header compact">
-                <strong>预设模板</strong>
-              </div>
-            </template>
-            <div class="preset-list">
-              <button
-                v-for="preset in presets"
-                :key="preset.name"
-                type="button"
-                class="preset-item"
-                @click="applyPreset(preset)"
-              >
-                <strong>{{ preset.display_name }}</strong>
-                <span>{{ preset.description }}</span>
-              </button>
-            </div>
-          </el-card>
-
-          <el-card class="panel-card">
-            <template #header>
-              <div class="card-header compact">
-                <strong>生效说明</strong>
-              </div>
-            </template>
-            <div class="help-content">
-              <p>项目未配置审查员时，系统按仓库技术栈（Go/Java/Node 等）自动推断匹配的审查员。</p>
-              <p>技术栈推断无匹配时，运行标记为「默认」的审查员；仍无则运行全部启用的审查员。</p>
-              <p>项目策略配置审查员后，完全覆盖上述逻辑，只运行项目中启用的审查员。</p>
-              <p>标签含 <code>always</code> 的审查员在任何项目中都会被自动选中。</p>
-              <p>优先级数字越小越靠前；项目优先级会覆盖这里的全局优先级。</p>
-            </div>
-          </el-card>
-
-          <el-card v-if="selectedAgent" class="panel-card danger-card">
-            <template #header>
-              <div class="card-header compact">
-                <strong>危险操作</strong>
-              </div>
-            </template>
-            <p>删除后，项目中引用该审查员的配置将无法继续创建对应审查角色。</p>
-            <el-button type="danger" plain @click="handleDeleteSelected">删除当前审查员</el-button>
-          </el-card>
-        </aside>
       </div>
-    </div>
+
+      <!-- 底部 sticky 保存条 -->
+      <div class="sticky-save-bar" :class="{ dirty }">
+        <div class="save-bar-info">
+          <strong>{{ form.display_name || form.name || '未命名审查员' }}</strong>
+          <span>P{{ form.priority }} · {{ form.enabled ? '启用' : '禁用' }}{{ form.is_default ? ' · 默认' : '' }}</span>
+        </div>
+        <div class="save-bar-actions">
+          <el-button v-if="dirty" plain size="small" @click="discardChanges">放弃修改</el-button>
+          <el-button type="primary" :loading="submitting" :disabled="validationIssues.length > 0" @click="handleSave">
+            <el-icon><CircleCheckFilled /></el-icon>保存审查员
+          </el-button>
+        </div>
+      </div>
+    </PageShell>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
-import { CircleCheckFilled, Plus, Refresh, Search } from '@element-plus/icons-vue'
+import { ArrowDown, CircleCheckFilled, Delete, MagicStick, Plus, Refresh, Search, User, Star, WarningFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import StatStrip from '@/components/common/StatStrip.vue'
+import RulePackagePicker from '@/components/RulePackagePicker.vue'
 import { listReviewerAgents, createReviewerAgent, updateReviewerAgent, deleteReviewerAgent } from '@/api/config'
 import type { ReviewerAgent } from '@/types/config'
 import { AGENT_PRESETS, type AgentPreset } from '@/constants/agents'
@@ -266,6 +214,7 @@ const agents = ref<ReviewerAgent[]>([])
 const selectedAgent = ref<ReviewerAgent | null>(null)
 const keyword = ref('')
 const originalJson = ref('')
+const activeTab = ref('basic')
 const tagInputVisible = ref(false)
 const tagInputValue = ref('')
 const tagInputRef = ref()
@@ -279,10 +228,19 @@ const form = reactive({
   is_default: false,
   priority: 20,
   tags: [] as string[],
+  rule_package_ids: [] as number[],
 })
 
 const enabledCount = computed(() => agents.value.filter((agent) => agent.enabled).length)
-const tagCount = computed(() => new Set(agents.value.flatMap((agent) => agent.tags || [])).size)
+const defaultCount = computed(() => agents.value.filter((agent) => agent.is_default).length)
+
+const agentStats = computed(() => [
+  { icon: User, label: '审查员总数', value: agents.value.length, tone: 'primary' as const },
+  { icon: CircleCheckFilled, label: '已启用', value: enabledCount.value, tone: 'success' as const },
+  { icon: Star, label: '默认审查员', value: defaultCount.value, tone: 'warning' as const },
+  { icon: WarningFilled, label: '待处理问题', value: validationIssues.value.length, tone: validationIssues.value.length > 0 ? ('danger' as const) : ('info' as const) },
+])
+const editingExisting = computed(() => !!selectedAgent.value)
 const dirty = computed(() => JSON.stringify(payload.value) !== originalJson.value)
 
 const filteredAgents = computed(() => {
@@ -308,6 +266,7 @@ const payload = computed(() => ({
   is_default: form.is_default,
   priority: form.priority,
   tags: form.tags.map((tag) => tag.trim()).filter(Boolean),
+  rule_package_ids: [...form.rule_package_ids],
 }))
 
 const validationIssues = computed(() => {
@@ -355,6 +314,8 @@ function editAgent(agent: ReviewerAgent) {
   form.is_default = agent.is_default ?? false
   form.priority = agent.priority ?? 20
   form.tags = agent.tags ? [...agent.tags] : []
+  form.rule_package_ids = agent.rule_package_ids ? [...agent.rule_package_ids] : []
+  activeTab.value = 'basic'
   syncOriginal()
 }
 
@@ -368,6 +329,8 @@ function startCreate() {
   form.is_default = false
   form.priority = 20
   form.tags = []
+  form.rule_package_ids = []
+  activeTab.value = 'basic'
   syncOriginal()
 }
 
@@ -381,12 +344,23 @@ function applyPreset(preset: AgentPreset) {
   form.is_default = false
   form.priority = preset.priority
   form.tags = [...preset.tags]
+  form.rule_package_ids = []
+  activeTab.value = 'basic'
   syncOriginal()
+}
+
+// 放弃修改：有选中则回到已保存版本，无选中则重置为空表单。
+function discardChanges() {
+  if (selectedAgent.value) {
+    editAgent(selectedAgent.value)
+  } else {
+    startCreate()
+  }
 }
 
 async function handleSave() {
   if (validationIssues.value.length > 0) {
-    ElMessage.warning('请先处理保存前检查中的问题')
+    ElMessage.warning('请先处理校验中的问题')
     return
   }
   submitting.value = true
@@ -401,6 +375,7 @@ async function handleSave() {
         is_default: payload.value.is_default,
         priority: payload.value.priority,
         tags: payload.value.tags,
+        rule_package_ids: payload.value.rule_package_ids,
       })
       ElMessage.success('审查员已更新')
     } else {
@@ -456,154 +431,114 @@ onMounted(fetchAgents)
 </script>
 
 <style scoped>
-.agent-settings-page {
-  width: min(1480px, 100%);
-  margin: 0 auto;
-  padding: 34px 36px 48px;
-}
-
-.page-header {
+.preset-option {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 22px;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.page-header h1 {
-  margin: 4px 0 8px;
-  color: var(--app-text);
-  font-size: 30px;
-  letter-spacing: -0.6px;
+.preset-option strong {
+  font-size: 13px;
 }
 
-.page-header p {
-  max-width: 760px;
-  margin: 0;
+.preset-option small {
   color: var(--app-muted);
-  font-size: 14px;
-  line-height: 1.7;
-}
-
-.eyebrow {
-  color: var(--app-primary);
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.4px;
 }
 
-.header-actions {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 10px;
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
-}
-
-.summary-card {
-  min-height: 92px;
-  padding: 18px 20px;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-surface);
-}
-
-.summary-card span,
-.card-header span,
-.section-title span {
-  display: block;
-  color: var(--app-muted);
-  font-size: 12px;
-}
-
-.summary-card strong {
-  display: block;
-  margin-top: 8px;
-  color: var(--app-text);
-  font-size: 28px;
-  line-height: 1;
-}
-
-.summary-card.warning.active strong {
-  color: var(--app-danger);
-}
-
+/* 两栏布局 */
 .content-grid {
   display: grid;
-  grid-template-columns: 330px minmax(0, 1fr) 340px;
-  gap: 18px;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 16px;
   align-items: start;
 }
 
-.panel-card {
-  border-radius: 8px;
+.panel-shell {
+  border: 1px solid var(--app-border);
+  border-radius: var(--card-radius-lg);
+  background: var(--app-surface);
   box-shadow: var(--app-shadow);
 }
 
-.card-header {
+/* 左栏列表 */
+.agent-sidebar {
+  position: sticky;
+  top: 18px;
+  padding-bottom: 12px;
+}
+
+.panel-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-height: 54px;
+  padding: 15px 16px 12px;
+  border-bottom: 1px solid var(--app-border);
 }
 
-.card-header strong {
+.panel-heading strong {
   display: block;
   color: var(--app-text);
   font-size: 15px;
 }
 
-.card-header.compact {
-  min-height: 28px;
+.panel-heading span {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.new-agent-btn {
+  margin: 12px 14px 0;
+  width: calc(100% - 28px);
 }
 
 .agent-search {
-  margin-bottom: 12px;
+  margin: 10px 14px 0;
+  width: calc(100% - 28px);
 }
 
 .agent-list {
   display: grid;
-  gap: 8px;
-  max-height: 680px;
+  gap: 7px;
+  align-content: start;
+  max-height: calc(100vh - 320px);
+  min-height: 280px;
+  padding: 10px 10px 4px;
   overflow: auto;
 }
 
-.agent-item,
-.preset-item {
+.agent-item {
   width: 100%;
-  padding: 13px 14px;
-  border: 1px solid #edf0f5;
-  border-radius: 8px;
-  background: #fff;
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--card-radius);
+  background: #f7f8fc;
   text-align: left;
   cursor: pointer;
   transition: 160ms ease;
 }
 
 .agent-item:hover,
-.agent-item.active,
-.preset-item:hover {
-  border-color: #cfd3ff;
-  background: #fbfbff;
+.agent-item.active {
+  border-color: var(--app-primary);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
 }
 
 .agent-item.disabled {
-  opacity: 0.62;
+  opacity: 0.6;
 }
 
 .agent-title {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
 }
 
 .agent-title strong {
+  flex: 1;
   overflow: hidden;
   color: var(--app-text);
   font-size: 13px;
@@ -612,23 +547,19 @@ onMounted(fetchAgents)
 }
 
 .priority-badge {
-  display: inline-flex;
-  min-height: 22px;
-  align-items: center;
-  padding: 0 7px;
-  border-radius: 6px;
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: 5px;
   color: #5656c5;
   background: #f0f1ff;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
 }
 
 .default-badge {
-  display: inline-flex;
-  min-height: 18px;
-  align-items: center;
-  padding: 0 6px;
-  border-radius: 6px;
+  flex-shrink: 0;
+  padding: 0 5px;
+  border-radius: 5px;
   color: #0f7b6c;
   background: #e6faf5;
   font-size: 10px;
@@ -637,62 +568,115 @@ onMounted(fetchAgents)
 
 .agent-meta {
   display: block;
-  margin-top: 6px;
+  margin-top: 5px;
   color: var(--app-muted);
   font-size: 12px;
 }
 
-.tag-row,
-.tags-input {
+.tag-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-}
-
-.tag-row {
-  margin-top: 8px;
+  gap: 4px;
+  margin-top: 7px;
 }
 
 .tag-row span {
-  padding: 2px 7px;
+  padding: 1px 6px;
   border-radius: 999px;
   color: #4c5570;
   background: #f2f4f8;
-  font-size: 11px;
+  font-size: 10px;
 }
 
-.editor-layout {
-  display: grid;
-  gap: 24px;
+/* 右栏编辑器 */
+.editor-column {
+  min-width: 0;
+  overflow: hidden;
 }
 
-.form-section {
-  padding-bottom: 22px;
+.editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 64px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--app-border);
+  background: #fbfcfe;
 }
 
-.form-section:last-child {
-  padding-bottom: 0;
-  border-bottom: none;
+.editor-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.section-title {
+.editor-state {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: #31536f;
+  background: #eaf2f8;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.editor-title strong {
+  color: var(--app-text);
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.dirty-tag {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.editor-toggles {
+  display: flex;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.toggle-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.editor-tabs {
+  padding: 8px 20px 20px;
+}
+
+.editor-tabs :deep(.el-tabs__header) {
   margin-bottom: 14px;
 }
 
-.section-title strong {
-  display: block;
-  color: var(--app-text);
-  font-size: 15px;
+.tab-hint {
+  margin: 0 0 14px;
+  color: var(--app-muted);
+  font-size: 13px;
 }
 
-.section-title span {
-  margin-top: 3px;
+.tab-body {
+  display: grid;
+  gap: 16px;
 }
 
 .field-grid {
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
 .field-grid.two-columns {
@@ -701,11 +685,7 @@ onMounted(fetchAgents)
 
 .field-block {
   display: grid;
-  gap: 8px;
-}
-
-.field-block.full {
-  margin-top: 14px;
+  gap: 7px;
 }
 
 .field-block > span {
@@ -714,99 +694,137 @@ onMounted(fetchAgents)
   font-weight: 700;
 }
 
+.field-hint {
+  color: var(--app-muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.tags-input {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
 .tag-input {
   width: 120px;
 }
 
-.check-ok {
+/* 校验 + 危险操作 */
+.editor-footer-info {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--card-radius);
+  background: #fafbfc;
+  flex-wrap: wrap;
+}
+
+.issues-inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
-  color: var(--app-success);
   font-size: 13px;
-  font-weight: 700;
+  color: #b45309;
 }
 
-.issue-list {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--app-danger);
+.issues-inline.ok {
+  color: #16a34a;
+}
+
+.issues-inline strong {
+  font-weight: 600;
+}
+
+.issue-chip {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #fff7ed;
   font-size: 12px;
-  line-height: 1.8;
 }
 
-.preset-list {
-  display: grid;
-  gap: 8px;
+.issue-more {
+  color: var(--app-muted);
+  font-size: 12px;
 }
 
-.preset-item strong,
-.preset-item span {
-  display: block;
+/* sticky 保存条 */
+.sticky-save-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 20px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--card-radius);
+  background: var(--app-surface);
+  box-shadow: var(--shadow-sticky);
+  transition: border-color 200ms ease;
 }
 
-.preset-item strong {
+.sticky-save-bar.dirty {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.save-bar-info {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.save-bar-info strong {
+  font-size: 14px;
   color: var(--app-text);
-  font-size: 13px;
 }
 
-.preset-item span {
-  margin-top: 5px;
+.save-bar-info span {
   color: var(--app-muted);
   font-size: 12px;
-  line-height: 1.5;
 }
 
-.help-content {
-  display: grid;
-  gap: 10px;
+.save-bar-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
-.help-content p,
-.danger-card p {
-  margin: 0;
-  color: var(--app-muted);
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-.danger-card p {
-  margin-bottom: 12px;
-}
-
-@media (max-width: 1280px) {
+@media (max-width: 980px) {
   .content-grid {
-    grid-template-columns: 310px minmax(0, 1fr);
+    grid-template-columns: 1fr;
   }
 
-  .inspector-column {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 900px) {
-  .page-header {
-    display: block;
+  .agent-sidebar {
+    position: static;
   }
 
-  .header-actions {
-    margin-top: 16px;
-  }
-
-  .summary-grid,
-  .content-grid,
   .field-grid.two-columns {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 720px) {
-  .agent-settings-page {
-    padding: 22px 14px 36px;
+  .editor-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
+}
 
-  .page-header h1 {
-    font-size: 24px;
+@media print {
+  .sticky-save-bar {
+    display: none;
   }
 }
 </style>

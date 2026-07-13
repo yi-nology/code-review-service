@@ -91,6 +91,11 @@ type Workspace struct {
 	Scope           ScopeMetadata
 	RulePath        string
 	OCR             OCROverrides
+
+	// ScanPaths / ScanExclude 仅供 scan preview 使用（传给 ocr scan --preview --path/--exclude）。
+	// 普通 review preview 留空 = 扫描整个仓库。
+	ScanPaths   []string
+	ScanExclude []string
 }
 
 type OCROverrides struct {

@@ -48,12 +48,13 @@ func TestProviderLister_List(t *testing.T) {
 func TestRulesChecker_RulesCheck(t *testing.T) {
 	resolver := NewConfigResolver(NewSettingsSnapshot(&SettingsData{Binary: "ocr"}), Defaults(), nil)
 	rc := NewRulesChecker(NewSettingsSnapshot(&SettingsData{Binary: "ocr"}), nil, resolver)
+	// 无规则源注入时，返回不匹配（不再是 stage-a 占位的恒 true）。
 	got, err := rc.RulesCheck(context.Background(), "/some/path")
 	if err != nil {
 		t.Fatalf("RulesCheck err: %v", err)
 	}
-	if !got.Applicable {
-		t.Errorf("expected applicable=true")
+	if got.Applicable {
+		t.Errorf("expected applicable=false when no rules configured")
 	}
 }
 

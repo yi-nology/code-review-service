@@ -115,5 +115,5 @@ func InitCostHandler(calc *cost.Calculator) {
 }
 
 func InitReportHandler(repos *repository.RepoContainer) {
-	report_service.InitHandler(repos.Review)
+	report_service.InitHandler(repos.Review, repos.ContributorStats)
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
+	"github.com/yi-nology/code-review-service/internal/domain/stats"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
@@ -16,11 +17,12 @@ import (
 var handlerInst *Handler
 
 type Handler struct {
-	reviewRepo repository.ReviewRepository
+	reviewRepo      repository.ReviewRepository
+	contributorRepo repository.ContributorStatsRepository
 }
 
-func InitHandler(reviewRepo repository.ReviewRepository) {
-	handlerInst = &Handler{reviewRepo: reviewRepo}
+func InitHandler(reviewRepo repository.ReviewRepository, contributorRepo repository.ContributorStatsRepository) {
+	handlerInst = &Handler{reviewRepo: reviewRepo, contributorRepo: contributorRepo}
 }
 
 // GenerateWeeklyReport 生成项目维度周报（Markdown 格式）。
@@ -41,10 +43,12 @@ func GenerateWeeklyReport(ctx context.Context, c *app.RequestContext) {
 	now := time.Now().UTC()
 	weekAgo := now.AddDate(0, 0, -7)
 
-	// 复用 AggregateStats（带 provider/repo 过滤）。
+	// 复用 AggregateStats（带 provider/repo + 时间窗口过滤）。
 	listOpts := domain.ListOptions{
 		Provider: provider,
 		Repo:     repo,
+		From:     weekAgo,
+		To:       now,
 	}
 	agg, err := handlerInst.reviewRepo.AggregateStats(ctx, listOpts)
 	if err != nil {
@@ -52,17 +56,33 @@ func GenerateWeeklyReport(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	report := buildWeeklyMarkdown(provider, repo, agg, weekAgo, now)
+	// 按提交人聚合（复用开发者质量页的查询，带相同时间窗口），取 Top 10。
+	var contributors []stats.ContributorSummary
+	if handlerInst.contributorRepo != nil {
+		contributors, err = handlerInst.contributorRepo.GetProjectContributors(ctx, domain.ProjectStatsOptions{
+			Provider: provider,
+			Repo:     repo,
+			From:     weekAgo,
+			To:       now,
+		}, 10)
+		if err != nil {
+			// 提交人聚合失败不阻断周报，只降级为不含提交人段。
+			contributors = nil
+		}
+	}
+
+	report := buildWeeklyMarkdown(provider, repo, agg, contributors, weekAgo, now)
 	common.Success(c, map[string]any{
-		"format": "markdown",
-		"report": report,
-		"period": fmt.Sprintf("%s ~ %s", weekAgo.Format("2006-01-02"), now.Format("2006-01-02")),
-		"stats":  agg,
+		"format":      "markdown",
+		"report":      report,
+		"period":      fmt.Sprintf("%s ~ %s", weekAgo.Format("2006-01-02"), now.Format("2006-01-02")),
+		"stats":       agg,
+		"contributors": contributors,
 	})
 }
 
 // buildWeeklyMarkdown 把聚合统计渲染成 Markdown 周报。
-func buildWeeklyMarkdown(provider, repo string, agg *domain.AggregateStats, from, to time.Time) string {
+func buildWeeklyMarkdown(provider, repo string, agg *domain.AggregateStats, contributors []stats.ContributorSummary, from, to time.Time) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("# 代码评审周报 · %s\n\n", repo))
 	b.WriteString(fmt.Sprintf("**周期：** %s ~ %s\n", from.Format("2006-01-02"), to.Format("2006-01-02")))
@@ -78,6 +98,24 @@ func buildWeeklyMarkdown(provider, repo string, agg *domain.AggregateStats, from
 	b.WriteString(fmt.Sprintf("- Input Token：%d\n", agg.InputTokens))
 	b.WriteString(fmt.Sprintf("- Output Token：%d\n\n", agg.OutputTokens))
 
-	b.WriteString("---\n*由 review-service 自动生成*")
+	// 提交人排行：展示每位提交人的审查次数与问题数（按审查次数降序）。
+	if len(contributors) > 0 {
+		b.WriteString("## 提交人排行\n\n")
+		b.WriteString("| 提交人 | 审查次数 | 问题总数 | 严重 | 高 | 中 | 低 | 通过率 |\n")
+		b.WriteString("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n")
+		for _, ct := range contributors {
+			name := ct.AuthorName
+			if name == "" {
+				name = ct.Author
+			}
+			b.WriteString(fmt.Sprintf("| %s | %d | %d | %d | %d | %d | %d | %.0f%% |\n",
+				name, ct.ReviewCount, ct.TotalFindings,
+				ct.CriticalCount, ct.MajorCount, ct.MinorCount, ct.InfoCount,
+				ct.PassRate*100))
+		}
+		b.WriteString("\n")
+	}
+
+	b.WriteString("---\n*由 AI Code Review 自动生成*")
 	return b.String()
 }

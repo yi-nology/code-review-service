@@ -64,7 +64,9 @@ request.interceptors.response.use(
       return Promise.reject(error)
     }
     const message = getErrorMessage(error)
-    if (error.response?.status !== 404) {
+    // __silent=true 时只 reject，不弹全局 toast（用于非关键请求，如版本探测）。
+    const silent = error.config?.__silent === true
+    if (error.response?.status !== 404 && !silent) {
       ElMessage.error(message)
     }
     return Promise.reject(error)

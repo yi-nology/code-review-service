@@ -28,11 +28,16 @@ func (r *ReviewRepo) Create(ctx context.Context, review *domain.Record) error {
 	if err != nil {
 		return err
 	}
+	now := time.Now()
 	if !review.CreatedAt.IsZero() {
 		m.CreatedAt = review.CreatedAt
+	} else {
+		m.CreatedAt = now
 	}
 	if !review.UpdatedAt.IsZero() {
 		m.UpdatedAt = review.UpdatedAt
+	} else {
+		m.UpdatedAt = now
 	}
 	return r.db.WithContext(ctx).Create(&m).Error
 }
@@ -47,12 +52,18 @@ func (r *ReviewRepo) Save(ctx context.Context, review *domain.Record) error {
 	var existing models.Review
 	if err := r.db.WithContext(ctx).Where("review_id = ?", review.ID).First(&existing).Error; err != nil {
 		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			// 不存在：创建（保留 domain 时间戳）
+			// 不存在：创建。domain 时间戳优先，零值则用当前时间（GORM autoCreateTime
+			// 对零值 time.Time 不一定填充，显式设值更可靠）。
+			now := time.Now()
 			if !review.CreatedAt.IsZero() {
 				m.CreatedAt = review.CreatedAt
+			} else {
+				m.CreatedAt = now
 			}
 			if !review.UpdatedAt.IsZero() {
 				m.UpdatedAt = review.UpdatedAt
+			} else {
+				m.UpdatedAt = now
 			}
 			return r.db.WithContext(ctx).Create(&m).Error
 		}
@@ -256,6 +267,12 @@ func (r *ReviewRepo) AggregateStats(ctx context.Context, opts domain.ListOptions
 		}
 		if opts.Repo != "" {
 			db = db.Where("repo ILIKE ?", "%"+opts.Repo+"%")
+		}
+		if !opts.From.IsZero() {
+			db = db.Where("created_at >= ?", opts.From)
+		}
+		if !opts.To.IsZero() {
+			db = db.Where("created_at < ?", opts.To)
 		}
 		return db
 	}

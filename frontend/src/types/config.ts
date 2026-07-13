@@ -50,6 +50,7 @@ export interface ProjectPolicy {
   fail_on: string
   ignore_paths: string[]
   rules?: ReviewRule[]
+  rule_package_ids?: number[]
   ocr_enabled?: boolean | null
   ocr_concurrency?: number
   ocr_timeout_minutes?: number
@@ -92,6 +93,7 @@ export interface OCRRulePackage {
   enabled: boolean
   project_refs?: string[]
   built_in?: boolean
+  scope?: 'global' | 'project'
 }
 
 export interface OCRToolPackage {
@@ -180,6 +182,7 @@ export interface ReviewerAgent {
   is_default: boolean
   tags: string[] | null
   rule_file?: string
+  rule_package_ids?: number[]
   redundancy?: number
   created_at?: string
   updated_at?: string

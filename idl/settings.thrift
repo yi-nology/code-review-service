@@ -217,6 +217,7 @@ struct ProjectPolicy {
     23: optional string ocr_telemetry_exporter (api.body="ocr_telemetry_exporter")
     24: optional string ocr_telemetry_otlp_endpoint (api.body="ocr_telemetry_otlp_endpoint")
     25: optional bool ocr_telemetry_content_logging (api.body="ocr_telemetry_content_logging")
+    26: optional list<i64> rule_package_ids (api.body="rule_package_ids")
 }
 
 struct ListProjectPoliciesResp {
@@ -303,6 +304,7 @@ struct ReviewerAgentInfo {
     9: optional string rule_file (api.body="rule_file")
     10: i64 redundancy (api.body="redundancy")
     11: bool is_default (api.body="is_default")
+    12: optional list<i64> rule_package_ids (api.body="rule_package_ids")
 }
 
 struct ListReviewerAgentsResp {
@@ -320,6 +322,7 @@ struct CreateReviewerAgentReq {
     8: optional string rule_file (api.body="rule_file")
     9: optional i64 redundancy (api.body="redundancy")
     10: optional bool is_default (api.body="is_default")
+    11: optional list<i64> rule_package_ids (api.body="rule_package_ids")
 }
 
 struct CreateReviewerAgentResp {
@@ -337,6 +340,7 @@ struct UpdateReviewerAgentReq {
     8: optional string rule_file (api.body="rule_file")
     9: optional i64 redundancy (api.body="redundancy")
     10: optional bool is_default (api.body="is_default")
+    11: optional list<i64> rule_package_ids (api.body="rule_package_ids")
 }
 
 struct UpdateReviewerAgentResp {
@@ -361,6 +365,7 @@ struct RulePackage {
     9: bool enabled (api.body="enabled")
     10: optional list<string> project_refs (api.body="project_refs")
     11: optional bool built_in (api.body="built_in")
+    12: optional string scope (api.body="scope")
 }
 
 struct ListRulePackagesReq {}

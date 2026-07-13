@@ -76,14 +76,18 @@ const router = createRouter({
       component: () => import('@/views/ProjectReportDetail.vue'),
     },
     {
+      path: '/settings/engine',
+      name: 'EngineSettings',
+      component: () => import('@/views/EngineSettings.vue'),
+    },
+    // 旧路由保留书签兼容，重定向到合并后的「审查引擎」页。
+    {
       path: '/settings/model',
-      name: 'ModelSettings',
-      component: () => import('@/views/ModelSettings.vue'),
+      redirect: '/settings/engine',
     },
     {
       path: '/settings/ocr',
-      name: 'OcrSettings',
-      component: () => import('@/views/OcrSettings.vue'),
+      redirect: '/settings/engine',
     },
     {
       path: '/settings/projects',

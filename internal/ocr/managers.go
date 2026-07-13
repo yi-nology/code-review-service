@@ -2,6 +2,7 @@ package ocr
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -42,7 +43,9 @@ func (v *Versioner) OCRVersion(ctx context.Context) (*domain.OCRVersion, error) 
 	}
 	binary := resolveBinaryFrom(adaptSettings(data), v.resolver.fallback)
 
-	stdout, stderr, err := Run(ctx, binary, "--version")
+	// --version 是元信息探测，15s 足矣。用独立超时避免子进程挂起时阻塞 goroutine
+	// （HTTP handler 的 ctx 只在客户端断开时取消，无法兜底）。
+	stdout, stderr, err := RunWithTimeout(ctx, 15*time.Second, binary, "--version")
 	if err != nil {
 		return nil, fmt.Errorf("执行 %s --version 失败: %w; stderr: %s",
 			binary, err, strings.TrimSpace(string(stderr)))
@@ -101,9 +104,10 @@ func (l *ProviderLister) ListLLMProviders(_ context.Context) ([]domain.LLMProvid
 
 // RulesChecker 实现 domain.RulesChecker（吸收 ocr/rules_checker.go）。
 type RulesChecker struct {
-	settings Settings
-	rules    GlobalRules
-	resolver *ConfigResolver
+	settings     Settings
+	rules        GlobalRules
+	rulePackages RulePackageSource
+	resolver     *ConfigResolver
 }
 
 // GlobalRules 是 GlobalRulesSource 在 internal/ocr 包的别名。
@@ -115,15 +119,144 @@ type settingsGlobalRules interface {
 	}, error)
 }
 
+// RulePackageSource 提供 rules-check 所需的规则包规则（按 glob 文件模式）。
+// 解耦 repository.OCRRulePackageRepository，避免 ocr 包直接依赖具体领域类型。
+type RulePackageSource interface {
+	// ListEnabledRules 返回所有启用规则包的规则内容（每个元素为 [{path,rule}] 的 JSON 字节）。
+	ListEnabledRules(ctx context.Context) ([][]byte, error)
+}
+
 // NewRulesChecker 构造 RulesChecker。
 func NewRulesChecker(settings Settings, rules GlobalRules, resolver *ConfigResolver) *RulesChecker {
 	return &RulesChecker{settings: settings, rules: rules, resolver: resolver}
 }
 
-// RulesCheck 实现 domain.RulesChecker。
-func (rc *RulesChecker) RulesCheck(_ context.Context, _ string) (*domain.RulesCheckResult, error) {
-	// 阶段 A 占位
-	return &domain.RulesCheckResult{Applicable: true, Rule: "stage-a-placeholder", Message: "规则匹配成功"}, nil
+// WithRulePackages 注入规则包规则源，使 rules-check 能匹配规则集中的规则。
+func (rc *RulesChecker) WithRulePackages(src RulePackageSource) *RulesChecker {
+	rc.rulePackages = src
+	return rc
+}
+
+// RulesCheck 实现 domain.RulesChecker：用合并后的规则（全局规则 + 启用规则包）按 path glob
+// 匹配输入路径，返回首条命中规则的文本。无规则或无匹配时 Applicable=false。
+func (rc *RulesChecker) RulesCheck(ctx context.Context, input string) (*domain.RulesCheckResult, error) {
+	type entry struct {
+		Path string `json:"path"`
+		Rule string `json:"rule"`
+	}
+	var all []entry
+
+	// 1. 旧全局规则（迁移后通常已并入 scope=global 规则包，这里兜底）
+	if rc.rules != nil {
+		if g, err := rc.rules.Get(ctx); err == nil && g != nil && len(g.Rules) > 0 {
+			var entries []entry
+			if err := json.Unmarshal(g.Rules, &entries); err == nil {
+				all = append(all, entries...)
+			}
+		}
+	}
+
+	// 2. 启用规则包的规则
+	if rc.rulePackages != nil {
+		if pkgs, err := rc.rulePackages.ListEnabledRules(ctx); err == nil {
+			for _, raw := range pkgs {
+				if len(raw) == 0 {
+					continue
+				}
+				var entries []entry
+				if err := json.Unmarshal(raw, &entries); err == nil {
+					all = append(all, entries...)
+				}
+			}
+		}
+	}
+
+	if len(all) == 0 {
+		return &domain.RulesCheckResult{Applicable: false, Message: "暂无规则可匹配"}, nil
+	}
+
+	for _, e := range all {
+		pattern := strings.TrimSpace(e.Path)
+		if pattern == "" {
+			pattern = "**/*"
+		}
+		if matchGlob(pattern, input) {
+			rule := strings.TrimSpace(e.Rule)
+			return &domain.RulesCheckResult{Applicable: true, Rule: rule, Message: fmt.Sprintf("命中规则（path=%s）", pattern)}, nil
+		}
+	}
+	return &domain.RulesCheckResult{Applicable: false, Message: "输入路径未被任何规则覆盖"}, nil
+}
+
+// matchGlob 判断 path 是否匹配 glob 模式。支持：
+//   - ** 匹配任意层级目录（含零层）
+//   - * 匹配除路径分隔符 / 外的任意字符
+//   - ? 匹配单个非 / 字符
+//
+// 这是 OCR 端 glob 匹配的近似实现，用于 rules-check 预览；真实审查仍由 OCR 二进制按其规则匹配。
+func matchGlob(pattern, path string) bool {
+	p := strings.TrimSpace(pattern)
+	if p == "" || p == "**" || p == "**/*" {
+		return true
+	}
+	return globMatch(strings.ToLower(p), strings.ToLower(path))
+}
+
+// globMatch 递归匹配，支持 ** 跨段。
+func globMatch(pattern, path string) bool {
+	// 把 pattern 按段拆分；** 段特殊处理（可匹配任意数量段）。
+	pSeg := strings.Split(pattern, "/")
+	tSeg := strings.Split(path, "/")
+	return globMatchSeg(pSeg, tSeg)
+}
+
+func globMatchSeg(pSeg, tSeg []string) bool {
+	for len(pSeg) > 0 {
+		if pSeg[0] == "**" {
+			// ** 匹配零个或多个段：尝试所有可能的剩余对齐。
+			rest := pSeg[1:]
+			if len(rest) == 0 {
+				return true // ** 在末尾匹配一切
+			}
+			for i := 0; i <= len(tSeg); i++ {
+				if globMatchSeg(rest, tSeg[i:]) {
+					return true
+				}
+			}
+			return false
+		}
+		if len(tSeg) == 0 {
+			return false
+		}
+		if !singleSegMatch(pSeg[0], tSeg[0]) {
+			return false
+		}
+		pSeg = pSeg[1:]
+		tSeg = tSeg[1:]
+	}
+	return len(tSeg) == 0
+}
+
+// singleSegMatch 在单段内匹配 *（非 /）与 ?，转译为正则。
+func singleSegMatch(pattern, segment string) bool {
+	var sb strings.Builder
+	sb.WriteString("^")
+	for _, r := range pattern {
+		switch r {
+		case '*':
+			sb.WriteString("[^/]*")
+		case '?':
+			sb.WriteString("[^/]")
+		default:
+			if strings.ContainsRune(`\.+()|[]{}^$`, r) {
+				sb.WriteByte('\\')
+			}
+			sb.WriteRune(r)
+		}
+	}
+	sb.WriteString("$")
+	matched, err := regexp.MatchString(sb.String(), segment)
+	return err == nil && matched
 }
 
 // Viewer 实现 domain.ViewerManager。

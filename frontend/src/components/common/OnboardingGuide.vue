@@ -32,13 +32,13 @@ const steps = computed(() => [
     label: '配置 LLM 模型',
     desc: '选择服务商和模型，这是评审的核心引擎',
     done: stepDone('llm', 2),
-    action: () => router.push('/settings/model'),
+    action: () => router.push('/settings/engine'),
   },
   {
-    label: '配置 OCR 引擎',
-    desc: '设置评审执行参数、审查背景',
+    label: '配置执行参数',
+    desc: '设置并发、超时、工具与审查背景',
     done: stepDone('ocr', 3),
-    action: () => router.push('/settings/ocr'),
+    action: () => router.push('/settings/engine'),
   },
   {
     label: '触发第一次评审',

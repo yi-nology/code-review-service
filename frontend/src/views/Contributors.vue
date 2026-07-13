@@ -1,56 +1,13 @@
 <template>
   <AppLayout>
-    <div class="contributors-page">
-      <header class="page-header">
-        <div>
-          <div class="eyebrow">DEVELOPER QUALITY</div>
-          <h1>开发者质量</h1>
-          <p>基于 AI 代码审查结果度量每位开发者的代码质量表现。</p>
-        </div>
-      </header>
+    <PageShell>
+      <PageHeader
+        eyebrow="DEVELOPER QUALITY"
+        title="开发者质量"
+        description="基于 AI 代码审查结果度量每位开发者的代码质量表现。"
+      />
 
-      <el-row :gutter="16" class="stats-row">
-        <el-col :xs="12" :sm="12" :md="6">
-          <el-card shadow="never" class="stat-card total">
-            <div class="stat-icon"><el-icon><User /></el-icon></div>
-            <div class="stat-item">
-              <span>开发者总数</span>
-              <strong>{{ summaryStats.totalContributors }}</strong>
-              <small>有审查记录的开发者</small>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :xs="12" :sm="12" :md="6">
-          <el-card shadow="never" class="stat-card avg">
-            <div class="stat-icon"><el-icon><TrendCharts /></el-icon></div>
-            <div class="stat-item">
-              <span>团队平均分</span>
-              <strong>{{ summaryStats.avgScore }}</strong>
-              <small>所有开发者平均</small>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :xs="12" :sm="12" :md="6">
-          <el-card shadow="never" class="stat-card pass">
-            <div class="stat-icon"><el-icon><CircleCheckFilled /></el-icon></div>
-            <div class="stat-item">
-              <span>平均通过率</span>
-              <strong>{{ summaryStats.avgPassRate }}%</strong>
-              <small>质量门禁通过率</small>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :xs="12" :sm="12" :md="6">
-          <el-card shadow="never" class="stat-card reviews">
-            <div class="stat-icon"><el-icon><Files /></el-icon></div>
-            <div class="stat-item">
-              <span>审查总数</span>
-              <strong>{{ summaryStats.totalReviews }}</strong>
-              <small>所有 PR 审查记录</small>
-            </div>
-          </el-card>
-        </el-col>
-      </el-row>
+      <StatStrip :items="contributorStats" />
 
       <el-card class="leaderboard-card">
         <div class="toolbar">
@@ -158,7 +115,7 @@
           />
         </div>
       </el-card>
-    </div>
+    </PageShell>
   </AppLayout>
 </template>
 
@@ -174,6 +131,9 @@ import {
   User,
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import StatStrip from '@/components/common/StatStrip.vue'
 import { getContributors } from '@/api/stats'
 import type { ContributorSummary } from '@/types/stats'
 import { getInitials, formatDateRelative } from '@/utils/format'
@@ -217,6 +177,13 @@ const summaryStats = computed(() => {
   }
 })
 
+const contributorStats = computed(() => [
+  { icon: User, label: '开发者总数', value: summaryStats.value.totalContributors, sublabel: '有审查记录的开发者', tone: 'primary' as const },
+  { icon: TrendCharts, label: '团队平均分', value: summaryStats.value.avgScore, sublabel: '所有开发者平均', tone: 'success' as const },
+  { icon: CircleCheckFilled, label: '平均通过率', value: `${summaryStats.value.avgPassRate}%`, sublabel: '质量门禁通过率', tone: 'info' as const },
+  { icon: Files, label: '审查总数', value: summaryStats.value.totalReviews, sublabel: '所有 PR 审查记录', tone: 'warning' as const },
+])
+
 function goToDetail(row: ContributorSummary) {
   router.push(`/contributors/${encodeURIComponent(row.author)}`)
 }
@@ -236,96 +203,9 @@ function getScoreClass(score: number) {
 </script>
 
 <style scoped>
-.contributors-page {
-  width: min(1440px, 100%);
-  margin: 0 auto;
-  padding: 34px 36px 48px;
-}
-
-.page-header {
-  margin-bottom: 28px;
-}
-
-.page-header h1 {
-  margin: 4px 0 7px;
-  color: var(--app-text);
-  font-size: 30px;
-  letter-spacing: -0.8px;
-}
-
-.page-header p {
-  margin: 0;
-  color: var(--app-muted);
-  font-size: 14px;
-}
-
-.eyebrow {
-  color: var(--app-primary);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.4px;
-}
-
-.stats-row {
-  margin-bottom: 20px;
-}
-
-.stats-row .el-col {
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  height: 110px;
-  overflow: hidden;
-}
-
-.stat-card :deep(.el-card__body) {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  height: 100%;
-  padding: 20px;
-}
-
-.stat-icon {
-  display: grid;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 44px;
-  place-items: center;
-  border-radius: 12px;
-  font-size: 20px;
-}
-
-.total .stat-icon { color: #5b5bd6; background: #eeeeff; }
-.avg .stat-icon { color: #159570; background: #e6f7f0; }
-.pass .stat-icon { color: #2878c7; background: #eaf4ff; }
-.reviews .stat-icon { color: #d98616; background: #fff6e8; }
-
-.stat-item span {
-  display: block;
-  margin-bottom: 2px;
-  color: var(--app-muted);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.stat-item strong {
-  display: block;
-  color: var(--app-text);
-  font-size: 27px;
-  line-height: 1.15;
-}
-
-.stat-item small {
-  display: block;
-  margin-top: 4px;
-  color: #9aa2b1;
-  font-size: 11px;
-}
-
 .leaderboard-card {
   overflow: hidden;
+  border-radius: var(--card-radius-lg);
   box-shadow: var(--app-shadow);
 }
 
@@ -520,28 +400,12 @@ function getScoreClass(score: number) {
 }
 
 @media (max-width: 1100px) {
-  .contributors-page {
-    padding-inline: 24px;
-  }
   .filter-bar {
     flex-wrap: wrap;
   }
 }
 
 @media (max-width: 720px) {
-  .contributors-page {
-    padding: 22px 14px 36px;
-  }
-  .page-header h1 {
-    font-size: 25px;
-  }
-  .page-header p, .eyebrow {
-    display: none;
-  }
-  .stat-card { height: 96px; }
-  .stat-card :deep(.el-card__body) { padding: 14px; }
-  .stat-icon { display: none; }
-  .stat-item small { display: none; }
   .filter-bar .el-select { width: 100%; }
   .contributor-table { display: none; }
   .pagination-wrap { justify-content: flex-end; }

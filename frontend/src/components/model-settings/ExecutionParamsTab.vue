@@ -11,7 +11,7 @@ import SessionViewerSection from './SessionViewerSection.vue'
 import { listToolPackages, validateToolPackage } from '@/api/config'
 import type { OCRToolPackage } from '@/types/config'
 
-const { form, saving, extraBodyText, save, syncExtraBody } = useSettingsForm()
+const { form, saving, extraBodyText, syncExtraBody } = useSettingsForm()
 
 const toolPackages = ref<OCRToolPackage[]>([])
 const selectedToolPackage = ref<number | string | undefined>()
@@ -47,7 +47,7 @@ async function handleValidateTools(dryRun = false) {
   validatingTools.value = true
   try {
     const result = await validateToolPackage(form.tools_config, { dry_run: dryRun })
-    ElMessage.success(result.message || (dryRun ? 'OCR dry-run 通过' : 'JSON 校验通过'))
+    ElMessage.success(result.message || (dryRun ? 'dry-run 通过' : 'JSON 校验通过'))
   } catch (e: any) {
     ElMessage.error(e.message || '校验失败')
   } finally {
@@ -78,7 +78,7 @@ refreshToolPackages()
 <template>
   <el-form :model="form" label-width="120px" :disabled="saving">
     <!-- 基础执行参数 -->
-    <el-form-item label="OCR 二进制">
+    <el-form-item label="引擎可执行文件">
       <el-input v-model="form.binary" placeholder="ocr 或 /usr/local/bin/ocr" />
       <div class="form-tip">可执行文件路径，具体 review 参数由服务端按白名单拼装。</div>
     </el-form-item>
@@ -119,7 +119,7 @@ refreshToolPackages()
 
     <el-form-item label="工具白名单">
       <el-input v-model="form.tools_path" placeholder="/path/to/tools.json" />
-      <div class="form-tip">可选。JSON 文件路径，限制 OCR 可用工具集。</div>
+      <div class="form-tip">可选。JSON 文件路径，限制审查引擎可用的工具集。</div>
     </el-form-item>
 
     <el-form-item label="工具配置">
@@ -140,7 +140,7 @@ refreshToolPackages()
     <el-form-item label="额外请求体">
       <el-input v-model="extraBodyText" type="textarea" :rows="3"
         placeholder='{"temperature":0.2}' @blur="syncExtraBody(false)" />
-      <div class="form-tip">JSON 对象字符串，透传给 OCR_LLM_EXTRA_BODY。</div>
+      <div class="form-tip">JSON 对象字符串，透传给 LLM 请求的 extra_body。</div>
     </el-form-item>
 
     <el-form-item label="额外请求头">
@@ -164,7 +164,7 @@ refreshToolPackages()
       </el-form-item>
       <el-form-item label="内容日志">
         <el-switch v-model="form.telemetry_content_logging" />
-        <div class="form-tip">记录 OCR 交互完整内容（可能含敏感信息）。</div>
+        <div class="form-tip">记录审查引擎交互的完整内容（可能含敏感信息）。</div>
       </el-form-item>
     </template>
 
@@ -180,10 +180,6 @@ refreshToolPackages()
       <div class="preview-title">服务端将按受控参数组装命令</div>
       <code>{{ commandPreview }}</code>
     </div>
-
-    <el-form-item>
-      <el-button type="primary" @click="save" :loading="saving">保存配置</el-button>
-    </el-form-item>
   </el-form>
 
   <!-- 工具包管理抽屉 -->

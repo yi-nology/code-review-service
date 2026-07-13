@@ -1,13 +1,12 @@
 <template>
   <AppLayout>
-    <div class="dashboard-page">
-      <header class="dashboard-hero">
-        <div>
-          <div class="eyebrow">OPERATIONS OVERVIEW</div>
-          <h1>运营总览</h1>
-          <p>审查队列、质量风险、项目表现与配置入口集中在一个工作台。</p>
-        </div>
-        <div class="hero-actions">
+    <PageShell>
+      <PageHeader
+        eyebrow="OPERATIONS OVERVIEW"
+        title="运营总览"
+        description="审查队列、质量风险、项目表现与配置入口集中在一个工作台。"
+      >
+        <template #actions>
           <el-button plain size="large" :loading="loading" @click="refreshAll">
             <el-icon><Refresh /></el-icon>
             刷新
@@ -16,8 +15,8 @@
             <el-icon><Plus /></el-icon>
             发起审查
           </el-button>
-        </div>
-      </header>
+        </template>
+      </PageHeader>
 
       <section class="health-band">
         <div class="health-card service" :class="healthStatus">
@@ -41,10 +40,10 @@
             <strong>{{ failedCount }}</strong>
           </div>
         </router-link>
-        <router-link class="health-card" to="/settings/model">
+        <router-link class="health-card" to="/settings/engine">
           <span class="card-icon config"><el-icon><Cpu /></el-icon></span>
           <div>
-            <span>模型配置</span>
+            <span>审查引擎</span>
             <strong>就绪</strong>
           </div>
         </router-link>
@@ -234,7 +233,7 @@
         @created="handleCreated"
         @goto="(id) => router.push(`/reviews/${id}`)"
       />
-    </div>
+    </PageShell>
   </AppLayout>
 </template>
 
@@ -257,6 +256,8 @@ import {
   WarningFilled,
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
 import OnboardingGuide from '@/components/common/OnboardingGuide.vue'
 import ReviewCreateDialog from '@/components/ReviewCreateDialog.vue'
 import { getReviews } from '@/api/review'
@@ -347,16 +348,10 @@ const riskProjects = computed(() => {
 
 const readinessItems = computed(() => [
   {
-    title: '模型配置',
-    desc: '默认模型、推理参数与审查关注点',
-    to: '/settings/model',
+    title: '审查引擎',
+    desc: '服务商、模型、推理参数与执行配置',
+    to: '/settings/engine',
     state: healthStatus.value === 'healthy' ? 'ok' : 'warn',
-  },
-  {
-    title: 'OCR 设置',
-    desc: '扫描引擎、工具包与规则包',
-    to: '/settings/ocr',
-    state: 'ok',
   },
   {
     title: '审查规则',
@@ -472,48 +467,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.dashboard-page {
-  min-height: 100vh;
-  padding: 30px;
-}
-
-.dashboard-hero {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 20px;
-}
-
-.eyebrow {
-  margin-bottom: 8px;
-  color: #2563eb;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0;
-}
-
-.dashboard-hero h1 {
-  margin: 0;
-  color: var(--app-text);
-  font-size: 32px;
-  letter-spacing: 0;
-}
-
-.dashboard-hero p {
-  max-width: 620px;
-  margin: 10px 0 0;
-  color: var(--app-muted);
-  line-height: 1.7;
-}
-
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
 .health-band,
 .kpi-grid,
 .dashboard-grid {
@@ -950,23 +903,6 @@ button.action-item {
 }
 
 @media (max-width: 720px) {
-  .dashboard-page {
-    padding: 18px;
-  }
-
-  .dashboard-hero {
-    display: block;
-  }
-
-  .dashboard-hero h1 {
-    font-size: 27px;
-  }
-
-  .hero-actions {
-    justify-content: flex-start;
-    margin-top: 18px;
-  }
-
   .health-band,
   .kpi-grid {
     grid-template-columns: 1fr;

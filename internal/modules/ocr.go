@@ -29,6 +29,8 @@ var OCRModule = fx.Options(
 
 	// 服务关闭时回收 viewer 子进程，避免孤儿进程残留。
 	fx.Invoke(RegisterViewerShutdown),
+	// 服务关闭时停止 Runner 后台刷新 goroutine。
+	fx.Invoke(RegisterRunnerShutdown),
 )
 
 // NewOCRRegistry 构造 *ocrcore.Registry 单一入口。
@@ -40,6 +42,10 @@ func NewOCRRegistry(
 	resolver *ocrcore.ConfigResolver,
 	versioner *ocrcore.Versioner,
 ) *ocrcore.Registry {
+	// 让 Runner 能在每次执行时从 DB 动态解析最新配置（binary/language/concurrency 等），
+	// 而非使用启动时的固定 fallback config。
+	ocrRunner.WithResolver(resolver)
+
 	fallbackConfig := ocrcore.Config{
 		Binary:          cfg.OCR.Binary,
 		Audience:        "agent",
@@ -83,7 +89,58 @@ func NewOCRProviderLister(repos *repository.RepoContainer, resolver *ocrcore.Con
 }
 
 func NewOCRRulesChecker(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver) *ocrcore.RulesChecker {
-	return ocrcore.NewRulesChecker(ocrcore.NewSettingsAdapter(repos.OCRSettings), nil, resolver)
+	checker := ocrcore.NewRulesChecker(ocrcore.NewSettingsAdapter(repos.OCRSettings), newGlobalRulesAdapter(repos.GlobalRules), resolver)
+	if repos.OCRRulePackage != nil {
+		checker = checker.WithRulePackages(newRulePackageSource(repos.OCRRulePackage))
+	}
+	return checker
+}
+
+// globalRulesAdapter 把 repository.GlobalRulesRepository 适配成 ocrcore.GlobalRules（rules-check 用）。
+func newGlobalRulesAdapter(repo repository.GlobalRulesRepository) ocrcore.GlobalRules {
+	if repo == nil {
+		return nil
+	}
+	return &globalRulesAdapter{repo: repo}
+}
+
+type globalRulesAdapter struct {
+	repo repository.GlobalRulesRepository
+}
+
+func (a *globalRulesAdapter) Get(ctx context.Context) (*struct {
+	Rules []byte
+}, error) {
+	g, err := a.repo.Get(ctx)
+	if err != nil || g == nil {
+		return nil, err
+	}
+	return &struct{ Rules []byte }{Rules: g.Content}, nil
+}
+
+// rulePackageSource 把 repository.OCRRulePackageRepository 适配成 ocrcore.RulePackageSource。
+// 只返回启用规则包的 Rules（按 glob 文件模式的 JSON），供 rules-check 匹配。
+func newRulePackageSource(repo repository.OCRRulePackageRepository) ocrcore.RulePackageSource {
+	return &rulePackageSource{repo: repo}
+}
+
+type rulePackageSource struct {
+	repo repository.OCRRulePackageRepository
+}
+
+func (s *rulePackageSource) ListEnabledRules(ctx context.Context) ([][]byte, error) {
+	packages, err := s.repo.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var result [][]byte
+	for i := range packages {
+		if !packages[i].Enabled {
+			continue
+		}
+		result = append(result, packages[i].Rules)
+	}
+	return result, nil
 }
 
 func NewOCRVersioner(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver) *ocrcore.Versioner {
@@ -116,6 +173,16 @@ func RegisterViewerShutdown(lc fx.Lifecycle, viewer *ocrcore.Viewer) {
 			if status != nil && !status.Running {
 				logx.Info("ocr viewer stopped on shutdown")
 			}
+			return nil
+		},
+	})
+}
+
+// RegisterRunnerShutdown 在服务关闭时停止 Runner 的后台配置刷新 goroutine。
+func RegisterRunnerShutdown(lc fx.Lifecycle, registry *ocrcore.Registry) {
+	lc.Append(fx.Hook{
+		OnStop: func(_ context.Context) error {
+			registry.StopRunner()
 			return nil
 		},
 	})

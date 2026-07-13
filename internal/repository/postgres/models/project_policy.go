@@ -32,6 +32,8 @@ type ProjectPolicy struct {
 	OCRTelemetryExporter       string         `gorm:"type:text" json:"ocr_telemetry_exporter,omitempty"`
 	OCRTelemetryOTLPEndpoint   string         `gorm:"type:text" json:"ocr_telemetry_otlp_endpoint,omitempty"`
 	OCRTelemetryContentLogging bool           `gorm:"not null;default:false" json:"ocr_telemetry_content_logging"`
+	// RulePackageIDs 项目引用的规则包 id 列表（在项目内联规则之外，额外引用规则库中的包）。
+	RulePackageIDs datatypes.JSON `gorm:"type:jsonb" json:"rule_package_ids,omitempty"`
 }
 
 func (ProjectPolicy) TableName() string {

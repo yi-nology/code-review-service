@@ -2,11 +2,11 @@
   <main class="login-page">
     <section class="login-intro">
       <div class="login-brand">
-        <span><el-icon><Finished /></el-icon></span>
-        Review Hub
+        <BrandMark :size="38" />
+        AI Code Review
       </div>
       <div class="intro-copy">
-        <div class="eyebrow">CODE QUALITY CONSOLE</div>
+        <div class="eyebrow">AI 代码审查引擎</div>
         <h1>让每一次合并<br>都有清晰依据</h1>
         <p>集中管理代码审查、质量门禁与项目策略，把风险留在合并之前。</p>
       </div>
@@ -20,8 +20,8 @@
     <section class="login-panel">
       <form class="login-card" @submit.prevent="handleLogin">
         <div class="mobile-brand">
-          <span><el-icon><Finished /></el-icon></span>
-          Review Hub
+          <BrandMark :size="38" />
+          AI Code Review
         </div>
         <h2>进入控制台</h2>
         <p>请输入服务端配置的访问 Token。</p>
@@ -58,8 +58,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight, CircleCheckFilled, Finished, Key } from '@element-plus/icons-vue'
+import { ArrowRight, CircleCheckFilled, Key } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import BrandMark from '@/components/common/BrandMark.vue'
 import axios from 'axios'
 
 const auth = useAuthStore()
@@ -130,17 +131,6 @@ async function handleLogin() {
   gap: 11px;
   font-size: 17px;
   font-weight: 750;
-}
-
-.login-brand > span,
-.mobile-brand > span {
-  display: grid;
-  width: 38px;
-  height: 38px;
-  place-items: center;
-  border-radius: 8px;
-  color: #fff;
-  background: #2563eb;
 }
 
 .intro-copy {

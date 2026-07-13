@@ -69,6 +69,8 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, common.BadRequest(err.Error()))
 		return
 	}
+	// 通知 Runner 立即重载 DB 配置（binary/language/concurrency 等），不必等 30s 定时刷新。
+	handlerInst.ocr.NotifyConfigChange()
 	resp := dbOCRSettingsToAPI(dbSettings)
 	if ptrx.Deref(resp.AuthToken, "") != "" {
 		resp.AuthToken = common.StrPtr("***")

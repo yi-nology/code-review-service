@@ -1,13 +1,12 @@
 <template>
   <AppLayout>
-    <div class="rule-settings-page">
-      <header class="page-header">
-        <div>
-          <div class="eyebrow">REVIEW RULES</div>
-          <h1>审查规则</h1>
-          <p>全局规则会合并到每一次模型审查中；项目策略里的规则会与这里的规则一起生效。</p>
-        </div>
-        <div class="header-actions">
+    <PageShell>
+      <PageHeader
+        eyebrow="REVIEW RULES"
+        title="审查规则"
+        description="这里是规则集的统一维护入口。标为「全局」的规则集始终合并到每次审查；其余规则集可被审查员（「审查员」页）或项目（「项目策略」页）引用。项目策略里的内联规则也会叠加生效。"
+      >
+        <template #actions>
           <el-button plain @click="fetchGlobalRules" :loading="globalLoading">
             <el-icon><Refresh /></el-icon>
             刷新
@@ -18,23 +17,10 @@
           <el-button type="primary" @click="saveGlobalRules" :loading="globalSaving" :disabled="hasBlockingIssues">
             保存规则
           </el-button>
-        </div>
-      </header>
+        </template>
+      </PageHeader>
 
-      <section class="summary-grid">
-        <div class="summary-card">
-          <span>规则总数</span>
-          <strong>{{ normalizedRules.length }}</strong>
-        </div>
-        <div class="summary-card">
-          <span>覆盖路径</span>
-          <strong>{{ coveredPathCount }}</strong>
-        </div>
-        <div class="summary-card warning" :class="{ active: validationIssues.length > 0 }">
-          <span>待处理问题</span>
-          <strong>{{ validationIssues.length }}</strong>
-        </div>
-      </section>
+      <StatStrip :items="ruleStats" />
 
       <div class="content-grid">
         <el-card class="rules-card" v-loading="globalLoading">
@@ -69,7 +55,10 @@
                 class="package-item"
               >
                 <button type="button" class="package-main" @click="applyRulePackage(pkg)">
-                  <span>{{ pkg.name }}</span>
+                  <span>
+                    {{ pkg.name }}
+                    <el-tag v-if="(pkg.scope || 'project') === 'global'" size="small" type="warning" effect="plain" class="scope-tag">全局</el-tag>
+                  </span>
                   <small>{{ pkg.description || (pkg.rules.length + ' 条规则') }}</small>
                   <em>{{ pkg.built_in ? '内置' : '自定义' }} · {{ pkg.enabled ? '启用' : '停用' }}</em>
                 </button>
@@ -213,6 +202,12 @@
           <el-form-item label="描述">
             <el-input v-model="rulePackageForm.description" type="textarea" :rows="2" placeholder="这个规则包适合什么项目、解决什么问题" />
           </el-form-item>
+          <el-form-item label="作用范围">
+            <el-radio-group v-model="rulePackageForm.scope">
+              <el-radio value="project">可引用（默认，需被审查员/项目引用或 project_refs 匹配）</el-radio>
+              <el-radio value="global">全局（始终合并到每次审查）</el-radio>
+            </el-radio-group>
+          </el-form-item>
           <div class="dialog-grid two">
             <el-form-item label="语言">
               <el-input v-model="rulePackageForm.languagesText" placeholder="java, go, vue" />
@@ -271,7 +266,7 @@
           <el-empty v-if="!rulePackageVersions.length" description="暂无历史版本" :image-size="56" />
         </div>
       </el-dialog>
-    </div>
+    </PageShell>
   </AppLayout>
 </template>
 
@@ -279,8 +274,11 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
-import { CircleCheckFilled, Plus, Refresh, ArrowRight } from '@element-plus/icons-vue'
+import { CircleCheckFilled, Plus, Refresh, ArrowRight, Files, FolderOpened, WarningFilled } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import StatStrip from '@/components/common/StatStrip.vue'
 import RuleEditor from '@/components/RuleEditor.vue'
 import { ruleTemplateGroups, ruleTemplates, rulePackageTemplates } from '@/constants/rule-templates'
 import type { RuleTemplate, RulePackageTemplate } from '@/constants/rule-templates'
@@ -335,6 +333,12 @@ const previewJson = computed(() => JSON.stringify({ rules: normalizedRules.value
 const dirty = computed(() => JSON.stringify(normalizedRules.value) !== originalJson.value)
 const coveredPathCount = computed(() => new Set(normalizedRules.value.map((rule) => rule.path)).size)
 
+const ruleStats = computed(() => [
+  { icon: Files, label: '规则总数', value: normalizedRules.value.length, tone: 'primary' as const },
+  { icon: FolderOpened, label: '覆盖路径', value: coveredPathCount.value, tone: 'info' as const },
+  { icon: WarningFilled, label: '待处理问题', value: validationIssues.value.length, tone: validationIssues.value.length > 0 ? ('danger' as const) : ('success' as const) },
+])
+
 const validationIssues = computed(() => {
   const issues: string[] = []
   const seen = new Set<string>()
@@ -363,6 +367,7 @@ const rulePackageForm = ref({
   name: '',
   description: '',
   enabled: true,
+  scope: 'project' as 'global' | 'project',
   languagesText: '',
   tagsText: '',
   includesText: '',
@@ -458,6 +463,7 @@ function createPackageFromTemplate(tpl: RulePackageTemplate) {
     name: tpl.name,
     description: tpl.description,
     enabled: true,
+    scope: 'project',
     languagesText: tpl.languages.join(', '),
     tagsText: tpl.tags.join(', '),
     includesText: tpl.includes.join('\n'),
@@ -474,6 +480,7 @@ function openNewRulePackage() {
     name: '',
     description: '',
     enabled: true,
+    scope: 'project',
     languagesText: '',
     tagsText: '',
     includesText: '',
@@ -490,6 +497,7 @@ function editRulePackage(pkg: OCRRulePackage) {
     name: pkg.built_in ? `${pkg.name} 副本` : pkg.name,
     description: pkg.description || '',
     enabled: pkg.enabled,
+    scope: pkg.scope || 'project',
     languagesText: (pkg.languages || []).join(', '),
     tagsText: (pkg.tags || []).join(', '),
     includesText: (pkg.includes || []).join('\n'),
@@ -588,6 +596,7 @@ async function saveRulePackageForm() {
       name: form.name.trim(),
       description: form.description.trim(),
       enabled: form.enabled,
+      scope: form.scope,
       languages: splitInline(form.languagesText),
       tags: splitInline(form.tagsText),
       includes: splitLines(form.includesText),
@@ -634,80 +643,10 @@ onMounted(fetchGlobalRules)
 </script>
 
 <style scoped>
-.rule-settings-page {
-  width: min(1320px, 100%);
-  margin: 0 auto;
-  padding: 34px 36px 48px;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 22px;
-}
-
-.page-header h1 {
-  margin: 4px 0 8px;
-  color: var(--app-text);
-  font-size: 30px;
-  letter-spacing: -0.6px;
-}
-
-.page-header p {
-  max-width: 680px;
-  margin: 0;
-  color: var(--app-muted);
-  font-size: 14px;
-  line-height: 1.7;
-}
-
-.eyebrow {
-  color: var(--app-primary);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.4px;
-}
-
-.header-actions {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 10px;
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
-}
-
-.summary-card {
-  min-height: 92px;
-  padding: 18px 20px;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-surface);
-}
-
-.summary-card span,
 .card-header span {
   display: block;
   color: var(--app-muted);
   font-size: 12px;
-}
-
-.summary-card strong {
-  display: block;
-  margin-top: 8px;
-  color: var(--app-text);
-  font-size: 28px;
-  line-height: 1;
-}
-
-.summary-card.warning.active strong {
-  color: var(--app-danger);
 }
 
 .content-grid {
@@ -917,8 +856,17 @@ onMounted(fetchGlobalRules)
 }
 
 .package-item span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
   font-size: 13px;
   font-weight: 800;
+}
+
+.scope-tag {
+  flex-shrink: 0;
+  font-weight: 400;
 }
 
 .package-item small {
@@ -954,7 +902,7 @@ onMounted(fetchGlobalRules)
   align-items: center;
   padding: 12px;
   border: 1px solid #e6ebf2;
-  border-radius: 10px;
+  border-radius: var(--card-radius);
   background: linear-gradient(135deg, #fafffefb 0%, #fff 100%);
 }
 
@@ -1125,26 +1073,6 @@ onMounted(fetchGlobalRules)
 }
 
 @media (max-width: 720px) {
-  .rule-settings-page {
-    padding: 22px 14px 36px;
-  }
-
-  .page-header {
-    display: block;
-  }
-
-  .page-header h1 {
-    font-size: 24px;
-  }
-
-  .header-actions {
-    margin-top: 16px;
-  }
-
-  .summary-grid {
-    grid-template-columns: 1fr;
-  }
-
   .package-item,
   .dialog-grid,
   .dialog-grid.two {

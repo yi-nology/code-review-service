@@ -17,6 +17,9 @@ type OCRRulePackage struct {
 	Enabled     bool           `gorm:"not null;default:true" json:"enabled"`
 	ProjectRefs datatypes.JSON `gorm:"type:jsonb" json:"project_refs,omitempty"`
 	BuiltIn     bool           `gorm:"not null;default:false" json:"built_in"`
+	// Scope 区分规则集的合并来源：global=全局始终合并到每次审查；project=需被 agent/project 引用或 project_refs 匹配才生效。
+	// 空值视为 "project"（向后兼容历史数据）。
+	Scope string `gorm:"type:text;not null;default:'project'" json:"scope,omitempty"`
 }
 
 func (OCRRulePackage) TableName() string {

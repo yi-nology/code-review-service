@@ -199,13 +199,13 @@ async function toggleReviewViewer() {
     }
     viewerStatus.value = status
     if (!status.running) {
-      ElMessage.error(status.message || 'OCR Viewer 未运行')
+      ElMessage.error(status.message || 'Session Viewer 未运行')
       return
     }
     await locateReviewViewer()
     reviewViewerOpen.value = true
   } catch (error: any) {
-    ElMessage.error(error?.message || '启动 OCR Viewer 失败')
+    ElMessage.error(error?.message || '启动 Session Viewer 失败')
   } finally {
     viewerLoading.value = false
   }
@@ -233,11 +233,11 @@ async function locateReviewViewer() {
   <el-card class="ocr-card">
     <template #header>
       <div class="card-header">
-        <span>OCR 执行信息</span>
+        <span>引擎执行信息</span>
         <div class="ocr-header-actions">
           <el-tag :type="ocrDisplay.statusType" size="small">{{ ocrDisplay.statusLabel }}</el-tag>
           <el-button size="small" plain :loading="viewerLoading" @click="toggleReviewViewer">
-            {{ reviewViewerOpen ? '收起 Viewer' : '打开 OCR Viewer' }}
+            {{ reviewViewerOpen ? '收起 Viewer' : '打开 Session Viewer' }}
           </el-button>
         </div>
       </div>
@@ -281,7 +281,7 @@ async function locateReviewViewer() {
         <el-tag v-else size="small" type="warning">未记录 workspace</el-tag>
       </div>
       <iframe
-        title="OCR Viewer"
+        title="Session Viewer"
         :src="reviewViewerSrc"
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
       />

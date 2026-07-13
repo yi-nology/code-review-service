@@ -1,39 +1,19 @@
 <template>
   <AppLayout>
-    <div class="sessions-page">
-      <header class="page-header">
-        <div>
-          <div class="eyebrow">REVIEW SESSIONS</div>
-          <h1>审查会话</h1>
-          <p>跨所有评审的会话总览，追踪多阶段审查的执行进度与状态。</p>
-        </div>
-        <el-button circle plain aria-label="刷新列表" @click="refresh">
-          <el-icon><Refresh /></el-icon>
-        </el-button>
-      </header>
+    <PageShell>
+      <PageHeader
+        eyebrow="REVIEW SESSIONS"
+        title="审查会话"
+        description="跨所有评审的会话总览，追踪多阶段审查的执行进度与状态。"
+      >
+        <template #actions>
+          <el-button circle plain aria-label="刷新列表" @click="refresh">
+            <el-icon><Refresh /></el-icon>
+          </el-button>
+        </template>
+      </PageHeader>
 
-      <section class="metric-strip" aria-label="会话概览">
-        <div class="metric-item">
-          <span class="metric-icon total"><el-icon><Files /></el-icon></span>
-          <span class="metric-label">会话总数</span>
-          <strong>{{ pagination.total }}</strong>
-        </div>
-        <div class="metric-item">
-          <span class="metric-icon running"><el-icon><Loading /></el-icon></span>
-          <span class="metric-label">执行中</span>
-          <strong>{{ statusCounts.active }}</strong>
-        </div>
-        <div class="metric-item">
-          <span class="metric-icon completed"><el-icon><CircleCheckFilled /></el-icon></span>
-          <span class="metric-label">已完成</span>
-          <strong>{{ statusCounts.completed }}</strong>
-        </div>
-        <div class="metric-item">
-          <span class="metric-icon failed"><el-icon><WarningFilled /></el-icon></span>
-          <span class="metric-label">失败</span>
-          <strong>{{ statusCounts.failed }}</strong>
-        </div>
-      </section>
+      <StatStrip :items="sessionStats" />
 
       <el-card class="records-card">
         <div class="records-toolbar">
@@ -159,7 +139,7 @@
           />
         </div>
       </el-card>
-    </div>
+    </PageShell>
   </AppLayout>
 </template>
 
@@ -175,6 +155,9 @@ import {
   WarningFilled,
 } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import StatStrip from '@/components/common/StatStrip.vue'
 import { listAllSessions } from '@/api/session'
 import { getSessionStatusLabel, getPhaseLabel } from '@/utils/status'
 import { formatDateShort, formatClock, shortId } from '@/utils/format'
@@ -223,77 +206,20 @@ const statusCounts = computed(() => {
   return counts
 })
 
+const sessionStats = computed(() => [
+  { icon: Files, label: '会话总数', value: pagination.total, tone: 'primary' as const },
+  { icon: Loading, label: '执行中', value: statusCounts.value.active, tone: 'warning' as const },
+  { icon: CircleCheckFilled, label: '已完成', value: statusCounts.value.completed, tone: 'success' as const },
+  { icon: WarningFilled, label: '失败', value: statusCounts.value.failed, tone: 'danger' as const },
+])
+
 function goToDetail(row: ReviewSession) {
   router.push(`/reviews/${row.review_id}/sessions/${row.session_id}`)
 }
 </script>
 
 <style scoped>
-.sessions-page {
-  width: min(1440px, 100%);
-  margin: 0 auto;
-  padding: 28px 32px 44px;
-}
-
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 28px;
-}
-.page-header .eyebrow {
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  color: var(--app-muted);
-  font-weight: 600;
-  text-transform: uppercase;
-  margin-bottom: 6px;
-}
-.page-header h1 {
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--app-text);
-  margin: 0 0 4px;
-}
-.page-header p {
-  font-size: 14px;
-  color: var(--app-muted);
-  margin: 0;
-}
-
-.metric-strip {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
-}
-.metric-item {
-  background: var(--app-surface);
-  border: 1px solid var(--app-border);
-  border-radius: 14px;
-  padding: 18px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.metric-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  margin-bottom: 6px;
-}
-.metric-icon.total { background: rgba(37, 99, 235, 0.1); color: var(--app-primary); }
-.metric-icon.running { background: rgba(217, 134, 22, 0.1); color: var(--app-warning); }
-.metric-icon.completed { background: rgba(21, 149, 112, 0.1); color: var(--app-success); }
-.metric-icon.failed { background: rgba(216, 75, 91, 0.1); color: var(--app-danger); }
-.metric-label { font-size: 13px; color: var(--app-muted); }
-.metric-item strong { font-size: 26px; font-weight: 700; color: var(--app-text); }
-
-.records-card { border-radius: 14px; }
+.records-card { border-radius: var(--card-radius-lg); }
 .records-toolbar {
   display: flex;
   align-items: center;
@@ -321,7 +247,7 @@ function goToDetail(row: ReviewSession) {
 .phase-pill {
   display: inline-block;
   padding: 2px 10px;
-  border-radius: 10px;
+  border-radius: var(--card-radius);
   font-size: 12px;
   font-weight: 500;
   background: rgba(37, 99, 235, 0.08);
@@ -333,7 +259,7 @@ function goToDetail(row: ReviewSession) {
   align-items: center;
   gap: 5px;
   padding: 3px 10px;
-  border-radius: 12px;
+  border-radius: var(--card-radius);
   font-size: 12px;
   font-weight: 500;
 }
@@ -364,7 +290,7 @@ function goToDetail(row: ReviewSession) {
   padding: 14px 16px;
   background: var(--app-surface);
   border: 1px solid var(--app-border);
-  border-radius: 12px;
+  border-radius: var(--card-radius);
   margin-bottom: 10px;
   text-align: left;
   cursor: pointer;
@@ -376,8 +302,6 @@ function goToDetail(row: ReviewSession) {
 .mobile-empty { text-align: center; padding: 32px; color: var(--app-muted); font-size: 14px; }
 
 @media (max-width: 720px) {
-  .sessions-page { padding: 20px 16px 32px; }
-  .metric-strip { grid-template-columns: repeat(2, 1fr); }
   .desktop-table { display: none; }
   .mobile-session-list { display: block; }
 }

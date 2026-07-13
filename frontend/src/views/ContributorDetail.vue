@@ -1,6 +1,7 @@
 <template>
   <AppLayout>
-    <div class="cd-page" v-loading="loading">
+    <PageShell>
+      <div class="cd-page" v-loading="loading">
       <!-- 返回 -->
       <div class="cd-back" @click="router.push('/contributors')">
         <el-icon><ArrowLeft /></el-icon>
@@ -140,7 +141,8 @@
         <p>未找到该开发者的质量数据</p>
         <el-button type="primary" @click="router.push('/contributors')">返回排行榜</el-button>
       </div>
-    </div>
+      </div>
+    </PageShell>
   </AppLayout>
 </template>
 
@@ -149,6 +151,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import PageShell from '@/components/common/PageShell.vue'
 import ScoreRing from '@/components/common/ScoreRing.vue'
 import TrendChart from '@/components/common/TrendChart.vue'
 import { getContributor, getContributorTrend, getContributorCategories } from '@/api/stats'
@@ -212,12 +215,6 @@ onMounted(fetchDetail)
 </script>
 
 <style scoped>
-.cd-page {
-  width: min(1200px, 100%);
-  margin: 0 auto;
-  padding: 24px 28px 48px;
-}
-
 /* 返回 */
 .cd-back {
   display: inline-flex;
@@ -271,7 +268,7 @@ onMounted(fetchDetail)
   gap: 4px;
   padding: 14px 16px;
   border: 1px solid #edf0f4;
-  border-radius: 10px;
+  border-radius: var(--card-radius);
   background: #fff;
 }
 .cd-stat small { font-size: 11px; color: #7d8698; font-weight: 600; }
@@ -292,11 +289,11 @@ onMounted(fetchDetail)
 
 /* 卡片 */
 .cd-card {
-  border: 1px solid #edf0f4;
-  border-radius: 12px;
-  background: #fff;
+  border: 1px solid var(--app-border);
+  border-radius: var(--card-radius);
+  background: var(--app-surface);
   padding: 18px 20px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  box-shadow: var(--app-shadow);
 }
 .cd-card-head {
   display: flex;
@@ -326,7 +323,7 @@ onMounted(fetchDetail)
   align-items: center;
   gap: 10px;
   padding: 14px;
-  border-radius: 10px;
+  border-radius: var(--card-radius);
   background: #f8f9fb;
 }
 .cd-sev-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
@@ -365,7 +362,6 @@ onMounted(fetchDetail)
   .cd-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 520px) {
-  .cd-page { padding: 18px 14px 36px; }
   .cd-hero { flex-direction: column; text-align: center; padding: 20px; }
   .cd-hero-left { flex-direction: column; }
   .cd-stats { grid-template-columns: repeat(2, 1fr); }

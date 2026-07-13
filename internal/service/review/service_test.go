@@ -202,6 +202,16 @@ func (m *mockProjectPolicyRepo) GetByProviderRepo(_ context.Context, _, _ string
 	return m.policy, nil
 }
 
+func (m *mockProjectPolicyRepo) GetOrCreateDefault(_ context.Context, provider, repo string) (projectpolicy.ProjectPolicy, error) {
+	if m.err != nil {
+		return projectpolicy.NewDefault(provider, repo), m.err
+	}
+	if m.policy != nil {
+		return *m.policy, nil
+	}
+	return projectpolicy.NewDefault(provider, repo), nil
+}
+
 func (m *mockProjectPolicyRepo) Save(_ context.Context, _ *projectpolicy.ProjectPolicy) error {
 	return nil
 }
