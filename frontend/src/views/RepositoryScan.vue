@@ -78,24 +78,13 @@
                 </el-form-item>
 
                 <el-form-item label="仓库" prop="repo">
-                  <el-select
+                  <RepoSelect
                     v-model="form.repo"
-                    filterable
-                    remote
-                    reserve-keyword
-                    :loading="reposLoading"
-                    :remote-method="searchRepos"
+                    :provider="form.provider"
+                    secondary-field="none"
                     placeholder="搜索仓库名称"
                     @change="handleRepoChange"
-                    @visible-change="(v: boolean) => v && repos.length === 0 && searchRepos('')"
-                  >
-                    <el-option
-                      v-for="repo in repos"
-                      :key="repo.full_name"
-                      :label="repo.full_name"
-                      :value="repo.full_name"
-                    />
-                  </el-select>
+                  />
                 </el-form-item>
 
                 <el-form-item label="分支 / 提交">
@@ -474,15 +463,17 @@ import PageShell from '@/components/common/PageShell.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatStrip from '@/components/common/StatStrip.vue'
 import ProgressTracker from '@/components/ProgressTracker.vue'
-import { getBranchSHA, getGitPlatforms, getProviderBranches, getProviderRepos } from '@/api/config'
+import { getBranchSHA, getGitPlatforms, getProviderBranches } from '@/api/config'
 import { cancelReview, getReview, scanRepository } from '@/api/review'
 import { sessionApi, type ReviewSession } from '@/api/session'
 import type { GitPlatform, PlatformBranch, PlatformRepo } from '@/types/config'
 import type { ReviewDetail } from '@/types/review'
 import ScanFindingsPanel from '@/components/scan/ScanFindingsPanel.vue'
 import ScanPreviewPanel from '@/components/scan/ScanPreviewPanel.vue'
+import RepoSelect from '@/components/common/RepoSelect.vue'
 import type { PhaseDefinition } from '@/constants/phases'
 import { exportReport, type ReviewReport } from '@/utils/export'
+import { splitRepo } from '@/utils/repo'
 
 const router = useRouter()
 const formRef = ref<FormInstance>()
@@ -490,9 +481,7 @@ const formRef = ref<FormInstance>()
 type ScanState = 'idle' | 'queued' | 'running' | 'success' | 'failed'
 
 const platforms = ref<GitPlatform[]>([])
-const repos = ref<PlatformRepo[]>([])
 const branches = ref<PlatformBranch[]>([])
-const reposLoading = ref(false)
 const branchesLoading = ref(false)
 const previewing = ref(false)
 const starting = ref(false)
@@ -673,11 +662,6 @@ function lines(value: string) {
   return value.split('\n').map((l) => l.trim()).filter(Boolean)
 }
 
-function splitRepo(repo: string) {
-  const parts = repo.split('/').filter(Boolean)
-  return { owner: parts.slice(0, -1).join('/'), name: parts[parts.length - 1] || '' }
-}
-
 function formatNumber(value?: number) {
   return value ? value.toLocaleString() : '-'
 }
@@ -840,25 +824,13 @@ async function loadPlatforms() {
   }
 }
 
-async function searchRepos(query: string) {
-  if (!form.provider || reposLoading.value) return
-  reposLoading.value = true
-  try {
-    repos.value = await getProviderRepos(form.provider, 1, query ? 100 : 50)
-  } catch (e: any) {
-    ElMessage.error(e.message || '搜索仓库失败')
-  } finally {
-    reposLoading.value = false
-  }
-}
-
 async function loadBranches() {
   if (!form.provider || !form.repo || branchesLoading.value) return
-  const { owner, name } = splitRepo(form.repo)
-  if (!owner || !name) return
+  const repoParts = splitRepo(form.repo)
+  if (!repoParts) return
   branchesLoading.value = true
   try {
-    branches.value = await getProviderBranches(form.provider, owner, name)
+    branches.value = await getProviderBranches(form.provider, repoParts.owner, repoParts.repo)
   } catch (e: any) {
     ElMessage.error(e.message || '获取分支失败')
   } finally {
@@ -871,16 +843,14 @@ function handleProviderChange() {
   form.head_sha = ''
   branch.value = ''
   branchTouched.value = false
-  repos.value = []
   branches.value = []
   saveFormState()
 }
 
-function handleRepoChange() {
+function handleRepoChange(_value: string, repo?: PlatformRepo) {
   form.head_sha = ''
   branches.value = []
   branchTouched.value = true
-  const repo = repos.value.find((item) => item.full_name === form.repo)
   branch.value = repo?.default_branch || ''
   if (branch.value) resolveHead()
   saveFormState()
@@ -894,10 +864,10 @@ async function resolveHead() {
     form.head_sha = branch.value.trim()
     return
   }
-  const { owner, name } = splitRepo(form.repo)
-  if (!owner || !name) return
+  const repoParts = splitRepo(form.repo)
+  if (!repoParts) return
   try {
-    const sha = await getBranchSHA(form.provider, owner, name, branch.value)
+    const sha = await getBranchSHA(form.provider, repoParts.owner, repoParts.repo, branch.value)
     form.head_sha = sha || ''
     if (!form.head_sha) ElMessage.warning('没有解析到分支 SHA')
   } catch (e: any) {
@@ -1139,7 +1109,6 @@ function clearForm() {
   branchTouched.value = false
   pathsText.value = ''
   excludeText.value = ''
-  repos.value = []
   branches.value = []
   restoredFromCache.value = false
   try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
@@ -1206,7 +1175,6 @@ onMounted(async () => {
   restoreFormState()
   await loadPlatforms()
   if (form.provider && form.repo) {
-    searchRepos('')
     loadBranches()
   }
   document.addEventListener('visibilitychange', onVisibilityChange)

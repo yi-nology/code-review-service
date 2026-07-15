@@ -116,9 +116,14 @@
                   </label>
                   <label class="field-block">
                     <span>仓库</span>
-                    <el-select v-model="form.repo" filterable allow-create default-first-option placeholder="选择或输入 owner/repo" :loading="reposLoading">
-                      <el-option v-for="repo in repos" :key="repo.full_name" :label="repo.full_name" :value="repo.full_name" />
-                    </el-select>
+                    <RepoSelect
+                      v-model="form.repo"
+                      :provider="form.provider"
+                      :allow-create="true"
+                      :immediate="true"
+                      secondary-field="none"
+                      placeholder="选择或输入 owner/repo"
+                    />
                     <small>仓库列表加载失败时也可以手动输入。</small>
                   </label>
                 </div>
@@ -193,9 +198,14 @@
                     </label>
                     <label class="field-block">
                       <span>仓库</span>
-                      <el-select v-model="form.repo" filterable allow-create default-first-option :loading="reposLoading" :disabled="editingExisting">
-                        <el-option v-for="repo in repos" :key="repo.full_name" :label="repo.full_name" :value="repo.full_name" />
-                      </el-select>
+                      <RepoSelect
+                        v-model="form.repo"
+                        :provider="form.provider"
+                        :allow-create="true"
+                        :immediate="true"
+                        secondary-field="none"
+                        :disabled="editingExisting"
+                      />
                     </label>
                   </div>
                 </section>
@@ -335,8 +345,9 @@ import ProjectAgentConfig from '@/components/ProjectAgentConfig.vue'
 import RuleEditor from '@/components/RuleEditor.vue'
 import RulePackagePicker from '@/components/RulePackagePicker.vue'
 import OCREngineOverride from '@/components/project-settings/OCREngineOverride.vue'
-import { getProjectPolicies, putProjectPolicy, deleteProjectPolicy, getProviderRepos, getGitPlatforms } from '@/api/config'
-import type { ProjectPolicy, ReviewRule, PlatformRepo, GitPlatform } from '@/types/config'
+import RepoSelect from '@/components/common/RepoSelect.vue'
+import { getProjectPolicies, putProjectPolicy, deleteProjectPolicy, getGitPlatforms } from '@/api/config'
+import type { ProjectPolicy, ReviewRule, GitPlatform } from '@/types/config'
 
 type OCREnabledMode = 'inherit' | 'enabled' | 'disabled'
 type ProjectPolicyForm = Omit<ProjectPolicy, 'ignore_paths' | 'rules' | 'ocr_enabled' | 'rule_package_ids'> & {
@@ -359,8 +370,6 @@ const saving = ref(false)
 const policies = ref<ProjectPolicy[]>([])
 const agentDialogVisible = ref(false)
 const currentProject = ref<{ provider: string; repo: string } | null>(null)
-const reposLoading = ref(false)
-const repos = ref<PlatformRepo[]>([])
 const platforms = ref<GitPlatform[]>([])
 const policyKeyword = ref('')
 const originalJson = ref('')
@@ -546,7 +555,6 @@ async function fetchPlatforms() {
     platforms.value = result.items || []
     if (platforms.value.length > 0 && !form.provider) {
       form.provider = platforms.value[0].provider
-      await fetchRepos()
       syncOriginal()
     }
   } catch (e) {
@@ -554,26 +562,8 @@ async function fetchPlatforms() {
   }
 }
 
-async function fetchRepos() {
-  if (!form.provider) {
-    repos.value = []
-    return
-  }
-  reposLoading.value = true
-  try {
-    repos.value = await getProviderRepos(form.provider)
-  } catch (e) {
-    console.error('Failed to load repos:', e)
-    repos.value = []
-    ElMessage.warning('加载仓库列表失败，可手动输入仓库名称')
-  } finally {
-    reposLoading.value = false
-  }
-}
-
 function handleProviderChange() {
   form.repo = ''
-  fetchRepos()
 }
 
 async function fetchPolicies() {
@@ -631,7 +621,6 @@ function handleEdit(policy: ProjectPolicy) {
   form.rule_package_ids = policy.rule_package_ids ? [...policy.rule_package_ids] : []
   ignorePathsText.value = (policy.ignore_paths || []).join('\n')
   syncOriginal()
-  fetchRepos()
   isWizard.value = false
   activeTab.value = 'basic'
 }
@@ -665,7 +654,6 @@ function startCreate() {
   form.rule_package_ids = []
   ignorePathsText.value = ''
   syncOriginal()
-  if (form.provider) fetchRepos()
   isWizard.value = true
   wizardStep.value = 0
 }
