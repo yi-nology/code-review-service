@@ -111,6 +111,8 @@ func ListReviews(ctx context.Context, c *app.RequestContext) {
 		GateStatus: strings.TrimSpace(string(c.Query("gate_status"))),
 		Provider:   strings.TrimSpace(ptrx.Deref(req.Provider, "")),
 		Repo:       strings.TrimSpace(ptrx.Deref(req.Repo, "")),
+		SortBy:     strings.TrimSpace(string(c.Query("sort_by"))),
+		SortOrder:  strings.TrimSpace(string(c.Query("sort_order"))),
 		Limit:      pageSize,
 		Offset:     (page - 1) * pageSize,
 	})

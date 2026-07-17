@@ -173,6 +173,9 @@ type ListOptions struct {
 	To   time.Time
 	Page     int
 	PageSize int
+	// SortBy/SortOrder 控制列表排序（仅支持白名单字段）；空值时默认 created_at DESC。
+	SortBy    string
+	SortOrder string
 }
 
 // AggregateStats 是 Review 聚合统计结果。

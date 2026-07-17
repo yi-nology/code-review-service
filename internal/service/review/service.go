@@ -353,6 +353,8 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 		Repo:       options.Repo,
 		Page:       page,
 		PageSize:   options.Limit,
+		SortBy:     options.SortBy,
+		SortOrder:  options.SortOrder,
 	})
 	if err != nil {
 		return ListResult{}, err

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
@@ -148,7 +149,7 @@ func (r *ReviewRepo) List(ctx context.Context, opts domain.ListOptions) (*ekitGo
 		if opts.Repo != "" {
 			db = db.Where("repo ILIKE ?", "%"+opts.Repo+"%")
 		}
-		return db.Order("created_at DESC")
+		return db.Order(reviewSortClause(opts.SortBy, opts.SortOrder))
 	})
 	if err != nil {
 		return nil, err
@@ -161,6 +162,25 @@ func (r *ReviewRepo) List(ctx context.Context, opts domain.ListOptions) (*ekitGo
 		out.List[i] = reviewToDomain(m)
 	}
 	return out, nil
+}
+
+// reviewSortClause 把前端传入的排序字段白名单映射为 SQL ORDER BY 表达式。
+// 字段名严格白名单匹配（绝不字符串拼接外部输入），方向仅允许 asc/desc，
+// 其余一律回退到默认 created_at DESC，杜绝 ORDER BY 注入。
+func reviewSortClause(by, order string) string {
+	columns := map[string]string{
+		"score":      "score",
+		"updated_at": "updated_at",
+		"findings":   "COALESCE(jsonb_array_length(response->'findings'), 0)",
+	}
+	dir := "DESC"
+	if strings.EqualFold(order, "asc") {
+		dir = "ASC"
+	}
+	if col, ok := columns[strings.ToLower(strings.TrimSpace(by))]; ok {
+		return col + " " + dir
+	}
+	return "created_at DESC"
 }
 
 func (r *ReviewRepo) ClaimQueued(ctx context.Context, limit int) ([]domain.Record, error) {

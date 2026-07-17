@@ -4,12 +4,13 @@ import { useFilters } from './useFilters'
 import { usePolling } from './usePolling'
 
 export interface ListPageOptions<T, F extends Record<string, unknown>> {
-  fetchFn: (params: F & { page: number; page_size: number }) => Promise<{ items: T[]; total: number; [key: string]: unknown }>
+  fetchFn: (params: F & { page: number; page_size: number; sort_by?: string; sort_order?: string }) => Promise<{ items: T[]; total: number; [key: string]: unknown }>
   defaultFilters: F
   defaultPageSize?: number
   shouldPoll?: (result: unknown) => boolean
   pollInterval?: number
   immediate?: boolean
+  initialSort?: { by: string; order: 'asc' | 'desc' }
 }
 
 export function useListPage<T, F extends Record<string, unknown>>(options: ListPageOptions<T, F>) {
@@ -25,6 +26,10 @@ export function useListPage<T, F extends Record<string, unknown>>(options: ListP
   const loading = ref(false)
   const items: Ref<T[]> = ref([])
   const extraData: Ref<Record<string, unknown>> = ref({})
+
+  const sort = reactive<{ by: string; order: 'asc' | 'desc' }>(
+    options.initialSort ? { ...options.initialSort } : { by: '', order: 'desc' },
+  )
 
   const { pagination, handlePageChange, handlePageSizeChange, resetPage } = usePagination(
     () => fetchItems(),
@@ -46,7 +51,8 @@ export function useListPage<T, F extends Record<string, unknown>>(options: ListP
         ...filters,
         page: pagination.page,
         page_size: pagination.pageSize,
-      } as F & { page: number; page_size: number }
+        ...(sort.by ? { sort_by: sort.by, sort_order: sort.order } : {}),
+      } as F & { page: number; page_size: number; sort_by?: string; sort_order?: string }
       const result = await fetchFn(params)
       items.value = result.items
       pagination.total = result.total
@@ -60,6 +66,20 @@ export function useListPage<T, F extends Record<string, unknown>>(options: ListP
     } finally {
       if (!background) loading.value = false
     }
+  }
+
+  // 服务端排序：变更排序时回到第 1 页并重新查询。by 置空则回退到后端默认排序。
+  function applySort(by: string, order: 'asc' | 'desc') {
+    sort.by = by
+    sort.order = order
+    resetPage()
+    fetchItems()
+  }
+
+  function clearSort() {
+    sort.by = ''
+    resetPage()
+    fetchItems()
   }
 
   const { safeFetch, schedule: schedulePolling } = shouldPoll
@@ -91,11 +111,14 @@ export function useListPage<T, F extends Record<string, unknown>>(options: ListP
     extraData,
     pagination,
     filters,
+    sort,
     hasFilters,
     handlePageChange,
     handlePageSizeChange,
     applyFilters,
     resetFilters,
+    applySort,
+    clearSort,
     refresh,
     refreshBackground,
     fetchItems,

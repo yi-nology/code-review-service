@@ -14,6 +14,8 @@ type ListOptions struct {
 	Repo       string
 	Limit      int
 	Offset     int
+	SortBy     string
+	SortOrder  string
 }
 
 type ListItem struct {
