@@ -249,6 +249,7 @@
                   @update:ocr-timeout-minutes="form.ocr_timeout_minutes = $event"
                   @update:ocr-max-tools="form.ocr_max_tools = $event"
                   @update:ocr-use-anthropic="form.ocr_use_anthropic = $event"
+                  @update:ocr-protocol="form.ocr_protocol = $event"
                   @update:ocr-url="form.ocr_url = $event"
                   @update:ocr-model="form.ocr_model = $event"
                   @update:ocr-binary="form.ocr_binary = $event"
@@ -397,6 +398,7 @@ const form = reactive<ProjectPolicyForm>({
   ocr_model: '',
   ocr_max_git_procs: 0,
   ocr_use_anthropic: null as any,
+  ocr_protocol: '' as any,
   ocr_extra_body: '',
   ocr_language: '',
   ocr_binary: '',
@@ -441,6 +443,7 @@ const payloadPreview = computed<ProjectPolicy>(() => ({
   ocr_model: form.ocr_model?.trim() || '',
   ocr_max_git_procs: form.ocr_max_git_procs || 0,
   ocr_use_anthropic: form.ocr_use_anthropic as any,
+  ocr_protocol: form.ocr_protocol || '',
   ocr_extra_body: form.ocr_extra_body?.trim() || '',
   ocr_language: form.ocr_language || '',
   ocr_binary: form.ocr_binary?.trim() || '',
@@ -610,6 +613,7 @@ function handleEdit(policy: ProjectPolicy) {
   form.ocr_model = policy.ocr_model || ''
   form.ocr_max_git_procs = policy.ocr_max_git_procs || 0
   form.ocr_use_anthropic = policy.ocr_use_anthropic ?? null as any
+  form.ocr_protocol = policy.ocr_protocol || ''
   form.ocr_extra_body = policy.ocr_extra_body || ''
   form.ocr_language = policy.ocr_language || ''
   form.ocr_binary = policy.ocr_binary || ''
@@ -643,6 +647,7 @@ function startCreate() {
   form.ocr_model = ''
   form.ocr_max_git_procs = 0
   form.ocr_use_anthropic = null as any
+  form.ocr_protocol = ''
   form.ocr_extra_body = ''
   form.ocr_language = ''
   form.ocr_binary = ''

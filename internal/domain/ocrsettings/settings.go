@@ -6,17 +6,22 @@ import "encoding/json"
 // Settings 是 OCR 引擎的全局配置（单例）。
 // ExtraBody / ToolsConfig 为 JSONB，领域层用 json.RawMessage 解耦 GORM datatypes.JSON。
 type Settings struct {
-	Enabled                 bool            `json:"enabled"`
-	Binary                  string          `json:"binary,omitempty"`
-	Audience                string          `json:"audience,omitempty"`
-	DefaultSeverity         string          `json:"default_severity,omitempty"`
-	Provider                string          `json:"provider,omitempty"`
-	URL                     string          `json:"url"`
-	AuthToken               string          `json:"auth_token,omitempty"`
-	AuthHeader              string          `json:"auth_header,omitempty"`
-	ExtraHeaders            string          `json:"extra_headers,omitempty"`
-	ModelName               string          `json:"model"`
-	UseAnthropic            bool            `json:"use_anthropic"`
+	Enabled         bool   `json:"enabled"`
+	Binary          string `json:"binary,omitempty"`
+	Audience        string `json:"audience,omitempty"`
+	DefaultSeverity string `json:"default_severity,omitempty"`
+	Provider        string `json:"provider,omitempty"`
+	URL             string `json:"url"`
+	AuthToken       string `json:"auth_token,omitempty"`
+	AuthHeader      string `json:"auth_header,omitempty"`
+	ExtraHeaders    string `json:"extra_headers,omitempty"`
+	ModelName       string `json:"model"`
+	UseAnthropic    bool   `json:"use_anthropic"`
+	// Protocol 控制 LLM 协议：留空=由 UseAnthropic 推断（兼容）；
+	// anthropic / openai / openai-responses（OCR v1.7.10+，透传 OCR_LLM_PROTOCOL）。
+	Protocol string `json:"protocol,omitempty"`
+	// BackgroundFile 是 --background-file 的文件路径（OCR v1.7.6+），与 Background 叠加。
+	BackgroundFile          string          `json:"background_file,omitempty"`
 	ExtraBody               json.RawMessage `json:"extra_body,omitempty"`
 	ReasoningMode           string          `json:"reasoning_mode,omitempty"`
 	ReasoningBudget         int             `json:"reasoning_budget,omitempty"`
@@ -35,4 +40,11 @@ type Settings struct {
 	TelemetryContentLogging bool            `json:"telemetry_content_logging"`
 	ContextWindow           int64           `json:"context_window"`
 	MaxOutputTokens         int64           `json:"max_output_tokens"`
+	// 策略配置（原 policy.*，迁移到 DB）
+	PolicyFailOn      string   `json:"policy_fail_on,omitempty"`
+	PolicyMaxComments int      `json:"policy_max_comments,omitempty"`
+	PolicySummaryOnly bool     `json:"policy_summary_only"`
+	PolicyIgnorePaths []string `json:"policy_ignore_paths,omitempty"`
+	// 写回配置
+	MaxDiffBytes int64 `json:"max_diff_bytes,omitempty"`
 }

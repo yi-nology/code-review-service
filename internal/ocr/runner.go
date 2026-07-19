@@ -40,17 +40,17 @@ const runnerRefreshInterval = 30 * time.Second
 type Runner struct {
 	// baseCfg 是从 DB 解析的全局默认配置（不含 per-execution overrides）。
 	// 后台 goroutine 定时刷新；执行时通过 effectiveConfig() 读快照 + 叠加 overrides。
-	baseCfg     Config
-	baseCfgMu   sync.RWMutex
+	baseCfg   Config
+	baseCfgMu sync.RWMutex
 
-	resolver    *ConfigResolver
+	resolver *ConfigResolver
 
 	// refreshCh 收到信号时立即刷新（不等定时器），用于 PUT settings 后加速生效。
-	refreshCh   chan struct{}
+	refreshCh chan struct{}
 
 	// stopCh 关闭后后台 goroutine 退出。
-	stopCh      chan struct{}
-	stopOnce    sync.Once
+	stopCh   chan struct{}
+	stopOnce sync.Once
 }
 
 // Compile-time assertions
@@ -58,6 +58,7 @@ var (
 	_ domain.Runner        = (*Runner)(nil)
 	_ domain.PreviewRunner = (*Runner)(nil)
 	_ domain.ScanRunner    = (*Runner)(nil)
+	_ domain.Delegator     = (*Runner)(nil)
 )
 
 // NewRunner 从 Config 构造 Runner。
@@ -175,6 +176,9 @@ func mergeOverrides(base Config, ov OCROverrides) Config {
 	if ov.UseAnthropic {
 		out.UseAnthropic = true
 	}
+	if ov.Protocol != "" {
+		out.Protocol = ov.Protocol
+	}
 	if ov.ExtraBody != "" {
 		out.ExtraBody = ov.ExtraBody
 	}
@@ -183,6 +187,9 @@ func mergeOverrides(base Config, ov OCROverrides) Config {
 	}
 	if ov.Background != "" {
 		out.Background = ov.Background
+	}
+	if ov.Language != "" {
+		out.Language = ov.Language
 	}
 	if ov.ToolsPath != "" {
 		out.ToolsPath = ov.ToolsPath
@@ -234,6 +241,7 @@ func (r *Runner) Run(ctx context.Context, workspace domain.Workspace) (domain.Re
 	reporter := progress.ProgressReporterFromContext(ctx)
 
 	var lastErr error
+	var lastPartial domain.Result // 最后一次失败的 partial result（含 OCR session_id，供上层 retry resume）
 	for attempt := 1; attempt <= attempts; attempt++ {
 		if err := ctx.Err(); err != nil {
 			return domain.Result{}, err
@@ -257,6 +265,11 @@ func (r *Runner) Run(ctx context.Context, workspace domain.Workspace) (domain.Re
 			return result, nil
 		}
 		lastErr = err
+		// runOnce 失败时仍可能返回 partial result（OCR v1.7.6+ 崩溃前已 flush 的部分，含 session_id）。
+		// 保留最新一份，全部 attempt 失败后返回给 executor，让 retry 时传 --resume 复用 checkpoint。
+		if result.OCR.SessionID != "" {
+			lastPartial = result
+		}
 
 		// ctx 已取消：不再重试。
 		if ctx.Err() != nil {
@@ -279,6 +292,11 @@ func (r *Runner) Run(ctx context.Context, workspace domain.Workspace) (domain.Re
 			case <-time.After(backoff):
 			}
 		}
+	}
+	// 全部 attempt 失败：返回 lastPartial（可能含 session_id）+ lastErr。
+	// executor 的 recordFailure 应把 lastPartial.OCR.SessionID 持久化，供下次 retry --resume 使用。
+	if lastPartial.OCR.SessionID != "" {
+		return lastPartial, lastErr
 	}
 	return domain.Result{}, lastErr
 }
@@ -310,6 +328,12 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 		"--timeout", convert.IntToStr(cfg.TimeoutMinutes),
 		"--audience", audience,
 	}
+	// OCR v1.7.6+ --resume：复用上次 session 的已完成文件 checkpoint，跳过重复 LLM 调用。
+	// 由 executor 在 retry 路径填入（读上次 review 的 response.report.ocr.session_id）。
+	if sid := strings.TrimSpace(workspace.ResumeSessionID); sid != "" {
+		args = append(args, "--resume", sid)
+		logx.Infof("[ocr] review 启用 resume，复用 session_id=%s", sid)
+	}
 	rulePath := cfg.RulePath
 	if strings.TrimSpace(workspace.RulePath) != "" {
 		rulePath = workspace.RulePath
@@ -328,8 +352,29 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 	if cleanupTools != nil {
 		defer cleanupTools()
 	}
-	if strings.TrimSpace(cfg.Background) != "" {
-		args = append(args, "--background", cfg.Background)
+	// 将语言要求注入 background，确保 LLM 用指定语言输出。
+	lang := cfg.Language
+	if lang == "" {
+		lang = "中文"
+	}
+	langPrompt := languagePrompt(lang)
+	background := strings.TrimSpace(cfg.Background)
+	if langPrompt != "" {
+		if background != "" {
+			background = background + "\n\n" + langPrompt
+		} else {
+			background = langPrompt
+		}
+	}
+	if background != "" {
+		args = append(args, "--background", background)
+	}
+	// OCR v1.7.6+ 支持 --background-file 读取 Markdown 文件，规避 inline --background 的 8000 字符硬上限。
+	// 路径必须解析后落在 workspace.Dir 内（防路径穿越），否则忽略并记日志（不阻断评审）。
+	if bgFile, ok := safeBackgroundFile(workspace.Dir, cfg.BackgroundFile); ok {
+		args = append(args, "--background-file", bgFile)
+	} else if strings.TrimSpace(cfg.BackgroundFile) != "" {
+		logx.Warnf("[ocr] background_file %q 不在工作区 %q 内或不存在，已忽略", cfg.BackgroundFile, workspace.Dir)
 	}
 
 	cmd := exec.CommandContext(ctx, cfg.Binary, args...)
@@ -404,7 +449,13 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 		stderrMu.Lock()
 		message := strings.Join(stderrLines, "\n")
 		stderrMu.Unlock()
-		return domain.Result{}, classifyExitError(ctx, err, timeout, message)
+		// 失败时仍尝试 parse stdout：OCR v1.7.6+ 在崩溃前可能已 flush 部分 JSON，
+		// 其中包含 session_id。把它附在 Result 上返回，让上层 retry 时能传 --resume 复用 checkpoint。
+		// parseOpenCodeReviewOutput 对非 JSON / 空 stdout 安全（返回零值 Result）。
+		partial := parseOpenCodeReviewOutput(stdout.Bytes(), cfg.DefaultSeverity)
+		partial.OCR.Model = cfg.Model
+		partial.OCR.Status = "failed"
+		return partial, classifyExitError(ctx, err, timeout, message)
 	}
 
 	result := parseOpenCodeReviewOutput(stdout.Bytes(), cfg.DefaultSeverity)
@@ -689,7 +740,13 @@ func parseOpenCodeReviewOutput(data []byte, defaultSeverity string) domain.Resul
 			Elapsed       string `json:"elapsed"`
 		} `json:"summary"`
 		ToolCalls *domain.ToolCallsMetadata `json:"tool_calls"`
-		Comments  []struct {
+		// Session 是 OCR v1.7.6+ 引入的 review session 元数据；旧版本无此字段，零值即可。
+		// resume 命中时 reused_files > 0；session_id 可用于 `ocr session show <id>` 排障。
+		Session *struct {
+			SessionID   string `json:"session_id"`
+			ReusedFiles int    `json:"reused_files"`
+		} `json:"session"`
+		Comments []struct {
 			Path           string `json:"path"`
 			Content        string `json:"content"`
 			SuggestionCode string `json:"suggestion_code"`
@@ -738,7 +795,7 @@ func parseOpenCodeReviewOutput(data []byte, defaultSeverity string) domain.Resul
 	}
 	summary := fmt.Sprintf("ocr 评审完成：%d 条评论，%d 个文件", commentCount, payload.Summary.FilesReviewed)
 
-	return domain.Result{
+	result := domain.Result{
 		Summary:  summary,
 		Findings: findings,
 		OCR: domain.OCRMetadata{
@@ -753,6 +810,11 @@ func parseOpenCodeReviewOutput(data []byte, defaultSeverity string) domain.Resul
 			ToolCalls:     payload.ToolCalls,
 		},
 	}
+	if payload.Session != nil {
+		result.OCR.SessionID = payload.Session.SessionID
+		result.OCR.ReusedFiles = payload.Session.ReusedFiles
+	}
+	return result
 }
 
 // findingTitle 从 OCR comment 的完整内容中提取一个简短标题。
@@ -779,3 +841,16 @@ func findingTitle(content string) string {
 // （锁只能防文件损坏，「最后写入者胜」仍导致评审用错语言）。
 // 现在 language 通过 OCR_LANGUAGE 环境变量传递（见 Config.AppendEnv），
 // env 是 per-process 的，天然并发安全。
+
+// languagePrompt 根据语言设置生成 background 提示，确保 LLM 用指定语言输出。
+// 支持 "中文"/"Chinese"/"zh"(不区分大小写) 和 "English"/"en"。
+func languagePrompt(lang string) string {
+	switch strings.ToLower(strings.TrimSpace(lang)) {
+	case "中文", "chinese", "zh", "zh-cn":
+		return "请用中文输出所有审查结果，包括问题描述、建议和总结。"
+	case "english", "en":
+		return "Please output all review results in English, including findings, suggestions, and summary."
+	default:
+		return ""
+	}
+}

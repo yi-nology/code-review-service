@@ -57,6 +57,10 @@ type OCRMetadata struct {
 	Elapsed          string             `json:"elapsed,omitempty"`
 	ToolCalls        *ToolCallsMetadata `json:"tool_calls,omitempty"`
 	ProjectSummary   string             `json:"project_summary,omitempty"`
+	// SessionID 是 OCR v1.7.6+ review session 的标识；可用于 ocr session show 排障，留空表示旧版本或未启用 session。
+	SessionID string `json:"session_id,omitempty"`
+	// ReusedFiles 是 resume 命中后复用的文件 checkpoint 数量（OCR v1.7.6+）。
+	ReusedFiles int `json:"reused_files,omitempty"`
 }
 
 type ToolCallsMetadata struct {
@@ -96,24 +100,32 @@ type Workspace struct {
 	// 普通 review preview 留空 = 扫描整个仓库。
 	ScanPaths   []string
 	ScanExclude []string
+
+	// ResumeSessionID 是上一次 OCR review 的 session_id（OCR v1.7.6+），非空时 runner 会传 `--resume <id>`。
+	// 仅在 retry 同一 review 时填入：复用已完成文件的 checkpoint，跳过重复 LLM 调用。
+	// 注意：OCR session 持久化在 $HOME/.opencodereview/sessions/，跨进程重启后失效；
+	// PR 模式下 HeadSHA 可能是合成提交，resume 命中率不确定，调用方应自行评估后开启。
+	ResumeSessionID string
 }
 
 type OCROverrides struct {
-	Enabled                 *bool
-	Concurrency             int
-	TimeoutMinutes          int
-	MaxTools                int
-	DefaultSeverity         string
-	Background              string
-	Audience                string
-	Provider                string
-	URL                     string
-	Model                   string
-	AuthToken               string
-	AuthHeader              string
-	ExtraHeaders            string
-	MaxGitProcs             int
-	UseAnthropic            bool
+	Enabled         *bool
+	Concurrency     int
+	TimeoutMinutes  int
+	MaxTools        int
+	DefaultSeverity string
+	Background      string
+	Audience        string
+	Provider        string
+	URL             string
+	Model           string
+	AuthToken       string
+	AuthHeader      string
+	ExtraHeaders    string
+	MaxGitProcs     int
+	UseAnthropic    bool
+	// Protocol 项目级 LLM 协议覆盖；留空=回退到全局 Protocol 或 UseAnthropic。
+	Protocol                string
 	ExtraBody               string
 	Language                string
 	Binary                  string

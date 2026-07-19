@@ -293,3 +293,76 @@ func TestAppendToolsArgs_NeitherNoOp(t *testing.T) {
 		t.Errorf("unexpected args: %v", args)
 	}
 }
+
+// TestRunner_ResumePassesFlag 校验 workspace.ResumeSessionID 非空时，--resume <id> 被传递给 OCR（v1.7.6+）。
+//
+// 用一个 fake sh 脚本做 binary，记录传入的全部 argv 到文件，然后断言 --resume 与 session id 都在。
+func TestRunner_ResumePassesFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+	const sid = "01HZK9SEVENTSEVEN"
+	argLogFile := filepath.Join(tmpDir, "argv")
+	scriptPath := filepath.Join(tmpDir, "fake-ocr")
+	// 把 argv 写日志，再吐合法 JSON 让 Run 成功返回。
+	script := "#!/bin/sh\n" +
+		fmt.Sprintf("printf '%%s\\n' \"$@\" > %q\n", argLogFile) +
+		"cat <<'EOF'\n" +
+		`{"status":"success","summary":{"files_reviewed":1,"comments":0},"session":{"session_id":"` + sid + `","reused_files":0},"comments":[]}` + "\nEOF\n"
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := Defaults().ToConfig()
+	cfg.Binary = scriptPath
+	cfg.MaxRetries = 0 // 单次，避免失败重试干扰
+	r := NewRunner(cfg)
+
+	ws := domain.Workspace{Dir: tmpDir, ResumeSessionID: sid}
+	result, err := r.Run(context.Background(), ws)
+	if err != nil {
+		t.Fatalf("Run err: %v", err)
+	}
+	if result.OCR.SessionID != sid {
+		t.Fatalf("expected OCR.SessionID=%q, got %q", sid, result.OCR.SessionID)
+	}
+
+	argv, err := os.ReadFile(argLogFile)
+	if err != nil {
+		t.Fatalf("read argv log: %v", err)
+	}
+	argvStr := string(argv)
+	if !strings.Contains(argvStr, "--resume") {
+		t.Errorf("expected --resume in OCR args, got:\n%s", argvStr)
+	}
+	if !strings.Contains(argvStr, sid) {
+		t.Errorf("expected session_id %q in OCR args, got:\n%s", sid, argvStr)
+	}
+}
+
+// TestRunner_ResumeOmittedWhenEmpty 校验 ResumeSessionID 空时**不**传 --resume（向后兼容旧调用方）。
+func TestRunner_ResumeOmittedWhenEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+	argLogFile := filepath.Join(tmpDir, "argv")
+	scriptPath := filepath.Join(tmpDir, "fake-ocr")
+	script := "#!/bin/sh\n" +
+		fmt.Sprintf("printf '%%s\\n' \"$@\" > %q\n", argLogFile) +
+		"cat <<'EOF'\n" +
+		`{"status":"success","summary":{"files_reviewed":0,"comments":0},"comments":[]}` + "\nEOF\n"
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := Defaults().ToConfig()
+	cfg.Binary = scriptPath
+	cfg.MaxRetries = 0
+	r := NewRunner(cfg)
+
+	ws := domain.Workspace{Dir: tmpDir}
+	if _, err := r.Run(context.Background(), ws); err != nil {
+		t.Fatalf("Run err: %v", err)
+	}
+
+	argv, _ := os.ReadFile(argLogFile)
+	if strings.Contains(string(argv), "--resume") {
+		t.Errorf("expected NO --resume when ResumeSessionID empty, got:\n%s", string(argv))
+	}
+}

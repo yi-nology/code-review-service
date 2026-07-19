@@ -92,6 +92,16 @@
           </label>
 
           <label class="field-block">
+            <span>LLM 协议 (v1.7.10+)</span>
+            <el-select :model-value="form.ocr_protocol" clearable placeholder="继承全局" @change="$emit('update:ocrProtocol', $event)">
+              <el-option label="继承全局" value="" />
+              <el-option label="anthropic" value="anthropic" />
+              <el-option label="openai (Chat Completions)" value="openai" />
+              <el-option label="openai-responses (GPT-5.x / o-series)" value="openai-responses" />
+            </el-select>
+          </label>
+
+          <label class="field-block">
             <span>模型接口地址</span>
             <el-input :model-value="form.ocr_url" placeholder="继承全局" clearable @input="$emit('update:ocrUrl', $event)" />
           </label>
@@ -177,6 +187,7 @@ defineEmits<{
   'update:ocrTimeoutMinutes': [value: number | undefined]
   'update:ocrMaxTools': [value: number | undefined]
   'update:ocrUseAnthropic': [value: any]
+  'update:ocrProtocol': [value: any]
   'update:ocrUrl': [value: string]
   'update:ocrModel': [value: string]
   'update:ocrBinary': [value: string]

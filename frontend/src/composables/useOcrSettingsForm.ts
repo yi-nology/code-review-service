@@ -22,14 +22,16 @@ export function useOcrSettingsForm() {
     auth_token: '',
     auth_header: 'Authorization',
     extra_headers: '',
-    language: 'Chinese',
+    language: '中文',
     concurrency: 2,
     max_git_procs: 4,
     timeout_minutes: 10,
     max_tools: 0,
     background: '',
+    background_file: '',
     tools_path: '',
     tools_config: '',
+    protocol: '',
     telemetry_enabled: false,
     telemetry_exporter: '',
     telemetry_otlp_endpoint: '',
@@ -38,6 +40,12 @@ export function useOcrSettingsForm() {
     reasoning_budget: 0,
     context_window: 0,
     max_output_tokens: 0,
+    // 策略配置
+    policy_fail_on: 'critical',
+    policy_max_comments: 20,
+    policy_summary_only: false,
+    policy_ignore_paths: ['vendor/**', 'dist/**', '*.pb.go', 'node_modules/**'],
+    max_diff_bytes: 5242880,
   })
 
   async function fetchSettings() {

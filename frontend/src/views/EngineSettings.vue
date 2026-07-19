@@ -32,7 +32,7 @@
             <span class="sep">·</span>
             <span class="mono url">{{ form.url || '—' }}</span>
             <span class="sep">·</span>
-            <span>{{ form.language === 'Chinese' ? '中文' : 'English' }}</span>
+            <span>{{ form.language === '中文' ? '中文' : 'English' }}</span>
             <span class="sep">·</span>
             <span>并发 {{ form.concurrency || 2 }}</span>
           </div>
@@ -143,6 +143,9 @@
           <el-tab-pane label="审查背景" name="review">
             <ReviewFocusTab />
           </el-tab-pane>
+          <el-tab-pane label="审查策略" name="policy">
+            <PolicyTab />
+          </el-tab-pane>
         </el-tabs>
       </section>
 
@@ -175,6 +178,7 @@ import ModelProviderSection from '@/components/model-settings/ModelProviderSecti
 import ExecutionParamsTab from '@/components/model-settings/ExecutionParamsTab.vue'
 import ReviewFocusTab from '@/components/model-settings/ReviewFocusTab.vue'
 import McpServersTab from '@/components/model-settings/McpServersTab.vue'
+import PolicyTab from '@/components/model-settings/PolicyTab.vue'
 import { settingsFormKey, type SettingsFormContext } from '@/components/model-settings/context'
 import { useOcrSettingsForm } from '@/composables/useOcrSettingsForm'
 import {
@@ -216,6 +220,13 @@ const providerMeta: Record<string, { display: string; icon: string }> = {
   'baidu-qianfan': { display: '百度千帆', icon: 'baidu' },
   'hy-tokenplan': { display: '腾讯混元 (Token Plan)', icon: 'hunyuan' },
   'tencent-tokenhub': { display: '腾讯云 (TokenHub)', icon: 'tencent' },
+  // OCR v1.7.7+ EdenAI（聚合 provider）。
+  edenai: { display: 'Eden AI', icon: 'edenai' },
+  // OCR v1.7.11+ Ollama Cloud、智谱 coding plan。
+  'ollama-cloud': { display: 'Ollama Cloud', icon: 'ollama' },
+  'z-ai-coding': { display: '智谱 AI (Coding Plan)', icon: 'zhipu' },
+  // OCR v1.7.12+ LiteLLM gateway。
+  litellm: { display: 'LiteLLM Gateway', icon: 'litellm' },
 }
 
 const currentDisplayName = computed(() => {

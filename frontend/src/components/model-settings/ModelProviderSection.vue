@@ -28,6 +28,13 @@ const providerMeta: Record<string, { display: string; icon: string; region: stri
   'baidu-qianfan': { display: '百度千帆', icon: 'baidu', region: 'cn' },
   'hy-tokenplan': { display: '腾讯混元 (Token Plan)', icon: 'hunyuan', region: 'cn' },
   'tencent-tokenhub': { display: '腾讯云 (TokenHub)', icon: 'tencent', region: 'cn' },
+  // OCR v1.7.7+ 新增 EdenAI（聚合 provider）。
+  edenai: { display: 'Eden AI', icon: 'edenai', region: 'global' },
+  // OCR v1.7.11+ 新增 Ollama Cloud、智谱 coding plan。
+  'ollama-cloud': { display: 'Ollama Cloud', icon: 'ollama', region: 'global' },
+  'z-ai-coding': { display: '智谱 AI (Coding Plan)', icon: 'zhipu', region: 'cn' },
+  // OCR v1.7.12+ 新增 LiteLLM gateway（统一接 100+ 模型）。
+  litellm: { display: 'LiteLLM Gateway', icon: 'litellm', region: 'self' },
 }
 
 interface ProviderOption {
@@ -363,6 +370,15 @@ defineExpose({ syncProviders })
             <el-radio :value="true">Anthropic</el-radio>
           </el-radio-group>
         </el-form-item>
+        <el-form-item label="LLM 协议 (OCR v1.7.10+)">
+          <el-select v-model="form.protocol" placeholder="自动（由上方协议推断）" clearable style="width: 100%">
+            <el-option label="自动（由请求协议推断，兼容旧版）" value="" />
+            <el-option label="anthropic" value="anthropic" />
+            <el-option label="openai (Chat Completions)" value="openai" />
+            <el-option label="openai-responses (GPT-5.x / o-series)" value="openai-responses" />
+          </el-select>
+          <div class="form-hint">设为「自动」时由「请求协议」推断；GPT-5.x / o-series 等走 Responses API 的模型必须选 openai-responses。</div>
+        </el-form-item>
       </el-form>
     </div>
 
@@ -599,6 +615,12 @@ defineExpose({ syncProviders })
 .pchip-icon.baidu { background: linear-gradient(135deg, #2932e1, #1b2bbd); }
 .pchip-icon.hunyuan { background: linear-gradient(135deg, #0052d9, #003eaa); }
 .pchip-icon.tencent { background: linear-gradient(135deg, #00a4ff, #0080d6); }
+/* OCR v1.7.7+ EdenAI */
+.pchip-icon.edenai { background: linear-gradient(135deg, #14b8a6, #0d9488); }
+/* OCR v1.7.11+ Ollama Cloud */
+.pchip-icon.ollama { background: linear-gradient(135deg, #6b7280, #4b5563); }
+/* OCR v1.7.12+ LiteLLM gateway（自部署） */
+.pchip-icon.litellm { background: linear-gradient(135deg, #34d399, #10b981); }
 .pchip-icon.custom { background: var(--app-border); color: var(--app-muted); }
 
 @media (max-width: 860px) {

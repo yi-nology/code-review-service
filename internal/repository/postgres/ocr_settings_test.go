@@ -43,8 +43,8 @@ func TestOCRSettingsRepoDefaultSettingsKeepsBuiltInFallbacks(t *testing.T) {
 	if got.DefaultSeverity != "major" {
 		t.Fatalf("DefaultSeverity = %q, want major", got.DefaultSeverity)
 	}
-	if got.Language != "Chinese" {
-		t.Fatalf("Language = %q, want Chinese", got.Language)
+	if got.Language != "中文" {
+		t.Fatalf("Language = %q, want 中文 (与 GORM default tag 与 frontend 默认值一致)", got.Language)
 	}
 	if got.Concurrency != 2 {
 		t.Fatalf("Concurrency = %d, want 2", got.Concurrency)

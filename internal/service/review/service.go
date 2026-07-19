@@ -129,28 +129,6 @@ func NewService(cfg ServiceConfig) *Service {
 	return s
 }
 
-// agentRulePackageRefs 汇总所有启用审查员的 RulePackageIDs（json.RawMessage 列表）。
-// ResolveRuleFileForAgents 内部会基于 MergeRulePackageIDs 合并去重，所以这里只做收集不去重。
-// 所有审查员共享同一份合并规则文件，因此取 RawMessage 列表交给 rules 层统一处理。
-func (s *Service) agentRulePackageRefs(ctx context.Context) [][]byte {
-	if s.agentRepo == nil {
-		return nil
-	}
-	agents, err := s.agentRepo.ListEnabled(ctx)
-	if err != nil {
-		logx.Warn("failed to load enabled agents for rule package refs", "error", err)
-		return nil
-	}
-	refs := make([][]byte, 0, len(agents))
-	for i := range agents {
-		if len(agents[i].RulePackageIDs) == 0 {
-			continue
-		}
-		refs = append(refs, agents[i].RulePackageIDs)
-	}
-	return refs
-}
-
 // acquireConcurrency 获取并发槽，支持 ctx 取消。
 // 信号量为 nil（未配置限制）时直接放行。
 // 返回 false 表示等待期间 ctx 已取消，调用方应中止并清理。
@@ -471,7 +449,7 @@ func (s *Service) previewCore(ctx context.Context, req domain.Request, paths, ex
 	if s.globalRulesRepo != nil {
 		var agentRefs [][]byte
 		if includeAgentRules {
-			agentRefs = s.agentRulePackageRefs(ctx)
+			agentRefs = AgentRulePackageRefs(ctx, s.agentRepo)
 		}
 		rulePath, cleanup, ruleErr := ResolveRuleFileForAgents(ctx, projectPolicy, s.rulePackageRepo, s.globalRulesRepo, agentRefs...)
 		if ruleErr != nil {
@@ -725,7 +703,7 @@ func (s *Service) scanExecuteWithPolicy(ctx context.Context, reviewID string, re
 	}
 
 	if s.globalRulesRepo != nil {
-		rulePath, cleanup, ruleErr := ResolveRuleFileForAgents(ctx, projectPolicy, s.rulePackageRepo, s.globalRulesRepo, s.agentRulePackageRefs(ctx)...)
+		rulePath, cleanup, ruleErr := ResolveRuleFileForAgents(ctx, projectPolicy, s.rulePackageRepo, s.globalRulesRepo, AgentRulePackageRefs(ctx, s.agentRepo)...)
 		if ruleErr != nil {
 			logx.Warn("failed to resolve rule file", "error", ruleErr)
 		} else if rulePath != "" {
@@ -742,7 +720,7 @@ func (s *Service) scanExecuteWithPolicy(ctx context.Context, reviewID string, re
 
 	if reviewID != "" && workspace.Dir != "" {
 		ocrInput := domain.OCRInput{
-			Binary: "ocr",
+			Binary: ResolveOCRBinary(ctx, s.ocrSettingsRepo),
 			Workspace: domain.WorkspaceInfo{
 				Provider: providerName,
 				Repo:     repo,
@@ -896,6 +874,7 @@ func ProjectPolicyToOCROverrides(p projectpolicy.ProjectPolicy) domain.OCROverri
 		Model:                   p.OCRModel,
 		MaxGitProcs:             p.OCRMaxGitProcs,
 		UseAnthropic:            p.OCRUseAnthropic,
+		Protocol:                p.OCRProtocol,
 		ExtraBody:               p.OCRExtraBody,
 		Language:                p.OCRLanguage,
 		Binary:                  p.OCRBinary,

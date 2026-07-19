@@ -139,6 +139,12 @@ func validateOCRSettings(s *ocrsettings.Settings) error {
 	if strings.ContainsAny(s.ExtraHeaders, "\r\n") {
 		return fmt.Errorf("额外请求头不能包含换行")
 	}
+	// Protocol 校验：留空走 UseAnthropic 兼容路径；非空必须取下列枚举值之一（OCR v1.7.10+）。
+	switch s.Protocol {
+	case "", "anthropic", "openai", "openai-responses":
+	default:
+		return fmt.Errorf("protocol 仅支持 anthropic / openai / openai-responses（留空则由 use_anthropic 推断）")
+	}
 	return nil
 }
 
@@ -168,6 +174,8 @@ func dbOCRSettingsToAPI(s *ocrsettings.Settings) *modelSettings.OCRSettings {
 		ToolsPath:        common.StrPtr(s.ToolsPath),
 		ToolsConfig:      common.StrPtr(toolsConfig),
 		McpServers:       common.StrPtr(mcpServers),
+		Protocol:         common.StrPtr(s.Protocol),
+		BackgroundFile:   common.StrPtr(s.BackgroundFile),
 		TelemetryEnabled: ptrx.Of(s.TelemetryEnabled), TelemetryExporter: common.StrPtr(s.TelemetryExporter),
 		TelemetryOtlpEndpoint: common.StrPtr(s.TelemetryOTLPEndpoint), TelemetryContentLogging: ptrx.Of(s.TelemetryContentLogging),
 		ReasoningMode:   common.StrPtr(s.ReasoningMode),
@@ -193,12 +201,14 @@ func apiOCRSettingsToDB(s *modelSettings.OCRSettings) *ocrsettings.Settings {
 	db.ExtraHeaders = ptrx.Deref(s.ExtraHeaders, "")
 	db.ModelName = ptrx.Deref(s.Model, "")
 	db.UseAnthropic = ptrx.Deref(s.UseAnthropic, false)
+	db.Protocol = ptrx.Deref(s.Protocol, "")
 	db.Language = ptrx.Deref(s.Language, "")
 	db.Concurrency = int(ptrx.Deref(s.Concurrency, 0))
 	db.MaxGitProcs = int(ptrx.Deref(s.MaxGitProcs, 0))
 	db.TimeoutMinutes = int(ptrx.Deref(s.TimeoutMinutes, 0))
 	db.MaxTools = int(ptrx.Deref(s.MaxTools, 0))
 	db.Background = ptrx.Deref(s.Background, "")
+	db.BackgroundFile = ptrx.Deref(s.BackgroundFile, "")
 	db.ToolsPath = ptrx.Deref(s.ToolsPath, "")
 	db.TelemetryEnabled = ptrx.Deref(s.TelemetryEnabled, false)
 	db.TelemetryExporter = ptrx.Deref(s.TelemetryExporter, "")

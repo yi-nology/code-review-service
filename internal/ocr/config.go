@@ -27,11 +27,16 @@ type Config struct {
 	AuthHeader   string
 	ExtraHeaders string
 	UseAnthropic bool
-	ExtraBody    string
+	// Protocol 显式指定 LLM 协议（anthropic / openai / openai-responses）。
+	// 留空时 OCR 按 UseAnthropic 推断（向后兼容）；非空时透传 OCR_LLM_PROTOCOL（OCR v1.7.10+），
+	// 优先级高于 UseAnthropic。
+	Protocol  string
+	ExtraBody string
 
 	// 行为
-	Language   string
-	Background string
+	Language       string
+	Background     string
+	BackgroundFile string // --background-file 路径（OCR v1.7.6+），与 Background 叠加
 
 	// 工具
 	MaxTools    int
@@ -121,15 +126,17 @@ func BuildConfig(settings *SettingsData, overrides OCROverrides, fallback Fallba
 		AuthHeader:      firstNonBlank(overrides.AuthHeader, settings.AuthHeader),
 		ExtraHeaders:    firstNonBlank(overrides.ExtraHeaders, settings.ExtraHeaders),
 		UseAnthropic:    overrides.UseAnthropic || settings.UseAnthropic,
+		Protocol:        firstNonBlank(overrides.Protocol, settings.Protocol),
 		ExtraBody: ResolveExtraBody(
 			firstNonBlank(overrides.ExtraBody, settings.ExtraBody),
 			firstNonBlank(settings.ReasoningMode, "light"),
 			settings.ReasoningBudget,
 			settings.Provider,
 		),
-		Language:                settings.Language,
+		Language:                firstNonBlank(overrides.Language, settings.Language),
 		MaxTools:                firstPositive(overrides.MaxTools, settings.MaxTools),
 		Background:              firstNonBlank(overrides.Background, settings.Background),
+		BackgroundFile:          settings.BackgroundFile,
 		ToolsPath:               firstNonBlank(overrides.ToolsPath, settings.ToolsPath),
 		ToolsConfig:             settings.ToolsConfig,
 		McpServers:              settings.McpServers,
@@ -187,13 +194,15 @@ func (c Config) AppendEnv(env []string) []string {
 	if c.ExtraHeaders != "" {
 		env = append(env, "OCR_LLM_EXTRA_HEADERS="+c.ExtraHeaders)
 	}
-	if c.UseAnthropic {
+	// OCR v1.7.10+ 引入 OCR_LLM_PROTOCOL（取值 anthropic/openai/openai-responses），
+	// 优先级高于 OCR_USE_ANTHROPIC。显式 Protocol 非空时只设 PROTOCOL，避免与 UseAnthropic 冲突；
+	// Protocol 留空时维持旧 bool 行为，兼容 v1.7.5 及更早 binary 与现存部署。
+	if c.Protocol != "" {
+		env = append(env, "OCR_LLM_PROTOCOL="+c.Protocol)
+	} else if c.UseAnthropic {
 		env = append(env, "OCR_USE_ANTHROPIC=true")
 	} else {
 		env = append(env, "OCR_USE_ANTHROPIC=false")
-	}
-	if c.Language != "" {
-		env = append(env, "OCR_LANGUAGE="+c.Language)
 	}
 	if c.ExtraBody != "" {
 		env = append(env, "OCR_LLM_EXTRA_BODY="+c.ExtraBody)

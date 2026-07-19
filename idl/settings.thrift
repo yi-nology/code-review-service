@@ -57,6 +57,13 @@ struct OCRSettings {
     26: optional i64 max_output_tokens (api.body="max_output_tokens")
     27: optional string extra_headers (api.body="extra_headers")
     28: optional string tools_config (api.body="tools_config")
+    // MCP server 配置 JSON（透传给 OCR 全局 config.json 的 mcp_servers 键）。
+    29: optional string mcp_servers (api.body="mcp_servers")
+    // LLM 协议（OCR v1.7.10+）：留空=由 use_anthropic 推断；anthropic / openai / openai-responses。
+    // GPT-5.x/o-series 等走 Responses API 的模型必须设为 openai-responses。
+    30: optional string protocol (api.body="protocol")
+    // 业务上下文 Markdown 文件路径（OCR v1.7.6+ --background-file），与 background 叠加。
+    31: optional string background_file (api.body="background_file")
 }
 
 struct GetOCRSettingsResp {
@@ -218,6 +225,8 @@ struct ProjectPolicy {
     24: optional string ocr_telemetry_otlp_endpoint (api.body="ocr_telemetry_otlp_endpoint")
     25: optional bool ocr_telemetry_content_logging (api.body="ocr_telemetry_content_logging")
     26: optional list<i64> rule_package_ids (api.body="rule_package_ids")
+    // 项目级 OCR 协议覆盖（OCR v1.7.10+）；留空=回退到全局。
+    27: optional string ocr_protocol (api.body="ocr_protocol")
 }
 
 struct ListProjectPoliciesResp {

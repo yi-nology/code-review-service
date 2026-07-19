@@ -112,6 +112,7 @@ func dbProjectPolicyToAPI(p *projectpolicy.ProjectPolicy) *modelSettings.Project
 		OcrAudience: common.StrPtr(p.OCRAudience), OcrProvider: common.StrPtr(p.OCRProvider),
 		OcrURL: common.StrPtr(p.OCRURL), OcrModel: common.StrPtr(p.OCRModel),
 		OcrMaxGitProcs: ptrx.Of(int64(p.OCRMaxGitProcs)), OcrUseAnthropic: ptrx.Of(p.OCRUseAnthropic),
+		OcrProtocol:  common.StrPtr(p.OCRProtocol),
 		OcrExtraBody: common.StrPtr(p.OCRExtraBody), OcrLanguage: common.StrPtr(p.OCRLanguage),
 		OcrBinary: common.StrPtr(p.OCRBinary), OcrToolsPath: common.StrPtr(p.OCRToolsPath),
 		OcrTelemetryEnabled:        ptrx.Of(p.OCRTelemetryEnabled),
@@ -142,6 +143,7 @@ func apiProjectPolicyToDB(p *modelSettings.ProjectPolicy) *projectpolicy.Project
 	db.OCRModel = ptrx.Deref(p.OcrModel, "")
 	db.OCRMaxGitProcs = int(ptrx.Deref(p.OcrMaxGitProcs, 0))
 	db.OCRUseAnthropic = ptrx.Deref(p.OcrUseAnthropic, false)
+	db.OCRProtocol = ptrx.Deref(p.OcrProtocol, "")
 	db.OCRExtraBody = ptrx.Deref(p.OcrExtraBody, "")
 	db.OCRLanguage = ptrx.Deref(p.OcrLanguage, "")
 	db.OCRBinary = ptrx.Deref(p.OcrBinary, "")
