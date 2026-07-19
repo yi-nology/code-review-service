@@ -3,7 +3,7 @@ module github.com/yi-nology/code-review-service
 go 1.26.4
 
 require (
-	github.com/yi-nology/ekit v0.16.1
+	github.com/yi-nology/ekit v0.16.5
 	github.com/apache/thrift v0.23.0
 	github.com/cloudwego/hertz v0.10.5
 	github.com/google/go-github/v69 v69.2.0
@@ -145,7 +145,7 @@ require (
 	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
-	github.com/klauspost/compress v1.18.5 // indirect
+	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
