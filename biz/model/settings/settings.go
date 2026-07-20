@@ -8626,6 +8626,8 @@ type ProjectPolicy struct {
 	RulePackageIDs             []int64 `thrift:"rule_package_ids,26,optional" form:"rule_package_ids" json:"rule_package_ids,omitempty"`
 	// 项目级 OCR 协议覆盖（OCR v1.7.10+）；留空=回退到全局。
 	OcrProtocol *string `thrift:"ocr_protocol,27,optional" form:"ocr_protocol" json:"ocr_protocol,omitempty"`
+	// 项目级 --background-file 路径覆盖（OCR v1.7.6+）；留空=回退到全局。
+	OcrBackgroundFile *string `thrift:"ocr_background_file,28,optional" form:"ocr_background_file" json:"ocr_background_file,omitempty"`
 }
 
 func NewProjectPolicy() *ProjectPolicy {
@@ -8854,6 +8856,15 @@ func (p *ProjectPolicy) GetOcrProtocol() (v string) {
 	return *p.OcrProtocol
 }
 
+var ProjectPolicy_OcrBackgroundFile_DEFAULT string
+
+func (p *ProjectPolicy) GetOcrBackgroundFile() (v string) {
+	if !p.IsSetOcrBackgroundFile() {
+		return ProjectPolicy_OcrBackgroundFile_DEFAULT
+	}
+	return *p.OcrBackgroundFile
+}
+
 var fieldIDToName_ProjectPolicy = map[int16]string{
 	1:  "provider",
 	2:  "repo",
@@ -8882,6 +8893,7 @@ var fieldIDToName_ProjectPolicy = map[int16]string{
 	25: "ocr_telemetry_content_logging",
 	26: "rule_package_ids",
 	27: "ocr_protocol",
+	28: "ocr_background_file",
 }
 
 func (p *ProjectPolicy) IsSetIgnorePaths() bool {
@@ -8974,6 +8986,10 @@ func (p *ProjectPolicy) IsSetOcrTelemetryContentLogging() bool {
 
 func (p *ProjectPolicy) IsSetOcrProtocol() bool {
 	return p.OcrProtocol != nil
+}
+
+func (p *ProjectPolicy) IsSetOcrBackgroundFile() bool {
+	return p.OcrBackgroundFile != nil
 }
 
 func (p *ProjectPolicy) Read(iprot thrift.TProtocol) (err error) {
@@ -9198,6 +9214,14 @@ func (p *ProjectPolicy) Read(iprot thrift.TProtocol) (err error) {
 		case 27:
 			if fieldTypeId == thrift.STRING {
 				if err = p.ReadField27(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 28:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField28(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -9520,6 +9544,18 @@ func (p *ProjectPolicy) ReadField27(iprot thrift.TProtocol) error {
 	return nil
 }
 
+func (p *ProjectPolicy) ReadField28(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.OcrBackgroundFile = _field
+	return nil
+}
+
 func (p *ProjectPolicy) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
 	if err = oprot.WriteStructBegin("ProjectPolicy"); err != nil {
@@ -9628,6 +9664,10 @@ func (p *ProjectPolicy) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField27(oprot); err != nil {
 			fieldId = 27
+			goto WriteFieldError
+		}
+		if err = p.writeField28(oprot); err != nil {
+			fieldId = 28
 			goto WriteFieldError
 		}
 	}
@@ -10134,6 +10174,25 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 27 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 27 end error: ", p), err)
+}
+
+func (p *ProjectPolicy) writeField28(oprot thrift.TProtocol) (err error) {
+	if p.IsSetOcrBackgroundFile() {
+		if err = oprot.WriteFieldBegin("ocr_background_file", thrift.STRING, 28); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.OcrBackgroundFile); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 28 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 28 end error: ", p), err)
 }
 
 func (p *ProjectPolicy) String() string {

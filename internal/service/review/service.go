@@ -74,6 +74,10 @@ type ServiceConfig struct {
 	Runner          domain.Runner
 	PreviewRunner   domain.PreviewRunner
 	ScanRunner      domain.ScanRunner
+	// Delegator 暴露 OCR v1.7.11+ 的 delegate 子命令（host-agent 模式）。
+	// 与 PreviewRunner/ScanRunner 不同，delegate 不调 LLM。
+	// 可为 nil（OCR binary < v1.7.11 或测试桩），使用方需判空。
+	Delegator       domain.Delegator
 	ProgressManager *progress.ProgressManager
 	Executor        Executor
 	// Concurrency 限制同时进行的 review 数（worker 与 scan 共享）。
@@ -95,6 +99,7 @@ type Service struct {
 	runner          domain.Runner
 	PreviewRunner   domain.PreviewRunner
 	ScanRunner      domain.ScanRunner
+	Delegator       domain.Delegator
 	progressManager *progress.ProgressManager
 	Executor        Executor
 	inFlight        sync.WaitGroup
@@ -117,6 +122,7 @@ func NewService(cfg ServiceConfig) *Service {
 		runner:          cfg.Runner,
 		PreviewRunner:   cfg.PreviewRunner,
 		ScanRunner:      cfg.ScanRunner,
+		Delegator:       cfg.Delegator,
 		progressManager: cfg.ProgressManager,
 		Executor:        cfg.Executor,
 	}
@@ -402,19 +408,47 @@ func (s *Service) PreviewWithScope(ctx context.Context, req domain.Request, path
 // includeAgentRules=false 时跳过审查员引用的规则包（仅 scan preview 用：scan 不调 LLM，
 // 收集 agent 规则是浪费一次 DB 查询，且会污染 ocr scan --preview 的输入）。
 func (s *Service) previewCore(ctx context.Context, req domain.Request, paths, exclude []string, includeAgentRules bool) ([]string, error) {
+	return withPreviewWorkspace(s, ctx, req, paths, exclude, includeAgentRules, func(workspace domain.Workspace) ([]string, error) {
+		if s.PreviewRunner == nil {
+			return nil, fmt.Errorf("preview feature not configured")
+		}
+		result, err := s.PreviewRunner.Preview(ctx, workspace)
+		if err != nil {
+			return nil, err
+		}
+		return result.Files, nil
+	})
+}
+
+// withPreviewWorkspace 准备一个 review-preview 风格的 workspace（clone + project scope +
+// 规则文件），然后调用 run 回调。所有需要 workspace.Dir 的轻量端点（Preview / Delegate）
+// 都应通过此 helper 复用 workspace 准备逻辑。
+//
+// 是包级泛型函数（Go 不允许 method 上带类型参数）。paths/exclude 仅写入
+// workspace.ScanPaths/ScanExclude，由具体 runner 决定如何使用。
+// includeAgentRules=false 时跳过审查员规则包收集（scan / delegate rule 等不调 LLM 的场景）。
+func withPreviewWorkspace[T any](
+	s *Service,
+	ctx context.Context,
+	req domain.Request,
+	paths, exclude []string,
+	includeAgentRules bool,
+	run func(workspace domain.Workspace) (T, error),
+) (T, error) {
+	var zero T
 	if err := validate(req); err != nil {
-		return nil, err
+		return zero, err
 	}
 
 	p, ok := s.Providers.Get(req.Provider)
 	if !ok {
 		logx.Errorf("Preview: provider not found: requested=%q", req.Provider)
-		return nil, fmt.Errorf("%w: %s", domain.ErrUnsupportedProvider, req.Provider)
+		return zero, fmt.Errorf("%w: %s", domain.ErrUnsupportedProvider, req.Provider)
 	}
 
 	workspace, err := p.Prepare(ctx, req)
 	if err != nil {
-		return nil, err
+		return zero, err
 	}
 	if workspace.Dir != "" {
 		defer func() { _ = os.RemoveAll(workspace.Dir) }()
@@ -438,11 +472,10 @@ func (s *Service) previewCore(ctx context.Context, req domain.Request, paths, ex
 	if len(ignorePaths) > 0 {
 		workspace, err = ApplyProjectScope(ctx, workspace, ignorePaths)
 		if err != nil {
-			return nil, err
+			return zero, err
 		}
 	}
 
-	// scan preview 的扫描范围限定
 	workspace.ScanPaths = paths
 	workspace.ScanExclude = exclude
 
@@ -462,14 +495,30 @@ func (s *Service) previewCore(ctx context.Context, req domain.Request, paths, ex
 		}
 	}
 
-	if s.PreviewRunner == nil {
-		return nil, fmt.Errorf("preview feature not configured")
+	return run(workspace)
+}
+
+// DelegatePreview 调 OCR v1.7.11+ `ocr delegate preview`，返回将参与评审的文件列表 +
+// mode/from/to/merge_base/total_*/Files 元数据（host-agent 范式，不调 LLM）。
+// workspace 由 Providers.Prepare 内部 clone，Dir 在调用结束后自动清理。
+func (s *Service) DelegatePreview(ctx context.Context, req domain.Request, exclude []string) (*domain.DelegatePreviewResult, error) {
+	if s.Delegator == nil {
+		return nil, fmt.Errorf("delegate feature not configured (OCR < v1.7.11 或未注入 Delegator)")
 	}
-	result, err := s.PreviewRunner.Preview(ctx, workspace)
-	if err != nil {
-		return nil, err
+	return withPreviewWorkspace(s, ctx, req, nil, exclude, false, func(workspace domain.Workspace) (*domain.DelegatePreviewResult, error) {
+		return s.Delegator.DelegatePreview(ctx, workspace)
+	})
+}
+
+// DelegateRule 调 OCR v1.7.11+ `ocr delegate rule <paths...>`，返回按内容分组的解析规则 markdown。
+// paths 为空时返回全量规则。workspace 由 Providers.Prepare 内部 clone，Dir 在调用结束后自动清理。
+func (s *Service) DelegateRule(ctx context.Context, req domain.Request, paths []string) (*domain.DelegateRuleResult, error) {
+	if s.Delegator == nil {
+		return nil, fmt.Errorf("delegate feature not configured (OCR < v1.7.11 或未注入 Delegator)")
 	}
-	return result.Files, nil
+	return withPreviewWorkspace(s, ctx, req, paths, nil, false, func(workspace domain.Workspace) (*domain.DelegateRuleResult, error) {
+		return s.Delegator.DelegateRule(ctx, workspace, paths)
+	})
 }
 
 func (s *Service) Scan(ctx context.Context, req domain.ScanRequest) (*domain.ScanResult, error) {
@@ -868,6 +917,7 @@ func ProjectPolicyToOCROverrides(p projectpolicy.ProjectPolicy) domain.OCROverri
 		MaxTools:                p.OCRMaxTools,
 		DefaultSeverity:         p.OCRDefaultSeverity,
 		Background:              p.OCRBackground,
+		BackgroundFile:          p.OCRBackgroundFile,
 		Audience:                p.OCRAudience,
 		Provider:                p.OCRProvider,
 		URL:                     p.OCRURL,

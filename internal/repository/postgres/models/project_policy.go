@@ -18,12 +18,14 @@ type ProjectPolicy struct {
 	OCRMaxTools        int            `gorm:"not null;default:0" json:"ocr_max_tools,omitempty"`
 	OCRDefaultSeverity string         `gorm:"type:text" json:"ocr_default_severity,omitempty"`
 	OCRBackground      string         `gorm:"type:text" json:"ocr_background,omitempty"`
-	OCRAudience        string         `gorm:"type:text" json:"ocr_audience,omitempty"`
-	OCRProvider        string         `gorm:"type:text" json:"ocr_provider,omitempty"`
-	OCRURL             string         `gorm:"type:text" json:"ocr_url,omitempty"`
-	OCRModel           string         `gorm:"type:text" json:"ocr_model,omitempty"`
-	OCRMaxGitProcs     int            `gorm:"not null;default:0" json:"ocr_max_git_procs,omitempty"`
-	OCRUseAnthropic    bool           `gorm:"not null;default:false" json:"ocr_use_anthropic"`
+	// OCRBackgroundFile 项目级 --background-file 路径覆盖（OCR v1.7.6+）；留空=回退到全局。
+	OCRBackgroundFile string `gorm:"type:text" json:"ocr_background_file,omitempty"`
+	OCRAudience       string `gorm:"type:text" json:"ocr_audience,omitempty"`
+	OCRProvider       string `gorm:"type:text" json:"ocr_provider,omitempty"`
+	OCRURL            string `gorm:"type:text" json:"ocr_url,omitempty"`
+	OCRModel          string `gorm:"type:text" json:"ocr_model,omitempty"`
+	OCRMaxGitProcs    int    `gorm:"not null;default:0" json:"ocr_max_git_procs,omitempty"`
+	OCRUseAnthropic   bool   `gorm:"not null;default:false" json:"ocr_use_anthropic"`
 	// OCRProtocol 项目级覆盖 OCR 协议（anthropic / openai / openai-responses）；留空=回退到全局或 UseAnthropic。
 	OCRProtocol                string `gorm:"type:text" json:"ocr_protocol,omitempty"`
 	OCRExtraBody               string `gorm:"type:text" json:"ocr_extra_body,omitempty"`

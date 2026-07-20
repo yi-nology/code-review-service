@@ -366,3 +366,87 @@ func TestRunner_ResumeOmittedWhenEmpty(t *testing.T) {
 		t.Errorf("expected NO --resume when ResumeSessionID empty, got:\n%s", string(argv))
 	}
 }
+
+// TestRunner_ResumeUsesOriginalHeadSHA 校验 PR-mode resume 用 OriginalHeadSHA 作为 --to（稳定 SHA）。
+//
+// 背景：PR-mode 的 workspace.HeadSHA 可能是 restoreDeletedFiles / ApplyProjectScope 的合成提交
+// （用当前时间戳 commit），跨 retry 不稳定。OCR v1.7.6+ resume 会校验 (from, to) SHAs 与 session
+// 中存储的是否一致，不一致直接拒绝。runner 在 resume 激活时改用 OriginalHeadSHA（平台 API 真实 head）。
+func TestRunner_ResumeUsesOriginalHeadSHA(t *testing.T) {
+	tmpDir := t.TempDir()
+	argLogFile := filepath.Join(tmpDir, "argv")
+	scriptPath := filepath.Join(tmpDir, "fake-ocr")
+	script := "#!/bin/sh\n" +
+		fmt.Sprintf("printf '%%s\\n' \"$@\" > %q\n", argLogFile) +
+		"cat <<'EOF'\n" +
+		`{"status":"success","summary":{"files_reviewed":0,"comments":0},"comments":[]}` + "\nEOF\n"
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := Defaults().ToConfig()
+	cfg.Binary = scriptPath
+	cfg.MaxRetries = 0
+	r := NewRunner(cfg)
+
+	// 模拟 PR-mode：HeadSHA 是合成的（不稳定），OriginalHeadSHA 是真实 PR head（稳定）。
+	ws := domain.Workspace{
+		Dir:             tmpDir,
+		BaseSHA:         "base-abc",
+		HeadSHA:         "synthetic-def", // 合成提交
+		OriginalHeadSHA: "real-pr-head-xyz",
+		ResumeSessionID: "01HZK9SEVENTSEVEN",
+	}
+	if _, err := r.Run(context.Background(), ws); err != nil {
+		t.Fatalf("Run err: %v", err)
+	}
+
+	argv, _ := os.ReadFile(argLogFile)
+	argvStr := string(argv)
+	// --to 应该用 OriginalHeadSHA，不是合成的 HeadSHA。
+	// argv 按行记录：`--to\nreal-pr-head-xyz`，所以分开断言。
+	if !strings.Contains(argvStr, "--to\nreal-pr-head-xyz") {
+		t.Errorf("expected --to followed by real-pr-head-xyz (OriginalHeadSHA), got:\n%s", argvStr)
+	}
+	if strings.Contains(argvStr, "--to\nsynthetic-def") {
+		t.Errorf("expected NOT to use synthetic HeadSHA, got:\n%s", argvStr)
+	}
+}
+
+// TestRunner_NoResumeUsesHeadSHA 校验非 resume 路径仍用 HeadSHA（不强制 OriginalHeadSHA）。
+//
+// 这样不开启 resume 的 review 仍能审到 restoreDeletedFiles 还原后的完整上下文。
+func TestRunner_NoResumeUsesHeadSHA(t *testing.T) {
+	tmpDir := t.TempDir()
+	argLogFile := filepath.Join(tmpDir, "argv")
+	scriptPath := filepath.Join(tmpDir, "fake-ocr")
+	script := "#!/bin/sh\n" +
+		fmt.Sprintf("printf '%%s\\n' \"$@\" > %q\n", argLogFile) +
+		"cat <<'EOF'\n" +
+		`{"status":"success","summary":{"files_reviewed":0,"comments":0},"comments":[]}` + "\nEOF\n"
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := Defaults().ToConfig()
+	cfg.Binary = scriptPath
+	cfg.MaxRetries = 0
+	r := NewRunner(cfg)
+
+	ws := domain.Workspace{
+		Dir:             tmpDir,
+		BaseSHA:         "base-abc",
+		HeadSHA:         "synthetic-def",
+		OriginalHeadSHA: "real-pr-head-xyz",
+		// ResumeSessionID 留空：非 resume 路径
+	}
+	if _, err := r.Run(context.Background(), ws); err != nil {
+		t.Fatalf("Run err: %v", err)
+	}
+
+	argv, _ := os.ReadFile(argLogFile)
+	// 非 resume 路径下 --to 应该是 HeadSHA（保留合成提交的完整文件上下文）。
+	if !strings.Contains(string(argv), "--to\nsynthetic-def") {
+		t.Errorf("expected --to followed by synthetic-def (HeadSHA) in non-resume path, got:\n%s", string(argv))
+	}
+}

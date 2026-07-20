@@ -248,10 +248,15 @@ func (s *Service) Execute(ctx context.Context, id string, req domain.Request, pr
 
 	// OCR v1.7.6+ resume：retry 同一 review 时，把上次 OCR 产出的 session_id 注入 workspace，
 	// 让 runner 传 `--resume <id>` 复用已完成文件的 checkpoint。
-	// 仅 SHA-mode（req.PullRequestID/req.MergeRequestIID 都为空）下生效——PR 模式的 HeadSHA
-	// 可能是合成提交（restoreDeletedFiles / ApplyProjectScope），跨 retry 不稳定，resume 命中率不确定。
-	// 调用方仍可通过 BuildConfig 层的 OCRDisableResume 关闭（防御 OCR session 不一致场景）。
-	if req.PullRequestID == "" && req.MergeRequestIID == "" {
+	//
+	// 适配 OCR 的 resume 校验：OCR 会比对 (from, to) SHAs 与 session 中存储的是否一致，不一致直接拒绝。
+	// PR-mode 的 workspace.HeadSHA 可能是合成提交（restoreDeletedFiles / ApplyProjectScope 用
+	// 当前时间戳 commit），跨 retry 不稳定——为此 runner 在 resume 激活时改用 workspace.OriginalHeadSHA
+	//（平台 API 返回的真实 PR head）作为 --to，保证 SHA 稳定。详见 runner.go runOnce。
+	//
+	// 多 agent workflow 路径不开启 resume：每个 agent 是独立 ocr review 子进程，产生 N 个不同
+	// session_id，且当前不持久化 per-agent session_id（AgentResult 无该字段），父 session_id 无意义。
+	if !s.shouldUseWorkflow() {
 		if prior, err := s.reviewRepo.GetByReviewID(ctx, id); err == nil && prior != nil {
 			if sid := strings.TrimSpace(prior.Response.Report.OCR.SessionID); sid != "" {
 				workspace.ResumeSessionID = sid

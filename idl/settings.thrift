@@ -227,6 +227,8 @@ struct ProjectPolicy {
     26: optional list<i64> rule_package_ids (api.body="rule_package_ids")
     // 项目级 OCR 协议覆盖（OCR v1.7.10+）；留空=回退到全局。
     27: optional string ocr_protocol (api.body="ocr_protocol")
+    // 项目级 --background-file 路径覆盖（OCR v1.7.6+）；留空=回退到全局。
+    28: optional string ocr_background_file (api.body="ocr_background_file")
 }
 
 struct ListProjectPoliciesResp {

@@ -136,7 +136,7 @@ func BuildConfig(settings *SettingsData, overrides OCROverrides, fallback Fallba
 		Language:                firstNonBlank(overrides.Language, settings.Language),
 		MaxTools:                firstPositive(overrides.MaxTools, settings.MaxTools),
 		Background:              firstNonBlank(overrides.Background, settings.Background),
-		BackgroundFile:          settings.BackgroundFile,
+		BackgroundFile:          firstNonBlank(overrides.BackgroundFile, settings.BackgroundFile),
 		ToolsPath:               firstNonBlank(overrides.ToolsPath, settings.ToolsPath),
 		ToolsConfig:             settings.ToolsConfig,
 		McpServers:              settings.McpServers,

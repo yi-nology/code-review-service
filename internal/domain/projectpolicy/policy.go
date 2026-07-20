@@ -28,12 +28,14 @@ type ProjectPolicy struct {
 	OCRMaxTools        int             `json:"ocr_max_tools,omitempty"`
 	OCRDefaultSeverity string          `json:"ocr_default_severity,omitempty"`
 	OCRBackground      string          `json:"ocr_background,omitempty"`
-	OCRAudience        string          `json:"ocr_audience,omitempty"`
-	OCRProvider        string          `json:"ocr_provider,omitempty"`
-	OCRURL             string          `json:"ocr_url,omitempty"`
-	OCRModel           string          `json:"ocr_model,omitempty"`
-	OCRMaxGitProcs     int             `json:"ocr_max_git_procs,omitempty"`
-	OCRUseAnthropic    bool            `json:"ocr_use_anthropic"`
+	// OCRBackgroundFile 项目级 --background-file 路径覆盖（OCR v1.7.6+）；留空=回退到全局。
+	OCRBackgroundFile string `json:"ocr_background_file,omitempty"`
+	OCRAudience       string `json:"ocr_audience,omitempty"`
+	OCRProvider       string `json:"ocr_provider,omitempty"`
+	OCRURL            string `json:"ocr_url,omitempty"`
+	OCRModel          string `json:"ocr_model,omitempty"`
+	OCRMaxGitProcs    int    `json:"ocr_max_git_procs,omitempty"`
+	OCRUseAnthropic   bool   `json:"ocr_use_anthropic"`
 	// OCRProtocol 项目级 OCR 协议覆盖；留空=回退到全局（兼容旧策略）。
 	OCRProtocol                string `json:"ocr_protocol,omitempty"`
 	OCRExtraBody               string `json:"ocr_extra_body,omitempty"`

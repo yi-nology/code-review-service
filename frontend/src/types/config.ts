@@ -72,6 +72,8 @@ export interface ProjectPolicy {
   ocr_max_tools?: number
   ocr_default_severity?: 'critical' | 'major' | 'minor' | 'info' | ''
   ocr_background?: string
+  /** OCR v1.7.6+ 项目级 --background-file 路径覆盖，留空=回退到全局 */
+  ocr_background_file?: string
   ocr_audience?: 'human' | 'agent' | ''
   ocr_provider?: string
   ocr_url?: string

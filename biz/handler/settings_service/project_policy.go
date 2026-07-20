@@ -109,7 +109,8 @@ func dbProjectPolicyToAPI(p *projectpolicy.ProjectPolicy) *modelSettings.Project
 		OcrEnabled: p.OCREnabled, OcrConcurrency: ptrx.Of(int64(p.OCRConcurrency)),
 		OcrTimeoutMinutes: ptrx.Of(int64(p.OCRTimeoutMinutes)), OcrMaxTools: ptrx.Of(int64(p.OCRMaxTools)),
 		OcrDefaultSeverity: common.StrPtr(p.OCRDefaultSeverity), OcrBackground: common.StrPtr(p.OCRBackground),
-		OcrAudience: common.StrPtr(p.OCRAudience), OcrProvider: common.StrPtr(p.OCRProvider),
+		OcrBackgroundFile: common.StrPtr(p.OCRBackgroundFile),
+		OcrAudience:       common.StrPtr(p.OCRAudience), OcrProvider: common.StrPtr(p.OCRProvider),
 		OcrURL: common.StrPtr(p.OCRURL), OcrModel: common.StrPtr(p.OCRModel),
 		OcrMaxGitProcs: ptrx.Of(int64(p.OCRMaxGitProcs)), OcrUseAnthropic: ptrx.Of(p.OCRUseAnthropic),
 		OcrProtocol:  common.StrPtr(p.OCRProtocol),
@@ -137,6 +138,7 @@ func apiProjectPolicyToDB(p *modelSettings.ProjectPolicy) *projectpolicy.Project
 	db.OCRMaxTools = int(ptrx.Deref(p.OcrMaxTools, 0))
 	db.OCRDefaultSeverity = ptrx.Deref(p.OcrDefaultSeverity, "")
 	db.OCRBackground = ptrx.Deref(p.OcrBackground, "")
+	db.OCRBackgroundFile = ptrx.Deref(p.OcrBackgroundFile, "")
 	db.OCRAudience = ptrx.Deref(p.OcrAudience, "")
 	db.OCRProvider = ptrx.Deref(p.OcrProvider, "")
 	db.OCRURL = ptrx.Deref(p.OcrURL, "")

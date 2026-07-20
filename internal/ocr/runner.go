@@ -188,6 +188,9 @@ func mergeOverrides(base Config, ov OCROverrides) Config {
 	if ov.Background != "" {
 		out.Background = ov.Background
 	}
+	if ov.BackgroundFile != "" {
+		out.BackgroundFile = ov.BackgroundFile
+	}
 	if ov.Language != "" {
 		out.Language = ov.Language
 	}
@@ -306,6 +309,16 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 	toRef := workspace.HeadSHA
 	if fromRef == "" {
 		fromRef = "HEAD"
+	}
+	// OCR v1.7.6+ resume 模式下，OCR 会校验 (from, to) SHAs 与 session 中存储的是否一致。
+	// PR-mode 的 workspace.HeadSHA 可能是合成提交（restoreDeletedFiles / ApplyProjectScope 用
+	// 当前时间戳 commit），跨 retry 不稳定——会导致 OCR 报 "resume session range mismatch"。
+	// 改用 workspace.OriginalHeadSHA（平台 API 返回的真实 PR head，稳定）作为 --to：
+	//   - SHA 仍然能在 workspace.Dir 内解析（cloneAndResolvePR 已 fetch PR head ref）
+	//   - OCR 计算 diff against 真实 head，正是我们要审的 PR diff
+	//   - 文件正文仍从 workspace.Dir（已 restored deleted files）读取，不丢上下文
+	if workspace.ResumeSessionID != "" && workspace.OriginalHeadSHA != "" {
+		toRef = workspace.OriginalHeadSHA
 	}
 
 	// 取全局默认配置快照 + 叠加 workspace 的项目级 overrides（纯内存，不读 DB）。

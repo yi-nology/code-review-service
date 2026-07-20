@@ -115,15 +115,17 @@ type OCROverrides struct {
 	MaxTools        int
 	DefaultSeverity string
 	Background      string
-	Audience        string
-	Provider        string
-	URL             string
-	Model           string
-	AuthToken       string
-	AuthHeader      string
-	ExtraHeaders    string
-	MaxGitProcs     int
-	UseAnthropic    bool
+	// BackgroundFile 是项目级 --background-file 路径覆盖（OCR v1.7.6+）；留空=回退到全局 settings。
+	BackgroundFile string
+	Audience       string
+	Provider       string
+	URL            string
+	Model          string
+	AuthToken      string
+	AuthHeader     string
+	ExtraHeaders   string
+	MaxGitProcs    int
+	UseAnthropic   bool
 	// Protocol 项目级 LLM 协议覆盖；留空=回退到全局 Protocol 或 UseAnthropic。
 	Protocol                string
 	ExtraBody               string

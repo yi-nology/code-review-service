@@ -56,6 +56,16 @@
       />
     </label>
 
+    <label class="field-block full-width">
+      <span>背景文件路径 (v1.7.6+)</span>
+      <el-input
+        :model-value="form.ocr_background_file"
+        placeholder="可选：仓库内 Markdown 文件路径（如 docs/review-context.md）；留空继承全局"
+        @input="$emit('update:ocrBackgroundFile', $event)"
+      />
+      <small>与「审查背景」叠加（inline 在前，文件内容在后）；路径必须位于仓库工作区内（防穿越）。</small>
+    </label>
+
     <el-collapse class="advanced-collapse">
       <el-collapse-item title="高级覆盖（并发 / 超时 / 模型 / 遥测）" name="advanced">
         <div class="field-grid two-columns">
@@ -182,6 +192,7 @@ defineEmits<{
   'update:ocrAudience': [value: any]
   'update:ocrLanguage': [value: any]
   'update:ocrBackground': [value: string]
+  'update:ocrBackgroundFile': [value: string]
   'update:ocrConcurrency': [value: number | undefined]
   'update:ocrMaxGitProcs': [value: number | undefined]
   'update:ocrTimeoutMinutes': [value: number | undefined]

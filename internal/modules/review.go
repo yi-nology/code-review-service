@@ -39,13 +39,26 @@ func NewProgressManager(lc fx.Lifecycle) *progress.ProgressManager {
 	return pm
 }
 
-func NewPolicyEngine(cfg *config.Config) *policy.Engine {
-	return policy.NewEngine(policy.Config{
-		FailOn:      cfg.Policy.FailOn,
-		MaxComments: cfg.Policy.MaxComments,
-		SummaryOnly: cfg.Policy.SummaryOnly,
-		IgnorePaths: cfg.Policy.IgnorePaths,
-	})
+func NewPolicyEngine(repos *repository.RepoContainer) *policy.Engine {
+	// 默认值由 policy.DefaultConfig() 提供（单一真源）；DB 配置按字段覆盖。
+	cfg := policy.DefaultConfig()
+
+	if repos != nil && repos.OCRSettings != nil {
+		if s, err := repos.OCRSettings.Get(context.Background()); err == nil && s != nil {
+			if s.PolicyFailOn != "" {
+				cfg.FailOn = s.PolicyFailOn
+			}
+			if s.PolicyMaxComments > 0 {
+				cfg.MaxComments = s.PolicyMaxComments
+			}
+			cfg.SummaryOnly = s.PolicySummaryOnly
+			if len(s.PolicyIgnorePaths) > 0 {
+				cfg.IgnorePaths = s.PolicyIgnorePaths
+			}
+		}
+	}
+
+	return policy.NewEngine(cfg)
 }
 
 type ExecutorDeps struct {
@@ -73,6 +86,7 @@ func NewExecutorService(deps ExecutorDeps) *executor.Service {
 		GlobalRulesRepo: deps.Repos.GlobalRules,
 		RulePackageRepo: deps.Repos.OCRRulePackage,
 		AgentRepo:       deps.Repos.ReviewerAgent,
+		OCRSettingsRepo: deps.Repos.OCRSettings,
 		Runner:          deps.OcrRunner,
 		Writeback:       deps.WritebackPub,
 		Notifier:        deps.Notifier,
@@ -123,6 +137,7 @@ func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 		Runner:          deps.OcrRunner,
 		PreviewRunner:   deps.OcrRunner,
 		ScanRunner:      deps.OcrRunner,
+		Delegator:       deps.OcrRunner, // *ocr.Runner 同时实现 domain.Delegator（OCR v1.7.11+）
 		ProgressManager: deps.ProgressManager,
 		Executor:        deps.ExecutorSvc,
 		Concurrency:     deps.Config.Review.WorkerConcurrency,

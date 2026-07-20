@@ -244,6 +244,7 @@
                   @update:ocr-audience="form.ocr_audience = $event"
                   @update:ocr-language="form.ocr_language = $event"
                   @update:ocr-background="form.ocr_background = $event"
+                  @update:ocr-background-file="form.ocr_background_file = $event"
                   @update:ocr-concurrency="form.ocr_concurrency = $event"
                   @update:ocr-max-git-procs="form.ocr_max_git_procs = $event"
                   @update:ocr-timeout-minutes="form.ocr_timeout_minutes = $event"
@@ -392,6 +393,7 @@ const form = reactive<ProjectPolicyForm>({
   ocr_max_tools: 0,
   ocr_default_severity: '',
   ocr_background: '',
+  ocr_background_file: '',
   ocr_audience: '',
   ocr_provider: '',
   ocr_url: '',
@@ -437,6 +439,7 @@ const payloadPreview = computed<ProjectPolicy>(() => ({
   ocr_max_tools: form.ocr_max_tools || 0,
   ocr_default_severity: form.ocr_default_severity || '',
   ocr_background: form.ocr_background?.trim() || '',
+  ocr_background_file: form.ocr_background_file?.trim() || '',
   ocr_audience: form.ocr_audience || '',
   ocr_provider: form.ocr_provider?.trim() || '',
   ocr_url: form.ocr_url?.trim() || '',
@@ -607,6 +610,7 @@ function handleEdit(policy: ProjectPolicy) {
   form.ocr_max_tools = policy.ocr_max_tools || 0
   form.ocr_default_severity = policy.ocr_default_severity || ''
   form.ocr_background = policy.ocr_background || ''
+  form.ocr_background_file = policy.ocr_background_file || ''
   form.ocr_audience = policy.ocr_audience || ''
   form.ocr_provider = policy.ocr_provider || ''
   form.ocr_url = policy.ocr_url || ''
@@ -641,6 +645,7 @@ function startCreate() {
   form.ocr_max_tools = 0
   form.ocr_default_severity = ''
   form.ocr_background = ''
+  form.ocr_background_file = ''
   form.ocr_audience = ''
   form.ocr_provider = ''
   form.ocr_url = ''
