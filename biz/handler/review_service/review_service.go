@@ -19,7 +19,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/suggestion"
 
 	"github.com/oekit/pkg/convert"
-	"github.com/oekit/pkg/mathx"
+	"github.com/oekit/pkg/pagination"
 	"github.com/oekit/pkg/ptrx"
 	"github.com/oekit/pkg/slicex"
 	"github.com/oekit/pkg/stringx"
@@ -334,8 +334,12 @@ func ListProviderRepos(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	page := mathx.Clamp(int(ptrx.Deref(req.Page, 1)), 1, 999999)
-	perPage := mathx.Clamp(int(ptrx.Deref(req.PerPage, 30)), 1, 100)
+	pageReq := pagination.NewPageRequest(
+		int(ptrx.Deref(req.Page, 1)),
+		int(ptrx.Deref(req.PerPage, 30)),
+	)
+	pageReq.Normalize()
+	page, perPage := pageReq.Page, pageReq.PageSize
 
 	repos, err := handlerInst.gitMgr.ListRepos(ctx, req.Provider, provider_sdk.ListRepoOptions{Page: page, PerPage: perPage})
 	if err != nil {
@@ -384,8 +388,12 @@ func ListProviderPulls(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	page := mathx.Clamp(int(ptrx.Deref(req.Page, 1)), 1, 999999)
-	perPage := mathx.Clamp(int(ptrx.Deref(req.PerPage, 30)), 1, 100)
+	pageReq := pagination.NewPageRequest(
+		int(ptrx.Deref(req.Page, 1)),
+		int(ptrx.Deref(req.PerPage, 30)),
+	)
+	pageReq.Normalize()
+	page, perPage := pageReq.Page, pageReq.PageSize
 	state := stringx.TakeOne(ptrx.Deref(req.State, ""), "opened")
 
 	crs, _, err := handlerInst.gitMgr.ListCRs(ctx, req.Provider, provider_sdk.ListCROptions{
