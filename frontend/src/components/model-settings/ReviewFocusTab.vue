@@ -9,6 +9,16 @@
       />
       <div class="form-tip">当未配置代理团队时，使用此默认背景进行审查。配置代理后，各代理使用各自的审查侧重点。</div>
     </el-form-item>
+    <el-form-item label="背景文件路径">
+      <el-input
+        v-model="form.background_file"
+        placeholder="可选：仓库内 Markdown 文件路径，如 docs/review-context.md（OCR v1.7.6+）"
+      />
+      <div class="form-tip">
+        OCR v1.7.6+ 支持 <code>--background-file</code> 读取 Markdown 文件，规避 inline 8000 字符上限；
+        与「审查背景」叠加（inline 在前，文件在后）。路径必须位于仓库工作区内（防路径穿越）。
+      </div>
+    </el-form-item>
   </el-form>
 </template>
 

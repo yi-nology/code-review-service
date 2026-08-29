@@ -8,7 +8,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/oekit/pkg/convert"
 	bizerrors "github.com/oekit/pkg/errors"
-	"github.com/oekit/pkg/mathx"
+	"github.com/oekit/pkg/pagination"
 	"github.com/oekit/pkg/ptrx"
 
 	mw "github.com/oekit/middleware"
@@ -33,8 +33,7 @@ func Fail(c *hertzApp.RequestContext, err error) {
 		mw.ErrorResp(c, appErr.Code, appErr.Message)
 		return
 	}
-	var bizErr *bizerrors.BizError
-	if errors.As(err, &bizErr) {
+	if bizErr, ok := bizerrors.AsBizError(err); ok {
 		mw.ErrorResp(c, bizErr.Code, bizErr.Message)
 		return
 	}
@@ -76,19 +75,18 @@ func BizErr(code int, msg string) error {
 	return bizerrors.NewBizError(code, msg)
 }
 
+// PageParams 从查询字符串里解析 page / pageSize 并规范化（默认值 + 最大 pageSize 上限）。
+// 委托给 ekit pagination 包，避免每个 handler 重复手写 clamp。
+//
+// 行为变化：maxPageSize 200 → 500（ekit pagination.MaxPageSize 默认值）。
+// 历史项目上线后没见触达过 200 上限，放宽到 500 让前端做大列表请求更灵活。
 func PageParams(pageStr, pageSizeStr string) (int, int) {
-	const (
-		defaultPage     = 1
-		defaultPageSize = 20
-		maxPageSize     = 200
+	pr := pagination.NewPageRequest(
+		convert.Str2Int(pageStr, pagination.DefaultPage),
+		convert.Str2Int(pageSizeStr, pagination.DefaultPageSize),
 	)
-	page := convert.Str2Int(pageStr, defaultPage)
-	if page <= 0 {
-		page = defaultPage
-	}
-	pageSize := convert.Str2Int(pageSizeStr, defaultPageSize)
-	pageSize = mathx.Clamp(pageSize, 1, maxPageSize)
-	return page, pageSize
+	pr.Normalize()
+	return pr.Page, pr.PageSize
 }
 
 // MaskToken 脱敏 token，保留首尾各 4 字符。

@@ -2,11 +2,9 @@ package postgres
 
 import (
 	"context"
-	"errors"
 
 	"github.com/yi-nology/code-review-service/internal/domain/platform"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
-	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 
 	gormLib "gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -36,10 +34,7 @@ func (r *GitPlatformRepo) Get(ctx context.Context, provider, installationID stri
 	var m models.GitPlatform
 	err := r.db.WithContext(ctx).Where("provider = ? AND installation_id = ?", provider, installationID).First(&m).Error
 	if err != nil {
-		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, repoerr.ErrNotFound
-		}
-		return nil, err
+		return nil, wrapNotFound(err)
 	}
 	d := platformToDomain(m)
 	return &d, nil
@@ -70,17 +65,4 @@ func (r *GitPlatformRepo) ListEnabled(ctx context.Context) ([]platform.Platform,
 		out[i] = platformToDomain(m)
 	}
 	return out, nil
-}
-
-func (r *GitPlatformRepo) GetByProviderAndInstallation(ctx context.Context, provider, installationID string) (*platform.Platform, error) {
-	var m models.GitPlatform
-	err := r.db.WithContext(ctx).Where("provider = ? AND installation_id = ?", provider, installationID).First(&m).Error
-	if err != nil {
-		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, repoerr.ErrNotFound
-		}
-		return nil, err
-	}
-	d := platformToDomain(m)
-	return &d, nil
 }

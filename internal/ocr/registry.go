@@ -123,6 +123,17 @@ func (r *Registry) Previewer() domain.PreviewRunner { return r.previewer }
 // Scanner 返回扫描器。
 func (r *Registry) Scanner() domain.ScanRunner { return r.scanner }
 
+// Delegator 返回 OCR v1.7.11+ delegate 子命令执行器（host-agent 模式）。
+//
+// 当底层 Runner 同时实现 domain.Delegator（*ocr.Runner 即如此）时返回它；
+// 否则返回 nil（旧 binary / 测试桩可能不支持）。调用方必须判空。
+func (r *Registry) Delegator() domain.Delegator {
+	if d, ok := r.runner.(domain.Delegator); ok {
+		return d
+	}
+	return nil
+}
+
 // Tester 返回 LLM 连通性测试器。
 func (r *Registry) Tester() domain.LLMTester { return r.tester }
 

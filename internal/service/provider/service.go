@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	domainplatform "github.com/yi-nology/code-review-service/internal/domain/platform"
 	"github.com/oekit/logx"
@@ -12,14 +13,25 @@ import (
 	"github.com/yi-nology/git-platform-sdk/provider"
 )
 
+type repoCacheEntry struct {
+	repos     []*provider.PlatformRepo
+	timestamp time.Time
+}
+
 type GitProviderService struct {
 	mu        sync.RWMutex
 	providers map[string]provider.Provider
 	configs   map[string]provider.Config
+
+	repoCacheMu sync.RWMutex
+	repoCache   map[string]repoCacheEntry
 }
 
 func NewGitProviderService(configs map[string]provider.Config) (*GitProviderService, error) {
 	providers := make(map[string]provider.Provider)
+	if configs == nil {
+		configs = make(map[string]provider.Config)
+	}
 
 	for name, cfg := range configs {
 		p, err := provider.NewProvider(cfg)
@@ -29,7 +41,7 @@ func NewGitProviderService(configs map[string]provider.Config) (*GitProviderServ
 		providers[name] = p
 	}
 
-	return &GitProviderService{providers: providers, configs: configs}, nil
+	return &GitProviderService{providers: providers, configs: configs, repoCache: make(map[string]repoCacheEntry)}, nil
 }
 
 func (s *GitProviderService) AddOrUpdate(name string, cfg provider.Config) error {
@@ -41,6 +53,12 @@ func (s *GitProviderService) AddOrUpdate(name string, cfg provider.Config) error
 	s.providers[name] = p
 	s.configs[name] = cfg
 	s.mu.Unlock()
+
+	// 平台配置变更时清除缓存
+	s.repoCacheMu.Lock()
+	delete(s.repoCache, name+":all")
+	s.repoCacheMu.Unlock()
+
 	return nil
 }
 
@@ -49,6 +67,10 @@ func (s *GitProviderService) Remove(name string) {
 	delete(s.providers, name)
 	delete(s.configs, name)
 	s.mu.Unlock()
+
+	s.repoCacheMu.Lock()
+	delete(s.repoCache, name+":all")
+	s.repoCacheMu.Unlock()
 }
 
 func (s *GitProviderService) Reload(configs map[string]provider.Config) error {
@@ -63,6 +85,12 @@ func (s *GitProviderService) Reload(configs map[string]provider.Config) error {
 	s.mu.Lock()
 	s.providers = newProviders
 	s.mu.Unlock()
+
+	// 重载时清除所有缓存
+	s.repoCacheMu.Lock()
+	s.repoCache = make(map[string]repoCacheEntry)
+	s.repoCacheMu.Unlock()
+
 	return nil
 }
 
@@ -97,7 +125,7 @@ func (s *GitProviderService) DetectAndGetProvider(remoteURL string) (provider.Pr
 	return p, result, nil
 }
 
-func (s *GitProviderService) GetCRDiff(ctx context.Context, platform, owner, repo string, number int) (*provider.MergeDiff, error) {
+func (s *GitProviderService) GetCRDiff(ctx context.Context, platform, owner, repo, number string) (*provider.MergeDiff, error) {
 	p, err := s.GetProvider(platform)
 	if err != nil {
 		return nil, err
@@ -105,7 +133,7 @@ func (s *GitProviderService) GetCRDiff(ctx context.Context, platform, owner, rep
 	return p.GetCRDiff(ctx, owner, repo, number)
 }
 
-func (s *GitProviderService) GetCRFiles(ctx context.Context, platform, owner, repo string, number int) ([]*provider.ChangedFile, error) {
+func (s *GitProviderService) GetCRFiles(ctx context.Context, platform, owner, repo, number string) ([]*provider.ChangedFile, error) {
 	p, err := s.GetProvider(platform)
 	if err != nil {
 		return nil, err
@@ -118,10 +146,16 @@ func (s *GitProviderService) CreateCommitStatus(ctx context.Context, platform, o
 	if err != nil {
 		return err
 	}
-	return p.CreateCommitStatus(ctx, owner, repo, sha, opts)
+	// SDK v0.48 起 CommitStatusManager 是可选能力接口（如 Gitee 无 commit-status
+	// 端点），不再挂在 Provider 上，需断言。
+	csm, ok := p.(provider.CommitStatusManager)
+	if !ok {
+		return fmt.Errorf("platform %s does not support commit statuses", platform)
+	}
+	return csm.CreateCommitStatus(ctx, owner, repo, sha, opts)
 }
 
-func (s *GitProviderService) GetCR(ctx context.Context, platform, owner, repo string, number int) (*provider.ChangeRequest, error) {
+func (s *GitProviderService) GetCR(ctx context.Context, platform, owner, repo, number string) (*provider.ChangeRequest, error) {
 	p, err := s.GetProvider(platform)
 	if err != nil {
 		return nil, err
@@ -171,7 +205,7 @@ func (s *GitProviderService) HasProvider(platform string) bool {
 	return ok
 }
 
-func (s *GitProviderService) GetCRDiffString(ctx context.Context, platform, owner, repo string, number int) (string, error) {
+func (s *GitProviderService) GetCRDiffString(ctx context.Context, platform, owner, repo, number string) (string, error) {
 	diff, err := s.GetCRDiff(ctx, platform, owner, repo, number)
 	if err != nil {
 		return "", err
@@ -232,6 +266,40 @@ func (s *GitProviderService) ListRepos(ctx context.Context, platform string, opt
 	if err != nil {
 		return nil, err
 	}
+
+	// 首页缓存（page=1, perPage=100），减少前端首次加载延迟
+	if opts.Page == 1 && opts.PerPage >= 100 {
+		cacheKey := platform + ":all"
+		s.repoCacheMu.RLock()
+		cached, ok := s.repoCache[cacheKey]
+		s.repoCacheMu.RUnlock()
+		if ok && time.Since(cached.timestamp) < 5*time.Minute {
+			return cached.repos, nil
+		}
+
+		// 收集所有页
+		var allRepos []*provider.PlatformRepo
+		page := 1
+		for {
+			batch, err := p.ListRepos(ctx, provider.ListRepoOptions{Page: page, PerPage: 100})
+			if err != nil {
+				return nil, err
+			}
+			allRepos = append(allRepos, batch...)
+			if len(batch) < 100 {
+				break
+			}
+			page++
+		}
+
+		s.repoCacheMu.Lock()
+		s.repoCache[cacheKey] = repoCacheEntry{repos: allRepos, timestamp: time.Now()}
+		s.repoCacheMu.Unlock()
+
+		logx.Infof("[provider] cached %d repos for platform %s", len(allRepos), platform)
+		return allRepos, nil
+	}
+
 	return p.ListRepos(ctx, opts)
 }
 

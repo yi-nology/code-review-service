@@ -123,3 +123,33 @@ func TestDomainResultSerializes(t *testing.T) {
 		t.Fatalf("marshal Result: %v", err)
 	}
 }
+
+// TestParseOpenCodeReviewOutput_SessionMetadata 校验 OCR v1.7.6+ 输出的 session 元数据被正确解析。
+//
+// session_id 用于排障（ocr session show <id>）；reused_files 在 resume 命中时 > 0。
+// 旧版本 OCR 无 session 字段时两者均为零值，不影响兼容性。
+func TestParseOpenCodeReviewOutput_SessionMetadata(t *testing.T) {
+	t.Run("v1.7.6+ with session", func(t *testing.T) {
+		raw := `{
+			"status": "success",
+			"summary": {"files_reviewed": 3, "comments": 1, "total_tokens": 100, "elapsed": "5s"},
+			"session": {"session_id": "01HZK9SEVENTSEVEN", "reused_files": 2},
+			"comments": [{"path": "a.go", "content": "x", "start_line": 1, "end_line": 1}]
+		}`
+		got := parseOpenCodeReviewOutput([]byte(raw), "major")
+		if got.OCR.SessionID != "01HZK9SEVENTSEVEN" {
+			t.Fatalf("SessionID = %q, want 01HZK9SEVENTSEVEN", got.OCR.SessionID)
+		}
+		if got.OCR.ReusedFiles != 2 {
+			t.Fatalf("ReusedFiles = %d, want 2", got.OCR.ReusedFiles)
+		}
+	})
+	t.Run("legacy without session field stays zero", func(t *testing.T) {
+		raw := `{"status":"success","summary":{"files_reviewed":1},"comments":[]}`
+		got := parseOpenCodeReviewOutput([]byte(raw), "major")
+		if got.OCR.SessionID != "" || got.OCR.ReusedFiles != 0 {
+			t.Fatalf("expected empty session metadata for legacy output, got SessionID=%q ReusedFiles=%d",
+				got.OCR.SessionID, got.OCR.ReusedFiles)
+		}
+	})
+}

@@ -39,6 +39,7 @@ type Service struct {
 	globalRulesRepo repository.GlobalRulesRepository
 	rulePackageRepo repository.OCRRulePackageRepository
 	agentRepo       repository.ReviewerAgentRepository
+	ocrSettingsRepo repository.OCRSettingsRepository
 	runner          domain.Runner
 	writeback       domain.WritebackPublisher
 	notifier        domain.Notifier
@@ -63,6 +64,7 @@ type Config struct {
 	GlobalRulesRepo repository.GlobalRulesRepository
 	RulePackageRepo repository.OCRRulePackageRepository
 	AgentRepo       repository.ReviewerAgentRepository
+	OCRSettingsRepo repository.OCRSettingsRepository
 	Runner          domain.Runner
 	Writeback       domain.WritebackPublisher
 	Notifier        domain.Notifier
@@ -85,6 +87,7 @@ func NewService(cfg Config) *Service {
 		globalRulesRepo: cfg.GlobalRulesRepo,
 		rulePackageRepo: cfg.RulePackageRepo,
 		agentRepo:       cfg.AgentRepo,
+		ocrSettingsRepo: cfg.OCRSettingsRepo,
 		runner:          cfg.Runner,
 		writeback:       cfg.Writeback,
 		notifier:        cfg.Notifier,
@@ -107,28 +110,6 @@ func (s *Service) shouldUseWorkflow() bool {
 	}
 	agents := s.agentManager.GetAgents()
 	return len(agents) > 1
-}
-
-// agentRulePackageRefs 汇总所有启用审查员的 RulePackageIDs（json.RawMessage 列表）。
-// ResolveRuleFileForAgents 内部会基于 MergeRulePackageIDs 合并去重，所以这里只做收集不去重。
-// 所有审查员共享同一份合并规则文件。
-func (s *Service) agentRulePackageRefs(ctx context.Context) [][]byte {
-	if s.agentRepo == nil {
-		return nil
-	}
-	agents, err := s.agentRepo.ListEnabled(ctx)
-	if err != nil {
-		logx.Warn("failed to load enabled agents for rule package refs", "error", err)
-		return nil
-	}
-	refs := make([][]byte, 0, len(agents))
-	for i := range agents {
-		if len(agents[i].RulePackageIDs) == 0 {
-			continue
-		}
-		refs = append(refs, agents[i].RulePackageIDs)
-	}
-	return refs
 }
 
 // CancelExecution cancels a running execution for the given review ID
@@ -176,7 +157,7 @@ func (s *Service) Execute(ctx context.Context, id string, req domain.Request, pr
 	}
 
 	initialInput := domain.OCRInput{
-		Binary: "ocr",
+		Binary: review.ResolveOCRBinary(ctx, s.ocrSettingsRepo),
 		Workspace: domain.WorkspaceInfo{
 			Provider: req.Provider,
 			Repo:     req.Repo,
@@ -241,7 +222,7 @@ func (s *Service) Execute(ctx context.Context, id string, req domain.Request, pr
 	}
 
 	if s.globalRulesRepo != nil {
-		rulePath, cleanup, ruleErr := review.ResolveRuleFileForAgents(ctx, projectPolicy, s.rulePackageRepo, s.globalRulesRepo, s.agentRulePackageRefs(ctx)...)
+		rulePath, cleanup, ruleErr := review.ResolveRuleFileForAgents(ctx, projectPolicy, s.rulePackageRepo, s.globalRulesRepo, review.AgentRulePackageRefs(ctx, s.agentRepo)...)
 		if ruleErr != nil {
 			logx.Warn("failed to resolve rule file", "error", ruleErr)
 		} else if rulePath != "" {
@@ -260,9 +241,28 @@ func (s *Service) Execute(ctx context.Context, id string, req domain.Request, pr
 		}()
 	}
 
-	ocrInput := buildOCRInput(workspace, req)
+	ocrInput := s.buildOCRInput(ctx, workspace, req)
 	if err := s.updateWithOCRInput(ctx, id, ocrInput); err != nil {
 		logx.Warn("failed to update OCR input", "review_id", id, "error", err)
+	}
+
+	// OCR v1.7.6+ resume：retry 同一 review 时，把上次 OCR 产出的 session_id 注入 workspace，
+	// 让 runner 传 `--resume <id>` 复用已完成文件的 checkpoint。
+	//
+	// 适配 OCR 的 resume 校验：OCR 会比对 (from, to) SHAs 与 session 中存储的是否一致，不一致直接拒绝。
+	// PR-mode 的 workspace.HeadSHA 可能是合成提交（restoreDeletedFiles / ApplyProjectScope 用
+	// 当前时间戳 commit），跨 retry 不稳定——为此 runner 在 resume 激活时改用 workspace.OriginalHeadSHA
+	//（平台 API 返回的真实 PR head）作为 --to，保证 SHA 稳定。详见 runner.go runOnce。
+	//
+	// 多 agent workflow 路径不开启 resume：每个 agent 是独立 ocr review 子进程，产生 N 个不同
+	// session_id，且当前不持久化 per-agent session_id（AgentResult 无该字段），父 session_id 无意义。
+	if !s.shouldUseWorkflow() {
+		if prior, err := s.reviewRepo.GetByReviewID(ctx, id); err == nil && prior != nil {
+			if sid := strings.TrimSpace(prior.Response.Report.OCR.SessionID); sid != "" {
+				workspace.ResumeSessionID = sid
+				logx.Infof("[executor] review %s 启用 OCR resume，session_id=%s", id, sid)
+			}
+		}
 	}
 
 	// 如果 diff 为空但有 workspace 目录和 SHA，尝试从 git 计算 diff
@@ -426,7 +426,8 @@ func (s *Service) executeWithRunner(ctx context.Context, id string, req domain.R
 			s.llmMetrics.Calls.Add(1)
 			s.llmMetrics.Failures.Add(1)
 		}
-		s.recordFailure(ctx, id, req, "ocr", err)
+		// 把 runner 返回的 partial OCR metadata（含 session_id）持久化，供下次 retry --resume。
+		s.recordFailureWithOCR(ctx, id, req, "ocr", err, result.OCR)
 		return domain.Response{}, err
 	}
 	if s.llmMetrics != nil {
@@ -569,6 +570,15 @@ func (s *Service) publishWriteback(ctx context.Context, id string, req domain.Re
 // 再持久化最终 failed 状态。stage 标识失败发生在哪个环节（repository/scope/ocr/workflow），
 // 便于前端 timeline 与排障直接定位根因，而非只看到扁平的 "review execution failed"。
 func (s *Service) recordFailure(ctx context.Context, id string, req domain.Request, stage string, runErr error) {
+	s.recordFailureWithOCR(ctx, id, req, stage, runErr, domain.OCRMetadata{})
+}
+
+// recordFailureWithOCR 是 recordFailure 的扩展版，可携带 OCR 失败前的 partial metadata。
+//
+// 用于 OCR v1.7.6+ resume 支持：runner 在 OCR 子进程崩溃/超时时仍可能从 stdout 解析出
+// 部分 JSON（含 session_id）。把它写入 response.report.ocr.session_id，
+// 下次 retry 同一 review 时 executor 会读出来传 `--resume <id>`，复用已完成文件的 checkpoint。
+func (s *Service) recordFailureWithOCR(ctx context.Context, id string, req domain.Request, stage string, runErr error, ocrMeta domain.OCRMetadata) {
 	details := map[string]any{
 		"error": runErr.Error(),
 		"stage": stage,
@@ -584,6 +594,13 @@ func (s *Service) recordFailure(ctx context.Context, id string, req domain.Reque
 		Summary:  "review failed",
 		Gate:     domain.ErrorGate("review execution failed"),
 		Error:    runErr.Error(),
+	}
+	// 携带 partial OCR metadata（如 session_id），即使 review 整体失败也保留，
+	// 供 retry 路径读出 session_id 传 --resume。
+	if ocrMeta.SessionID != "" {
+		ocrMeta.Engine = "open-code-review"
+		ocrMeta.Status = "failed"
+		response.Report.OCR = ocrMeta
 	}
 	if err := s.updateWithRawOCR(ctx, id, req, response, nil); err != nil {
 		logx.Error("failed to persist review failure", "review_id", id, "error", err)
@@ -757,9 +774,9 @@ func toPolicyFindings(findings []domain.Finding) []policy.Finding {
 	})
 }
 
-func buildOCRInput(workspace domain.Workspace, req domain.Request) domain.OCRInput {
+func (s *Service) buildOCRInput(ctx context.Context, workspace domain.Workspace, req domain.Request) domain.OCRInput {
 	return domain.OCRInput{
-		Binary: "ocr",
+		Binary: review.ResolveOCRBinary(ctx, s.ocrSettingsRepo),
 		Args: []string{
 			"review",
 			"--repo", workspace.Dir,

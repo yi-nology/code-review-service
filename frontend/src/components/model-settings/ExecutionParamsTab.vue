@@ -69,6 +69,7 @@ const commandPreview = computed(() => {
   if (form.tools_path) args.push(`--tools ${form.tools_path}`)
   else if (form.tools_config) args.push('--tools <managed tools.json>')
   if (form.background) args.push('--background <configured>')
+  if (form.background_file) args.push(`--background-file ${form.background_file}`)
   return args.join(' ')
 })
 
@@ -88,6 +89,14 @@ refreshToolPackages()
         { label: '人工可读', value: 'human' },
         { label: 'Agent 精简', value: 'agent' },
       ]" />
+    </el-form-item>
+
+    <el-form-item label="输出语言">
+      <el-select v-model="form.language" style="width: 100%">
+        <el-option label="中文" value="中文" />
+        <el-option label="English" value="English" />
+      </el-select>
+      <div class="form-tip">审查结果的输出语言，会自动注入到审查背景中。</div>
     </el-form-item>
 
     <el-form-item label="默认严重级别">

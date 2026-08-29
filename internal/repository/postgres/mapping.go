@@ -3,6 +3,7 @@ package postgres
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/yi-nology/code-review-service/internal/domain/feedback"
 	"github.com/yi-nology/code-review-service/internal/domain/llmprovider"
@@ -42,12 +43,33 @@ func rawJSON(j datatypes.JSON) json.RawMessage {
 	return json.RawMessage(j)
 }
 
+// rawJSONArray 将 datatypes.JSON 字符串数组转为 []string（nil 安全）。
+func rawJSONArray(j datatypes.JSON) []string {
+	if len(j) == 0 {
+		return nil
+	}
+	var arr []string
+	if err := json.Unmarshal(j, &arr); err != nil {
+		return nil
+	}
+	return arr
+}
+
 // dataTypeJSON 将 json.RawMessage 转为 datatypes.JSON。
 func dataTypeJSON(r json.RawMessage) datatypes.JSON {
 	if len(r) == 0 {
 		return nil
 	}
 	return datatypes.JSON(r)
+}
+
+// stringSliceToJSON 将 []string 转为 datatypes.JSON。
+func stringSliceToJSON(s []string) datatypes.JSON {
+	if len(s) == 0 {
+		return nil
+	}
+	b, _ := json.Marshal(s)
+	return datatypes.JSON(b)
 }
 
 // ---- feedback ----
@@ -103,13 +125,23 @@ func platformToDomain(m models.GitPlatform) platform.Platform {
 
 // ---- revision ----
 
+// changeNumberToInt 把 string 编号转为 DB int 列值（change_number 列保持 int）。
+// 非数字编号按 0 处理，仅影响存量行匹配，不影响新写入。
+func changeNumberToInt(s string) int {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
 func revisionToModel(c *revision.Change) models.ChangeRevision {
 	return models.ChangeRevision{
 		Provider:       c.Provider,
 		InstallationID: c.InstallationID,
 		RepositoryID:   c.RepositoryID,
 		Repository:     c.Repository,
-		ChangeNumber:   c.ChangeNumber,
+		ChangeNumber:   changeNumberToInt(c.ChangeNumber),
 		BaseSHA:        c.BaseSHA,
 		StartSHA:       c.StartSHA,
 		HeadSHA:        c.HeadSHA,
@@ -123,7 +155,7 @@ func revisionToDomain(m models.ChangeRevision) revision.Change {
 		InstallationID: m.InstallationID,
 		RepositoryID:   m.RepositoryID,
 		Repository:     m.Repository,
-		ChangeNumber:   m.ChangeNumber,
+		ChangeNumber:   strconv.Itoa(m.ChangeNumber),
 		BaseSHA:        m.BaseSHA,
 		StartSHA:       m.StartSHA,
 		HeadSHA:        m.HeadSHA,
@@ -166,34 +198,34 @@ func writebackToDomain(m models.WritebackItem) writeback.Item {
 
 func reviewerToModel(a *reviewer.Agent) models.ReviewerAgent {
 	return models.ReviewerAgent{
-		Model:       gormModel(a.ID),
-		Name:        a.Name,
-		DisplayName: a.DisplayName,
-		Description: a.Description,
-		Background:  a.Background,
-		RuleFile:    a.RuleFile,
-		Redundancy:  a.Redundancy,
-		Enabled:     a.Enabled,
-		Priority:    a.Priority,
-		IsDefault:   a.IsDefault,
-		Tags:        dataTypeJSON(a.Tags),
+		Model:          gormModel(a.ID),
+		Name:           a.Name,
+		DisplayName:    a.DisplayName,
+		Description:    a.Description,
+		Background:     a.Background,
+		RuleFile:       a.RuleFile,
+		Redundancy:     a.Redundancy,
+		Enabled:        a.Enabled,
+		Priority:       a.Priority,
+		IsDefault:      a.IsDefault,
+		Tags:           dataTypeJSON(a.Tags),
 		RulePackageIDs: dataTypeJSON(a.RulePackageIDs),
 	}
 }
 
 func reviewerToDomain(m models.ReviewerAgent) reviewer.Agent {
 	return reviewer.Agent{
-		ID:          m.ID,
-		Name:        m.Name,
-		DisplayName: m.DisplayName,
-		Description: m.Description,
-		Background:  m.Background,
-		RuleFile:    m.RuleFile,
-		Redundancy:  m.Redundancy,
-		Enabled:     m.Enabled,
-		Priority:    m.Priority,
-		IsDefault:   m.IsDefault,
-		Tags:        rawJSON(m.Tags),
+		ID:             m.ID,
+		Name:           m.Name,
+		DisplayName:    m.DisplayName,
+		Description:    m.Description,
+		Background:     m.Background,
+		RuleFile:       m.RuleFile,
+		Redundancy:     m.Redundancy,
+		Enabled:        m.Enabled,
+		Priority:       m.Priority,
+		IsDefault:      m.IsDefault,
+		Tags:           rawJSON(m.Tags),
 		RulePackageIDs: rawJSON(m.RulePackageIDs),
 	}
 }
@@ -311,6 +343,8 @@ func ocrSettingsToModel(s *ocrsettings.Settings) models.OCRSettings {
 		ExtraHeaders:            s.ExtraHeaders,
 		ModelName:               s.ModelName,
 		UseAnthropic:            s.UseAnthropic,
+		Protocol:                s.Protocol,
+		BackgroundFile:          s.BackgroundFile,
 		ExtraBody:               dataTypeJSON(s.ExtraBody),
 		ReasoningMode:           s.ReasoningMode,
 		ReasoningBudget:         s.ReasoningBudget,
@@ -329,6 +363,11 @@ func ocrSettingsToModel(s *ocrsettings.Settings) models.OCRSettings {
 		TelemetryContentLogging: s.TelemetryContentLogging,
 		ContextWindow:           s.ContextWindow,
 		MaxOutputTokens:         s.MaxOutputTokens,
+		PolicyFailOn:            s.PolicyFailOn,
+		PolicyMaxComments:       s.PolicyMaxComments,
+		PolicySummaryOnly:       s.PolicySummaryOnly,
+		PolicyIgnorePaths:       stringSliceToJSON(s.PolicyIgnorePaths),
+		MaxDiffBytes:            s.MaxDiffBytes,
 	}
 }
 
@@ -345,6 +384,8 @@ func ocrSettingsToDomain(m models.OCRSettings) ocrsettings.Settings {
 		ExtraHeaders:            m.ExtraHeaders,
 		ModelName:               m.ModelName,
 		UseAnthropic:            m.UseAnthropic,
+		Protocol:                m.Protocol,
+		BackgroundFile:          m.BackgroundFile,
 		ExtraBody:               rawJSON(m.ExtraBody),
 		ReasoningMode:           m.ReasoningMode,
 		ReasoningBudget:         m.ReasoningBudget,
@@ -363,6 +404,11 @@ func ocrSettingsToDomain(m models.OCRSettings) ocrsettings.Settings {
 		TelemetryContentLogging: m.TelemetryContentLogging,
 		ContextWindow:           m.ContextWindow,
 		MaxOutputTokens:         m.MaxOutputTokens,
+		PolicyFailOn:            m.PolicyFailOn,
+		PolicyMaxComments:       m.PolicyMaxComments,
+		PolicySummaryOnly:       m.PolicySummaryOnly,
+		PolicyIgnorePaths:       rawJSONArray(m.PolicyIgnorePaths),
+		MaxDiffBytes:            m.MaxDiffBytes,
 	}
 }
 
@@ -465,12 +511,14 @@ func projectPolicyToModel(p *projectpolicy.ProjectPolicy) models.ProjectPolicy {
 		OCRMaxTools:                p.OCRMaxTools,
 		OCRDefaultSeverity:         p.OCRDefaultSeverity,
 		OCRBackground:              p.OCRBackground,
+		OCRBackgroundFile:          p.OCRBackgroundFile,
 		OCRAudience:                p.OCRAudience,
 		OCRProvider:                p.OCRProvider,
 		OCRURL:                     p.OCRURL,
 		OCRModel:                   p.OCRModel,
 		OCRMaxGitProcs:             p.OCRMaxGitProcs,
 		OCRUseAnthropic:            p.OCRUseAnthropic,
+		OCRProtocol:                p.OCRProtocol,
 		OCRExtraBody:               p.OCRExtraBody,
 		OCRLanguage:                p.OCRLanguage,
 		OCRBinary:                  p.OCRBinary,
@@ -496,12 +544,14 @@ func projectPolicyToDomain(m models.ProjectPolicy) projectpolicy.ProjectPolicy {
 		OCRMaxTools:                m.OCRMaxTools,
 		OCRDefaultSeverity:         m.OCRDefaultSeverity,
 		OCRBackground:              m.OCRBackground,
+		OCRBackgroundFile:          m.OCRBackgroundFile,
 		OCRAudience:                m.OCRAudience,
 		OCRProvider:                m.OCRProvider,
 		OCRURL:                     m.OCRURL,
 		OCRModel:                   m.OCRModel,
 		OCRMaxGitProcs:             m.OCRMaxGitProcs,
 		OCRUseAnthropic:            m.OCRUseAnthropic,
+		OCRProtocol:                m.OCRProtocol,
 		OCRExtraBody:               m.OCRExtraBody,
 		OCRLanguage:                m.OCRLanguage,
 		OCRBinary:                  m.OCRBinary,

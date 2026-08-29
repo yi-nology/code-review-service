@@ -3,12 +3,10 @@ package postgres
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/domain/session"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
-	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	ekitGorm "github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 	"github.com/oekit/pkg/pagination"
 	"github.com/oekit/pkg/uidgen"
@@ -55,10 +53,7 @@ func (r *PostgresSessionRepository) GetByID(ctx context.Context, sessionID strin
 		Where("session_id = ?", sessionID).
 		First(&m).Error
 	if err != nil {
-		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, repoerr.ErrNotFound
-		}
-		return nil, err
+		return nil, wrapNotFound(err)
 	}
 	d := sessionToDomain(m)
 	return &d, nil
@@ -89,10 +84,7 @@ func (r *PostgresSessionRepository) GetActiveByReviewID(ctx context.Context, rev
 		Order("round DESC").
 		First(&m).Error
 	if err != nil {
-		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, repoerr.ErrNotFound
-		}
-		return nil, err
+		return nil, wrapNotFound(err)
 	}
 	d := sessionToDomain(m)
 	return &d, nil

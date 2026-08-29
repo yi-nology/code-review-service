@@ -10,12 +10,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/domain/notification"
+	"github.com/yi-nology/code-review-service/internal/httpx"
 	"github.com/oekit/logx"
 )
 
@@ -72,55 +72,39 @@ func (c *WebhookChannel) buildPayload(event notification.Event) map[string]any {
 }
 
 // post 发送 webhook，带签名（飞书/钉钉）和简单重试（5xx/429）。
-// 重试模式参考 internal/ocr/llm.go doHTTP。
+// 重试模式参考 internal/ocr/llm.go doHTTP, 复用 internal/httpx.DoWithRetry。
 func (c *WebhookChannel) post(ctx context.Context, payload map[string]any) error {
-	const maxAttempts = 2
-	var lastErr error
-
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		if attempt > 0 {
-			backoff := time.Second + time.Duration(rand.Intn(500))*time.Millisecond
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(backoff):
-			}
-		}
-
+	err := httpx.DoWithRetry(ctx, httpx.RetryConfig{Jitter: 500 * time.Millisecond}, func(ctx context.Context) (bool, error) {
 		body, err := json.Marshal(payload)
 		if err != nil {
-			return fmt.Errorf("marshal webhook payload: %w", err)
+			return false, fmt.Errorf("marshal webhook payload: %w", err)
 		}
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.URL, bytes.NewReader(body))
 		if err != nil {
-			return fmt.Errorf("build webhook request: %w", err)
+			return false, fmt.Errorf("build webhook request: %w", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
 		c.sign(req, body)
 
 		resp, err := c.client.Do(req)
 		if err != nil {
-			lastErr = fmt.Errorf("webhook call failed: %w", err)
-			continue
+			return true, fmt.Errorf("webhook call failed: %w", err)
 		}
 		// 读取并关闭 body
 		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			return nil
+			return false, nil
 		}
 		retryable := resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests
-		lastErr = fmt.Errorf("webhook returned HTTP %d", resp.StatusCode)
-		if !retryable {
-			return lastErr
-		}
+		return retryable, fmt.Errorf("webhook returned HTTP %d", resp.StatusCode)
+	})
+	if err != nil {
+		logx.Warnf("[notification] webhook %s push failed after retries: %v", c.cfg.Type, err)
 	}
-	if lastErr != nil {
-		logx.Warnf("[notification] webhook %s push failed after retries: %v", c.cfg.Type, lastErr)
-	}
-	return lastErr
+	return err
 }
 
 // sign 按渠道类型添加签名头/参数。飞书用 timestamp+sign，钉钉用 timestamp+sign 查询参数。

@@ -17,9 +17,17 @@ export interface OCRSettings {
   timeout_minutes: number
   max_tools: number
   background?: string
+  /** OCR v1.7.6+ 业务上下文 Markdown 文件路径，与 background 叠加（路径须在仓库工作区内） */
+  background_file?: string
   tools_path?: string
   tools_config?: string
   mcp_servers?: string
+  /**
+   * OCR v1.7.10+ LLM 协议：留空=由 use_anthropic 推断（兼容）；
+   * 'anthropic' | 'openai' | 'openai-responses'。
+   * GPT-5.x/o-series 等走 Responses API 的模型必须设为 'openai-responses'。
+   */
+  protocol?: 'anthropic' | 'openai' | 'openai-responses' | ''
   telemetry_enabled?: boolean
   telemetry_exporter?: string
   telemetry_otlp_endpoint?: string
@@ -28,6 +36,13 @@ export interface OCRSettings {
   reasoning_budget?: number
   context_window?: number
   max_output_tokens?: number
+  // 策略配置
+  policy_fail_on?: 'critical' | 'major' | 'minor' | 'info'
+  policy_max_comments?: number
+  policy_summary_only?: boolean
+  policy_ignore_paths?: string[]
+  // 写回配置
+  max_diff_bytes?: number
 }
 
 // McpServer 描述单个 MCP server（与 OCR CLI 的 mcp_servers 配置对齐）。
@@ -57,12 +72,16 @@ export interface ProjectPolicy {
   ocr_max_tools?: number
   ocr_default_severity?: 'critical' | 'major' | 'minor' | 'info' | ''
   ocr_background?: string
+  /** OCR v1.7.6+ 项目级 --background-file 路径覆盖，留空=回退到全局 */
+  ocr_background_file?: string
   ocr_audience?: 'human' | 'agent' | ''
   ocr_provider?: string
   ocr_url?: string
   ocr_model?: string
   ocr_max_git_procs?: number
   ocr_use_anthropic?: boolean
+  /** OCR v1.7.10+ 项目级 LLM 协议覆盖，留空=回退到全局 */
+  ocr_protocol?: 'anthropic' | 'openai' | 'openai-responses' | ''
   ocr_extra_body?: string
   ocr_language?: string
   ocr_binary?: string

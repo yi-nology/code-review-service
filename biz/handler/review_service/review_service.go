@@ -19,7 +19,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/suggestion"
 
 	"github.com/oekit/pkg/convert"
-	"github.com/oekit/pkg/mathx"
+	"github.com/oekit/pkg/pagination"
 	"github.com/oekit/pkg/ptrx"
 	"github.com/oekit/pkg/slicex"
 	"github.com/oekit/pkg/stringx"
@@ -111,6 +111,8 @@ func ListReviews(ctx context.Context, c *app.RequestContext) {
 		GateStatus: strings.TrimSpace(string(c.Query("gate_status"))),
 		Provider:   strings.TrimSpace(ptrx.Deref(req.Provider, "")),
 		Repo:       strings.TrimSpace(ptrx.Deref(req.Repo, "")),
+		SortBy:     strings.TrimSpace(string(c.Query("sort_by"))),
+		SortOrder:  strings.TrimSpace(string(c.Query("sort_order"))),
 		Limit:      pageSize,
 		Offset:     (page - 1) * pageSize,
 	})
@@ -332,8 +334,12 @@ func ListProviderRepos(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	page := mathx.Clamp(int(ptrx.Deref(req.Page, 1)), 1, 999999)
-	perPage := mathx.Clamp(int(ptrx.Deref(req.PerPage, 30)), 1, 100)
+	pageReq := pagination.NewPageRequest(
+		int(ptrx.Deref(req.Page, 1)),
+		int(ptrx.Deref(req.PerPage, 30)),
+	)
+	pageReq.Normalize()
+	page, perPage := pageReq.Page, pageReq.PageSize
 
 	repos, err := handlerInst.gitMgr.ListRepos(ctx, req.Provider, provider_sdk.ListRepoOptions{Page: page, PerPage: perPage})
 	if err != nil {
@@ -382,8 +388,12 @@ func ListProviderPulls(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	page := mathx.Clamp(int(ptrx.Deref(req.Page, 1)), 1, 999999)
-	perPage := mathx.Clamp(int(ptrx.Deref(req.PerPage, 30)), 1, 100)
+	pageReq := pagination.NewPageRequest(
+		int(ptrx.Deref(req.Page, 1)),
+		int(ptrx.Deref(req.PerPage, 30)),
+	)
+	pageReq.Normalize()
+	page, perPage := pageReq.Page, pageReq.PageSize
 	state := stringx.TakeOne(ptrx.Deref(req.State, ""), "opened")
 
 	crs, _, err := handlerInst.gitMgr.ListCRs(ctx, req.Provider, provider_sdk.ListCROptions{
@@ -396,7 +406,7 @@ func ListProviderPulls(ctx context.Context, c *app.RequestContext) {
 
 	items := slicex.Map(crs, func(cr *provider_sdk.ChangeRequest) *modelPlatform.PullItem {
 		item := &modelPlatform.PullItem{
-			Number: int64(cr.Number), Title: cr.Title, State: string(cr.State),
+			Number: convert.Str2Int64(cr.Number, 0), Title: cr.Title, State: string(cr.State),
 			SourceBranch: cr.SourceBranch, TargetBranch: cr.TargetBranch,
 			HeadSha: common.StrPtr(cr.HeadSHA), BaseSha: common.StrPtr(cr.BaseSHA),
 			WebURL: common.StrPtr(cr.WebURL), CreatedAt: common.StrPtr(common.FormatTime(cr.CreatedAt)), UpdatedAt: common.StrPtr(common.FormatTime(cr.UpdatedAt)),
@@ -453,20 +463,16 @@ func fillAuthorInfo(ctx context.Context, req *domain.Request) {
 		return
 	}
 	prID := stringx.TakeOne(req.PullRequestID, req.MergeRequestIID)
-	if prID == "" {
-		return
-	}
-	number := convert.Str2Int(prID, 0)
-	if number <= 0 || handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
+	if prID == "" || handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
 		return
 	}
 	owner, repo, err := provider.ParseRepoPath(req.Repo)
 	if err != nil {
 		return
 	}
-	cr, err := handlerInst.gitMgr.GetCR(ctx, req.Provider, owner, repo, number)
+	cr, err := handlerInst.gitMgr.GetCR(ctx, req.Provider, owner, repo, prID)
 	if err != nil {
-		logx.CtxWarnf(ctx, "fillAuthorInfo: failed to get CR for %s/%s #%d: %v", owner, repo, number, err)
+		logx.CtxWarnf(ctx, "fillAuthorInfo: failed to get CR for %s/%s #%s: %v", owner, repo, prID, err)
 		return
 	}
 	if cr == nil || cr.Author == nil {
@@ -527,8 +533,8 @@ func convertDetail(r domain.Record) modelReview.ReviewDetail {
 		Error: common.StrPtr(r.Response.Error), Author: common.StrPtr(r.Request.Author),
 		AuthorName: common.StrPtr(r.Request.AuthorName), AuthorAvatar: common.StrPtr(r.Request.AuthorAvatar),
 		RetryCount: ptrx.Of(int64(r.RetryCount)),
-		CreatedAt: common.StrPtr(common.FormatTime(r.CreatedAt)),
-		UpdatedAt: common.StrPtr(common.FormatTime(r.UpdatedAt)),
+		CreatedAt:  common.StrPtr(common.FormatTime(r.CreatedAt)),
+		UpdatedAt:  common.StrPtr(common.FormatTime(r.UpdatedAt)),
 	}
 }
 

@@ -14,23 +14,7 @@ review:
   worker_stale_after: "15m"
   max_diff_bytes: 5242880
 
-ocr:
-  enabled: true
-  binary: "ocr"
-  rule: ""
-  command: ""
-
-policy:
-  fail_on: "critical"
-  max_comments: 20
-  summary_only: false
-  ignore_paths:
-    - "vendor/**"
-    - "dist/**"
-    - "*.pb.go"
-
-git:
-  platforms: {}
+# OCR、策略、Git 平台等业务配置已迁移到数据库，通过 Web 控制台管理。
 
 nacos:
   addr: "${NACOS_ADDR}"

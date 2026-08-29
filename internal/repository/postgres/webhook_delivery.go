@@ -2,12 +2,10 @@ package postgres
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	domainWebhook "github.com/yi-nology/code-review-service/internal/domain/webhook"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
-	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 
 	gormLib "gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -37,10 +35,7 @@ func (r *WebhookDeliveryRepo) Get(ctx context.Context, provider, installationID,
 		Where("provider = ? AND installation_id = ? AND delivery_id = ?", provider, installationID, deliveryID).
 		First(&m).Error
 	if err != nil {
-		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, repoerr.ErrNotFound
-		}
-		return nil, err
+		return nil, wrapNotFound(err)
 	}
 	d := deliveryToDomain(m)
 	return &d, nil

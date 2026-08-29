@@ -48,8 +48,6 @@
       :provider="createForm.provider"
       :platforms="availablePlatforms"
       :selected-repo="selectedRepo"
-      :repos="filteredRepos"
-      :repos-loading="reposLoading"
       :pull-requests="pullRequests"
       :filtered-pull-requests="filteredPullRequests"
       :prs-loading="prsLoading"
@@ -57,11 +55,9 @@
       :pr-state="prState"
       :pr-keyword="prKeyword"
       @update:provider="createForm.provider = $event; onPlatformChange()"
-      @update:selected-repo="onRepoChange"
+      @select="onRepoSelect"
       @update:pr-state="prState = $event"
       @update:pr-keyword="prKeyword = $event"
-      @search-repos="searchRepos"
-      @ensure-repos="ensureReposLoaded"
       @reload-prs="reloadPullRequests"
       @select-pr="onPRChange"
     >
@@ -82,19 +78,15 @@
       :form="createForm"
       :platforms="availablePlatforms"
       :selected-repo="selectedRepo"
-      :repos="filteredRepos"
-      :repos-loading="reposLoading"
       :branches="branches"
       :branches-loading="branchesLoading"
       :branch-summary="branchSummary"
       @update:provider="createForm.provider = $event; onPlatformChange()"
-      @update:selected-repo="onRepoChange"
+      @select="onRepoSelect"
       @update:base-branch="createForm.base_branch = $event"
       @update:head-branch="createForm.head_branch = $event"
       @update:base-sha="createForm.base_sha = $event"
       @update:head-sha="createForm.head_sha = $event"
-      @search-repos="searchRepos"
-      @ensure-repos="ensureReposLoaded"
       @reload-branches="reloadBranches"
       @swap-branches="swapBranches"
     >
@@ -165,8 +157,9 @@ import {
   Warning,
 } from '@element-plus/icons-vue'
 import { createReview, previewReview } from '@/api/review'
-import { getGitPlatforms, getProviderRepos, getProviderBranches, getProviderPulls, getBranchSHA } from '@/api/config'
+import { getGitPlatforms, getProviderBranches, getProviderPulls, getBranchSHA } from '@/api/config'
 import { parseMRUrl, parseCompareUrl, getProviderLabel } from '@/utils/url-parser'
+import { splitRepo } from '@/utils/repo'
 import type { GitPlatform, PlatformRepo, PlatformBranch, PlatformPullRequest } from '@/types/config'
 import type { EphemeralReviewer } from '@/types/review'
 import SubmitOptions from './SubmitOptions.vue'
@@ -203,10 +196,8 @@ const submitMode = ref<'async' | 'sync'>('async')
 const showAdvanced = ref<string[]>([])
 
 const availablePlatforms = ref<GitPlatform[]>([])
-const repos = ref<PlatformRepo[]>([])
-const repoKeyword = ref('')
-const reposLoading = ref(false)
 const selectedRepo = ref('')
+const selectedRepoInfo = ref<PlatformRepo | null>(null)
 
 const pullRequests = ref<PlatformPullRequest[]>([])
 const prsLoading = ref(false)
@@ -237,17 +228,6 @@ const createForm = reactive({
   head_branch: '',
   idempotency_key: '',
   callback_mode: 'comment',
-})
-
-const filteredRepos = computed(() => {
-  const keyword = repoKeyword.value.trim().toLowerCase()
-  const list = repos.value
-  if (!keyword) return list.slice(0, 50)
-  return list.filter((repo) => {
-    return repo.full_name.toLowerCase().includes(keyword)
-      || repo.name?.toLowerCase().includes(keyword)
-      || repo.description?.toLowerCase().includes(keyword)
-  }).slice(0, 50)
 })
 
 const filteredPullRequests = computed(() => {
@@ -301,7 +281,6 @@ function switchMode(mode: InputMode) {
   inputMode.value = mode
   previewFiles.value = []
   showPreview.value = false
-  if (mode !== 'url' && createForm.provider) ensureReposLoaded()
   if (mode === 'pr' && selectedRepo.value) reloadPullRequests()
   if (mode === 'branch' && selectedRepo.value) reloadBranches()
 }
@@ -352,7 +331,6 @@ function applyParsedUrl(nextMode: InputMode = 'pr') {
   if (!parsedUrl.value) return
   syncParsedUrlToForm()
   inputMode.value = nextMode
-  ensureReposLoaded()
   reloadPullRequests()
 }
 
@@ -360,7 +338,6 @@ function applyParsedCompareUrl(nextMode: InputMode = 'branch') {
   if (!parsedCompareUrl.value) return
   syncParsedCompareUrlToForm()
   inputMode.value = nextMode
-  ensureReposLoaded()
   reloadBranches()
 }
 
@@ -376,12 +353,11 @@ async function loadPlatforms() {
   }
 }
 
-async function onPlatformChange() {
+function onPlatformChange() {
   selectedRepo.value = ''
+  selectedRepoInfo.value = null
   selectedPR.value = null
   selectedPRInfo.value = null
-  repoKeyword.value = ''
-  repos.value = []
   pullRequests.value = []
   branches.value = []
   createForm.repo = ''
@@ -389,66 +365,13 @@ async function onPlatformChange() {
   createForm.head_sha = ''
   createForm.base_branch = ''
   createForm.head_branch = ''
-  await loadRepos()
 }
 
-async function ensureReposLoaded() {
-  if (repos.value.length === 0 && !reposLoading.value) await loadRepos()
-}
-
-async function loadRepos() {
-  if (!createForm.provider) return
-  reposLoading.value = true
-  try {
-    const allRepos: PlatformRepo[] = []
-    let page = 1
-    const perPage = 100
-    while (true) {
-      const batch = await getProviderRepos(createForm.provider, page, perPage)
-      if (!batch || batch.length === 0) break
-      allRepos.push(...batch)
-      if (batch.length < perPage) break
-      page++
-    }
-    repos.value = allRepos
-    if (selectedRepo.value && !repos.value.some((repo) => repo.full_name === selectedRepo.value)) {
-      repos.value.unshift({
-        id: 0,
-        full_name: selectedRepo.value,
-        name: selectedRepo.value.split('/').pop() || selectedRepo.value,
-        owner: selectedRepo.value.split('/')[0] || '',
-        description: '',
-        default_branch: '',
-        private: false,
-      })
-    }
-  } catch {
-    repos.value = selectedRepo.value
-      ? [{
-          id: 0,
-          full_name: selectedRepo.value,
-          name: selectedRepo.value.split('/').pop() || selectedRepo.value,
-          owner: selectedRepo.value.split('/')[0] || '',
-          description: '',
-          default_branch: '',
-          private: false,
-        }]
-      : []
-    ElMessage.error('获取仓库列表失败')
-  } finally {
-    reposLoading.value = false
-  }
-}
-
-function searchRepos(query: string) {
-  repoKeyword.value = query
-  ensureReposLoaded()
-}
-
-async function onRepoChange(repoFullName: string) {
+async function onRepoSelect(repoFullName: string, repo?: PlatformRepo) {
   if (!repoFullName) return
   createForm.repo = repoFullName
   selectedRepo.value = repoFullName
+  selectedRepoInfo.value = repo ?? null
   selectedPR.value = null
   selectedPRInfo.value = null
   createForm.base_sha = ''
@@ -495,9 +418,8 @@ async function reloadBranches() {
 }
 
 function applyDefaultBranches() {
-  const repo = repos.value.find((item) => item.full_name === selectedRepo.value)
   const branchNames = branches.value.map((branch) => branch.name)
-  const defaultBranch = repo?.default_branch || branchNames.find((name) => ['main', 'master', 'develop'].includes(name)) || branchNames[0] || ''
+  const defaultBranch = selectedRepoInfo.value?.default_branch || branchNames.find((name) => ['main', 'master', 'develop'].includes(name)) || branchNames[0] || ''
   if (!createForm.base_branch) createForm.base_branch = defaultBranch
   if (!createForm.head_branch) {
     createForm.head_branch = branchNames.find((name) => name !== createForm.base_branch) || ''
@@ -588,12 +510,11 @@ function resetForm() {
   createForm.idempotency_key = ''
   createForm.callback_mode = 'comment'
   selectedRepo.value = ''
-  repoKeyword.value = ''
+  selectedRepoInfo.value = null
   prKeyword.value = ''
   prState.value = 'opened'
   selectedPR.value = null
   selectedPRInfo.value = null
-  repos.value = []
   pullRequests.value = []
   branches.value = []
   requirements.value = ''
@@ -672,12 +593,6 @@ async function handleSubmit() {
   } finally {
     creating.value = false
   }
-}
-
-function splitRepo(fullName: string): { owner: string; repo: string } | null {
-  const parts = fullName.split('/').filter(Boolean)
-  if (parts.length < 2) return null
-  return { owner: parts[0], repo: parts.slice(1).join('/') }
 }
 
 function shortSha(sha?: string): string {

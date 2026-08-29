@@ -22,13 +22,14 @@ func (stubLLMProvider) Available(_ context.Context) bool { return true }
 // 真实 fx 集成测试在 handler/registry_test.go；这里只测纯函数构造。
 func TestNewOCRRegistry_ConstructsSuccessfully(t *testing.T) {
 	cfg := &config.Config{}
-	cfg.OCR.UpgradeInstallDir = "/tmp"
-	cfg.OCR.GitHubRepo = "alibaba/open-code-review"
+	// OCR 升级相关字段（UpgradeInstallDir/GitHubRepo）已迁移到 DB 配置，
+	// 此处仅保留 cfg 以覆盖 config.Config 零值构造路径。
 
 	// 注意：以下对象大多数为 nil，因为我们的目的只是验证 fx 注入路径打通，
 	// 实际能力在 ocr 包单测里覆盖。
 	repos := &repository.RepoContainer{}
 	_ = repos
+	_ = cfg
 
 	// 仅做编译期断言：函数签名与 fx 期望一致
 	var (

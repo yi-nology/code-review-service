@@ -96,17 +96,17 @@ func trimFindingForLLM(f types.Finding) map[string]any {
 		body = body[:500] + "..."
 	}
 	return map[string]any{
-		"id":        f.ID,
-		"severity":  f.Severity,
-		"category":  f.Category,
-		"path":      f.Path,
-		"line":      f.Line,
+		"id":         f.ID,
+		"severity":   f.Severity,
+		"category":   f.Category,
+		"path":       f.Path,
+		"line":       f.Line,
 		"start_line": f.StartLine,
-		"end_line":  f.EndLine,
-		"title":     f.Title,
-		"body":      body,
+		"end_line":   f.EndLine,
+		"title":      f.Title,
+		"body":       body,
 		"suggestion": truncateString(f.Suggestion, 300),
-		"agents":    f.Agents,
+		"agents":     f.Agents,
 	}
 }
 
@@ -222,11 +222,11 @@ func previewChangeFilesHandler(svc app.ReviewService) func(ctx context.Context, 
 			return classifyCreateError(err), nil
 		}
 		return JSONResult(map[string]any{
-			"provider":     domainReq.Provider,
-			"repo":         domainReq.Repo,
-			"head_sha":     domainReq.HeadSHA,
-			"file_count":   len(files),
-			"files":        files,
+			"provider":   domainReq.Provider,
+			"repo":       domainReq.Repo,
+			"head_sha":   domainReq.HeadSHA,
+			"file_count": len(files),
+			"files":      files,
 		})
 	}
 }

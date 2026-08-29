@@ -96,6 +96,7 @@
           row-key="review_id"
           @row-click="goToDetail"
           @selection-change="handleSelectionChange"
+          @sort-change="onSortChange"
         >
           <el-table-column type="selection" width="42" :selectable="() => true" />
           <el-table-column label="仓库" min-width="240">
@@ -139,7 +140,7 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="质量评分" width="130" sortable :sort-method="(a: Review, b: Review) => a.score - b.score">
+          <el-table-column label="质量评分" width="130" sortable="custom" prop="score">
             <template #default="{ row }">
               <div v-if="row.report_generated" class="score-cell">
                 <strong>{{ row.score }}</strong>
@@ -148,12 +149,12 @@
               <span v-else class="muted-value">尚未生成</span>
             </template>
           </el-table-column>
-          <el-table-column label="问题" width="90" align="center" sortable :sort-method="(a: Review, b: Review) => a.findings - b.findings">
+          <el-table-column label="问题" width="90" align="center" sortable="custom" prop="findings">
             <template #default="{ row }">
               <span class="finding-count" :class="{ active: row.findings > 0 }">{{ row.findings }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="最后更新" width="160" sortable prop="updated_at">
+          <el-table-column label="最后更新" width="160" sortable="custom" prop="updated_at">
             <template #default="{ row }">
               <div class="time-cell">
                 <strong>{{ formatDateShort(row.updated_at) }}</strong>
@@ -355,6 +356,8 @@ const {
   resetFilters,
   refresh,
   refreshBackground,
+  applySort,
+  clearSort,
 } = useListPage<Review, { repo: string; provider: string; status: string; gate_status: string }>({
   fetchFn: async (params) => {
     const result = await getReviews(params)
@@ -367,6 +370,15 @@ const {
   },
   pollInterval: 10000,
 })
+
+// 服务端排序：el-table sort-change 的 order 为 ascending/descending/null，null 表示取消排序。
+function onSortChange({ prop, order }: { prop: string | null; order: 'ascending' | 'descending' | null }) {
+  if (!prop || !order) {
+    clearSort()
+    return
+  }
+  applySort(prop, order === 'ascending' ? 'asc' : 'desc')
+}
 
 const stats = computed<ListStats>(() => (extraData.value as { stats?: ListStats }).stats ?? { total: 0, running: 0, gate_failed: 0, findings: 0, total_tokens: 0 })
 

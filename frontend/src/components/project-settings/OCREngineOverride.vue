@@ -56,6 +56,16 @@
       />
     </label>
 
+    <label class="field-block full-width">
+      <span>背景文件路径 (v1.7.6+)</span>
+      <el-input
+        :model-value="form.ocr_background_file"
+        placeholder="可选：仓库内 Markdown 文件路径（如 docs/review-context.md）；留空继承全局"
+        @input="$emit('update:ocrBackgroundFile', $event)"
+      />
+      <small>与「审查背景」叠加（inline 在前，文件内容在后）；路径必须位于仓库工作区内（防穿越）。</small>
+    </label>
+
     <el-collapse class="advanced-collapse">
       <el-collapse-item title="高级覆盖（并发 / 超时 / 模型 / 遥测）" name="advanced">
         <div class="field-grid two-columns">
@@ -88,6 +98,16 @@
             <el-select :model-value="form.ocr_use_anthropic" clearable placeholder="继承全局" @change="$emit('update:ocrUseAnthropic', $event)">
               <el-option label="OpenAI 兼容" :value="false" />
               <el-option label="Anthropic" :value="true" />
+            </el-select>
+          </label>
+
+          <label class="field-block">
+            <span>LLM 协议 (v1.7.10+)</span>
+            <el-select :model-value="form.ocr_protocol" clearable placeholder="继承全局" @change="$emit('update:ocrProtocol', $event)">
+              <el-option label="继承全局" value="" />
+              <el-option label="anthropic" value="anthropic" />
+              <el-option label="openai (Chat Completions)" value="openai" />
+              <el-option label="openai-responses (GPT-5.x / o-series)" value="openai-responses" />
             </el-select>
           </label>
 
@@ -172,11 +192,13 @@ defineEmits<{
   'update:ocrAudience': [value: any]
   'update:ocrLanguage': [value: any]
   'update:ocrBackground': [value: string]
+  'update:ocrBackgroundFile': [value: string]
   'update:ocrConcurrency': [value: number | undefined]
   'update:ocrMaxGitProcs': [value: number | undefined]
   'update:ocrTimeoutMinutes': [value: number | undefined]
   'update:ocrMaxTools': [value: number | undefined]
   'update:ocrUseAnthropic': [value: any]
+  'update:ocrProtocol': [value: any]
   'update:ocrUrl': [value: string]
   'update:ocrModel': [value: string]
   'update:ocrBinary': [value: string]

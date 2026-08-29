@@ -14,9 +14,6 @@ type Config struct {
 	Nacos        nacos.Bootstrap    `yaml:"nacos"`
 	Tracing      tracing.Config     `yaml:"tracing"`
 	Review       ReviewConfig       `yaml:"review"`
-	OCR          OCRConfig          `yaml:"ocr"`
-	Policy       PolicyConfig       `yaml:"policy"`
-	Git          GitConfig          `yaml:"git"`
 	Agents       AgentsConfig       `yaml:"agents"`
 	RateLimit    RateLimitConfig    `yaml:"rate_limit"`
 	Webhook      WebhookConfig      `yaml:"webhook"`
@@ -76,41 +73,10 @@ type CleanupConfig struct {
 	Interval string `yaml:"interval"`
 }
 
-type OCRConfig struct {
-	Enabled         bool   `yaml:"enabled"`
-	Binary          string `yaml:"binary"`
-	Rule            string `yaml:"rule"`
-	Command         string `yaml:"command"`
-	ConfigFile      string `yaml:"config_file"`
-	ContextWindow   int    `yaml:"context_window"`
-	MaxOutputTokens int    `yaml:"max_output_tokens"`
-	// UpgradeInstallDir 是 ocr 在线升级时，当原二进制路径无写权限的回退安装目录。
-	UpgradeInstallDir string `yaml:"upgrade_install_dir"`
-	// GitHubRepo 指定 ocr 二进制的 GitHub 仓库（owner/repo），默认 alibaba/open-code-review。
-	GitHubRepo string `yaml:"github_repo"`
-}
-
 // WebhookConfig 控制 webhook 行为。
 // BotUsername 用于识别「本服务自身 PR 评论」触发的回声事件，避免自循环。
 type WebhookConfig struct {
 	BotUsername string `yaml:"bot_username"`
-}
-
-type PolicyConfig struct {
-	FailOn      string   `yaml:"fail_on"`
-	MaxComments int      `yaml:"max_comments"`
-	SummaryOnly bool     `yaml:"summary_only"`
-	IgnorePaths []string `yaml:"ignore_paths"`
-}
-
-type GitConfig struct {
-	Platforms map[string]GitPlatformConfig `yaml:"platforms"`
-}
-
-type GitPlatformConfig struct {
-	Enabled bool   `yaml:"enabled"`
-	BaseURL string `yaml:"base_url"`
-	Token   string `yaml:"token"`
 }
 
 type AgentsConfig struct {

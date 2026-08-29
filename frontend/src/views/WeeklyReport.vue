@@ -31,19 +31,15 @@
           >
             <el-option v-for="p in providerOptions" :key="p.value" :label="p.label" :value="p.value" />
           </el-select>
-          <el-select
+          <RepoSelect
             v-model="repo"
+            :provider="provider"
+            :immediate="true"
+            secondary-field="none"
             placeholder="搜索仓库（owner/repo）"
             class="repo-select"
-            filterable
-            remote
-            reserve-keyword
-            :loading="reposLoading"
-            :remote-method="searchRepos"
-            @change="handleGenerate"
-          >
-            <el-option v-for="r in repos" :key="r.full_name" :label="r.full_name" :value="r.full_name" />
-          </el-select>
+            @change="() => handleGenerate()"
+          />
           <el-button type="primary" :loading="loading" :disabled="!provider || !repo" @click="handleGenerate">
             <el-icon><Document /></el-icon>生成周报
           </el-button>
@@ -185,20 +181,18 @@ import PageShell from '@/components/common/PageShell.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { getWeeklyReport } from '@/api/report'
 import { getProjects } from '@/api/stats'
-import { getProviderRepos, getGitPlatforms } from '@/api/config'
+import { getGitPlatforms } from '@/api/config'
 import { getProviderLabel } from '@/utils/url-parser'
 import { renderMarkdown } from '@/utils/markdown'
+import RepoSelect from '@/components/common/RepoSelect.vue'
 import type { WeeklyReport, AggregateStats } from '@/types/report'
 import type { ProjectSummary } from '@/types/stats'
-import type { PlatformRepo } from '@/types/config'
 
 interface RecentProject { provider: string; repo: string; ts: number }
 
 const route = useRoute()
 const provider = ref('')
 const repo = ref('')
-const repos = ref<PlatformRepo[]>([])
-const reposLoading = ref(false)
 const loading = ref(false)
 const report = ref<WeeklyReport | null>(null)
 const errorMsg = ref('')
@@ -276,26 +270,11 @@ function initialOf(ct: { author_name?: string; author: string }): string {
 
 function onProviderChange() {
   repo.value = ''
-  repos.value = []
-  if (provider.value) searchRepos('')
-}
-
-async function searchRepos(query: string) {
-  if (!provider.value || reposLoading.value) return
-  reposLoading.value = true
-  try {
-    repos.value = await getProviderRepos(provider.value, 1, query ? 100 : 50)
-  } catch (e: any) {
-    ElMessage.error(e.message || '搜索仓库失败')
-  } finally {
-    reposLoading.value = false
-  }
 }
 
 function pickProject(p: string, r: string) {
   provider.value = p
   repo.value = r
-  if (provider.value) searchRepos('')
   handleGenerate()
 }
 
@@ -369,7 +348,6 @@ onMounted(async () => {
   if (typeof qProvider === 'string' && typeof qRepo === 'string') {
     provider.value = qProvider
     repo.value = qRepo
-    if (provider.value) await searchRepos('')
     handleGenerate()
   }
 })

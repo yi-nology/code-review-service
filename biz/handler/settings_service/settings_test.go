@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/yi-nology/code-review-service/biz/handler/common"
 	"github.com/yi-nology/code-review-service/internal/domain/llmprovider"
 	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
@@ -313,13 +314,13 @@ func TestParseUintID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseUintID(tt.input)
+			got, err := common.ParseUintID(tt.input)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("parseUintID() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("common.ParseUintID() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("parseUintID() = %v, want %v", got, tt.want)
+				t.Errorf("common.ParseUintID() = %v, want %v", got, tt.want)
 			}
 		})
 	}

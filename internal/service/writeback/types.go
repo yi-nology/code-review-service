@@ -21,7 +21,7 @@ const (
 type ChangeRequest struct {
 	Provider   string
 	Repository string
-	Number     int
+	Number     string
 	BaseSHA    string
 	HeadSHA    string
 }

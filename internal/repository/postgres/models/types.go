@@ -10,9 +10,9 @@ type ListOptions struct {
 }
 
 type AggregateStats struct {
-	Running    int   `json:"running"`
-	GateFailed int   `json:"gate_failed"`
-	Findings   int   `json:"findings"`
+	Running    int `json:"running"`
+	GateFailed int `json:"gate_failed"`
+	Findings   int `json:"findings"`
 
 	// Token 用量聚合（仅统计成功评审），让运营能看到 token 花销（#20）。
 	TotalTokens      int64 `json:"total_tokens"`

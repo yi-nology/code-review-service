@@ -1,8 +1,6 @@
 package types
 
 import (
-	"fmt"
-
 	"github.com/oekit/pkg/stringx"
 )
 
@@ -18,18 +16,12 @@ func ContainsAny(text string, keywords ...string) bool {
 	return stringx.ContainsAny(text, keywords...)
 }
 
-// ResolvePRNumber 根据 provider 类型解析 PR/MR 编号。
-func ResolvePRNumber(provider string, pullRequestID, mergeRequestIID string) int {
-	var num int
-	switch provider {
-	case "gitlab":
-		if mergeRequestIID != "" {
-			_, _ = fmt.Sscanf(mergeRequestIID, "%d", &num)
-		}
-	default:
-		if pullRequestID != "" {
-			_, _ = fmt.Sscanf(pullRequestID, "%d", &num)
-		}
+// ResolvePRNumber 根据 provider 类型解析 PR/MR 编号，统一返回 string；
+// 返回空串表示无法确定编号。GitLab 家族用 IID（mergeRequestIID），
+// 其余平台用 PR 编号（pullRequestID）。
+func ResolvePRNumber(provider string, pullRequestID, mergeRequestIID string) string {
+	if provider == "gitlab" {
+		return mergeRequestIID
 	}
-	return num
+	return pullRequestID
 }

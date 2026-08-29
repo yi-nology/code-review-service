@@ -22,6 +22,10 @@ func TestTester_TestLLM(t *testing.T) {
 }
 
 func TestVersioner_OCRVersion(t *testing.T) {
+	// 该用例真实执行 ocr --version，本机未安装 ocr 时跳过而非失败。
+	if _, err := exec.LookPath("ocr"); err != nil {
+		t.Skip("ocr binary not found in PATH, skipping")
+	}
 	resolver := NewConfigResolver(NewSettingsSnapshot(&SettingsData{Binary: "ocr"}), Defaults(), nil)
 	v := NewVersioner(NewSettingsSnapshot(&SettingsData{Binary: "ocr"}), resolver)
 	got, err := v.OCRVersion(context.Background())

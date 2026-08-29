@@ -106,7 +106,7 @@ func JSONResult(data any) (*mcp.CallToolResult, error) {
 			"序列化 tool 结果失败: %v", err), nil
 	}
 	return &mcp.CallToolResult{
-		Content: []mcp.Content{mcp.NewTextContent(string(raw))},
+		Content:           []mcp.Content{mcp.NewTextContent(string(raw))},
 		StructuredContent: data,
 	}, nil
 }

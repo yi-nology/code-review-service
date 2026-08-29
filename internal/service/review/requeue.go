@@ -36,12 +36,19 @@ func (s *Service) Requeue(ctx context.Context, reviewID string) (domain.Response
 		}
 
 		resp := review.Response
+		// 保留 OCR session_id（OCR v1.7.6+ resume 支持）：
+		// retry 时 executor 会读 response.report.ocr.session_id 传 --resume 复用 checkpoint。
+		// 其它 Report 字段（findings/tool_calls 等）清空，避免展示陈旧结果。
+		resumeSessionID := resp.Report.OCR.SessionID
 		resp.Status = StatusQueued
 		resp.Summary = "review re-queued"
 		resp.Gate = domain.PendingGate()
 		resp.Error = ""
 		resp.Findings = nil
 		resp.Report = domain.Report{}
+		if resumeSessionID != "" {
+			resp.Report.OCR.SessionID = resumeSessionID
+		}
 		resp.Analysis = domain.Analysis{}
 		resp.History = append(resp.History, domain.Event{
 			Stage:     stageQueued,

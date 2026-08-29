@@ -64,7 +64,7 @@ func UpdateCustomProvider(ctx context.Context, c *app.RequestContext) {
 	if !ok {
 		return
 	}
-	existing, err := handlerInst.customProvider.GetByID(ctx, safeUint(req.ID))
+	existing, err := handlerInst.customProvider.GetByID(ctx, common.SafeUint(req.ID))
 	if err != nil || existing == nil {
 		common.Fail(c, common.BadRequest("Provider 不存在"))
 		return
@@ -105,7 +105,7 @@ func DeleteCustomProvider(ctx context.Context, c *app.RequestContext) {
 	if !ok {
 		return
 	}
-	if err := handlerInst.customProvider.Delete(ctx, safeUint(req.ID)); err != nil {
+	if err := handlerInst.customProvider.Delete(ctx, common.SafeUint(req.ID)); err != nil {
 		common.Fail(c, err)
 		return
 	}
@@ -117,7 +117,7 @@ func dbCustomProviderToAPI(p *llmprovider.Custom) *modelSettings.CustomProvider 
 		return nil
 	}
 	result := &modelSettings.CustomProvider{
-		ID: safeInt64(p.ID), Name: p.Name, Protocol: p.Protocol, Enabled: p.Enabled,
+		ID: common.SafeInt64(p.ID), Name: p.Name, Protocol: p.Protocol, Enabled: p.Enabled,
 	}
 	if p.URL != "" {
 		result.URL = common.StrPtr(p.URL)

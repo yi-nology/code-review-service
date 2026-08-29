@@ -9,6 +9,12 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
+// DefaultMaxDiffBytes 是单次评审 diff 的默认字节上限（5 MiB）。
+// 装配层未从 DB 读到有效值时用此兜底。
+// 注意：repository/postgres/models.OCRSettings 的 gorm default tag（5242880）
+// 是同一值的字面量镜像（model 包不能反向依赖 service 层），改动时需同步。
+const DefaultMaxDiffBytes int64 = 5 * 1024 * 1024
+
 type GitProviderProviders struct {
 	svc          *GitProviderService
 	maxDiffBytes int64
@@ -41,23 +47,24 @@ func (a *gitProviderAdapter) Prepare(ctx context.Context, req domain.Request) (d
 	var prNumber int
 	var targetBranch, sourceBranch, headSHAFromAPI, baseSHAFromAPI string
 	hasPR := req.PullRequestID != "" || req.MergeRequestIID != ""
+	number := req.PullRequestID
+	if number == "" {
+		number = req.MergeRequestIID
+	}
 
 	if hasPR {
-		if req.PullRequestID != "" {
-			prNumber, err = strconv.Atoi(req.PullRequestID)
-		} else {
-			prNumber, err = strconv.Atoi(req.MergeRequestIID)
-		}
+		var err error
+		prNumber, err = strconv.Atoi(number)
 		if err != nil || prNumber <= 0 {
-			return domain.Workspace{}, fmt.Errorf("invalid PR/MR number: %w", err)
+			return domain.Workspace{}, fmt.Errorf("invalid PR/MR number %q", number)
 		}
 
-		diff, err = a.svc.GetCRDiffString(ctx, a.platform, owner, repoName, prNumber)
+		diff, err = a.svc.GetCRDiffString(ctx, a.platform, owner, repoName, number)
 		if err != nil {
 			return domain.Workspace{}, fmt.Errorf("get diff via API: %w", err)
 		}
 
-		cr, crErr := a.svc.GetCR(ctx, a.platform, owner, repoName, prNumber)
+		cr, crErr := a.svc.GetCR(ctx, a.platform, owner, repoName, number)
 		if crErr == nil && cr != nil {
 			targetBranch = cr.TargetBranch
 			sourceBranch = cr.SourceBranch

@@ -29,54 +29,8 @@ review:
     max_age: "24h"
     interval: "1h"
 
-# OCR 配置
-ocr:
-  enabled: true
-  binary: "/usr/local/bin/ocr"
-  rule: ""
-  command: ""
-  llm:
-    url: "https://token-plan-cn.xiaomimimo.com/v1"
-    token: "***REMOVED***"
-    model: "mimo-v2.5-pro"
-
-# 策略配置
-policy:
-  fail_on: "critical"
-  max_comments: 20
-  summary_only: false
-  ignore_paths:
-    - "vendor/**"
-    - "dist/**"
-    - "*.pb.go"
-
-# Git 平台配置
-git:
-  platforms:
-    github:
-      enabled: true
-      base_url: "https://api.github.com"
-      token: "${GITHUB_TOKEN:}"
-    gitlab:
-      enabled: true
-      base_url: "https://gitlab.com/api/v4"
-      token: "${GITLAB_TOKEN:}"
-    gitea:
-      enabled: true
-      base_url: "${GITEA_BASE_URL:}"
-      token: "${GITEA_TOKEN:}"
-    gitcode:
-      enabled: false
-      base_url: "https://api.gitcode.com/api/v5"
-      token: "${GITCODE_TOKEN:}"
-    gitee:
-      enabled: false
-      base_url: "https://gitee.com/api/v5"
-      token: "${GITEE_TOKEN:}"
-    tencent_code:
-      enabled: false
-      base_url: "https://git.code.tencent.com/api/v3"
-      token: "${TENCENT_CODE_TOKEN:}"
+# OCR、策略、Git 平台等业务配置已迁移到数据库，通过 Web 控制台管理。
+# YAML 仅保留基础设施与部署调优相关的变量。
 
 # Nacos 配置中心（可选）
 nacos:

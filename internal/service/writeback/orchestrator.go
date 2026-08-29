@@ -59,7 +59,7 @@ func (o *Orchestrator) PublishWithOptions(ctx context.Context, req domain.Reques
 	}
 
 	number := types.ResolvePRNumber(req.Provider, req.PullRequestID, req.MergeRequestIID)
-	if number == 0 {
+	if number == "" {
 		return nil, fmt.Errorf("cannot determine PR/MR number for writeback")
 	}
 

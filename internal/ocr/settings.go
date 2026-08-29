@@ -36,14 +36,18 @@ type SettingsData struct {
 	AuthHeader   string
 	ExtraHeaders string
 	UseAnthropic bool
+	// Protocol 是 LLM 协议（anthropic / openai / openai-responses）。
+	// 留空时由 UseAnthropic 推断（兼容旧部署）；非空时透传给 OCR 的 OCR_LLM_PROTOCOL env。
+	Protocol string
 
-	ExtraBody   string
-	Language    string
-	Background  string
-	MaxTools    int
-	ToolsPath   string
-	ToolsConfig string
-	McpServers  string
+	ExtraBody      string
+	Language       string
+	Background     string
+	BackgroundFile string // --background-file 的 Markdown 路径（OCR v1.7.6+），与 Background 叠加
+	MaxTools       int
+	ToolsPath      string
+	ToolsConfig    string
+	McpServers     string
 
 	Provider        string
 	ReasoningMode   string

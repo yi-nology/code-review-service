@@ -12,6 +12,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/oekit/concurrency/async"
+	"github.com/oekit/logx"
 )
 
 // Preview 实现 domain.PreviewRunner（吸收 runner/preview.go）。
@@ -127,6 +128,29 @@ func (r *Runner) Scan(ctx context.Context, workspace domain.Workspace, req domai
 	}
 	if strings.TrimSpace(bg) != "" {
 		args = append(args, "--background", bg)
+	}
+	// 将语言要求注入 background，确保 LLM 用指定语言输出。
+	lang := cfg.Language
+	if lang == "" {
+		lang = "中文"
+	}
+	langPrompt := languagePrompt(lang)
+	background := strings.TrimSpace(bg)
+	if langPrompt != "" {
+		if background != "" {
+			background = background + "\n\n" + langPrompt
+		} else {
+			background = langPrompt
+		}
+	}
+	if background != "" {
+		args = append(args, "--background", background)
+	}
+	// OCR v1.7.6+ --background-file：同 runner.go 的处理，路径必须落在 workspace.Dir 内。
+	if bgFile, ok := safeBackgroundFile(workspace.Dir, cfg.BackgroundFile); ok {
+		args = append(args, "--background-file", bgFile)
+	} else if strings.TrimSpace(cfg.BackgroundFile) != "" {
+		logx.Warnf("[ocr] background_file %q 不在工作区 %q 内或不存在，已忽略", cfg.BackgroundFile, workspace.Dir)
 	}
 	toolsArgs, cleanupTools, err := appendToolsArgs(args, cfg)
 	if err != nil {

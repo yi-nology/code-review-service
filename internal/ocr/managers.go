@@ -15,7 +15,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
-	"github.com/google/go-github/v69/github"
+	"github.com/google/go-github/v72/github"
 )
 
 // Versioner 实现 domain.OCRVersioner（吸收 ocr/versioner.go）。

@@ -73,10 +73,10 @@ func GenerateWeeklyReport(ctx context.Context, c *app.RequestContext) {
 
 	report := buildWeeklyMarkdown(provider, repo, agg, contributors, weekAgo, now)
 	common.Success(c, map[string]any{
-		"format":      "markdown",
-		"report":      report,
-		"period":      fmt.Sprintf("%s ~ %s", weekAgo.Format("2006-01-02"), now.Format("2006-01-02")),
-		"stats":       agg,
+		"format":       "markdown",
+		"report":       report,
+		"period":       fmt.Sprintf("%s ~ %s", weekAgo.Format("2006-01-02"), now.Format("2006-01-02")),
+		"stats":        agg,
 		"contributors": contributors,
 	})
 }

@@ -2,7 +2,6 @@ package cost_service
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
@@ -63,7 +62,7 @@ func DeletePricing(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
+	id, err := common.ParseUintID(idStr)
 	if err != nil {
 		common.Fail(c, common.BadRequest("invalid pricing id"))
 		return

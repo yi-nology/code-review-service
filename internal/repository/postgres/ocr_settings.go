@@ -115,7 +115,7 @@ func (r *OCRSettingsRepo) defaultSettings() *ocrsettings.Settings {
 		Binary:          binary,
 		Audience:        "agent",
 		DefaultSeverity: "major",
-		Language:        "Chinese",
+		Language:        "中文",
 		Concurrency:     2,
 		MaxGitProcs:     4,
 		TimeoutMinutes:  10,

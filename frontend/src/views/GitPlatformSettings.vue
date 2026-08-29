@@ -225,7 +225,11 @@ const platformStats = computed(() => [
   { icon: CircleCloseFilled, label: '未启用', value: disabledCount.value, tone: 'danger' as const },
   { icon: EditPen, label: '当前编辑', value: editing.value ? getProviderLabel(form.provider) : '新平台', tone: 'info' as const },
 ])
-const canTest = computed(() => Boolean(form.provider && form.base_url && form.token))
+const canTest = computed(() => {
+  if (!form.provider || !form.base_url) return false
+  if (form.token) return true
+  return editing.value && !!selectedPlatform.value?.token
+})
 const baseUrlPlaceholder = computed(() => providerDefaults[form.provider]?.baseUrl || 'https://git.example.com')
 const providerHint = computed(() => providerDefaults[form.provider]?.hint || '填写平台 API 或站点地址。')
 const selectedPlatform = computed(() => platforms.value.find((p) => platformKey(p) === platformKey(form)))
@@ -279,13 +283,19 @@ async function handleTest() {
     return
   }
 
+  const token = form.token || selectedPlatform.value?.token || ''
+  if (!token) {
+    ElMessage.warning('请填写 Token')
+    return
+  }
+
   testing.value = true
   testResult.value = null
   try {
     const result = await testGitPlatform({
       provider: form.provider,
       base_url: form.base_url,
-      token: form.token,
+      token,
       skip_tls: form.skip_tls,
     })
     testResult.value = result

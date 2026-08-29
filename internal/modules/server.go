@@ -132,6 +132,7 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *ocrcore.Metrics, o
 
 	router.GeneratedRegister(h)
 	registerReviewExtraRoutes(h, repos)
+	registerDelegateRoutes(h)
 	registerSettingsExtraRoutes(h)
 	registerDiagnosticsRoutes(h)
 	registerFeedbackRoutes(h)
@@ -177,6 +178,18 @@ func registerReviewExtraRoutes(h *server.Hertz, repos *repository.RepoContainer)
 		}
 		common.Success(c, map[string]any{"ok": true, "review_id": reviewID})
 	})
+}
+
+// registerDelegateRoutes 注册 OCR v1.7.11+ delegate 子命令的 HTTP 端点（host-agent 范式）。
+//
+// 不走 thrift IDL：delegate 是可选能力，作为手写路由暴露避免大规模 generated 代码手改。
+// - POST /api/v1/delegate/preview：返回将参与评审的文件列表 + mode/from/to/merge_base/total_*/Files
+// - POST /api/v1/delegate/rule：返回按内容分组的解析规则 markdown
+//
+// 端点需要 REVIEW_TOKEN 鉴权（与其它 /api/v1/* 端点一致，由全局 auth middleware 强制）。
+func registerDelegateRoutes(h *server.Hertz) {
+	h.POST("/api/v1/delegate/preview", reviewHandler.DelegatePreviewHandler)
+	h.POST("/api/v1/delegate/rule", reviewHandler.DelegateRuleHandler)
 }
 
 func registerSettingsExtraRoutes(h *server.Hertz) {

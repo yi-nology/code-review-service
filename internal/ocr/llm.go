@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/httpx"
 	"github.com/yi-nology/code-review-service/internal/observability/redact"
 
 	"github.com/oekit/logx"
@@ -243,32 +243,21 @@ func (p *LLMProvider) completeAnthropic(ctx context.Context, s *SettingsData, re
 // doHTTP 执行 LLM HTTP 请求。
 //
 // 行为：
-//   - 5xx / 429：最多重试 1 次，指数退避 1s + jitter
+//   - 5xx / 429：最多重试 1 次，退避 1s + 0~250ms jitter (httpx.RetryConfig 默认)
 //   - 4xx：不重试
+//   - 传输层错误若匹配 isPermanentMessage (DNS 解析失败 / 连接被拒等) 立即返回
 //   - 错误消息 redact 脱敏
 func (p *LLMProvider) doHTTP(httpReq *http.Request, parse func([]byte) (LLMResponse, error)) (LLMResponse, error) {
-	const maxAttempts = 2
-	var lastResp LLMResponse
-	var lastErr error
-
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		if attempt > 0 {
-			backoff := time.Second + time.Duration(rand.Intn(250))*time.Millisecond
-			select {
-			case <-httpReq.Context().Done():
-				return LLMResponse{}, httpReq.Context().Err()
-			case <-time.After(backoff):
-			}
-		}
-
+	var result LLMResponse
+	err := httpx.DoWithRetry(httpReq.Context(), httpx.RetryConfig{}, func(_ context.Context) (bool, error) {
 		resp, err := p.client.Do(httpReq)
 		if err != nil {
-			lastErr = fmt.Errorf("llm http call failed: %w", err)
+			wrapped := fmt.Errorf("llm http call failed: %w", err)
 			// DNS 解析失败 / 连接被拒这类传输层错误不可恢复，重试只会双倍超时。
 			if isPermanentMessage(err.Error()) {
-				return LLMResponse{}, lastErr
+				return false, wrapped
 			}
-			continue
+			return true, wrapped
 		}
 
 		raw, readErr := func() (raw []byte, readErr error) {
@@ -277,10 +266,8 @@ func (p *LLMProvider) doHTTP(httpReq *http.Request, parse func([]byte) (LLMRespo
 			defer func() { _ = resp.Body.Close() }()
 			return io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 		}()
-
 		if readErr != nil {
-			lastErr = fmt.Errorf("llm response read failed: %w", readErr)
-			continue
+			return true, fmt.Errorf("llm response read failed: %w", readErr)
 		}
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -289,17 +276,22 @@ func (p *LLMProvider) doHTTP(httpReq *http.Request, parse func([]byte) (LLMRespo
 				snippet = snippet[:500]
 			}
 			retryable := resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests
-			lastErr = fmt.Errorf("llm http %d: %s", resp.StatusCode, redact.String(snippet))
+			wrapped := fmt.Errorf("llm http %d: %s", resp.StatusCode, redact.String(snippet))
 			if !retryable {
-				return LLMResponse{}, lastErr
+				return false, wrapped
 			}
-			logx.Warnf("llm http %d (attempt %d/%d), retrying: %s", resp.StatusCode, attempt+1, maxAttempts, lastErr)
-			continue
+			logx.Warnf("llm http %d, retrying: %s", resp.StatusCode, wrapped)
+			return true, wrapped
 		}
 
-		return parse(raw)
-	}
-	return lastResp, lastErr
+		parsed, parseErr := parse(raw)
+		if parseErr != nil {
+			return false, parseErr
+		}
+		result = parsed
+		return false, nil
+	})
+	return result, err
 }
 
 // ensureChatCompletionsPath 兼容两种配置约定。

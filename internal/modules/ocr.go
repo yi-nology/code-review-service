@@ -3,7 +3,6 @@ package modules
 import (
 	"context"
 
-	"github.com/yi-nology/code-review-service/internal/config"
 	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 
@@ -35,7 +34,6 @@ var OCRModule = fx.Options(
 
 // NewOCRRegistry 构造 *ocrcore.Registry 单一入口。
 func NewOCRRegistry(
-	cfg *config.Config,
 	repos *repository.RepoContainer,
 	llmProvider *ocrcore.MetricsProvider,
 	ocrRunner *ocrcore.Runner,
@@ -46,12 +44,7 @@ func NewOCRRegistry(
 	// 而非使用启动时的固定 fallback config。
 	ocrRunner.WithResolver(resolver)
 
-	fallbackConfig := ocrcore.Config{
-		Binary:          cfg.OCR.Binary,
-		Audience:        "agent",
-		RulePath:        cfg.OCR.Rule,
-		DefaultSeverity: "major",
-	}
+	fallbackConfig := ocrcore.Defaults().ToConfig()
 	return ocrcore.New(
 		repos,
 		fallbackConfig,
@@ -61,7 +54,7 @@ func NewOCRRegistry(
 		NewOCRRulesChecker(repos, resolver),
 		versioner,
 		NewOCRViewerManager(repos, resolver),
-		NewOCRUpgrader(repos, resolver, versioner, cfg),
+		NewOCRUpgrader(repos, resolver, versioner),
 		llmProvider,
 	).WithRunner(ocrRunner, ocrRunner, ocrRunner)
 }
@@ -151,13 +144,13 @@ func NewOCRViewerManager(repos *repository.RepoContainer, resolver *ocrcore.Conf
 	return ocrcore.NewViewer(ocrcore.NewSettingsAdapter(repos.OCRSettings), resolver)
 }
 
-func NewOCRUpgrader(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver, versioner *ocrcore.Versioner, cfg *config.Config) *ocrcore.Upgrader {
+func NewOCRUpgrader(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver, versioner *ocrcore.Versioner) *ocrcore.Upgrader {
 	return ocrcore.NewUpgrader(
 		ocrcore.NewSettingsAdapter(repos.OCRSettings),
 		resolver,
 		versioner,
-		cfg.OCR.UpgradeInstallDir,
-		cfg.OCR.GitHubRepo,
+		"", // UpgradeInstallDir: 从 DB 或默认值获取
+		"", // GitHubRepo: 从 DB 或默认值获取
 	)
 }
 

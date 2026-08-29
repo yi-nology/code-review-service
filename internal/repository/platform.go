@@ -14,12 +14,11 @@ type GitPlatformRepository interface {
 	Save(ctx context.Context, p *platform.Platform) error
 	Delete(ctx context.Context, provider, installationID string) error
 	ListEnabled(ctx context.Context) ([]platform.Platform, error)
-	GetByProviderAndInstallation(ctx context.Context, provider, installationID string) (*platform.Platform, error)
 }
 
 // ChangeRevisionRepository 已迁移为 domain 类型（#6）。
 type ChangeRevisionRepository interface {
 	Upsert(ctx context.Context, cr *revision.Change) error
-	GetByChange(ctx context.Context, provider, installationID, repositoryID string, changeNumber int) (*revision.Change, error)
-	GetCurrentHeadSHA(ctx context.Context, provider, installationID, repositoryID string, changeNumber int) (string, error)
+	GetByChange(ctx context.Context, provider, installationID, repositoryID string, changeNumber string) (*revision.Change, error)
+	GetCurrentHeadSHA(ctx context.Context, provider, installationID, repositoryID string, changeNumber string) (string, error)
 }
