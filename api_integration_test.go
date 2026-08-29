@@ -249,14 +249,14 @@ func testOCRSettings(t *testing.T) {
 
 	var data struct {
 		Settings struct {
-			Enabled          bool   `json:"enabled"`
-			Binary           string `json:"binary"`
-			URL              string `json:"url"`
-			Model            string `json:"model"`
-			Language         string `json:"language"`
-			TimeoutMinutes   int    `json:"timeout_minutes"`
-			Concurrency      int    `json:"concurrency"`
-			DefaultSeverity  string `json:"default_severity"`
+			Enabled         bool   `json:"enabled"`
+			Binary          string `json:"binary"`
+			URL             string `json:"url"`
+			Model           string `json:"model"`
+			Language        string `json:"language"`
+			TimeoutMinutes  int    `json:"timeout_minutes"`
+			Concurrency     int    `json:"concurrency"`
+			DefaultSeverity string `json:"default_severity"`
 		} `json:"settings"`
 	}
 	extractData(t, api, &data)

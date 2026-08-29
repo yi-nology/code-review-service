@@ -2,11 +2,12 @@ package notification_service
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	"github.com/yi-nology/code-review-service/internal/domain/notification"
 	"github.com/yi-nology/code-review-service/internal/repository"
+
+	"github.com/oekit/pkg/convert"
 
 	"github.com/cloudwego/hertz/pkg/app"
 )
@@ -35,10 +36,10 @@ func (h *Handler) list(ctx context.Context, c *app.RequestContext) {
 			opts.OnlyUnread = true
 		}
 	}
-	if limit, err := strconv.Atoi(string(c.QueryArgs().Peek("limit"))); err == nil && limit > 0 {
+	if limit := convert.Str2Int(string(c.QueryArgs().Peek("limit")), 0); limit > 0 {
 		opts.Limit = limit
 	}
-	if offset, err := strconv.Atoi(string(c.QueryArgs().Peek("offset"))); err == nil && offset >= 0 {
+	if offset := convert.Str2Int(string(c.QueryArgs().Peek("offset")), 0); offset >= 0 {
 		opts.Offset = offset
 	}
 	items, total, err := h.repo.List(ctx, opts)
@@ -68,7 +69,7 @@ func (h *Handler) markRead(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
+	id, err := common.ParseUintID(idStr)
 	if err != nil {
 		common.Fail(c, common.BadRequest("invalid notification id"))
 		return

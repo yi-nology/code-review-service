@@ -34,6 +34,6 @@ type GitProviderManager interface {
 	ListBranches(ctx context.Context, platform, owner, repo string) ([]*provider.PlatformBranch, error)
 	ListCRs(ctx context.Context, platform string, opts provider.ListCROptions) ([]*provider.ChangeRequest, int, error)
 	CreateCR(ctx context.Context, platform string, opts provider.CreateCROptions) (*provider.ChangeRequest, error)
-	GetCR(ctx context.Context, platform, owner, repo string, number int) (*provider.ChangeRequest, error)
+	GetCR(ctx context.Context, platform, owner, repo, number string) (*provider.ChangeRequest, error)
 	GetBranchSHA(ctx context.Context, platform, owner, repo, branch string) (string, error)
 }

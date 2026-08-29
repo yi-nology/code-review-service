@@ -138,7 +138,7 @@ func (r *Runner) runDelegateCmd(ctx context.Context, binary string, args []strin
 //	  - `path/file.go` [modified] +2/-0
 //
 // mode/from/to/merge_base/total_* 通过 `- key: value` 行解析；
-// 文件路径通过反引号包裹的路径行提取（`` `path` [status] +N/-M ``）。
+// 文件路径通过反引号包裹的路径行提取（“ `path` [status] +N/-M “）。
 // 解析失败的行不阻断——返回已提取的部分 + 原始 RawOutput。
 func parseDelegatePreview(raw, from, to string) *domain.DelegatePreviewResult {
 	out := &domain.DelegatePreviewResult{
@@ -181,7 +181,7 @@ func parseDelegatePreview(raw, from, to string) *domain.DelegatePreviewResult {
 	return out
 }
 
-// delegateFileRe 匹配 delegate preview 输出里的 `` `path` [status] `` 行。
+// delegateFileRe 匹配 delegate preview 输出里的 “ `path` [status] “ 行。
 // 反引号包裹的路径在前，方括号状态在后；路径可含空格 / unicode。
 // 允许前导空白（OCR 输出在元数据块下方缩进 2 空格）。
 var delegateFileRe = regexp.MustCompile(`^\s*-\s+` + "`" + `([^` + "`" + `]+)` + "`" + `(?:\s+\[([^\]]+)\])?`)

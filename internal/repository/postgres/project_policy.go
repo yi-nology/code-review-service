@@ -41,10 +41,7 @@ func (r *ProjectPolicyRepo) GetByProviderRepo(ctx context.Context, provider, rep
 		Where("provider = ? AND repo = ?", provider, repo).
 		First(&m).Error
 	if err != nil {
-		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, repoerr.ErrNotFound
-		}
-		return nil, err
+		return nil, wrapNotFound(err)
 	}
 	d := projectPolicyToDomain(m)
 	return &d, nil

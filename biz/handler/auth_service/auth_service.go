@@ -5,11 +5,12 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"strconv"
 	"strings"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	"github.com/yi-nology/code-review-service/internal/domain/auth"
+
+	"github.com/oekit/pkg/convert"
 
 	"github.com/cloudwego/hertz/pkg/app"
 )
@@ -105,7 +106,7 @@ func DeleteToken(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
+	id, err := common.ParseUintID(idStr)
 	if err != nil {
 		common.Fail(c, common.BadRequest("invalid token id"))
 		return
@@ -122,8 +123,8 @@ func ListAudit(ctx context.Context, c *app.RequestContext) {
 		common.Fail(c, common.BizErr(500, "auth handler not initialized"))
 		return
 	}
-	limit, _ := strconv.Atoi(string(c.QueryArgs().Peek("limit")))
-	offset, _ := strconv.Atoi(string(c.QueryArgs().Peek("offset")))
+	limit := convert.Str2Int(string(c.QueryArgs().Peek("limit")), 0)
+	offset := convert.Str2Int(string(c.QueryArgs().Peek("offset")), 0)
 	entries, total, err := handlerInst.repo.ListAudit(ctx, limit, offset)
 	if err != nil {
 		common.Fail(c, err)

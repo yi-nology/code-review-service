@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/app"
@@ -64,10 +65,10 @@ func listProviderReposHandler(git app.GitProviderManager) func(ctx context.Conte
 			return classifyPlatformError(err), nil
 		}
 		return JSONResult(map[string]any{
-			"provider":  provider,
-			"page":      page,
-			"per_page":  perPage,
-			"repos":     repos,
+			"provider": provider,
+			"page":     page,
+			"per_page": perPage,
+			"repos":    repos,
 		})
 	}
 }
@@ -198,7 +199,7 @@ func getPullRequestHandler(git app.GitProviderManager) func(ctx context.Context,
 		if !ok || numF <= 0 {
 			return NewToolErrorf(ErrCategoryInvalidParam, "missing_number", "传 number (PR/MR 数字编号)", "missing or invalid number"), nil
 		}
-		number := int(numF)
+		number := strconv.FormatInt(int64(numF), 10)
 
 		cr, err := git.GetCR(ctx, normalizeProvider(provider), owner, repo, number)
 		if err != nil {

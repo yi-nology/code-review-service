@@ -406,7 +406,7 @@ func ListProviderPulls(ctx context.Context, c *app.RequestContext) {
 
 	items := slicex.Map(crs, func(cr *provider_sdk.ChangeRequest) *modelPlatform.PullItem {
 		item := &modelPlatform.PullItem{
-			Number: int64(cr.Number), Title: cr.Title, State: string(cr.State),
+			Number: convert.Str2Int64(cr.Number, 0), Title: cr.Title, State: string(cr.State),
 			SourceBranch: cr.SourceBranch, TargetBranch: cr.TargetBranch,
 			HeadSha: common.StrPtr(cr.HeadSHA), BaseSha: common.StrPtr(cr.BaseSHA),
 			WebURL: common.StrPtr(cr.WebURL), CreatedAt: common.StrPtr(common.FormatTime(cr.CreatedAt)), UpdatedAt: common.StrPtr(common.FormatTime(cr.UpdatedAt)),
@@ -463,20 +463,16 @@ func fillAuthorInfo(ctx context.Context, req *domain.Request) {
 		return
 	}
 	prID := stringx.TakeOne(req.PullRequestID, req.MergeRequestIID)
-	if prID == "" {
-		return
-	}
-	number := convert.Str2Int(prID, 0)
-	if number <= 0 || handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
+	if prID == "" || handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
 		return
 	}
 	owner, repo, err := provider.ParseRepoPath(req.Repo)
 	if err != nil {
 		return
 	}
-	cr, err := handlerInst.gitMgr.GetCR(ctx, req.Provider, owner, repo, number)
+	cr, err := handlerInst.gitMgr.GetCR(ctx, req.Provider, owner, repo, prID)
 	if err != nil {
-		logx.CtxWarnf(ctx, "fillAuthorInfo: failed to get CR for %s/%s #%d: %v", owner, repo, number, err)
+		logx.CtxWarnf(ctx, "fillAuthorInfo: failed to get CR for %s/%s #%s: %v", owner, repo, prID, err)
 		return
 	}
 	if cr == nil || cr.Author == nil {
@@ -537,8 +533,8 @@ func convertDetail(r domain.Record) modelReview.ReviewDetail {
 		Error: common.StrPtr(r.Response.Error), Author: common.StrPtr(r.Request.Author),
 		AuthorName: common.StrPtr(r.Request.AuthorName), AuthorAvatar: common.StrPtr(r.Request.AuthorAvatar),
 		RetryCount: ptrx.Of(int64(r.RetryCount)),
-		CreatedAt: common.StrPtr(common.FormatTime(r.CreatedAt)),
-		UpdatedAt: common.StrPtr(common.FormatTime(r.UpdatedAt)),
+		CreatedAt:  common.StrPtr(common.FormatTime(r.CreatedAt)),
+		UpdatedAt:  common.StrPtr(common.FormatTime(r.UpdatedAt)),
 	}
 }
 

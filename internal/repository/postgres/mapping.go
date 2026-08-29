@@ -3,6 +3,7 @@ package postgres
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/yi-nology/code-review-service/internal/domain/feedback"
 	"github.com/yi-nology/code-review-service/internal/domain/llmprovider"
@@ -124,13 +125,23 @@ func platformToDomain(m models.GitPlatform) platform.Platform {
 
 // ---- revision ----
 
+// changeNumberToInt 把 string 编号转为 DB int 列值（change_number 列保持 int）。
+// 非数字编号按 0 处理，仅影响存量行匹配，不影响新写入。
+func changeNumberToInt(s string) int {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
 func revisionToModel(c *revision.Change) models.ChangeRevision {
 	return models.ChangeRevision{
 		Provider:       c.Provider,
 		InstallationID: c.InstallationID,
 		RepositoryID:   c.RepositoryID,
 		Repository:     c.Repository,
-		ChangeNumber:   c.ChangeNumber,
+		ChangeNumber:   changeNumberToInt(c.ChangeNumber),
 		BaseSHA:        c.BaseSHA,
 		StartSHA:       c.StartSHA,
 		HeadSHA:        c.HeadSHA,
@@ -144,7 +155,7 @@ func revisionToDomain(m models.ChangeRevision) revision.Change {
 		InstallationID: m.InstallationID,
 		RepositoryID:   m.RepositoryID,
 		Repository:     m.Repository,
-		ChangeNumber:   m.ChangeNumber,
+		ChangeNumber:   strconv.Itoa(m.ChangeNumber),
 		BaseSHA:        m.BaseSHA,
 		StartSHA:       m.StartSHA,
 		HeadSHA:        m.HeadSHA,

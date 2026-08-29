@@ -33,7 +33,7 @@ func NewEngine(cfg Config) *Engine {
 func (e *Engine) Evaluate(findings []Finding) Decision {
 	threshold := types.SeverityRank(e.cfg.FailOn)
 	if threshold == 0 {
-		threshold = types.SeverityRank("critical")
+		threshold = types.SeverityRank(DefaultFailOn)
 	}
 
 	for _, finding := range findings {

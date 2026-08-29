@@ -39,7 +39,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
+
 	"syscall"
 	"time"
 
@@ -51,6 +51,7 @@ import (
 
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
+	"github.com/oekit/pkg/convert"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 
@@ -78,10 +79,8 @@ func main() {
 	flag.Parse()
 
 	// MCP_PORT env 覆盖 --port。
-	if p := os.Getenv("MCP_PORT"); p != "" {
-		if v, err := strconv.Atoi(p); err == nil && v > 0 {
-			*portFlag = v
-		}
+	if v := convert.Str2Int(os.Getenv("MCP_PORT"), 0); v > 0 {
+		*portFlag = v
 	}
 
 	config.SetCurrentEnv(*env)

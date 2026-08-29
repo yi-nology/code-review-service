@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres"
 
 	gormDB "gorm.io/gorm"
@@ -27,10 +26,10 @@ type RepoContainer struct {
 	Auth             AuthRepository
 }
 
-func NewRepoContainer(db *gormDB.DB, cfg *config.Config) *RepoContainer {
+func NewRepoContainer(db *gormDB.DB) *RepoContainer {
 	return &RepoContainer{
 		Review:           postgres.NewReviewRepo(db),
-		OCRSettings:      postgres.NewOCRSettingsRepo(db, defaultOCRSettings(cfg)),
+		OCRSettings:      postgres.NewOCRSettingsRepo(db),
 		ProjectPolicy:    postgres.NewProjectPolicyRepo(db),
 		GitPlatform:      postgres.NewGitPlatformRepo(db),
 		WebhookDelivery:  postgres.NewWebhookDeliveryRepo(db),
@@ -47,16 +46,4 @@ func NewRepoContainer(db *gormDB.DB, cfg *config.Config) *RepoContainer {
 		Notification:     postgres.NewNotificationRepo(db),
 		Auth:             postgres.NewAuthRepo(db),
 	}
-}
-
-func defaultOCRSettings(cfg *config.Config) postgres.OCRSettingsDefaults {
-	defaults := postgres.OCRSettingsDefaults{}
-	if cfg == nil {
-		return defaults
-	}
-	defaults.Enabled = cfg.OCR.Enabled
-	defaults.Binary = cfg.OCR.Binary
-	defaults.ContextWindow = cfg.OCR.ContextWindow
-	defaults.MaxOutputTokens = cfg.OCR.MaxOutputTokens
-	return defaults
 }

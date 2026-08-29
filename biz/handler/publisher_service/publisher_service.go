@@ -110,7 +110,7 @@ func publishReview(ctx context.Context, id string, summaryOnly bool, force bool)
 	if !summaryOnly && handlerInst.providerSvc != nil {
 		owner, repoName, perr := provider.ParseRepoPath(record.Request.Repo)
 		number := types.ResolvePRNumber(record.Request.Provider, record.Request.PullRequestID, record.Request.MergeRequestIID)
-		if perr == nil && number > 0 {
+		if perr == nil && number != "" {
 			if d, derr := handlerInst.providerSvc.GetCRDiffString(ctx, record.Request.Provider, owner, repoName, number); derr == nil {
 				diff = d
 			} else {

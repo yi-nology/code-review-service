@@ -84,10 +84,7 @@ func (r *ReviewRepo) GetByReviewID(ctx context.Context, reviewID string) (*domai
 		Where("review_id = ?", reviewID).
 		First(&m).Error
 	if err != nil {
-		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, repoerr.ErrNotFound
-		}
-		return nil, err
+		return nil, wrapNotFound(err)
 	}
 	d := reviewToDomain(m)
 	return &d, nil
@@ -99,10 +96,7 @@ func (r *ReviewRepo) GetByIdempotencyKey(ctx context.Context, key string) (*doma
 		Where("idempotency_key = ?", key).
 		First(&m).Error
 	if err != nil {
-		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, repoerr.ErrNotFound
-		}
-		return nil, err
+		return nil, wrapNotFound(err)
 	}
 	d := reviewToDomain(m)
 	return &d, nil
@@ -124,10 +118,7 @@ func (r *ReviewRepo) GetActiveByProviderRepo(ctx context.Context, provider, repo
 
 	err := db.Order("created_at DESC").First(&m).Error
 	if err != nil {
-		if errors.Is(err, gormLib.ErrRecordNotFound) {
-			return nil, repoerr.ErrNotFound
-		}
-		return nil, err
+		return nil, wrapNotFound(err)
 	}
 	d := reviewToDomain(m)
 	return &d, nil

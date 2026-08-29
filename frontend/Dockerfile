@@ -7,6 +7,9 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
     location / {
         try_files $uri $uri/ /index.html;
     }
@@ -17,9 +20,30 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 300s;
-        proxy_send_timeout 300s;
-        proxy_connect_timeout 10s;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+    }
+
+    location ^~ /swagger/ {
+        proxy_pass http://review-service:8080;
+        proxy_set_header Host review-service:8080;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /openapi.yaml {
+        proxy_pass http://review-service:8080;
+        proxy_set_header Host $host;
+    }
+
+    location /healthz {
+        proxy_pass http://review-service:8080;
+    }
+
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
     }
 }
 EOF

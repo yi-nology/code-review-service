@@ -26,7 +26,6 @@ func NewReviewWorkflow(
 		EnableDiscussion:   cfg.Agents.Discussion.Enabled,
 		EnableRequirements: cfg.Agents.Requirements.Enabled,
 		DiscussionRounds:   cfg.Agents.Discussion.MaxRounds,
-		ContextWindow:      cfg.OCR.ContextWindow,
 	}
 	if wfCfg.DiscussionRounds <= 0 {
 		wfCfg.DiscussionRounds = 1

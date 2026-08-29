@@ -72,7 +72,7 @@ func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	if !ok {
 		return
 	}
-	id, err := parseUintID(req.ID)
+	id, err := common.ParseUintID(req.ID)
 	if err != nil {
 		common.Fail(c, common.BadRequest("invalid agent id"))
 		return
@@ -129,7 +129,7 @@ func DeleteReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	if !ok {
 		return
 	}
-	id, err := parseUintID(req.ID)
+	id, err := common.ParseUintID(req.ID)
 	if err != nil {
 		common.Fail(c, common.BadRequest("invalid agent id"))
 		return
@@ -150,11 +150,11 @@ func dbReviewerAgentToAPI(a *reviewer.Agent) *modelSettings.ReviewerAgentInfo {
 		tags = string(a.Tags)
 	}
 	return &modelSettings.ReviewerAgentInfo{
-		ID: safeInt64(a.ID), Name: a.Name, DisplayName: a.DisplayName,
+		ID: common.SafeInt64(a.ID), Name: a.Name, DisplayName: a.DisplayName,
 		Description: common.StrPtr(a.Description), Background: common.StrPtr(a.Background),
 		Enabled: a.Enabled, Priority: int64(a.Priority), Tags: common.StrPtr(tags),
 		RuleFile: common.StrPtr(a.RuleFile), Redundancy: int64(a.Redundancy),
-		IsDefault: a.IsDefault,
+		IsDefault:      a.IsDefault,
 		RulePackageIDs: rulePackageIDsToAPI(a.RulePackageIDs),
 	}
 }

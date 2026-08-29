@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
@@ -48,7 +47,7 @@ func (a *projectAgentResolverAdapter) ResolveProjectAgents(ctx context.Context, 
 	return m, nil
 }
 
-func InitAgentManager(lc fx.Lifecycle, cfg *config.Config, repos *repository.RepoContainer, agentMgr *agent.AgentManager) {
+func InitAgentManager(lc fx.Lifecycle, repos *repository.RepoContainer, agentMgr *agent.AgentManager) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			// PR-21 修复：原 OnStart 同步执行 OCRSettings.Get + ReviewerAgent.ListEnabled，
@@ -60,7 +59,7 @@ func InitAgentManager(lc fx.Lifecycle, cfg *config.Config, repos *repository.Rep
 				// 拷贝 ctx 防止外层取消影响加载
 				loadCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 				defer cancel()
-				syncAgentManager(loadCtx, cfg, repos, agentMgr)
+				syncAgentManager(loadCtx, repos, agentMgr)
 			})
 			return nil
 		},
@@ -69,9 +68,13 @@ func InitAgentManager(lc fx.Lifecycle, cfg *config.Config, repos *repository.Rep
 
 // syncAgentManager 是从原 OnStart 拆出的同步加载逻辑，被 async.GoSafe 调用。
 // 失败只 logx.Warn，不影响启动。
-func syncAgentManager(ctx context.Context, cfg *config.Config, repos *repository.RepoContainer, agentMgr *agent.AgentManager) {
+func syncAgentManager(ctx context.Context, repos *repository.RepoContainer, agentMgr *agent.AgentManager) {
 	var reasoningExtraBody string
 	ocrTimeoutMinutes := 30
+	ocrConcurrency := 2
+	ocrMaxGitProcs := 4
+	ocrDefaultSeverity := "major"
+	ocrBinary := "ocr"
 	llmURL, llmModel, llmAuthToken, llmAuthHeader, llmLanguage := "", "", "", "", ""
 	if ocrSettings, err := repos.OCRSettings.Get(ctx); err == nil && ocrSettings != nil {
 		mode := ocrSettings.ReasoningMode
@@ -82,6 +85,18 @@ func syncAgentManager(ctx context.Context, cfg *config.Config, repos *repository
 		if ocrSettings.TimeoutMinutes > 0 {
 			ocrTimeoutMinutes = ocrSettings.TimeoutMinutes
 		}
+		if ocrSettings.Concurrency > 0 {
+			ocrConcurrency = ocrSettings.Concurrency
+		}
+		if ocrSettings.MaxGitProcs > 0 {
+			ocrMaxGitProcs = ocrSettings.MaxGitProcs
+		}
+		if ocrSettings.DefaultSeverity != "" {
+			ocrDefaultSeverity = ocrSettings.DefaultSeverity
+		}
+		if ocrSettings.Binary != "" {
+			ocrBinary = ocrSettings.Binary
+		}
 		llmURL = ocrSettings.URL
 		llmModel = ocrSettings.ModelName
 		llmAuthToken = ocrSettings.AuthToken
@@ -90,11 +105,10 @@ func syncAgentManager(ctx context.Context, cfg *config.Config, repos *repository
 	}
 
 	runnerFactory := agent.NewOCRRunnerFactory(ocr.Config{
-		Binary:          cfg.OCR.Binary,
-		RulePath:        cfg.OCR.Rule,
-		DefaultSeverity: "major",
-		Concurrency:     2,
-		MaxGitProcs:     4,
+		Binary:          ocrBinary,
+		DefaultSeverity: ocrDefaultSeverity,
+		Concurrency:     ocrConcurrency,
+		MaxGitProcs:     ocrMaxGitProcs,
 		TimeoutMinutes:  ocrTimeoutMinutes,
 		ExtraBody:       reasoningExtraBody,
 		URL:             llmURL,

@@ -169,8 +169,8 @@ type ListOptions struct {
 	Provider   string
 	Repo       string
 	// From/To 限定统计时间窗口（基于 created_at）；零值表示不限制。周报用它限定最近 7 天。
-	From time.Time
-	To   time.Time
+	From     time.Time
+	To       time.Time
 	Page     int
 	PageSize int
 	// SortBy/SortOrder 控制列表排序（仅支持白名单字段）；空值时默认 created_at DESC。
@@ -181,9 +181,9 @@ type ListOptions struct {
 // AggregateStats 是 Review 聚合统计结果。
 // 显式 snake_case JSON tag，与其余 review API 契约保持一致（如 ListStats）。
 type AggregateStats struct {
-	Running    int   `json:"running"`
-	GateFailed int   `json:"gate_failed"`
-	Findings   int   `json:"findings"`
+	Running    int `json:"running"`
+	GateFailed int `json:"gate_failed"`
+	Findings   int `json:"findings"`
 
 	TotalTokens      int64 `json:"total_tokens"`
 	InputTokens      int64 `json:"input_tokens"`

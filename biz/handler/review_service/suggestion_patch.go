@@ -12,6 +12,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/suggestion"
 	"github.com/yi-nology/code-review-service/internal/service/types"
+	"github.com/oekit/pkg/convert"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	provider_sdk "github.com/yi-nology/git-platform-sdk/provider"
@@ -127,7 +128,7 @@ func ApplySuggestionPatch(ctx context.Context, c *app.RequestContext) {
 			common.Success(c, result)
 			return
 		}
-		result.CRNumber = cr.Number
+		result.CRNumber = convert.Str2Int(cr.Number, 0)
 		result.CRURL = cr.WebURL
 	}
 	common.Success(c, result)
@@ -172,7 +173,7 @@ func createSuggestionPatchCR(ctx context.Context, svcReq domain.Request, req *ap
 
 func resolveReviewTargetBranch(ctx context.Context, req domain.Request, owner, repoName string) string {
 	number := types.ResolvePRNumber(req.Provider, req.PullRequestID, req.MergeRequestIID)
-	if number == 0 {
+	if number == "" {
 		return ""
 	}
 	cr, err := handlerInst.gitMgr.GetCR(ctx, req.Provider, owner, repoName, number)

@@ -18,17 +18,17 @@ import (
 )
 
 type rulePackageDTO struct {
-	ID          uint                   `json:"id,omitempty"`
-	Name        string                 `json:"name"`
-	Description string                 `json:"description,omitempty"`
-	Languages   []string               `json:"languages,omitempty"`
-	Tags        []string               `json:"tags,omitempty"`
-	Includes    []string               `json:"includes,omitempty"`
-	Excludes    []string               `json:"excludes,omitempty"`
-	Rules       []map[string]string    `json:"rules"`
-	Enabled     bool                   `json:"enabled"`
-	ProjectRefs []string               `json:"project_refs,omitempty"`
-	BuiltIn     bool                   `json:"built_in,omitempty"`
+	ID          uint                `json:"id,omitempty"`
+	Name        string              `json:"name"`
+	Description string              `json:"description,omitempty"`
+	Languages   []string            `json:"languages,omitempty"`
+	Tags        []string            `json:"tags,omitempty"`
+	Includes    []string            `json:"includes,omitempty"`
+	Excludes    []string            `json:"excludes,omitempty"`
+	Rules       []map[string]string `json:"rules"`
+	Enabled     bool                `json:"enabled"`
+	ProjectRefs []string            `json:"project_refs,omitempty"`
+	BuiltIn     bool                `json:"built_in,omitempty"`
 	// Scope 区分规则集来源：global=全局始终合并；project=需引用或 project_refs 匹配。空视为 project。
 	Scope string                 `json:"scope,omitempty"`
 	Meta  map[string]interface{} `json:"meta,omitempty"`
@@ -87,7 +87,7 @@ func upsertRulePackage(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if req.ID == 0 && c.Param("id") != "" {
-		id, err := parseUintID(c.Param("id"))
+		id, err := common.ParseUintID(c.Param("id"))
 		if err != nil {
 			common.Fail(c, common.BadRequest("规则包 ID 无效"))
 			return
@@ -107,7 +107,7 @@ func upsertRulePackage(ctx context.Context, c *app.RequestContext) {
 }
 
 func DeleteRulePackage(ctx context.Context, c *app.RequestContext) {
-	id, err := parseUintID(c.Param("id"))
+	id, err := common.ParseUintID(c.Param("id"))
 	if err != nil {
 		common.Fail(c, common.BadRequest("规则包 ID 无效"))
 		return
@@ -132,7 +132,7 @@ func ListRulePackageVersions(ctx context.Context, c *app.RequestContext) {
 	if !common.FeatureGuard(c, handlerInst.rulePackages, "规则包") {
 		return
 	}
-	id, err := parseUintID(c.Param("id"))
+	id, err := common.ParseUintID(c.Param("id"))
 	if err != nil {
 		common.Fail(c, common.BadRequest("规则包 ID 无效"))
 		return
@@ -155,7 +155,7 @@ func RestoreRulePackageVersion(ctx context.Context, c *app.RequestContext) {
 	if !common.FeatureGuard(c, handlerInst.rulePackages, "规则包") {
 		return
 	}
-	id, err := parseUintID(c.Param("id"))
+	id, err := common.ParseUintID(c.Param("id"))
 	if err != nil {
 		common.Fail(c, common.BadRequest("规则包 ID 无效"))
 		return
@@ -208,7 +208,7 @@ func upsertToolPackage(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if req.ID == 0 && c.Param("id") != "" {
-		id, err := parseUintID(c.Param("id"))
+		id, err := common.ParseUintID(c.Param("id"))
 		if err != nil {
 			common.Fail(c, common.BadRequest("工具包 ID 无效"))
 			return
@@ -228,7 +228,7 @@ func upsertToolPackage(ctx context.Context, c *app.RequestContext) {
 }
 
 func DeleteToolPackage(ctx context.Context, c *app.RequestContext) {
-	id, err := parseUintID(c.Param("id"))
+	id, err := common.ParseUintID(c.Param("id"))
 	if err != nil {
 		common.Fail(c, common.BadRequest("工具包 ID 无效"))
 		return
@@ -253,7 +253,7 @@ func ListToolPackageVersions(ctx context.Context, c *app.RequestContext) {
 	if !common.FeatureGuard(c, handlerInst.toolPackages, "工具包") {
 		return
 	}
-	id, err := parseUintID(c.Param("id"))
+	id, err := common.ParseUintID(c.Param("id"))
 	if err != nil {
 		common.Fail(c, common.BadRequest("工具包 ID 无效"))
 		return
@@ -276,7 +276,7 @@ func RestoreToolPackageVersion(ctx context.Context, c *app.RequestContext) {
 	if !common.FeatureGuard(c, handlerInst.toolPackages, "工具包") {
 		return
 	}
-	id, err := parseUintID(c.Param("id"))
+	id, err := common.ParseUintID(c.Param("id"))
 	if err != nil {
 		common.Fail(c, common.BadRequest("工具包 ID 无效"))
 		return

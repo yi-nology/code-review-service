@@ -2,7 +2,7 @@ package webhook
 
 import (
 	"encoding/json"
-	"fmt"
+	"strconv"
 )
 
 var supportedActions = map[string]map[string]bool{
@@ -87,19 +87,17 @@ func IsBotSender(provider string, payload map[string]any, botName string) bool {
 	return botName != "" && sender == botName
 }
 
-func jsonInt(v any) int {
+// jsonNumberStr 提取 JSON 数值字段并保留为 string（平台编号全链路统一 string）。
+func jsonNumberStr(v any) string {
 	switch n := v.(type) {
-	case float64:
-		return int(n)
-	case json.Number:
-		i, _ := n.Int64()
-		return int(i)
-	case int:
-		return n
 	case string:
-		var i int
-		_, _ = fmt.Sscanf(n, "%d", &i)
-		return i
+		return n
+	case json.Number:
+		return n.String()
+	case float64:
+		return strconv.FormatInt(int64(n), 10)
+	case int:
+		return strconv.Itoa(n)
 	}
-	return 0
+	return ""
 }

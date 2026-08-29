@@ -1,3 +1,6 @@
+// Package webhook 把各平台 webhook payload 归一化为 ChangeEvent。
+// Number 是平台 PR/MR 编号，统一为 string（对齐 git-platform-sdk v0.48 的
+// ChangeRequest.Number），仅在与 DB/thrift 等数值边界的交接处转换。
 package webhook
 
 type ChangeEvent struct {
@@ -8,7 +11,7 @@ type ChangeEvent struct {
 	Action         string
 	RepositoryID   string
 	Repository     string
-	Number         int
+	Number         string
 	BaseSHA        string
 	StartSHA       string
 	HeadSHA        string

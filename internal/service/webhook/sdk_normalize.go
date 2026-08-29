@@ -7,17 +7,18 @@
 //
 // 兼容性说明：
 //   - github / gitea / gitlab / tencent_code 的 webhook payload 模型与 SDK
-//     一致，走 SDK 解析。
+//     一致，走各自身 backend 解析。
 //   - gitcode 的 payload 为 GitLab 风格（object_attributes），而 SDK gitcode
-//     backend 期望 Gitea 风格（pull_request key），二者不兼容，因此 gitcode
-//     仍保留手写解析。
+//     backend 期望 Gitea 风格（pull_request key），因此复用 SDK gitlab
+//     backend 解析（见 gitcode.go），签名校验仍用 GitCode 自身约定。
 //
 // 保真处理（SDK 未暴露的字段，从 RawPayload 兜底提取）：
-//   - RepositoryID：SDK 的 EventRepo 不含 repo ID，但项目用其生成幂等 key
-//     和 domain.Request.ProjectID，故从 RawPayload 提取。
-//   - gitea 的 base SHA、gitlab/tencent 的 base/start SHA：SDK 对 MR 事件未
-//     填充 CR.BaseSHA/StartSHA，按各平台原逻辑从 diff_refs / merge_commit_sha
-//     / pr.base.sha 兜底。
+//   - RepositoryID：SDK 的 EventRepo 不含 repo ID（BuildEventRepo 仅填
+//     FullName/Owner/Name），但项目用其生成幂等 key 和 domain.Request.ProjectID，
+//     故从 RawPayload 提取。
+//
+// base/head/start SHA 无需兜底：SDK v0.48 起各 backend 自行填充，gitlab 家族
+// 的优先级见 provider.ResolveMRSHAs（与历史 normalizer 一致）。
 //
 // 签名校验：本层不依赖 SDK 的签名校验。重建的 *http.Request 不携带签名
 // header，且传入空 secret，使 SDK 各 backend 跳过其内部签名校验；签名校验
@@ -30,6 +31,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/oekit/pkg/convert"
@@ -62,6 +64,7 @@ var crEventTypeLabel = map[string]string{
 	"github":       "pull_request",
 	"gitea":        "pull_request",
 	"gitlab":       "merge_request",
+	"gitcode":      "merge_request",
 	"tencent_code": "merge_request",
 }
 
@@ -136,8 +139,15 @@ func mapNormalizedEvent(platform string, ne *sdkprovider.NormalizedEvent, raw []
 
 	if ne.Repo != nil {
 		ce.Repository = ne.Repo.FullName
+		// gitlab 家族 / gitea 的 backend 会填 EventRepo.ID；github 不填，
+		// 由 extractRepoID 从 RawPayload 兜底。
+		if ne.Repo.ID != 0 {
+			ce.RepositoryID = strconv.FormatInt(ne.Repo.ID, 10)
+		}
 	}
-	ce.RepositoryID = extractRepoID(platform, raw)
+	if ce.RepositoryID == "" {
+		ce.RepositoryID = extractRepoID(platform, raw)
+	}
 
 	if ne.CR != nil {
 		ce.Number = ne.CR.Number
@@ -148,7 +158,6 @@ func mapNormalizedEvent(platform string, ne *sdkprovider.NormalizedEvent, raw []
 	if ne.CommitSHA != "" {
 		ce.HeadSHA = ne.CommitSHA
 	}
-	applySHAFallback(platform, raw, ce)
 
 	if ne.Actor != nil {
 		ce.Sender = ne.Actor.Username
@@ -163,71 +172,21 @@ func mapNormalizedEvent(platform string, ne *sdkprovider.NormalizedEvent, raw []
 	return ce
 }
 
-// extractRepoID 从 RawPayload 提取仓库 ID（SDK 的 EventRepo 不含 ID）。
+// extractRepoID 从 RawPayload 提取仓库 ID。仅 github 需要：SDK github
+// backend 不填 EventRepo.ID，而项目用 RepositoryID 生成幂等 key 和
+// domain.Request.ProjectID。
 func extractRepoID(platform string, raw []byte) string {
+	if platform != "github" {
+		return ""
+	}
 	var m map[string]any
 	if json.Unmarshal(raw, &m) != nil {
 		return ""
 	}
-	switch platform {
-	case "github", "gitea":
-		if repo, ok := m["repository"].(map[string]any); ok {
-			return convert.AnyToStr(repo["id"])
-		}
-	case "gitlab", "tencent_code":
-		if proj, ok := m["project"].(map[string]any); ok {
-			return convert.AnyToStr(proj["id"])
-		}
+	if repo, ok := m["repository"].(map[string]any); ok {
+		return convert.AnyToStr(repo["id"])
 	}
 	return ""
-}
-
-// applySHAFallback 为 SDK 未填充 base/head/start SHA 的平台补充提取，
-// 保持与各平台原 normalizer 一致的取值优先级。
-func applySHAFallback(platform string, raw []byte, ce *ChangeEvent) {
-	var m map[string]any
-	if json.Unmarshal(raw, &m) != nil {
-		return
-	}
-	switch platform {
-	case "gitea":
-		// SDK gitea 仅设置 CommitSHA=head.sha，未设置 base SHA。
-		if ce.BaseSHA == "" {
-			if pr, ok := m["pull_request"].(map[string]any); ok {
-				if base, ok := pr["base"].(map[string]any); ok {
-					sha, _ := base["sha"].(string)
-					if sha == "" {
-						sha, _ = base["label"].(string)
-					}
-					ce.BaseSHA = sha
-				}
-			}
-		}
-	case "gitlab", "tencent_code":
-		attrs, ok := m["object_attributes"].(map[string]any)
-		if !ok {
-			return
-		}
-		if ce.BaseSHA == "" {
-			if mc, _ := attrs["merge_commit_sha"].(string); mc != "" {
-				ce.BaseSHA = mc
-			}
-		}
-		if dr, ok := attrs["diff_refs"].(map[string]any); ok {
-			base, _ := dr["base_sha"].(string)
-			start, _ := dr["start_sha"].(string)
-			head, _ := dr["head_sha"].(string)
-			if ce.BaseSHA == "" {
-				ce.BaseSHA = base
-			}
-			if ce.StartSHA == "" {
-				ce.StartSHA = start
-			}
-			if head != "" {
-				ce.HeadSHA = head
-			}
-		}
-	}
 }
 
 // isGitLabNoOpUpdate 判定 GitLab update 事件是否为空更新（无新提交）。

@@ -1,21 +1,29 @@
 package webhook
 
+// GitCode normalizer：payload 为 GitLab 风格（object_attributes / project /
+// object_kind），而 SDK gitcode backend 期望 Gitea 风格（pull_request key），
+// 二者不兼容。因此解析复用 SDK gitlab backend——它是纯 JSON 解析，不访问
+// 平台 API，用包级懒加载的 parse-only 实例，不要求 gitlab 平台已配置。
+// 签名校验（HMAC-SHA256）与 header 约定保留 GitCode 自身行为。
+
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/oekit/pkg/convert"
+	sdkprovider "github.com/yi-nology/git-platform-sdk/provider"
 )
 
 type GitCodeNormalizer struct {
-	// providers 仅为构造签名统一保留；gitcode 的 payload 为 GitLab 风格，
-	// 而 SDK gitcode backend 期望 Gitea 风格，二者不兼容，因此 Normalize
-	// 仍走手写解析，不使用 providers。
+	// providers 仅为构造签名统一保留；解析走包级 gitlab-family parser。
 	providers ProviderGetter
 }
 
@@ -24,121 +32,98 @@ func NewGitCodeNormalizer(providers ProviderGetter) *GitCodeNormalizer {
 	return &GitCodeNormalizer{providers: providers}
 }
 
+var (
+	gitlabParseOnce     sync.Once
+	gitlabParseProvider sdkprovider.Provider
+	gitlabParseErr      error
+)
+
+// gitlabFamilyParser 返回仅供 webhook 解析使用的 gitlab provider 实例。
+func gitlabFamilyParser() (sdkprovider.Provider, error) {
+	gitlabParseOnce.Do(func() {
+		gitlabParseProvider, gitlabParseErr = sdkprovider.NewProvider(sdkprovider.Config{
+			Platform: sdkprovider.PlatformGitLab,
+		})
+	})
+	return gitlabParseProvider, gitlabParseErr
+}
+
+// gitcodeHookKind 把 GitCode 的事件 header 值映射为 GitLab 协议的 object_kind。
+func gitcodeHookKind(eventType string) string {
+	switch eventType {
+	case "Push Hook":
+		return "push"
+	case "Merge Request Hook":
+		return "merge_request"
+	}
+	return ""
+}
+
 func (n *GitCodeNormalizer) Normalize(rawBody []byte, eventType string) (*ChangeEvent, error) {
-	if eventType == "Push Hook" {
-		return n.normalizePush(rawBody)
+	kind := gitcodeHookKind(eventType)
+	if kind == "" {
+		return nil, nil
 	}
-	if eventType == "Merge Request Hook" {
-		return n.normalizeMergeRequest(rawBody)
+	body := ensureObjectKind(rawBody, kind)
+
+	p, err := gitlabFamilyParser()
+	if err != nil {
+		return nil, fmt.Errorf("gitcode parse: init gitlab-family parser: %w", err)
 	}
-	return nil, nil
+	req, _ := http.NewRequest(http.MethodPost, "/webhook", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	ne, err := p.ParseWebhookEvent(req, "")
+	if err != nil {
+		return nil, fmt.Errorf("gitcode parse webhook: %w", err)
+	}
+	if ne == nil {
+		return nil, nil
+	}
+
+	ce := mapNormalizedEvent("gitcode", ne, rawBody)
+	if ce == nil {
+		return nil, nil
+	}
+	// GitCode/GitLab 的 push payload 把发送者放在顶层 user_username（无嵌套
+	// user 对象），SDK gitlab backend 的 push 分支不填 Actor，此处兜底。
+	if kind == "push" && ce.Sender == "" {
+		ce.Sender = gitcodePushSender(rawBody)
+	}
+	return ce, nil
 }
 
-func (n *GitCodeNormalizer) normalizePush(rawBody []byte) (*ChangeEvent, error) {
-	var payload map[string]any
-	if err := json.Unmarshal(rawBody, &payload); err != nil {
-		return nil, fmt.Errorf("parse gitcode push payload: %w", err)
+// gitcodePushSender 从 push payload 顶层提取发送者用户名。
+func gitcodePushSender(rawBody []byte) string {
+	var m map[string]any
+	if json.Unmarshal(rawBody, &m) != nil {
+		return ""
 	}
-
-	ref, _ := payload["ref"].(string)
-	if ref == "" {
-		return nil, nil
+	if s, _ := m["user_username"].(string); s != "" {
+		return s
 	}
-	branch := strings.TrimPrefix(ref, "refs/heads/")
-	if branch == ref {
-		return nil, nil
+	if user, ok := m["user"].(map[string]any); ok {
+		s, _ := user["username"].(string)
+		return s
 	}
-
-	var repoFullName, repoID string
-	if repo, ok := payload["repository"].(map[string]any); ok {
-		repoFullName, _ = repo["full_name"].(string)
-		repoID = convert.AnyToStr(repo["id"])
-	}
-
-	headSHA, _ := payload["after"].(string)
-
-	var sender string
-	if user, ok := payload["user_username"].(string); ok {
-		sender = user
-	} else if user, ok := payload["user"].(map[string]any); ok {
-		sender, _ = user["username"].(string)
-	}
-
-	return &ChangeEvent{
-		Provider:     "gitcode",
-		EventType:    "push",
-		Action:       "push",
-		RepositoryID: repoID,
-		Repository:   repoFullName,
-		HeadSHA:      headSHA,
-		Sender:       sender,
-	}, nil
+	return ""
 }
 
-func (n *GitCodeNormalizer) normalizeMergeRequest(rawBody []byte) (*ChangeEvent, error) {
-	var payload map[string]any
-	if err := json.Unmarshal(rawBody, &payload); err != nil {
-		return nil, fmt.Errorf("parse gitcode payload: %w", err)
+// ensureObjectKind 保证 body 带 object_kind：SDK gitlab backend 依赖它判定
+// 事件类型，个别 GitCode 版本的 payload 可能缺失，按 eventType header 补写。
+func ensureObjectKind(rawBody []byte, kind string) []byte {
+	var m map[string]json.RawMessage
+	if json.Unmarshal(rawBody, &m) != nil {
+		return rawBody
 	}
-
-	attrs, ok := payload["object_attributes"].(map[string]any)
-	if !ok {
-		return nil, nil
+	if _, ok := m["object_kind"]; ok {
+		return rawBody
 	}
-
-	action, _ := attrs["action"].(string)
-	if !IsSupportedAction("gitcode", action) {
-		return nil, nil
+	m["object_kind"] = json.RawMessage(strconv.Quote(kind))
+	out, err := json.Marshal(m)
+	if err != nil {
+		return rawBody
 	}
-
-	iid := jsonInt(attrs["iid"])
-	if iid == 0 {
-		return nil, fmt.Errorf("missing merge request iid")
-	}
-
-	var headSHA, baseSHA string
-	if lastCommit, ok := attrs["last_commit"].(map[string]any); ok {
-		headSHA, _ = lastCommit["id"].(string)
-	}
-	baseSHA, _ = attrs["merge_commit_sha"].(string)
-	if baseSHA == "" {
-		if diffRefs, ok := attrs["diff_refs"].(map[string]any); ok {
-			baseSHA, _ = diffRefs["base_sha"].(string)
-			headSHA, _ = diffRefs["head_sha"].(string)
-		}
-	}
-
-	var repoPath, repoID string
-	if proj, ok := payload["project"].(map[string]any); ok {
-		repoPath, _ = proj["path_with_namespace"].(string)
-		repoID = convert.AnyToStr(proj["id"])
-	}
-
-	var sender string
-	var authorName, authorAvatar string
-	if user, ok := payload["user"].(map[string]any); ok {
-		sender, _ = user["username"].(string)
-		authorName, _ = user["name"].(string)
-		if authorName == "" {
-			authorName = sender
-		}
-		authorAvatar, _ = user["avatar_url"].(string)
-	}
-
-	return &ChangeEvent{
-		Provider:     "gitcode",
-		EventType:    "merge_request",
-		Action:       action,
-		RepositoryID: repoID,
-		Repository:   repoPath,
-		Number:       iid,
-		BaseSHA:      baseSHA,
-		HeadSHA:      headSHA,
-		Sender:       sender,
-		Author:       sender,
-		AuthorName:   authorName,
-		AuthorAvatar: authorAvatar,
-	}, nil
+	return out
 }
 
 func (n *GitCodeNormalizer) VerifySignature(body []byte, signature string, secret string) bool {

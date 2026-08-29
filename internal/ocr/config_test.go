@@ -129,7 +129,6 @@ func TestConfig_AppendEnv(t *testing.T) {
 		"OCR_LLM_MODEL=gpt-4",
 		"OCR_LLM_TOKEN=secret",
 		"OCR_USE_ANTHROPIC=true",
-		"OCR_LANGUAGE=go",
 		"OCR_CONTEXT_WINDOW=100000",
 	}
 	for i, w := range want {

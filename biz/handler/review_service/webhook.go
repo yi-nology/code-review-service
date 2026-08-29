@@ -14,7 +14,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/webhook"
 
 	"github.com/oekit/logx"
-	"github.com/oekit/pkg/convert"
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
@@ -59,7 +58,7 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 		return
 	}
 
-	platform, err := h.platformRepo.GetByProviderAndInstallation(ctx, req.Provider, req.Installation)
+	platform, err := h.platformRepo.Get(ctx, req.Provider, req.Installation)
 	if err != nil {
 		if errors.Is(err, repoerr.ErrNotFound) {
 			common.Fail(c, common.NotFound("installation not found"))
@@ -107,7 +106,7 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 	}
 
 	event := result.ChangeEvent
-	idempotencyKey := fmt.Sprintf("webhook:%s:%s:%s:%d:%s",
+	idempotencyKey := fmt.Sprintf("webhook:%s:%s:%s:%s:%s",
 		event.Provider,
 		event.InstallationID,
 		event.RepositoryID,
@@ -119,8 +118,8 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 		Provider:        event.Provider,
 		Repo:            event.Repository,
 		ProjectID:       event.RepositoryID,
-		PullRequestID:   convert.IntToStr(event.Number),
-		MergeRequestIID: convert.IntToStr(event.Number),
+		PullRequestID:   event.Number,
+		MergeRequestIID: event.Number,
 		BaseSHA:         event.BaseSHA,
 		HeadSHA:         event.HeadSHA,
 		CallbackMode:    "comment",

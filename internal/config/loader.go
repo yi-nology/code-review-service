@@ -74,37 +74,6 @@ func applyEnvOverrides(cfg *Config) {
 		cfg.Database.AutoMigrate = &v
 	}
 
-	if cfg.Git.Platforms == nil {
-		cfg.Git.Platforms = make(map[string]GitPlatformConfig)
-	}
-	if token := config.Get("GITHUB_TOKEN"); token != "" {
-		github := cfg.Git.Platforms["github"]
-		github.Token = token
-		github.Enabled = true
-		if github.BaseURL == "" {
-			github.BaseURL = "https://api.github.com"
-		}
-		cfg.Git.Platforms["github"] = github
-	}
-	if token := config.Get("GITLAB_TOKEN"); token != "" {
-		gitlab := cfg.Git.Platforms["gitlab"]
-		gitlab.Token = token
-		gitlab.Enabled = true
-		if gitlab.BaseURL == "" {
-			gitlab.BaseURL = "https://gitlab.com/api/v4"
-		}
-		cfg.Git.Platforms["gitlab"] = gitlab
-	}
-	if token := config.Get("GITEA_TOKEN"); token != "" {
-		gitea := cfg.Git.Platforms["gitea"]
-		gitea.Token = token
-		gitea.Enabled = true
-		if gitea.BaseURL == "" {
-			gitea.BaseURL = config.Get("GITEA_BASE_URL")
-		}
-		cfg.Git.Platforms["gitea"] = gitea
-	}
-
 	if v, ok := config.GetInt("WORKER_CONCURRENCY"); ok {
 		cfg.Review.WorkerConcurrency = v
 	}
@@ -113,26 +82,6 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := config.Get("WORKER_STALE_AFTER"); v != "" {
 		cfg.Review.WorkerStaleAfter = v
-	}
-
-	if v, ok := config.GetBool("OCR_ENABLED"); ok {
-		cfg.OCR.Enabled = v
-	}
-	if v := config.Get("OCR_BINARY"); v != "" {
-		cfg.OCR.Binary = v
-	}
-	if v := config.Get("OCR_COMMAND"); v != "" {
-		cfg.OCR.Command = v
-	}
-
-	if v := config.Get("POLICY_FAIL_ON"); v != "" {
-		cfg.Policy.FailOn = v
-	}
-	if v := config.Get("POLICY_IGNORE_PATHS"); v != "" {
-		cfg.Policy.IgnorePaths = strings.Split(v, ",")
-	}
-	if v, ok := config.GetInt("POLICY_MAX_COMMENTS"); ok {
-		cfg.Policy.MaxComments = v
 	}
 
 	if v := config.Get("NACOS_ADDR"); v != "" {
@@ -214,13 +163,9 @@ func parsePort(addr string) (int, error) {
 	if !strings.Contains(addr, ":") {
 		return strconv.Atoi(addr)
 	}
-	host, port, err := net.SplitHostPort(addr)
+	_, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return 0, err
-	}
-	if host == "" {
-		// ":8080" 形式
-		return strconv.Atoi(port)
 	}
 	return strconv.Atoi(port)
 }
