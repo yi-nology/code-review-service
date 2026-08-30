@@ -27,8 +27,8 @@ func TestMapReviewErrorMapsRunnerErrors(t *testing.T) {
 			if !ok {
 				t.Fatalf("mapReviewError() = %T, want *bizerrors.BizError", mapped)
 			}
-			if appErr.Code != tt.code {
-				t.Fatalf("code = %d, want %d", appErr.Code, tt.code)
+			if appErr.BizCode != tt.code {
+				t.Fatalf("code = %d, want %d", appErr.BizCode, tt.code)
 			}
 			if appErr.Message == "" {
 				t.Fatalf("message is empty")

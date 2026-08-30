@@ -34,7 +34,10 @@ func Fail(c *hertzApp.RequestContext, err error) {
 		return
 	}
 	if bizErr, ok := bizerrors.AsBizError(err); ok {
-		mw.ErrorResp(c, bizErr.Code, bizErr.Message)
+		// v0.17.0 起 BizError 拆为 BizCode（body code）+ HTTPCode（HTTP 状态，
+		// 0 时经 StatusMapper 从 BizCode 推导）。ErrorRespBiz 即此语义，
+		// 线上行为与旧版 ErrorResp(c, bizErr.Code, ...) 一致。
+		mw.ErrorRespBiz(c, bizErr)
 		return
 	}
 	if errors.Is(err, repoerr.ErrNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {

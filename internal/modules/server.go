@@ -99,7 +99,7 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *ocrcore.Metrics, o
 		hertz.WithCheckers(hertz.NamedChecker("ocr-binary", readiness.OCRBinaryCheck(repos, resolver))),
 		hertz.WithCheckers(hertz.NamedChecker("llm-endpoint", readiness.LLMEndpointCheck(repos, resolver))),
 	)
-	hertz.RegisterBasicRoutes(h, healthOpts...)
+	hertz.RegisterHealthRoutes(h, healthOpts...)
 
 	// /healthz /readyz：k8s 探针常用路径（auth skip 白名单已含），复用就绪检查。
 	// 之前这些路径未注册导致 k8s probe 404。
