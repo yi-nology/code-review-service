@@ -12,6 +12,44 @@ import (
 	"github.com/oekit/pkg/convert"
 )
 
+// validateGitBranchRef 校验 PR 作者可控的分支名可安全拼入 git fetch refspec。
+//
+// 分支名经 SDK 传给 `git fetch origin <refspec>`：前导 '-' 会被解析成 git 选项
+// （option injection），':' 是 refspec 分隔符可注入额外 src:dst，'..' / 空白 /
+// 控制字符可构造非预期 revision 表达式。保留 unicode 等其余合法分支字符，
+// 避免误伤非 ASCII 分支名。空值放行（由调用方决定可选语义）。
+func validateGitBranchRef(kind, name string) error {
+	if name == "" {
+		return nil
+	}
+	switch {
+	case strings.HasPrefix(name, "-"),
+		strings.ContainsAny(name, ":~^*?[\\\t\n\r\x00 "),
+		strings.Contains(name, ".."),
+		strings.Contains(name, "@{"):
+		return fmt.Errorf("%s 含非法字符或序列, 拒绝用于 git fetch: %q", kind, name)
+	}
+	return nil
+}
+
+// validateGitSHA 校验来自平台 API 的 commit SHA 为十六进制串（6-64 位，兼容缩写与 SHA-256）。
+// SHA 会进入 refspec（headSHA:localRef）与 RevParse/MergeBase 参数，非 hex 输入一律拒绝。
+func validateGitSHA(kind, sha string) error {
+	if sha == "" {
+		return nil
+	}
+	for _, r := range sha {
+		isHex := (r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')
+		if !isHex {
+			return fmt.Errorf("%s 不是合法的十六进制 SHA: %q", kind, sha)
+		}
+	}
+	if len(sha) < 6 || len(sha) > 64 {
+		return fmt.Errorf("%s 长度 %d 超出 [6,64], 拒绝: %q", kind, len(sha), sha)
+	}
+	return nil
+}
+
 func cloneAndResolvePR(
 	ctx context.Context,
 	cloneURL, token string,
@@ -19,6 +57,19 @@ func cloneAndResolvePR(
 	prNumber int,
 	platform, sourceBranch, targetBranch, apiHeadSHA, apiBaseSHA string,
 ) (string, string, string, error) {
+	if err := validateGitBranchRef("sourceBranch", sourceBranch); err != nil {
+		return "", "", "", err
+	}
+	if err := validateGitBranchRef("targetBranch", targetBranch); err != nil {
+		return "", "", "", err
+	}
+	if err := validateGitSHA("headSHA", apiHeadSHA); err != nil {
+		return "", "", "", err
+	}
+	if err := validateGitSHA("baseSHA", apiBaseSHA); err != nil {
+		return "", "", "", err
+	}
+
 	dir, err := os.MkdirTemp("", "review-workspace-*")
 	if err != nil {
 		return "", "", "", fmt.Errorf("create temp dir: %w", err)
@@ -161,6 +212,13 @@ func restoreDeletedFiles(ctx context.Context, git *vcs.Git, baseSHA, headRef, he
 }
 
 func cloneAndResolveSHA(ctx context.Context, cloneURL, token string, skipTLS bool, baseSHA, headSHA string, maxDiffBytes int64) (string, string, string, string, error) {
+	if err := validateGitSHA("baseSHA", baseSHA); err != nil {
+		return "", "", "", "", err
+	}
+	if err := validateGitSHA("headSHA", headSHA); err != nil {
+		return "", "", "", "", err
+	}
+
 	dir, err := os.MkdirTemp("", "review-workspace-*")
 	if err != nil {
 		return "", "", "", "", fmt.Errorf("create temp dir: %w", err)

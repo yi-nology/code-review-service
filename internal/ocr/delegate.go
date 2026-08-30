@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -60,6 +61,11 @@ func (r *Runner) DelegateRule(ctx context.Context, workspace domain.Workspace, p
 		return nil, fmt.Errorf("需要已检出的工作区")
 	}
 
+	safePaths, err := sanitizeDelegatePaths(paths)
+	if err != nil {
+		return nil, err
+	}
+
 	cfg := r.effectiveConfig(workspace.OCR)
 
 	args := []string{
@@ -69,14 +75,39 @@ func (r *Runner) DelegateRule(ctx context.Context, workspace domain.Workspace, p
 	if rulePath := strings.TrimSpace(workspace.RulePath); rulePath != "" {
 		args = append(args, "--rule", rulePath)
 	}
-	// paths 作为位置参数（ocr delegate rule <path...>）。
-	args = append(args, paths...)
+	// paths 作为位置参数（ocr delegate rule <path...>），已过 sanitizeDelegatePaths 校验。
+	args = append(args, safePaths...)
 
 	stdout, stderr, err := r.runDelegateCmd(ctx, cfg.Binary, args, workspace.Dir, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("ocr delegate rule 失败: %s", strings.TrimSpace(stderr))
 	}
 	return &domain.DelegateRuleResult{RawOutput: stdout}, nil
+}
+
+// sanitizeDelegatePaths 校验 delegate rule 的位置参数 paths。
+//
+// paths 直接拼入 OCR CLI argv，以 '-' 开头的路径会被解析成命令行选项（argument
+// injection），绝对路径或 '..' 逃逸则可读到工作区之外的文件。空条目跳过。
+// 返回原顺序的干净路径列表（不做 Clean 改写，保持调用方语义）。
+func sanitizeDelegatePaths(paths []string) ([]string, error) {
+	cleaned := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if p == "" {
+			continue
+		}
+		if strings.HasPrefix(p, "-") {
+			return nil, fmt.Errorf("非法路径 %q: 不能以 '-' 开头", p)
+		}
+		if filepath.IsAbs(p) {
+			return nil, fmt.Errorf("非法路径 %q: 必须是工作区内相对路径", p)
+		}
+		if rel := filepath.Clean(p); rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return nil, fmt.Errorf("非法路径 %q: 不能越出工作区", p)
+		}
+		cleaned = append(cleaned, p)
+	}
+	return cleaned, nil
 }
 
 // runDelegateCmd 是 delegate 子命令的共用执行器：cmd.Dir=workspace，超时/取消杀进程组。

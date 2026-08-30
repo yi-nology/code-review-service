@@ -2,7 +2,7 @@ package progress_service
 
 import (
 	"context"
-	"strings"
+	"net/url"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelProgress "github.com/yi-nology/code-review-service/biz/model/progress"
@@ -43,17 +43,29 @@ func InitHandler(progressManager *progress.ProgressManager) {
 }
 
 // sameOrigin 校验请求 Origin 与当前 Host 同源。
-// Origin 缺失（部分非浏览器客户端）时放行，由 Bearer 认证保障安全。
+// 必须解析后严格比较 host 部分：前缀匹配（strings.HasPrefix(origin, scheme+host)）
+// 会被 http://<host>.attacker.com 这类域名绕过，导致跨站 WebSocket 劫持（CSWSH）。
+// Origin 缺失（部分非浏览器客户端）时放行，由 Bearer 认证保障安全；
+// Host 头缺失或 Origin 非法时拒绝（fail closed）。
 func sameOrigin(r *app.RequestContext) bool {
 	origin := string(r.GetHeader("Origin"))
 	if origin == "" {
 		return true
 	}
 	host := string(r.GetHeader("Host"))
-	return strings.HasPrefix(origin, "http://"+host) ||
-		strings.HasPrefix(origin, "https://"+host) ||
-		strings.HasPrefix(origin, "ws://"+host) ||
-		strings.HasPrefix(origin, "wss://"+host)
+	if host == "" {
+		return false
+	}
+	u, err := url.Parse(origin)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	switch u.Scheme {
+	case "http", "https", "ws", "wss":
+	default:
+		return false
+	}
+	return u.Host == host
 }
 
 func HandleProgressWS(ctx context.Context, c *app.RequestContext) {

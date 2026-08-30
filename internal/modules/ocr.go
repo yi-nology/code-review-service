@@ -69,7 +69,7 @@ func NewConfigResolver(repos *repository.RepoContainer) *ocrcore.ConfigResolver 
 	return ocrcore.NewConfigResolver(
 		ocrcore.NewSettingsAdapter(repos.OCRSettings),
 		fallback,
-		nil, // TODO: implement ocr.ToolSettings adapter for repos.OCRToolPackage
+		newToolPackageSettings(repos.OCRToolPackage),
 	)
 }
 
@@ -134,6 +134,38 @@ func (s *rulePackageSource) ListEnabledRules(ctx context.Context) ([][]byte, err
 		result = append(result, packages[i].Rules)
 	}
 	return result, nil
+}
+
+// newToolPackageSettings 把 repository.OCRToolPackageRepository 适配成 ocrcore.ToolSettings。
+// 补齐 ConfigResolver 的第三个配置来源：DB 里启用的工具包配置（JSON）
+// 会在 BuildConfig 缺省 ToolsConfig 时生效（defaultToolsConfig 按 ScanType 匹配）。
+// repo 为 nil 时返回 nil（ToolSettings 接口自身容忍 nil）。
+func newToolPackageSettings(repo repository.OCRToolPackageRepository) ocrcore.ToolSettings {
+	if repo == nil {
+		return nil
+	}
+	return &toolPackageSettings{repo: repo}
+}
+
+type toolPackageSettings struct {
+	repo repository.OCRToolPackageRepository
+}
+
+func (s *toolPackageSettings) List(ctx context.Context) ([]ocrcore.ToolPackageData, error) {
+	packages, err := s.repo.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ocrcore.ToolPackageData, 0, len(packages))
+	for _, p := range packages {
+		out = append(out, ocrcore.ToolPackageData{
+			Name:     p.Name,
+			ScanType: p.ScanType,
+			Enabled:  p.Enabled,
+			Config:   string(p.Config),
+		})
+	}
+	return out, nil
 }
 
 func NewOCRVersioner(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver) *ocrcore.Versioner {

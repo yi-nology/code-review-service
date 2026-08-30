@@ -44,7 +44,10 @@ type CommandResult struct {
 // Run 是统一的 exec 入口。
 //
 // 行为契约：
-//   - ctx.Done() / CommandSpec.Timeout 触发 SIGTERM → KillGrace → SIGKILL 三段式
+//   - ctx.Done() / CommandSpec.Timeout 触发 SIGTERM → KillGrace → SIGKILL 三段式：
+//     第一段 cmd.Cancel 对进程组发 SIGTERM（优雅退出机会）；KillGrace 内未退出，
+//     第二段由 exec 的 WaitDelay 以 SIGKILL 杀主进程；Wait 返回后再对残留进程组
+//     补一次 SIGKILL（第三段，清理子进程泄漏的孙进程）
 //   - cmd.Wait() 与 stderr scanner 串行化（避免 use of closed pipe）
 //   - 返回的 error 含 redact.String 脱敏
 //
@@ -72,6 +75,16 @@ func Run(ctx context.Context, spec CommandSpec) (*CommandResult, error) {
 
 	cmd := exec.CommandContext(cmdCtx, spec.Binary, spec.Args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// 第一段：ctx 取消/超时时对进程组发 SIGTERM。错误不向 Wait 传播，
+	// 超时语义由下方 TimedOut 标记表达。
+	cmd.Cancel = func() error {
+		if cmd.Process != nil {
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
+		}
+		return nil
+	}
+	// 第二段：SIGTERM 后 killGrace 内仍未退出，exec 内部以 SIGKILL 杀主进程。
+	cmd.WaitDelay = killGrace
 	if spec.Env != nil {
 		cmd.Env = spec.Env
 	}
@@ -92,7 +105,8 @@ func Run(ctx context.Context, spec CommandSpec) (*CommandResult, error) {
 	}
 
 	waitErr := cmd.Wait()
-	if waitErr != nil && cmd.Process != nil {
+	// 第三段：主进程死后进程组内可能残留孙进程（OCR 可能再拉起子进程），兜底清组。
+	if cmd.Process != nil {
 		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}
 
