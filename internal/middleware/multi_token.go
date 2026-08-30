@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"net/http"
 	"strings"
@@ -64,7 +65,8 @@ func MultiTokenAuth(src TokenSource, fallbackToken string) app.HandlerFunc {
 			}
 		}
 		// fallback：兼容单 token 配置（name 标记为 "default"）。
-		if fallbackToken != "" && token == fallbackToken {
+		// constant-time 比较：与 webhook 签名/viewer 代理保持同一安全基线。
+		if fallbackToken != "" && subtle.ConstantTimeCompare([]byte(token), []byte(fallbackToken)) == 1 {
 			c.Set(tokenNameStoreKey, "default")
 			c.Next(ctx)
 			return

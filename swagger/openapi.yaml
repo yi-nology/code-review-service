@@ -1147,6 +1147,10 @@ paths:
                   in: query
                   schema:
                     type: string
+                - name: installation_id
+                  in: query
+                  schema:
+                    type: string
             responses: {}
     /api/v1/settings/platforms/test:
         post:
@@ -2083,6 +2087,11 @@ components:
                     format: int64
                 is_default:
                     type: boolean
+                rule_package_ids:
+                    type: array
+                    items:
+                        type: integer
+                        format: int64
         CreateReviewerAgentRespBody:
             type: object
             properties:
@@ -2191,6 +2200,8 @@ components:
                 existing_code:
                     type: string
                 suggestion_code:
+                    type: string
+                fingerprint:
                     type: string
         Gate:
             type: object
@@ -2450,6 +2461,9 @@ components:
                     type: string
                 author_avatar:
                     type: string
+                retry_count:
+                    type: integer
+                    format: int64
         ListLLMProvidersRespBody:
             type: object
             properties:
@@ -2580,6 +2594,34 @@ components:
                 total_tokens:
                     type: integer
                     format: int64
+        OCRInput:
+            type: object
+            properties:
+                binary:
+                    type: string
+                args:
+                    type: array
+                    items:
+                        type: string
+                workspace:
+                    $ref: '#/components/schemas/OCRInputWorkspace'
+                rule_path:
+                    type: string
+                started_at:
+                    type: string
+        OCRInputWorkspace:
+            type: object
+            properties:
+                provider:
+                    type: string
+                repo:
+                    type: string
+                base_sha:
+                    type: string
+                head_sha:
+                    type: string
+                dir:
+                    type: string
         OCRMetadata:
             type: object
             properties:
@@ -2680,6 +2722,17 @@ components:
                     type: string
                 tools_config:
                     type: string
+                mcp_servers:
+                    type: string
+                    description: MCP server 配置 JSON（透传给 OCR 全局 config.json 的 mcp_servers 键）。
+                protocol:
+                    type: string
+                    description: |-
+                        LLM 协议（OCR v1.7.10+）：留空=由 use_anthropic 推断；anthropic / openai / openai-responses。
+                        GPT-5.x/o-series 等走 Responses API 的模型必须设为 openai-responses。
+                background_file:
+                    type: string
+                    description: 业务上下文 Markdown 文件路径（OCR v1.7.6+ --background-file），与 background 叠加。
         OCRToolCalls:
             type: object
             properties:
@@ -3014,6 +3067,17 @@ components:
                     type: string
                 ocr_telemetry_content_logging:
                     type: boolean
+                rule_package_ids:
+                    type: array
+                    items:
+                        type: integer
+                        format: int64
+                ocr_protocol:
+                    type: string
+                    description: 项目级 OCR 协议覆盖（OCR v1.7.10+）；留空=回退到全局。
+                ocr_background_file:
+                    type: string
+                    description: 项目级 --background-file 路径覆盖（OCR v1.7.6+）；留空=回退到全局。
         ProjectSummary:
             type: object
             properties:
@@ -3271,6 +3335,11 @@ components:
                     type: string
                 author_avatar:
                     type: string
+                raw_ocr_input:
+                    $ref: '#/components/schemas/OCRInput'
+                retry_count:
+                    type: integer
+                    format: int64
         ReviewProgress:
             type: object
             properties:
@@ -3398,6 +3467,11 @@ components:
                     format: int64
                 is_default:
                     type: boolean
+                rule_package_ids:
+                    type: array
+                    items:
+                        type: integer
+                        format: int64
         RulePackage:
             type: object
             properties:
@@ -3438,6 +3512,8 @@ components:
                         type: string
                 built_in:
                     type: boolean
+                scope:
+                    type: string
         RulesCheckReqBody:
             type: object
             properties:
@@ -3746,6 +3822,11 @@ components:
                     format: int64
                 is_default:
                     type: boolean
+                rule_package_ids:
+                    type: array
+                    items:
+                        type: integer
+                        format: int64
         UpdateReviewerAgentRespBody:
             type: object
             properties:
