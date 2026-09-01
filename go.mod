@@ -3,7 +3,7 @@ module github.com/yi-nology/code-review-service
 go 1.26.4
 
 require (
-	github.com/yi-nology/ekit v0.18.0
+	github.com/yi-nology/ekit v0.19.0
 	github.com/apache/thrift v0.23.0
 	github.com/cloudwego/eino v0.9.18
 	github.com/cloudwego/hertz v0.10.5
@@ -72,7 +72,9 @@ require (
 	github.com/cloudflare/circl v1.6.4 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/cloudwego/gopkg v0.2.0 // indirect
+	github.com/cloudwego/kitex v0.16.2 // indirect
 	github.com/cloudwego/netpoll v0.7.3 // indirect
+	github.com/cloudwego/runtimex v0.1.1 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
