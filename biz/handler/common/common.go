@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -27,17 +28,15 @@ func (e *AppError) Error() string {
 	return e.Message
 }
 
-func Fail(c *hertzApp.RequestContext, err error) {
+func Fail(ctx context.Context, c *hertzApp.RequestContext, err error) {
 	var appErr *AppError
 	if errors.As(err, &appErr) {
 		mw.ErrorResp(c, appErr.Code, appErr.Message)
 		return
 	}
-	if bizErr, ok := bizerrors.AsBizError(err); ok {
-		// v0.17.0 起 BizError 拆为 BizCode（body code）+ HTTPCode（HTTP 状态，
-		// 0 时经 StatusMapper 从 BizCode 推导）。ErrorRespBiz 即此语义，
-		// 线上行为与旧版 ErrorResp(c, bizErr.Code, ...) 一致。
-		mw.ErrorRespBiz(c, bizErr)
+	if _, ok := bizerrors.AsBizError(err); ok {
+		// v0.19.2: mw.Fail 直接接受 error，内部处理 BizError 的 BizCode/HTTPCode 拆分。
+		mw.Fail(ctx, c, err)
 		return
 	}
 	if errors.Is(err, repoerr.ErrNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
@@ -160,7 +159,7 @@ func SafeUint(v int64) uint {
 func Bind[T any](c *hertzApp.RequestContext) (*T, bool) {
 	var req T
 	if err := c.BindAndValidate(&req); err != nil {
-		Fail(c, BadRequest(err.Error()))
+		Fail(context.Background(), c, BadRequest(err.Error()))
 		return nil, false
 	}
 	return &req, true
@@ -173,7 +172,7 @@ func Bind[T any](c *hertzApp.RequestContext) (*T, bool) {
 //	if !common.FeatureGuard(c, handlerInst.viewerMgr, "Viewer") { return }
 func FeatureGuard(c *hertzApp.RequestContext, feature any, name string) bool {
 	if feature == nil {
-		Fail(c, BadRequest(name+" 功能未配置"))
+		Fail(context.Background(), c, BadRequest(name+" 功能未配置"))
 		return false
 	}
 	return true

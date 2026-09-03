@@ -24,13 +24,15 @@ import (
 	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/readiness"
 	"github.com/yi-nology/code-review-service/internal/repository"
+
 	// blank import：触发业务指标包的 init()，将指标注册到 ekit Registry。
 	_ "github.com/yi-nology/code-review-service/internal/observability/metrics"
 	"github.com/yi-nology/code-review-service/swagger"
 
 	// 阶段 A 移除"
 
-	"github.com/oekit/hertz"
+	"github.com/oekit/hertz/health"
+	"github.com/oekit/hertz/metrics"
 	mw "github.com/oekit/middleware"
 	emetrics "github.com/oekit/metrics"
 
@@ -91,29 +93,31 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *ocrcore.Metrics, o
 	repos := ocrReg.Repos()
 	resolver := ocrReg.Resolver()
 
-	healthOpts := []hertz.Option{}
+	healthOpts := []health.Option{}
 	if sqlDB, err := db.DB(); err == nil {
-		healthOpts = append(healthOpts, hertz.WithCheckers(hertz.DBChecker(sqlDB)))
+		healthOpts = append(healthOpts, health.WithCheckers(health.DBChecker(sqlDB)))
 	}
 	healthOpts = append(healthOpts,
-		hertz.WithCheckers(hertz.NamedChecker("ocr-binary", readiness.OCRBinaryCheck(repos, resolver))),
-		hertz.WithCheckers(hertz.NamedChecker("llm-endpoint", readiness.LLMEndpointCheck(repos, resolver))),
+		health.WithCheckers(health.NamedChecker("ocr-binary", readiness.OCRBinaryCheck(repos, resolver))),
+		health.WithCheckers(health.NamedChecker("llm-endpoint", readiness.LLMEndpointCheck(repos, resolver))),
 	)
-	hertz.RegisterHealthRoutes(h, healthOpts...)
+	health.RegisterHealthRoutes(h, healthOpts...)
 
 	// /healthz /readyz：k8s 探针常用路径（auth skip 白名单已含），复用就绪检查。
 	// 之前这些路径未注册导致 k8s probe 404。
-	probeHandler := hertz.NewHealthHandler(
-		hertz.NamedChecker("db", readiness.DBCheck(db)),
-		hertz.NamedChecker("ocr-binary", readiness.OCRBinaryCheck(repos, resolver)),
-		hertz.NamedChecker("llm-endpoint", readiness.LLMEndpointCheck(repos, resolver)),
+	probeHandler := health.NewHealthHandler(
+		health.WithCheckers(
+			health.NamedChecker("db", readiness.DBCheck(db)),
+			health.NamedChecker("ocr-binary", readiness.OCRBinaryCheck(repos, resolver)),
+			health.NamedChecker("llm-endpoint", readiness.LLMEndpointCheck(repos, resolver)),
+		),
 	)
 	h.GET("/healthz", probeHandler)
 	h.GET("/readyz", probeHandler)
 
 	// /metrics：Prometheus 抓取端点（auth skip 白名单已含）。
 	// 暴露 ekit Registry 上注册的全部指标（build_info、HTTP、Go runtime、业务指标）。
-	h.GET("/metrics", hertz.MetricsHandler())
+	h.GET("/metrics", metrics.MetricsHandler())
 
 	// LLM 调用指标端点（阶段 6 可观测）
 	h.GET("/debug/llm/metrics", func(ctx context.Context, c *app.RequestContext) {
@@ -173,7 +177,7 @@ func registerReviewExtraRoutes(h *server.Hertz, repos *repository.RepoContainer)
 	h.POST("/api/v1/reviews/:id/requeue", func(ctx context.Context, c *app.RequestContext) {
 		reviewID := c.Param("id")
 		if err := repos.Review.RequeueFromDeadLetter(ctx, reviewID); err != nil {
-			common.Fail(c, err)
+			common.Fail(ctx, c, err)
 			return
 		}
 		common.Success(c, map[string]any{"ok": true, "review_id": reviewID})

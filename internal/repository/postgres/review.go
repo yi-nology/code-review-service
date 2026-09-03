@@ -146,11 +146,11 @@ func (r *ReviewRepo) List(ctx context.Context, opts domain.ListOptions) (*ekitGo
 		return nil, err
 	}
 	out := &ekitGorm.PageResponse[domain.Record]{
-		List:  make([]domain.Record, len(resp.List)),
+		Items: make([]domain.Record, len(resp.Items)),
 		Total: resp.Total,
 	}
-	for i, m := range resp.List {
-		out.List[i] = reviewToDomain(m)
+	for i, m := range resp.Items {
+		out.Items[i] = reviewToDomain(m)
 	}
 	return out, nil
 }
