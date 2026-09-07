@@ -87,6 +87,12 @@ export async function getOCRVersion(): Promise<OCRVersion> {
   return request.get('/settings/ocr/version', { timeout: 35000, __silent: true }) as any
 }
 
+// ==================== OCR Sessions ====================
+
+export async function listOCRSessions(): Promise<import('@/types/config').OCRSessionListResult> {
+  return request.get('/settings/ocr/sessions', { timeout: 20000, __silent: true }) as any
+}
+
 // ==================== OCR Upgrade ====================
 
 export async function checkOCRUpdate(): Promise<OCRUpdateInfo> {

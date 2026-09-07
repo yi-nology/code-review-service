@@ -21,7 +21,7 @@ import (
 func GetOCRSettings(ctx context.Context, c *app.RequestContext) {
 	settings, err := handlerInst.ocrRepo.Get(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	resp := dbOCRSettingsToAPI(settings)
@@ -38,7 +38,7 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 	}
 	dbSettings := apiOCRSettingsToDB(req.Settings)
 	if err := validateOCRSettings(dbSettings); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
+		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
 	}
 	if dbSettings.AuthToken == "" || dbSettings.AuthToken == "***" {
@@ -66,7 +66,7 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 		}
 	}
 	if err := handlerInst.ocrRepo.Save(ctx, dbSettings); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
+		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
 	}
 	// 通知 Runner 立即重载 DB 配置（binary/language/concurrency 等），不必等 30s 定时刷新。

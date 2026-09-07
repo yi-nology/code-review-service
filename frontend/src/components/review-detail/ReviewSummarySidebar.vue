@@ -97,6 +97,25 @@ function scoreColor(score: number) {
         <strong>{{ gateLabel }}</strong>
       </div>
 
+      <!-- Judge 置信度标签 -->
+      <div v-if="detail.judgment" class="judgment-badge">
+        <el-tag
+          :type="detail.judgment.confidence === 'high' ? 'success' : detail.judgment.confidence === 'medium' ? 'warning' : 'danger'"
+          size="small"
+          effect="plain"
+        >
+          AI 置信度: {{ detail.judgment.confidence === 'high' ? '高' : detail.judgment.confidence === 'medium' ? '中' : '低' }}
+        </el-tag>
+        <el-tag
+          v-if="detail.judgment.recommended_gate !== (gatePassed ? 'pass' : 'fail')"
+          :type="detail.judgment.recommended_gate === 'pass' ? 'success' : detail.judgment.recommended_gate === 'fail' ? 'danger' : 'warning'"
+          size="small"
+          effect="plain"
+        >
+          AI 建议: {{ detail.judgment.recommended_gate === 'pass' ? '通过' : detail.judgment.recommended_gate === 'fail' ? '拒绝' : '有条件通过' }}
+        </el-tag>
+      </div>
+
       <!-- 评分环 + 严重度 -->
       <div class="score-severity" v-if="detail.report?.generated">
         <div class="score-ring" :style="{ '--score-color': scoreColor(detail.report.score.value) }">
@@ -231,6 +250,15 @@ function scoreColor(score: number) {
 .summary-card.passed .gate-banner { background: #f0fdf4; color: #16a34a; }
 .summary-card.failed .gate-banner { background: #fef2f2; color: #dc2626; }
 .summary-card.pending .gate-banner { background: #f9fafb; color: #6b7280; }
+
+/* Judge 置信度标签 */
+.judgment-badge {
+  display: flex;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--el-fill-color-lighter);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
 
 .score-severity {
   display: flex;

@@ -41,30 +41,30 @@ func DownloadSuggestionPatch(ctx context.Context, c *app.RequestContext) {
 func CheckSuggestionPatch(ctx context.Context, c *app.RequestContext) {
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {
-		common.Fail(c, common.BadRequest("review id 不能为空"))
+		common.Fail(ctx, c, common.BadRequest("review id 不能为空"))
 		return
 	}
 	record, found, err := handlerInst.reviewSvc.Get(ctx, id)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	if !found {
-		common.Fail(c, common.NotFound("review not found"))
+		common.Fail(ctx, c, common.NotFound("review not found"))
 		return
 	}
 	indexes, err := parseFindingIndexes(c.Query("finding_indexes"), len(record.Response.Findings))
 	if err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
+		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
 	}
 	result, found, err := handlerInst.suggestionSvc.CheckSuggestionPatch(ctx, id, indexes)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	if !found {
-		common.Fail(c, common.NotFound("review not found"))
+		common.Fail(ctx, c, common.NotFound("review not found"))
 		return
 	}
 	common.Success(c, result)
@@ -84,7 +84,7 @@ type applySuggestionPatchReq struct {
 func ApplySuggestionPatch(ctx context.Context, c *app.RequestContext) {
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {
-		common.Fail(c, common.BadRequest("review id 不能为空"))
+		common.Fail(ctx, c, common.BadRequest("review id 不能为空"))
 		return
 	}
 	req, ok := common.Bind[applySuggestionPatchReq](c)
@@ -93,15 +93,15 @@ func ApplySuggestionPatch(ctx context.Context, c *app.RequestContext) {
 	}
 	record, found, err := handlerInst.reviewSvc.Get(ctx, id)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	if !found {
-		common.Fail(c, common.NotFound("review not found"))
+		common.Fail(ctx, c, common.NotFound("review not found"))
 		return
 	}
 	if err := validateFindingIndexes(req.FindingIndexes, len(record.Response.Findings)); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
+		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
 	}
 	result, found, err := handlerInst.suggestionSvc.ApplySuggestionPatch(ctx, id, suggestion.SuggestionPatchApplyOptions{
@@ -110,11 +110,11 @@ func ApplySuggestionPatch(ctx context.Context, c *app.RequestContext) {
 		Push:    req.Push || req.CreateCR,
 	})
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	if !found {
-		common.Fail(c, common.NotFound("review not found"))
+		common.Fail(ctx, c, common.NotFound("review not found"))
 		return
 	}
 	if req.CreateCR {
@@ -186,21 +186,21 @@ func resolveReviewTargetBranch(ctx context.Context, req domain.Request, owner, r
 func buildSuggestionPatchPreview(ctx context.Context, c *app.RequestContext) (suggestion.SuggestionPatchPreview, bool) {
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {
-		common.Fail(c, common.BadRequest("review id 不能为空"))
+		common.Fail(ctx, c, common.BadRequest("review id 不能为空"))
 		return suggestion.SuggestionPatchPreview{}, false
 	}
 	record, found, err := handlerInst.reviewSvc.Get(ctx, id)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return suggestion.SuggestionPatchPreview{}, false
 	}
 	if !found {
-		common.Fail(c, common.NotFound("review not found"))
+		common.Fail(ctx, c, common.NotFound("review not found"))
 		return suggestion.SuggestionPatchPreview{}, false
 	}
 	indexes, err := parseFindingIndexes(c.Query("finding_indexes"), len(record.Response.Findings))
 	if err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
+		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return suggestion.SuggestionPatchPreview{}, false
 	}
 	return suggestion.BuildSuggestionPatch(record.ID, record.Response.Findings, indexes), true

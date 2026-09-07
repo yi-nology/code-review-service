@@ -25,12 +25,15 @@ type Request struct {
 	MergeRequestIID string `json:"merge_request_iid,omitempty"`
 	BaseSHA         string `json:"base_sha"`
 	HeadSHA         string `json:"head_sha"`
-	CallbackMode    string `json:"callback_mode,omitempty"`
-	Wait            bool   `json:"wait"`
-	Author          string `json:"author,omitempty"`
-	AuthorName      string `json:"author_name,omitempty"`
-	AuthorAvatar    string `json:"author_avatar,omitempty"`
-	Sender          string `json:"sender,omitempty"`
+	// CommitSHA 用于单 commit 评审模式（OCR v1.9.5+ --commit）。
+	// 与 PullRequestID/MergeRequestIID 互斥；非空时 BaseSHA/HeadSHA 可省略。
+	CommitSHA    string `json:"commit_sha,omitempty"`
+	CallbackMode string `json:"callback_mode,omitempty"`
+	Wait         bool   `json:"wait"`
+	Author       string `json:"author,omitempty"`
+	AuthorName   string `json:"author_name,omitempty"`
+	AuthorAvatar string `json:"author_avatar,omitempty"`
+	Sender       string `json:"sender,omitempty"`
 	// Requirements 是需求/spec/验收标准，透传给 workflow 做需求感知评审。
 	Requirements []string `json:"requirements,omitempty"`
 	// EphemeralReviewers 是本次评审临时加入的 reviewer 描述，不入库。
@@ -55,8 +58,37 @@ type Response struct {
 	Findings []Finding `json:"findings,omitempty"`
 	Error    string    `json:"error,omitempty"`
 	// Writeback 记录回写（PR/MR 评论发布）的结果。
-	// 当 Status == StatusSuccessWithPublishFailed 时，Status 字段为 success_with_publish_failed。
 	Writeback WritebackSummary `json:"writeback,omitempty"`
+	// Judgment 是 OCR 结果二次综合判断（agentkit LLM）。
+	// 包含误报判断、优先级排序、人可读总结、门禁建议。
+	Judgment *Judgment `json:"judgment,omitempty"`
+}
+
+// Judgment 是 Judge 对 OCR 结果的二次综合判断。
+type Judgment struct {
+	// OverallAssessment 综合评估（人可读，1-3 段文字）
+	OverallAssessment string `json:"overall_assessment"`
+	// Confidence 对 OCR 结果的置信度（high/medium/low）
+	Confidence string `json:"confidence"`
+	// RecommendedGate 建议的门禁结果（pass/fail/conditional_pass）
+	RecommendedGate string `json:"recommended_gate"`
+	// GateReason 门禁建议的理由
+	GateReason string `json:"gate_reason"`
+	// PrioritizedFindings 按优先级排序的 findings，含误报标记
+	PrioritizedFindings []FindingJudgment `json:"prioritized_findings,omitempty"`
+	// SummaryForHuman 面向人的简洁总结
+	SummaryForHuman string `json:"summary_for_human,omitempty"`
+}
+
+// FindingJudgment 是单个 finding 的判断。
+type FindingJudgment struct {
+	Path         string `json:"path"`
+	Line         int    `json:"line,omitempty"`
+	Title        string `json:"title"`
+	Severity     string `json:"severity"`
+	IsLikelyTrue bool   `json:"is_likely_true"`
+	Priority     int    `json:"priority"`
+	Reason       string `json:"reason"`
 }
 
 // WritebackSummary 描述回写到 git 平台的最终结果。
@@ -85,12 +117,24 @@ const (
 // 用于把 PR-01 修复的「writeback 失败被吞」问题暴露给上游消费者。
 const StatusSuccessWithPublishFailed = "success_with_publish_failed"
 
+// Event 是审查流程中的一个步骤事件。
+// 每个步骤记录：做了什么（Stage）、怎么做的（How）、输入了什么（Input）、
+// 产出了什么（Output）、耗时多久（Duration）、当前状态（Status）。
+// 用户可以通过审查详情页的审计面板查看每一步的完整细节。
 type Event struct {
 	Stage     string         `json:"stage"`
 	Status    string         `json:"status"`
 	Message   string         `json:"message"`
 	Details   map[string]any `json:"details,omitempty"`
 	CreatedAt time.Time      `json:"created_at"`
+	// How 描述这一步是怎么做的（方法/工具/策略），用于审计。
+	How string `json:"how,omitempty"`
+	// Input 是这一步的输入数据（debug 用，可能很大）。
+	Input any `json:"input,omitempty"`
+	// Output 是这一步的输出数据（debug 用，可能很大）。
+	Output any `json:"output,omitempty"`
+	// DurationMs 是这一步的耗时（毫秒）。
+	DurationMs int64 `json:"duration_ms,omitempty"`
 }
 
 type Analysis struct {

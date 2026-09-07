@@ -20,7 +20,7 @@ func ListCustomProviders(ctx context.Context, c *app.RequestContext) {
 	}
 	providers, err := handlerInst.customProvider.List(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	var items []*modelSettings.CustomProvider
@@ -36,11 +36,11 @@ func CreateCustomProvider(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if strings.TrimSpace(req.Name) == "" {
-		common.Fail(c, common.BadRequest("Provider 名称不能为空"))
+		common.Fail(ctx, c, common.BadRequest("Provider 名称不能为空"))
 		return
 	}
 	if strings.TrimSpace(req.Protocol) == "" {
-		common.Fail(c, common.BadRequest("Protocol 不能为空"))
+		common.Fail(ctx, c, common.BadRequest("Protocol 不能为空"))
 		return
 	}
 	p := &llmprovider.Custom{
@@ -53,7 +53,7 @@ func CreateCustomProvider(ctx context.Context, c *app.RequestContext) {
 		p.ExtraBody = json.RawMessage(*req.ExtraBody)
 	}
 	if err := handlerInst.customProvider.Create(ctx, p); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, &modelSettings.CreateCustomProviderResp{Provider: dbCustomProviderToAPI(p)})
@@ -66,7 +66,7 @@ func UpdateCustomProvider(ctx context.Context, c *app.RequestContext) {
 	}
 	existing, err := handlerInst.customProvider.GetByID(ctx, common.SafeUint(req.ID))
 	if err != nil || existing == nil {
-		common.Fail(c, common.BadRequest("Provider 不存在"))
+		common.Fail(ctx, c, common.BadRequest("Provider 不存在"))
 		return
 	}
 	if req.Name != nil {
@@ -94,7 +94,7 @@ func UpdateCustomProvider(ctx context.Context, c *app.RequestContext) {
 		existing.Enabled = *req.Enabled
 	}
 	if err := handlerInst.customProvider.Update(ctx, existing); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, &modelSettings.UpdateCustomProviderResp{Provider: dbCustomProviderToAPI(existing)})
@@ -106,7 +106,7 @@ func DeleteCustomProvider(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if err := handlerInst.customProvider.Delete(ctx, common.SafeUint(req.ID)); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, &modelSettings.DeleteCustomProviderResp{})

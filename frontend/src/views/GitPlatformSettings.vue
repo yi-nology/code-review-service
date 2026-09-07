@@ -47,6 +47,12 @@
                 <small>{{ p.base_url || '未配置 API 地址' }}</small>
               </span>
               <div class="platform-states">
+                <span
+                  v-if="connectionStatus[platformKey(p)] !== undefined"
+                  class="connection-dot"
+                  :class="connectionStatus[platformKey(p)] ? 'connected' : 'disconnected'"
+                  :title="connectionStatus[platformKey(p)] ? '连接正常' : '连接失败'"
+                />
                 <span class="platform-state" :class="{ enabled: p.enabled }">
                   {{ p.enabled ? '启用' : '禁用' }}
                 </span>
@@ -99,6 +105,11 @@
               <span>{{ providerHint }}</span>
             </div>
 
+            <div v-if="tokenGuide && !editing" class="token-guide">
+              <el-icon><InfoFilled /></el-icon>
+              <span><strong>获取 Token：</strong>{{ tokenGuide }}</span>
+            </div>
+
             <el-form-item label="API 地址" required>
               <el-input v-model="form.base_url" :placeholder="baseUrlPlaceholder" />
             </el-form-item>
@@ -108,7 +119,7 @@
                 v-model="form.token"
                 type="password"
                 show-password
-                :placeholder="editing ? '留空则保留原 Token' : 'ghp_xxx 或 glpat-xxx'"
+                :placeholder="editing ? '留空则保留原 Token' : tokenPlaceholder"
               />
             </el-form-item>
 
@@ -191,15 +202,51 @@ const keyword = ref('')
 const statusFilter = ref<'all' | 'enabled' | 'disabled'>('all')
 const platforms = ref<GitPlatform[]>([])
 const testResult = ref<GitTestResult | null>(null)
+const connectionStatus = ref<Record<string, boolean>>({})
 
-const providerDefaults: Record<string, { baseUrl: string; hint: string }> = {
-  github: { baseUrl: 'https://api.github.com', hint: '适用于 GitHub Cloud；企业版请填写对应 API 地址。' },
-  gitlab: { baseUrl: 'https://gitlab.com', hint: '支持 GitLab.com 和自建 GitLab，通常填写站点根地址。' },
-  gitea: { baseUrl: '', hint: '填写 Gitea 站点根地址，例如 https://git.example.com。' },
-  forgejo: { baseUrl: '', hint: '填写 Forgejo 站点根地址（兼容 Gitea API）。' },
-  gitcode: { baseUrl: 'https://api.gitcode.com/api/v5', hint: '适用于 GitCode API v5。' },
-  gitee: { baseUrl: 'https://gitee.com', hint: '适用于 Gitee 公开云服务或兼容部署。' },
-  tencent_code: { baseUrl: '', hint: '填写腾讯工蜂/代码平台服务地址。' },
+const providerDefaults: Record<string, { baseUrl: string; hint: string; tokenGuide: string; tokenPlaceholder: string }> = {
+  github: {
+    baseUrl: 'https://api.github.com',
+    hint: '适用于 GitHub Cloud；企业版请填写对应 API 地址。',
+    tokenGuide: 'GitHub → Settings → Developer settings → Personal access tokens → Generate new token (classic)，勾选 repo 权限。',
+    tokenPlaceholder: 'ghp_xxxxxxxxxxxx',
+  },
+  gitlab: {
+    baseUrl: 'https://gitlab.com',
+    hint: '支持 GitLab.com 和自建 GitLab，通常填写站点根地址。',
+    tokenGuide: 'GitLab → User Settings → Access Tokens → Add new token，勾选 api 权限。',
+    tokenPlaceholder: 'glpat-xxxxxxxxxxxx',
+  },
+  gitea: {
+    baseUrl: '',
+    hint: '填写 Gitea 站点根地址，例如 https://git.example.com。',
+    tokenGuide: 'Gitea → Settings → Applications → Generate New Token，勾选 all 权限。',
+    tokenPlaceholder: '输入 Gitea Access Token',
+  },
+  forgejo: {
+    baseUrl: '',
+    hint: '填写 Forgejo 站点根地址（兼容 Gitea API）。',
+    tokenGuide: 'Forgejo → Settings → Applications → Generate New Token。',
+    tokenPlaceholder: '输入 Forgejo Access Token',
+  },
+  gitcode: {
+    baseUrl: 'https://api.gitcode.com/api/v5',
+    hint: '适用于 GitCode API v5。',
+    tokenGuide: 'GitCode → 设置 → 访问令牌 → 新建令牌。',
+    tokenPlaceholder: '输入 GitCode Access Token',
+  },
+  gitee: {
+    baseUrl: 'https://gitee.com',
+    hint: '适用于 Gitee 公开云服务或兼容部署。',
+    tokenGuide: 'Gitee → 设置 → 私人令牌 → 生成新令牌，勾选 projects 权限。',
+    tokenPlaceholder: '输入 Gitee Access Token',
+  },
+  tencent_code: {
+    baseUrl: '',
+    hint: '填写腾讯工蜂/代码平台服务地址。',
+    tokenGuide: '腾讯工蜂 → 个人设置 → 访问令牌 → 新建。',
+    tokenPlaceholder: '输入访问令牌',
+  },
 }
 
 const statusOptions = [
@@ -232,6 +279,8 @@ const canTest = computed(() => {
 })
 const baseUrlPlaceholder = computed(() => providerDefaults[form.provider]?.baseUrl || 'https://git.example.com')
 const providerHint = computed(() => providerDefaults[form.provider]?.hint || '填写平台 API 或站点地址。')
+const tokenGuide = computed(() => providerDefaults[form.provider]?.tokenGuide || '')
+const tokenPlaceholder = computed(() => providerDefaults[form.provider]?.tokenPlaceholder || '输入 Access Token')
 const selectedPlatform = computed(() => platforms.value.find((p) => platformKey(p) === platformKey(form)))
 const filteredPlatforms = computed(() => {
   const query = keyword.value.trim().toLowerCase()
@@ -299,6 +348,7 @@ async function handleTest() {
       skip_tls: form.skip_tls,
     })
     testResult.value = result
+    connectionStatus.value[platformKey(form)] = result.connected
     if (result.connected) {
       ElMessage.success(`连接成功${result.user_name ? ': ' + result.user_name : ''}`)
     }
@@ -615,6 +665,41 @@ onMounted(() => {
   margin: -4px 0 18px;
   border-color: var(--app-border);
   background: #fafafa;
+}
+
+/* Token 获取指南 */
+.token-guide {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: -2px 0 18px;
+  padding: 10px 12px;
+  border: 1px solid #e0e7ff;
+  border-radius: 8px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.token-guide .el-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* 连接状态指示点 */
+.connection-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.connection-dot.connected {
+  background: #22c55e;
+  box-shadow: 0 0 4px rgba(34, 197, 94, 0.5);
+}
+.connection-dot.disconnected {
+  background: #ef4444;
+  box-shadow: 0 0 4px rgba(239, 68, 68, 0.5);
 }
 
 .saved-credential strong {

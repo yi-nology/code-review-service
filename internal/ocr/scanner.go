@@ -122,6 +122,11 @@ func (r *Runner) Scan(ctx context.Context, workspace domain.Workspace, req domai
 	if len(req.Exclude) > 0 {
 		args = append(args, "--exclude", strings.Join(req.Exclude, ","))
 	}
+	// OCR v1.11.0+ --resume：复用上次 scan session 的已完成文件 checkpoint。
+	if sid := strings.TrimSpace(req.ResumeSessionID); sid != "" {
+		args = append(args, "--resume", sid)
+		logx.Infof("[ocr] scan 启用 resume，复用 session_id=%s", sid)
+	}
 	bg := req.Background
 	if strings.TrimSpace(bg) == "" {
 		bg = cfg.Background

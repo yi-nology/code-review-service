@@ -8,17 +8,18 @@ import (
 )
 
 type CreateReviewReq struct {
-	Provider           string                    `thrift:"provider,1" form:"provider" json:"provider"`
-	Repo               string                    `thrift:"repo,2" form:"repo" json:"repo"`
-	ProjectID          *string                   `thrift:"project_id,3,optional" form:"project_id" json:"project_id,omitempty"`
-	PullRequestID      *string                   `thrift:"pull_request_id,4,optional" form:"pull_request_id" json:"pull_request_id,omitempty"`
-	MergeRequestIid    *string                   `thrift:"merge_request_iid,5,optional" form:"merge_request_iid" json:"merge_request_iid,omitempty"`
-	BaseSha            *string                   `thrift:"base_sha,6,optional" form:"base_sha" json:"base_sha,omitempty"`
-	HeadSha            *string                   `thrift:"head_sha,7,optional" form:"head_sha" json:"head_sha,omitempty"`
-	CallbackMode       *string                   `thrift:"callback_mode,8,optional" form:"callback_mode" json:"callback_mode,omitempty"`
-	Wait               *bool                     `thrift:"wait,9,optional" form:"wait" json:"wait,omitempty"`
-	Requirements       []string                  `thrift:"requirements,10,optional,list<string>" form:"requirements" json:"requirements,omitempty"`
-	EphemeralReviewers []*EphemeralReviewerInput `thrift:"ephemeral_reviewers,11,optional,list<EphemeralReviewerInput>" form:"ephemeral_reviewers" json:"ephemeral_reviewers,omitempty"`
+	Provider           string                    `thrift:"provider,1" json:"provider"`
+	Repo               string                    `thrift:"repo,2" json:"repo"`
+	ProjectID          *string                   `thrift:"project_id,3,optional" json:"project_id,omitempty"`
+	PullRequestID      *string                   `thrift:"pull_request_id,4,optional" json:"pull_request_id,omitempty"`
+	MergeRequestIid    *string                   `thrift:"merge_request_iid,5,optional" json:"merge_request_iid,omitempty"`
+	BaseSha            *string                   `thrift:"base_sha,6,optional" json:"base_sha,omitempty"`
+	HeadSha            *string                   `thrift:"head_sha,7,optional" json:"head_sha,omitempty"`
+	CallbackMode       *string                   `thrift:"callback_mode,8,optional" json:"callback_mode,omitempty"`
+	Wait               *bool                     `thrift:"wait,9,optional" json:"wait,omitempty"`
+	Requirements       []string                  `thrift:"requirements,10,optional,list<string>" json:"requirements,omitempty"`
+	EphemeralReviewers []*EphemeralReviewerInput `thrift:"ephemeral_reviewers,11,optional,list<EphemeralReviewerInput>" json:"ephemeral_reviewers,omitempty"`
+	CommitSha          *string                   `thrift:"commit_sha,12,optional" json:"commit_sha,omitempty"`
 }
 
 func NewCreateReviewReq() *CreateReviewReq {
@@ -117,6 +118,15 @@ func (p *CreateReviewReq) GetEphemeralReviewers() (v []*EphemeralReviewerInput) 
 	return p.EphemeralReviewers
 }
 
+var CreateReviewReq_CommitSha_DEFAULT string
+
+func (p *CreateReviewReq) GetCommitSha() (v string) {
+	if !p.IsSetCommitSha() {
+		return CreateReviewReq_CommitSha_DEFAULT
+	}
+	return *p.CommitSha
+}
+
 var fieldIDToName_CreateReviewReq = map[int16]string{
 	1:  "provider",
 	2:  "repo",
@@ -129,6 +139,7 @@ var fieldIDToName_CreateReviewReq = map[int16]string{
 	9:  "wait",
 	10: "requirements",
 	11: "ephemeral_reviewers",
+	12: "commit_sha",
 }
 
 func (p *CreateReviewReq) IsSetProjectID() bool {
@@ -165,6 +176,10 @@ func (p *CreateReviewReq) IsSetRequirements() bool {
 
 func (p *CreateReviewReq) IsSetEphemeralReviewers() bool {
 	return p.EphemeralReviewers != nil
+}
+
+func (p *CreateReviewReq) IsSetCommitSha() bool {
+	return p.CommitSha != nil
 }
 
 func (p *CreateReviewReq) Read(iprot thrift.TProtocol) (err error) {
@@ -269,6 +284,14 @@ func (p *CreateReviewReq) Read(iprot thrift.TProtocol) (err error) {
 		case 11:
 			if fieldTypeId == thrift.LIST {
 				if err = p.ReadField11(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 12:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField12(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -448,6 +471,17 @@ func (p *CreateReviewReq) ReadField11(iprot thrift.TProtocol) error {
 	p.EphemeralReviewers = _field
 	return nil
 }
+func (p *CreateReviewReq) ReadField12(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.CommitSha = _field
+	return nil
+}
 
 func (p *CreateReviewReq) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -497,6 +531,10 @@ func (p *CreateReviewReq) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField11(oprot); err != nil {
 			fieldId = 11
+			goto WriteFieldError
+		}
+		if err = p.writeField12(oprot); err != nil {
+			fieldId = 12
 			goto WriteFieldError
 		}
 	}
@@ -738,6 +776,25 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 11 end error: ", p), err)
 }
 
+func (p *CreateReviewReq) writeField12(oprot thrift.TProtocol) (err error) {
+	if p.IsSetCommitSha() {
+		if err = oprot.WriteFieldBegin("commit_sha", thrift.STRING, 12); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.CommitSha); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 12 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 12 end error: ", p), err)
+}
+
 func (p *CreateReviewReq) String() string {
 	if p == nil {
 		return "<nil>"
@@ -747,8 +804,8 @@ func (p *CreateReviewReq) String() string {
 }
 
 type EphemeralReviewerInput struct {
-	Name       *string `thrift:"name,1,optional" form:"name" json:"name,omitempty"`
-	Background string  `thrift:"background,2" form:"background" json:"background"`
+	Name       *string `thrift:"name,1,optional" json:"name,omitempty"`
+	Background string  `thrift:"background,2" json:"background"`
 }
 
 func NewEphemeralReviewerInput() *EphemeralReviewerInput {
@@ -944,9 +1001,9 @@ func (p *EphemeralReviewerInput) String() string {
 }
 
 type Gate struct {
-	Status string  `thrift:"status,1" form:"status" json:"status"`
-	Passed *bool   `thrift:"passed,2,optional" form:"passed" json:"passed,omitempty"`
-	Reason *string `thrift:"reason,3,optional" form:"reason" json:"reason,omitempty"`
+	Status string  `thrift:"status,1" json:"status"`
+	Passed *bool   `thrift:"passed,2,optional" json:"passed,omitempty"`
+	Reason *string `thrift:"reason,3,optional" json:"reason,omitempty"`
 }
 
 func NewGate() *Gate {
@@ -1198,11 +1255,11 @@ func (p *Gate) String() string {
 }
 
 type Event struct {
-	Stage     string            `thrift:"stage,1" form:"stage" json:"stage"`
-	Status    string            `thrift:"status,2" form:"status" json:"status"`
-	Message   string            `thrift:"message,3" form:"message" json:"message"`
-	Details   map[string]string `thrift:"details,4,optional" form:"details" json:"details,omitempty"`
-	CreatedAt *string           `thrift:"created_at,5,optional" form:"created_at" json:"created_at,omitempty"`
+	Stage     string            `thrift:"stage,1" json:"stage"`
+	Status    string            `thrift:"status,2" json:"status"`
+	Message   string            `thrift:"message,3" json:"message"`
+	Details   map[string]string `thrift:"details,4,optional" json:"details,omitempty"`
+	CreatedAt *string           `thrift:"created_at,5,optional" json:"created_at,omitempty"`
 }
 
 func NewEvent() *Event {
@@ -1573,10 +1630,10 @@ func (p *Event) String() string {
 }
 
 type SeverityCounts struct {
-	Critical int64 `thrift:"critical,1" form:"critical" json:"critical"`
-	Major    int64 `thrift:"major,2" form:"major" json:"major"`
-	Minor    int64 `thrift:"minor,3" form:"minor" json:"minor"`
-	Info     int64 `thrift:"info,4" form:"info" json:"info"`
+	Critical int64 `thrift:"critical,1" json:"critical"`
+	Major    int64 `thrift:"major,2" json:"major"`
+	Minor    int64 `thrift:"minor,3" json:"minor"`
+	Info     int64 `thrift:"info,4" json:"info"`
 }
 
 func NewSeverityCounts() *SeverityCounts {
@@ -1851,9 +1908,9 @@ func (p *SeverityCounts) String() string {
 }
 
 type ScoreDeduction struct {
-	Reason string `thrift:"reason,1" form:"reason" json:"reason"`
-	Points int64  `thrift:"points,2" form:"points" json:"points"`
-	Count  *int64 `thrift:"count,3,optional" form:"count" json:"count,omitempty"`
+	Reason string `thrift:"reason,1" json:"reason"`
+	Points int64  `thrift:"points,2" json:"points"`
+	Count  *int64 `thrift:"count,3,optional" json:"count,omitempty"`
 }
 
 func NewScoreDeduction() *ScoreDeduction {
@@ -2094,12 +2151,12 @@ func (p *ScoreDeduction) String() string {
 }
 
 type Score struct {
-	Value           int64             `thrift:"value,1" form:"value" json:"value"`
-	Grade           string            `thrift:"grade,2" form:"grade" json:"grade"`
-	Version         string            `thrift:"version,3" form:"version" json:"version"`
-	Deductions      []*ScoreDeduction `thrift:"deductions,4,optional,list<ScoreDeduction>" form:"deductions" json:"deductions,omitempty"`
-	ChangedLines    *int64            `thrift:"changed_lines,5,optional" form:"changed_lines" json:"changed_lines,omitempty"`
-	FindingsDensity *float64          `thrift:"findings_density,6,optional" form:"findings_density" json:"findings_density,omitempty"`
+	Value           int64             `thrift:"value,1" json:"value"`
+	Grade           string            `thrift:"grade,2" json:"grade"`
+	Version         string            `thrift:"version,3" json:"version"`
+	Deductions      []*ScoreDeduction `thrift:"deductions,4,optional,list<ScoreDeduction>" json:"deductions,omitempty"`
+	ChangedLines    *int64            `thrift:"changed_lines,5,optional" json:"changed_lines,omitempty"`
+	FindingsDensity *float64          `thrift:"findings_density,6,optional" json:"findings_density,omitempty"`
 }
 
 func NewScore() *Score {
@@ -2517,8 +2574,8 @@ func (p *Score) String() string {
 }
 
 type OCRToolCalls struct {
-	Total  int64            `thrift:"total,1" form:"total" json:"total"`
-	ByTool map[string]int64 `thrift:"by_tool,2,optional" form:"by_tool" json:"by_tool,omitempty"`
+	Total  int64            `thrift:"total,1" json:"total"`
+	ByTool map[string]int64 `thrift:"by_tool,2,optional" json:"by_tool,omitempty"`
 }
 
 func NewOCRToolCalls() *OCRToolCalls {
@@ -2743,18 +2800,19 @@ func (p *OCRToolCalls) String() string {
 }
 
 type OCRMetadata struct {
-	Engine           *string       `thrift:"engine,1,optional" form:"engine" json:"engine,omitempty"`
-	Status           *string       `thrift:"status,2,optional" form:"status" json:"status,omitempty"`
-	FilesReviewed    *int64        `thrift:"files_reviewed,3,optional" form:"files_reviewed" json:"files_reviewed,omitempty"`
-	Comments         *int64        `thrift:"comments,4,optional" form:"comments" json:"comments,omitempty"`
-	TotalTokens      *int64        `thrift:"total_tokens,5,optional" form:"total_tokens" json:"total_tokens,omitempty"`
-	InputTokens      *int64        `thrift:"input_tokens,6,optional" form:"input_tokens" json:"input_tokens,omitempty"`
-	OutputTokens     *int64        `thrift:"output_tokens,7,optional" form:"output_tokens" json:"output_tokens,omitempty"`
-	CacheReadTokens  *int64        `thrift:"cache_read_tokens,8,optional" form:"cache_read_tokens" json:"cache_read_tokens,omitempty"`
-	CacheWriteTokens *int64        `thrift:"cache_write_tokens,9,optional" form:"cache_write_tokens" json:"cache_write_tokens,omitempty"`
-	Elapsed          *string       `thrift:"elapsed,10,optional" form:"elapsed" json:"elapsed,omitempty"`
-	ToolCalls        *OCRToolCalls `thrift:"tool_calls,11,optional" form:"tool_calls" json:"tool_calls,omitempty"`
-	ProjectSummary   *string       `thrift:"project_summary,12,optional" form:"project_summary" json:"project_summary,omitempty"`
+	Engine           *string       `thrift:"engine,1,optional" json:"engine,omitempty"`
+	Status           *string       `thrift:"status,2,optional" json:"status,omitempty"`
+	FilesReviewed    *int64        `thrift:"files_reviewed,3,optional" json:"files_reviewed,omitempty"`
+	Comments         *int64        `thrift:"comments,4,optional" json:"comments,omitempty"`
+	TotalTokens      *int64        `thrift:"total_tokens,5,optional" json:"total_tokens,omitempty"`
+	InputTokens      *int64        `thrift:"input_tokens,6,optional" json:"input_tokens,omitempty"`
+	OutputTokens     *int64        `thrift:"output_tokens,7,optional" json:"output_tokens,omitempty"`
+	CacheReadTokens  *int64        `thrift:"cache_read_tokens,8,optional" json:"cache_read_tokens,omitempty"`
+	CacheWriteTokens *int64        `thrift:"cache_write_tokens,9,optional" json:"cache_write_tokens,omitempty"`
+	Elapsed          *string       `thrift:"elapsed,10,optional" json:"elapsed,omitempty"`
+	ToolCalls        *OCRToolCalls `thrift:"tool_calls,11,optional" json:"tool_calls,omitempty"`
+	ProjectSummary   *string       `thrift:"project_summary,12,optional" json:"project_summary,omitempty"`
+	BudgetExceeded   *bool         `thrift:"budget_exceeded,13,optional" json:"budget_exceeded,omitempty"`
 }
 
 func NewOCRMetadata() *OCRMetadata {
@@ -2872,6 +2930,15 @@ func (p *OCRMetadata) GetProjectSummary() (v string) {
 	return *p.ProjectSummary
 }
 
+var OCRMetadata_BudgetExceeded_DEFAULT bool
+
+func (p *OCRMetadata) GetBudgetExceeded() (v bool) {
+	if !p.IsSetBudgetExceeded() {
+		return OCRMetadata_BudgetExceeded_DEFAULT
+	}
+	return *p.BudgetExceeded
+}
+
 var fieldIDToName_OCRMetadata = map[int16]string{
 	1:  "engine",
 	2:  "status",
@@ -2885,6 +2952,7 @@ var fieldIDToName_OCRMetadata = map[int16]string{
 	10: "elapsed",
 	11: "tool_calls",
 	12: "project_summary",
+	13: "budget_exceeded",
 }
 
 func (p *OCRMetadata) IsSetEngine() bool {
@@ -2933,6 +3001,10 @@ func (p *OCRMetadata) IsSetToolCalls() bool {
 
 func (p *OCRMetadata) IsSetProjectSummary() bool {
 	return p.ProjectSummary != nil
+}
+
+func (p *OCRMetadata) IsSetBudgetExceeded() bool {
+	return p.BudgetExceeded != nil
 }
 
 func (p *OCRMetadata) Read(iprot thrift.TProtocol) (err error) {
@@ -3045,6 +3117,14 @@ func (p *OCRMetadata) Read(iprot thrift.TProtocol) (err error) {
 		case 12:
 			if fieldTypeId == thrift.STRING {
 				if err = p.ReadField12(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 13:
+			if fieldTypeId == thrift.BOOL {
+				if err = p.ReadField13(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -3208,6 +3288,17 @@ func (p *OCRMetadata) ReadField12(iprot thrift.TProtocol) error {
 	p.ProjectSummary = _field
 	return nil
 }
+func (p *OCRMetadata) ReadField13(iprot thrift.TProtocol) error {
+
+	var _field *bool
+	if v, err := iprot.ReadBool(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.BudgetExceeded = _field
+	return nil
+}
 
 func (p *OCRMetadata) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -3261,6 +3352,10 @@ func (p *OCRMetadata) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField12(oprot); err != nil {
 			fieldId = 12
+			goto WriteFieldError
+		}
+		if err = p.writeField13(oprot); err != nil {
+			fieldId = 13
 			goto WriteFieldError
 		}
 	}
@@ -3509,6 +3604,25 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 12 end error: ", p), err)
 }
 
+func (p *OCRMetadata) writeField13(oprot thrift.TProtocol) (err error) {
+	if p.IsSetBudgetExceeded() {
+		if err = oprot.WriteFieldBegin("budget_exceeded", thrift.BOOL, 13); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteBool(*p.BudgetExceeded); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 13 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 13 end error: ", p), err)
+}
+
 func (p *OCRMetadata) String() string {
 	if p == nil {
 		return "<nil>"
@@ -3518,10 +3632,10 @@ func (p *OCRMetadata) String() string {
 }
 
 type ScopeMetadata struct {
-	ChangedFiles  int64    `thrift:"changed_files,1" form:"changed_files" json:"changed_files"`
-	ReviewedFiles int64    `thrift:"reviewed_files,2" form:"reviewed_files" json:"reviewed_files"`
-	ExcludedFiles int64    `thrift:"excluded_files,3" form:"excluded_files" json:"excluded_files"`
-	IgnorePaths   []string `thrift:"ignore_paths,4,optional,list<string>" form:"ignore_paths" json:"ignore_paths,omitempty"`
+	ChangedFiles  int64    `thrift:"changed_files,1" json:"changed_files"`
+	ReviewedFiles int64    `thrift:"reviewed_files,2" json:"reviewed_files"`
+	ExcludedFiles int64    `thrift:"excluded_files,3" json:"excluded_files"`
+	IgnorePaths   []string `thrift:"ignore_paths,4,optional,list<string>" json:"ignore_paths,omitempty"`
 }
 
 func NewScopeMetadata() *ScopeMetadata {
@@ -3827,9 +3941,9 @@ func (p *ScopeMetadata) String() string {
 }
 
 type OCRWarning struct {
-	Type    *string `thrift:"type,1,optional" form:"type" json:"type,omitempty"`
-	Message string  `thrift:"message,2" form:"message" json:"message"`
-	Path    *string `thrift:"path,3,optional" form:"path" json:"path,omitempty"`
+	Type    *string `thrift:"type,1,optional" json:"type,omitempty"`
+	Message string  `thrift:"message,2" json:"message"`
+	Path    *string `thrift:"path,3,optional" json:"path,omitempty"`
 }
 
 func NewOCRWarning() *OCRWarning {
@@ -4081,13 +4195,13 @@ func (p *OCRWarning) String() string {
 }
 
 type Report struct {
-	Ocr       *OCRMetadata    `thrift:"ocr,1,optional" form:"ocr" json:"ocr,omitempty"`
-	Scope     *ScopeMetadata  `thrift:"scope,2,optional" form:"scope" json:"scope,omitempty"`
-	Score     *Score          `thrift:"score,3,optional" form:"score" json:"score,omitempty"`
-	Counts    *SeverityCounts `thrift:"counts,4,optional" form:"counts" json:"counts,omitempty"`
-	Warnings  []*OCRWarning   `thrift:"warnings,5,optional,list<OCRWarning>" form:"warnings" json:"warnings,omitempty"`
-	Complete  *bool           `thrift:"complete,6,optional" form:"complete" json:"complete,omitempty"`
-	Generated *bool           `thrift:"generated,7,optional" form:"generated" json:"generated,omitempty"`
+	Ocr       *OCRMetadata    `thrift:"ocr,1,optional" json:"ocr,omitempty"`
+	Scope     *ScopeMetadata  `thrift:"scope,2,optional" json:"scope,omitempty"`
+	Score     *Score          `thrift:"score,3,optional" json:"score,omitempty"`
+	Counts    *SeverityCounts `thrift:"counts,4,optional" json:"counts,omitempty"`
+	Warnings  []*OCRWarning   `thrift:"warnings,5,optional,list<OCRWarning>" json:"warnings,omitempty"`
+	Complete  *bool           `thrift:"complete,6,optional" json:"complete,omitempty"`
+	Generated *bool           `thrift:"generated,7,optional" json:"generated,omitempty"`
 }
 
 func NewReport() *Report {
@@ -4582,10 +4696,10 @@ func (p *Report) String() string {
 }
 
 type Analysis struct {
-	Overview        *string  `thrift:"overview,1,optional" form:"overview" json:"overview,omitempty"`
-	RootCause       []string `thrift:"root_cause,2,optional,list<string>" form:"root_cause" json:"root_cause,omitempty"`
-	Risks           []string `thrift:"risks,3,optional,list<string>" form:"risks" json:"risks,omitempty"`
-	Recommendations []string `thrift:"recommendations,4,optional,list<string>" form:"recommendations" json:"recommendations,omitempty"`
+	Overview        *string  `thrift:"overview,1,optional" json:"overview,omitempty"`
+	RootCause       []string `thrift:"root_cause,2,optional,list<string>" json:"root_cause,omitempty"`
+	Risks           []string `thrift:"risks,3,optional,list<string>" json:"risks,omitempty"`
+	Recommendations []string `thrift:"recommendations,4,optional,list<string>" json:"recommendations,omitempty"`
 }
 
 func NewAnalysis() *Analysis {
@@ -4964,17 +5078,17 @@ func (p *Analysis) String() string {
 }
 
 type Finding struct {
-	Severity       string  `thrift:"severity,1" form:"severity" json:"severity"`
-	Category       *string `thrift:"category,2,optional" form:"category" json:"category,omitempty"`
-	Path           *string `thrift:"path,3,optional" form:"path" json:"path,omitempty"`
-	Line           *int64  `thrift:"line,4,optional" form:"line" json:"line,omitempty"`
-	StartLine      *int64  `thrift:"start_line,5,optional" form:"start_line" json:"start_line,omitempty"`
-	EndLine        *int64  `thrift:"end_line,6,optional" form:"end_line" json:"end_line,omitempty"`
-	Title          string  `thrift:"title,7" form:"title" json:"title"`
-	Body           string  `thrift:"body,8" form:"body" json:"body"`
-	ExistingCode   *string `thrift:"existing_code,9,optional" form:"existing_code" json:"existing_code,omitempty"`
-	SuggestionCode *string `thrift:"suggestion_code,10,optional" form:"suggestion_code" json:"suggestion_code,omitempty"`
-	Fingerprint    *string `thrift:"fingerprint,11,optional" form:"fingerprint" json:"fingerprint,omitempty"`
+	Severity       string  `thrift:"severity,1" json:"severity"`
+	Category       *string `thrift:"category,2,optional" json:"category,omitempty"`
+	Path           *string `thrift:"path,3,optional" json:"path,omitempty"`
+	Line           *int64  `thrift:"line,4,optional" json:"line,omitempty"`
+	StartLine      *int64  `thrift:"start_line,5,optional" json:"start_line,omitempty"`
+	EndLine        *int64  `thrift:"end_line,6,optional" json:"end_line,omitempty"`
+	Title          string  `thrift:"title,7" json:"title"`
+	Body           string  `thrift:"body,8" json:"body"`
+	ExistingCode   *string `thrift:"existing_code,9,optional" json:"existing_code,omitempty"`
+	SuggestionCode *string `thrift:"suggestion_code,10,optional" json:"suggestion_code,omitempty"`
+	Fingerprint    *string `thrift:"fingerprint,11,optional" json:"fingerprint,omitempty"`
 }
 
 func NewFinding() *Finding {
@@ -5652,15 +5766,15 @@ func (p *Finding) String() string {
 }
 
 type ReviewResponse struct {
-	ReviewID string     `thrift:"review_id,1" form:"review_id" json:"review_id"`
-	Status   string     `thrift:"status,2" form:"status" json:"status"`
-	Summary  string     `thrift:"summary,3" form:"summary" json:"summary"`
-	Gate     *Gate      `thrift:"gate,4,optional" form:"gate" json:"gate,omitempty"`
-	Report   *Report    `thrift:"report,5,optional" form:"report" json:"report,omitempty"`
-	Analysis *Analysis  `thrift:"analysis,6,optional" form:"analysis" json:"analysis,omitempty"`
-	History  []*Event   `thrift:"history,7,optional,list<Event>" form:"history" json:"history,omitempty"`
-	Findings []*Finding `thrift:"findings,8,optional,list<Finding>" form:"findings" json:"findings,omitempty"`
-	Error    *string    `thrift:"error,9,optional" form:"error" json:"error,omitempty"`
+	ReviewID string     `thrift:"review_id,1" json:"review_id"`
+	Status   string     `thrift:"status,2" json:"status"`
+	Summary  string     `thrift:"summary,3" json:"summary"`
+	Gate     *Gate      `thrift:"gate,4,optional" json:"gate,omitempty"`
+	Report   *Report    `thrift:"report,5,optional" json:"report,omitempty"`
+	Analysis *Analysis  `thrift:"analysis,6,optional" json:"analysis,omitempty"`
+	History  []*Event   `thrift:"history,7,optional,list<Event>" json:"history,omitempty"`
+	Findings []*Finding `thrift:"findings,8,optional,list<Finding>" json:"findings,omitempty"`
+	Error    *string    `thrift:"error,9,optional" json:"error,omitempty"`
 }
 
 func NewReviewResponse() *ReviewResponse {
@@ -6257,7 +6371,7 @@ func (p *ReviewResponse) String() string {
 }
 
 type CreateReviewResp struct {
-	Review *ReviewResponse `thrift:"review,1" form:"review" json:"review"`
+	Review *ReviewResponse `thrift:"review,1" json:"review"`
 }
 
 func NewCreateReviewResp() *CreateReviewResp {
@@ -6403,7 +6517,7 @@ func (p *CreateReviewResp) String() string {
 }
 
 type GetReviewReq struct {
-	ID string `thrift:"id,1" json:"id" path:"id"`
+	ID string `thrift:"id,1" json:"id"`
 }
 
 func NewGetReviewReq() *GetReviewReq {
@@ -6543,31 +6657,31 @@ func (p *GetReviewReq) String() string {
 }
 
 type ReviewDetail struct {
-	ReviewID        string     `thrift:"review_id,1" form:"review_id" json:"review_id"`
-	Provider        string     `thrift:"provider,2" form:"provider" json:"provider"`
-	Repo            string     `thrift:"repo,3" form:"repo" json:"repo"`
-	ProjectID       *string    `thrift:"project_id,4,optional" form:"project_id" json:"project_id,omitempty"`
-	PullRequestID   *string    `thrift:"pull_request_id,5,optional" form:"pull_request_id" json:"pull_request_id,omitempty"`
-	MergeRequestIid *string    `thrift:"merge_request_iid,6,optional" form:"merge_request_iid" json:"merge_request_iid,omitempty"`
-	BaseSha         *string    `thrift:"base_sha,7,optional" form:"base_sha" json:"base_sha,omitempty"`
-	HeadSha         *string    `thrift:"head_sha,8,optional" form:"head_sha" json:"head_sha,omitempty"`
-	CallbackMode    *string    `thrift:"callback_mode,9,optional" form:"callback_mode" json:"callback_mode,omitempty"`
-	Status          string     `thrift:"status,10" form:"status" json:"status"`
-	Summary         string     `thrift:"summary,11" form:"summary" json:"summary"`
-	Gate            *Gate      `thrift:"gate,12,optional" form:"gate" json:"gate,omitempty"`
-	Analysis        *Analysis  `thrift:"analysis,13,optional" form:"analysis" json:"analysis,omitempty"`
-	History         []*Event   `thrift:"history,14,optional,list<Event>" form:"history" json:"history,omitempty"`
-	Findings        []*Finding `thrift:"findings,15,optional,list<Finding>" form:"findings" json:"findings,omitempty"`
-	Report          *Report    `thrift:"report,16,optional" form:"report" json:"report,omitempty"`
-	RawOcr          *string    `thrift:"raw_ocr,17,optional" form:"raw_ocr" json:"raw_ocr,omitempty"`
-	Error           *string    `thrift:"error,18,optional" form:"error" json:"error,omitempty"`
-	CreatedAt       *string    `thrift:"created_at,19,optional" form:"created_at" json:"created_at,omitempty"`
-	UpdatedAt       *string    `thrift:"updated_at,20,optional" form:"updated_at" json:"updated_at,omitempty"`
-	Author          *string    `thrift:"author,21,optional" form:"author" json:"author,omitempty"`
-	AuthorName      *string    `thrift:"author_name,22,optional" form:"author_name" json:"author_name,omitempty"`
-	AuthorAvatar    *string    `thrift:"author_avatar,23,optional" form:"author_avatar" json:"author_avatar,omitempty"`
-	RawOcrInput     *OCRInput  `thrift:"raw_ocr_input,24,optional" form:"raw_ocr_input" json:"raw_ocr_input,omitempty"`
-	RetryCount      *int64     `thrift:"retry_count,25,optional" form:"retry_count" json:"retry_count,omitempty"`
+	ReviewID        string     `thrift:"review_id,1" json:"review_id"`
+	Provider        string     `thrift:"provider,2" json:"provider"`
+	Repo            string     `thrift:"repo,3" json:"repo"`
+	ProjectID       *string    `thrift:"project_id,4,optional" json:"project_id,omitempty"`
+	PullRequestID   *string    `thrift:"pull_request_id,5,optional" json:"pull_request_id,omitempty"`
+	MergeRequestIid *string    `thrift:"merge_request_iid,6,optional" json:"merge_request_iid,omitempty"`
+	BaseSha         *string    `thrift:"base_sha,7,optional" json:"base_sha,omitempty"`
+	HeadSha         *string    `thrift:"head_sha,8,optional" json:"head_sha,omitempty"`
+	CallbackMode    *string    `thrift:"callback_mode,9,optional" json:"callback_mode,omitempty"`
+	Status          string     `thrift:"status,10" json:"status"`
+	Summary         string     `thrift:"summary,11" json:"summary"`
+	Gate            *Gate      `thrift:"gate,12,optional" json:"gate,omitempty"`
+	Analysis        *Analysis  `thrift:"analysis,13,optional" json:"analysis,omitempty"`
+	History         []*Event   `thrift:"history,14,optional,list<Event>" json:"history,omitempty"`
+	Findings        []*Finding `thrift:"findings,15,optional,list<Finding>" json:"findings,omitempty"`
+	Report          *Report    `thrift:"report,16,optional" json:"report,omitempty"`
+	RawOcr          *string    `thrift:"raw_ocr,17,optional" json:"raw_ocr,omitempty"`
+	Error           *string    `thrift:"error,18,optional" json:"error,omitempty"`
+	CreatedAt       *string    `thrift:"created_at,19,optional" json:"created_at,omitempty"`
+	UpdatedAt       *string    `thrift:"updated_at,20,optional" json:"updated_at,omitempty"`
+	Author          *string    `thrift:"author,21,optional" json:"author,omitempty"`
+	AuthorName      *string    `thrift:"author_name,22,optional" json:"author_name,omitempty"`
+	AuthorAvatar    *string    `thrift:"author_avatar,23,optional" json:"author_avatar,omitempty"`
+	RawOcrInput     *OCRInput  `thrift:"raw_ocr_input,24,optional" json:"raw_ocr_input,omitempty"`
+	RetryCount      *int64     `thrift:"retry_count,25,optional" json:"retry_count,omitempty"`
 }
 
 func NewReviewDetail() *ReviewDetail {
@@ -6768,6 +6882,15 @@ func (p *ReviewDetail) GetRawOcrInput() (v *OCRInput) {
 	return p.RawOcrInput
 }
 
+var ReviewDetail_RetryCount_DEFAULT int64
+
+func (p *ReviewDetail) GetRetryCount() (v int64) {
+	if !p.IsSetRetryCount() {
+		return ReviewDetail_RetryCount_DEFAULT
+	}
+	return *p.RetryCount
+}
+
 var fieldIDToName_ReviewDetail = map[int16]string{
 	1:  "review_id",
 	2:  "provider",
@@ -6870,15 +6993,6 @@ func (p *ReviewDetail) IsSetAuthorAvatar() bool {
 
 func (p *ReviewDetail) IsSetRawOcrInput() bool {
 	return p.RawOcrInput != nil
-}
-
-var ReviewDetail_RetryCount_DEFAULT int64
-
-func (p *ReviewDetail) GetRetryCount() (v int64) {
-	if !p.IsSetRetryCount() {
-		return ReviewDetail_RetryCount_DEFAULT
-	}
-	return *p.RetryCount
 }
 
 func (p *ReviewDetail) IsSetRetryCount() bool {
@@ -7409,7 +7523,6 @@ func (p *ReviewDetail) ReadField24(iprot thrift.TProtocol) error {
 	p.RawOcrInput = _field
 	return nil
 }
-
 func (p *ReviewDetail) ReadField25(iprot thrift.TProtocol) error {
 
 	var _field *int64
@@ -8036,11 +8149,11 @@ func (p *ReviewDetail) String() string {
 }
 
 type OCRInputWorkspace struct {
-	Provider *string `thrift:"provider,1,optional" form:"provider" json:"provider,omitempty"`
-	Repo     *string `thrift:"repo,2,optional" form:"repo" json:"repo,omitempty"`
-	BaseSha  *string `thrift:"base_sha,3,optional" form:"base_sha" json:"base_sha,omitempty"`
-	HeadSha  *string `thrift:"head_sha,4,optional" form:"head_sha" json:"head_sha,omitempty"`
-	Dir      *string `thrift:"dir,5,optional" form:"dir" json:"dir,omitempty"`
+	Provider *string `thrift:"provider,1,optional" json:"provider,omitempty"`
+	Repo     *string `thrift:"repo,2,optional" json:"repo,omitempty"`
+	BaseSha  *string `thrift:"base_sha,3,optional" json:"base_sha,omitempty"`
+	HeadSha  *string `thrift:"head_sha,4,optional" json:"head_sha,omitempty"`
+	Dir      *string `thrift:"dir,5,optional" json:"dir,omitempty"`
 }
 
 func NewOCRInputWorkspace() *OCRInputWorkspace {
@@ -8415,11 +8528,11 @@ func (p *OCRInputWorkspace) String() string {
 }
 
 type OCRInput struct {
-	Binary    *string            `thrift:"binary,1,optional" form:"binary" json:"binary,omitempty"`
-	Args      []string           `thrift:"args,2,optional,list<string>" form:"args" json:"args,omitempty"`
-	Workspace *OCRInputWorkspace `thrift:"workspace,3,optional" form:"workspace" json:"workspace,omitempty"`
-	RulePath  *string            `thrift:"rule_path,4,optional" form:"rule_path" json:"rule_path,omitempty"`
-	StartedAt *string            `thrift:"started_at,5,optional" form:"started_at" json:"started_at,omitempty"`
+	Binary    *string            `thrift:"binary,1,optional" json:"binary,omitempty"`
+	Args      []string           `thrift:"args,2,optional,list<string>" json:"args,omitempty"`
+	Workspace *OCRInputWorkspace `thrift:"workspace,3,optional" json:"workspace,omitempty"`
+	RulePath  *string            `thrift:"rule_path,4,optional" json:"rule_path,omitempty"`
+	StartedAt *string            `thrift:"started_at,5,optional" json:"started_at,omitempty"`
 }
 
 func NewOCRInput() *OCRInput {
@@ -8811,7 +8924,7 @@ func (p *OCRInput) String() string {
 }
 
 type GetReviewResp struct {
-	Review *ReviewDetail `thrift:"review,1" form:"review" json:"review"`
+	Review *ReviewDetail `thrift:"review,1" json:"review"`
 }
 
 func NewGetReviewResp() *GetReviewResp {
@@ -8957,11 +9070,11 @@ func (p *GetReviewResp) String() string {
 }
 
 type ListReviewsReq struct {
-	Status   *string `thrift:"status,1,optional" json:"status,omitempty" query:"status"`
-	Provider *string `thrift:"provider,2,optional" json:"provider,omitempty" query:"provider"`
-	Repo     *string `thrift:"repo,3,optional" json:"repo,omitempty" query:"repo"`
-	Page     *int64  `thrift:"page,4,optional" json:"page,omitempty" query:"page"`
-	PageSize *int64  `thrift:"page_size,5,optional" json:"page_size,omitempty" query:"page_size"`
+	Status   *string `thrift:"status,1,optional" json:"status,omitempty"`
+	Provider *string `thrift:"provider,2,optional" json:"provider,omitempty"`
+	Repo     *string `thrift:"repo,3,optional" json:"repo,omitempty"`
+	Page     *int64  `thrift:"page,4,optional" json:"page,omitempty"`
+	PageSize *int64  `thrift:"page_size,5,optional" json:"page_size,omitempty"`
 }
 
 func NewListReviewsReq() *ListReviewsReq {
@@ -9336,22 +9449,22 @@ func (p *ListReviewsReq) String() string {
 }
 
 type ListItem struct {
-	ReviewID        string  `thrift:"review_id,1" form:"review_id" json:"review_id"`
-	Provider        string  `thrift:"provider,2" form:"provider" json:"provider"`
-	Repo            string  `thrift:"repo,3" form:"repo" json:"repo"`
-	Status          string  `thrift:"status,4" form:"status" json:"status"`
-	Summary         string  `thrift:"summary,5" form:"summary" json:"summary"`
-	Gate            *Gate   `thrift:"gate,6,optional" form:"gate" json:"gate,omitempty"`
-	Findings        int64   `thrift:"findings,7" form:"findings" json:"findings"`
-	Score           int64   `thrift:"score,8" form:"score" json:"score"`
-	Grade           *string `thrift:"grade,9,optional" form:"grade" json:"grade,omitempty"`
-	ReportGenerated bool    `thrift:"report_generated,10" form:"report_generated" json:"report_generated"`
-	CreatedAt       *string `thrift:"created_at,11,optional" form:"created_at" json:"created_at,omitempty"`
-	UpdatedAt       *string `thrift:"updated_at,12,optional" form:"updated_at" json:"updated_at,omitempty"`
-	Author          *string `thrift:"author,13,optional" form:"author" json:"author,omitempty"`
-	AuthorName      *string `thrift:"author_name,14,optional" form:"author_name" json:"author_name,omitempty"`
-	AuthorAvatar    *string `thrift:"author_avatar,15,optional" form:"author_avatar" json:"author_avatar,omitempty"`
-	RetryCount      *int64  `thrift:"retry_count,16,optional" form:"retry_count" json:"retry_count,omitempty"`
+	ReviewID        string  `thrift:"review_id,1" json:"review_id"`
+	Provider        string  `thrift:"provider,2" json:"provider"`
+	Repo            string  `thrift:"repo,3" json:"repo"`
+	Status          string  `thrift:"status,4" json:"status"`
+	Summary         string  `thrift:"summary,5" json:"summary"`
+	Gate            *Gate   `thrift:"gate,6,optional" json:"gate,omitempty"`
+	Findings        int64   `thrift:"findings,7" json:"findings"`
+	Score           int64   `thrift:"score,8" json:"score"`
+	Grade           *string `thrift:"grade,9,optional" json:"grade,omitempty"`
+	ReportGenerated bool    `thrift:"report_generated,10" json:"report_generated"`
+	CreatedAt       *string `thrift:"created_at,11,optional" json:"created_at,omitempty"`
+	UpdatedAt       *string `thrift:"updated_at,12,optional" json:"updated_at,omitempty"`
+	Author          *string `thrift:"author,13,optional" json:"author,omitempty"`
+	AuthorName      *string `thrift:"author_name,14,optional" json:"author_name,omitempty"`
+	AuthorAvatar    *string `thrift:"author_avatar,15,optional" json:"author_avatar,omitempty"`
+	RetryCount      *int64  `thrift:"retry_count,16,optional" json:"retry_count,omitempty"`
 }
 
 func NewListItem() *ListItem {
@@ -9456,6 +9569,15 @@ func (p *ListItem) GetAuthorAvatar() (v string) {
 	return *p.AuthorAvatar
 }
 
+var ListItem_RetryCount_DEFAULT int64
+
+func (p *ListItem) GetRetryCount() (v int64) {
+	if !p.IsSetRetryCount() {
+		return ListItem_RetryCount_DEFAULT
+	}
+	return *p.RetryCount
+}
+
 var fieldIDToName_ListItem = map[int16]string{
 	1:  "review_id",
 	2:  "provider",
@@ -9501,15 +9623,6 @@ func (p *ListItem) IsSetAuthorName() bool {
 
 func (p *ListItem) IsSetAuthorAvatar() bool {
 	return p.AuthorAvatar != nil
-}
-
-var ListItem_RetryCount_DEFAULT int64
-
-func (p *ListItem) GetRetryCount() (v int64) {
-	if !p.IsSetRetryCount() {
-		return ListItem_RetryCount_DEFAULT
-	}
-	return *p.RetryCount
 }
 
 func (p *ListItem) IsSetRetryCount() bool {
@@ -9854,7 +9967,6 @@ func (p *ListItem) ReadField15(iprot thrift.TProtocol) error {
 	p.AuthorAvatar = _field
 	return nil
 }
-
 func (p *ListItem) ReadField16(iprot thrift.TProtocol) error {
 
 	var _field *int64
@@ -10252,11 +10364,11 @@ func (p *ListItem) String() string {
 }
 
 type ListStats struct {
-	Total       int64  `thrift:"total,1" form:"total" json:"total"`
-	Running     int64  `thrift:"running,2" form:"running" json:"running"`
-	GateFailed  int64  `thrift:"gate_failed,3" form:"gate_failed" json:"gate_failed"`
-	Findings    int64  `thrift:"findings,4" form:"findings" json:"findings"`
-	TotalTokens *int64 `thrift:"total_tokens,5,optional" form:"total_tokens" json:"total_tokens,omitempty"`
+	Total       int64  `thrift:"total,1" json:"total"`
+	Running     int64  `thrift:"running,2" json:"running"`
+	GateFailed  int64  `thrift:"gate_failed,3" json:"gate_failed"`
+	Findings    int64  `thrift:"findings,4" json:"findings"`
+	TotalTokens *int64 `thrift:"total_tokens,5,optional" json:"total_tokens,omitempty"`
 }
 
 func NewListStats() *ListStats {
@@ -10587,12 +10699,12 @@ func (p *ListStats) String() string {
 }
 
 type ListReviewsResp struct {
-	Items      []*ListItem `thrift:"items,1,default,list<ListItem>" form:"items" json:"items"`
-	Total      int64       `thrift:"total,2" form:"total" json:"total"`
-	Page       int64       `thrift:"page,3" form:"page" json:"page"`
-	PageSize   int64       `thrift:"page_size,4" form:"page_size" json:"page_size"`
-	TotalPages int64       `thrift:"total_pages,5" form:"total_pages" json:"total_pages"`
-	Stats      *ListStats  `thrift:"stats,6" form:"stats" json:"stats"`
+	Items      []*ListItem `thrift:"items,1,default,list<ListItem>" json:"items"`
+	Total      int64       `thrift:"total,2" json:"total"`
+	Page       int64       `thrift:"page,3" json:"page"`
+	PageSize   int64       `thrift:"page_size,4" json:"page_size"`
+	TotalPages int64       `thrift:"total_pages,5" json:"total_pages"`
+	Stats      *ListStats  `thrift:"stats,6" json:"stats"`
 }
 
 func NewListReviewsResp() *ListReviewsResp {
@@ -10983,13 +11095,13 @@ func (p *ListReviewsResp) String() string {
 }
 
 type PreviewReq struct {
-	Provider        string  `thrift:"provider,1" form:"provider" json:"provider"`
-	Repo            string  `thrift:"repo,2" form:"repo" json:"repo"`
-	ProjectID       *string `thrift:"project_id,3,optional" form:"project_id" json:"project_id,omitempty"`
-	PullRequestID   *string `thrift:"pull_request_id,4,optional" form:"pull_request_id" json:"pull_request_id,omitempty"`
-	MergeRequestIid *string `thrift:"merge_request_iid,5,optional" form:"merge_request_iid" json:"merge_request_iid,omitempty"`
-	BaseSha         *string `thrift:"base_sha,6,optional" form:"base_sha" json:"base_sha,omitempty"`
-	HeadSha         *string `thrift:"head_sha,7,optional" form:"head_sha" json:"head_sha,omitempty"`
+	Provider        string  `thrift:"provider,1" json:"provider"`
+	Repo            string  `thrift:"repo,2" json:"repo"`
+	ProjectID       *string `thrift:"project_id,3,optional" json:"project_id,omitempty"`
+	PullRequestID   *string `thrift:"pull_request_id,4,optional" json:"pull_request_id,omitempty"`
+	MergeRequestIid *string `thrift:"merge_request_iid,5,optional" json:"merge_request_iid,omitempty"`
+	BaseSha         *string `thrift:"base_sha,6,optional" json:"base_sha,omitempty"`
+	HeadSha         *string `thrift:"head_sha,7,optional" json:"head_sha,omitempty"`
 }
 
 func NewPreviewReq() *PreviewReq {
@@ -11454,7 +11566,7 @@ func (p *PreviewReq) String() string {
 }
 
 type PreviewResp struct {
-	Files []string `thrift:"files,1,default,list<string>" form:"files" json:"files"`
+	Files []string `thrift:"files,1,default,list<string>" json:"files"`
 }
 
 func NewPreviewResp() *PreviewResp {
@@ -11614,7 +11726,7 @@ func (p *PreviewResp) String() string {
 }
 
 type ReviewActionReq struct {
-	ID string `thrift:"id,1" json:"id" path:"id"`
+	ID string `thrift:"id,1" json:"id"`
 }
 
 func NewReviewActionReq() *ReviewActionReq {
@@ -11754,11 +11866,11 @@ func (p *ReviewActionReq) String() string {
 }
 
 type SuggestionPatchItem struct {
-	Index     int64   `thrift:"index,1" form:"index" json:"index"`
-	Path      string  `thrift:"path,2" form:"path" json:"path"`
-	StartLine int64   `thrift:"start_line,3" form:"start_line" json:"start_line"`
-	EndLine   int64   `thrift:"end_line,4" form:"end_line" json:"end_line"`
-	Title     *string `thrift:"title,5,optional" form:"title" json:"title,omitempty"`
+	Index     int64   `thrift:"index,1" json:"index"`
+	Path      string  `thrift:"path,2" json:"path"`
+	StartLine int64   `thrift:"start_line,3" json:"start_line"`
+	EndLine   int64   `thrift:"end_line,4" json:"end_line"`
+	Title     *string `thrift:"title,5,optional" json:"title,omitempty"`
 }
 
 func NewSuggestionPatchItem() *SuggestionPatchItem {
@@ -12089,10 +12201,10 @@ func (p *SuggestionPatchItem) String() string {
 }
 
 type SuggestionPatchSkipped struct {
-	Index  int64   `thrift:"index,1" form:"index" json:"index"`
-	Path   *string `thrift:"path,2,optional" form:"path" json:"path,omitempty"`
-	Title  *string `thrift:"title,3,optional" form:"title" json:"title,omitempty"`
-	Reason string  `thrift:"reason,4" form:"reason" json:"reason"`
+	Index  int64   `thrift:"index,1" json:"index"`
+	Path   *string `thrift:"path,2,optional" json:"path,omitempty"`
+	Title  *string `thrift:"title,3,optional" json:"title,omitempty"`
+	Reason string  `thrift:"reason,4" json:"reason"`
 }
 
 func NewSuggestionPatchSkipped() *SuggestionPatchSkipped {
@@ -12389,12 +12501,12 @@ func (p *SuggestionPatchSkipped) String() string {
 }
 
 type SuggestionPatchPreview struct {
-	ReviewID       string                    `thrift:"review_id,1" form:"review_id" json:"review_id"`
-	Patch          string                    `thrift:"patch,2" form:"patch" json:"patch"`
-	Items          []*SuggestionPatchItem    `thrift:"items,3,default,list<SuggestionPatchItem>" form:"items" json:"items"`
-	Skipped        []*SuggestionPatchSkipped `thrift:"skipped,4,default,list<SuggestionPatchSkipped>" form:"skipped" json:"skipped"`
-	GeneratedCount int64                     `thrift:"generated_count,5" form:"generated_count" json:"generated_count"`
-	SkippedCount   int64                     `thrift:"skipped_count,6" form:"skipped_count" json:"skipped_count"`
+	ReviewID       string                    `thrift:"review_id,1" json:"review_id"`
+	Patch          string                    `thrift:"patch,2" json:"patch"`
+	Items          []*SuggestionPatchItem    `thrift:"items,3,default,list<SuggestionPatchItem>" json:"items"`
+	Skipped        []*SuggestionPatchSkipped `thrift:"skipped,4,default,list<SuggestionPatchSkipped>" json:"skipped"`
+	GeneratedCount int64                     `thrift:"generated_count,5" json:"generated_count"`
+	SkippedCount   int64                     `thrift:"skipped_count,6" json:"skipped_count"`
 }
 
 func NewSuggestionPatchPreview() *SuggestionPatchPreview {
@@ -12799,8 +12911,8 @@ func (p *SuggestionPatchPreview) String() string {
 }
 
 type PreviewSuggestionPatchReq struct {
-	ID             string  `thrift:"id,1" json:"id" path:"id"`
-	FindingIndexes *string `thrift:"finding_indexes,2,optional" json:"finding_indexes,omitempty" query:"finding_indexes"`
+	ID             string  `thrift:"id,1" json:"id"`
+	FindingIndexes *string `thrift:"finding_indexes,2,optional" json:"finding_indexes,omitempty"`
 }
 
 func NewPreviewSuggestionPatchReq() *PreviewSuggestionPatchReq {
@@ -12996,15 +13108,15 @@ func (p *PreviewSuggestionPatchReq) String() string {
 }
 
 type SuggestionPatchCheck struct {
-	ReviewID       string                    `thrift:"review_id,1" form:"review_id" json:"review_id"`
-	Patch          string                    `thrift:"patch,2" form:"patch" json:"patch"`
-	Items          []*SuggestionPatchItem    `thrift:"items,3,default,list<SuggestionPatchItem>" form:"items" json:"items"`
-	Skipped        []*SuggestionPatchSkipped `thrift:"skipped,4,default,list<SuggestionPatchSkipped>" form:"skipped" json:"skipped"`
-	GeneratedCount int64                     `thrift:"generated_count,5" form:"generated_count" json:"generated_count"`
-	SkippedCount   int64                     `thrift:"skipped_count,6" form:"skipped_count" json:"skipped_count"`
-	Applicable     bool                      `thrift:"applicable,7" form:"applicable" json:"applicable"`
-	Error          *string                   `thrift:"error,8,optional" form:"error" json:"error,omitempty"`
-	Output         *string                   `thrift:"output,9,optional" form:"output" json:"output,omitempty"`
+	ReviewID       string                    `thrift:"review_id,1" json:"review_id"`
+	Patch          string                    `thrift:"patch,2" json:"patch"`
+	Items          []*SuggestionPatchItem    `thrift:"items,3,default,list<SuggestionPatchItem>" json:"items"`
+	Skipped        []*SuggestionPatchSkipped `thrift:"skipped,4,default,list<SuggestionPatchSkipped>" json:"skipped"`
+	GeneratedCount int64                     `thrift:"generated_count,5" json:"generated_count"`
+	SkippedCount   int64                     `thrift:"skipped_count,6" json:"skipped_count"`
+	Applicable     bool                      `thrift:"applicable,7" json:"applicable"`
+	Error          *string                   `thrift:"error,8,optional" json:"error,omitempty"`
+	Output         *string                   `thrift:"output,9,optional" json:"output,omitempty"`
 }
 
 func NewSuggestionPatchCheck() *SuggestionPatchCheck {
@@ -13566,8 +13678,8 @@ func (p *SuggestionPatchCheck) String() string {
 }
 
 type CheckSuggestionPatchReq struct {
-	ID             string  `thrift:"id,1" json:"id" path:"id"`
-	FindingIndexes *string `thrift:"finding_indexes,2,optional" json:"finding_indexes,omitempty" query:"finding_indexes"`
+	ID             string  `thrift:"id,1" json:"id"`
+	FindingIndexes *string `thrift:"finding_indexes,2,optional" json:"finding_indexes,omitempty"`
 }
 
 func NewCheckSuggestionPatchReq() *CheckSuggestionPatchReq {

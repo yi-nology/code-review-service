@@ -21,9 +21,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitprovider "github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-	"github.com/yi-nology/code-review-service/internal/service/types"
 
-	"github.com/oekit/concurrency/async"
 	bizerrors "github.com/oekit/pkg/errors"
 
 	"github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
@@ -105,6 +103,10 @@ type Service struct {
 	inFlight        sync.WaitGroup
 	concurrencySem  chan struct{}
 	scanCancels     sync.Map
+
+	// Refactored components
+	scanOrchestrator  *ScanOrchestrator
+	workspacePreparer *WorkspacePreparer
 }
 
 func NewService(cfg ServiceConfig) *Service {
@@ -132,6 +134,11 @@ func NewService(cfg ServiceConfig) *Service {
 		s.concurrencySem = make(chan struct{}, cfg.Concurrency)
 		logx.Infof("review concurrency limit=%d (worker & scan shared)", cfg.Concurrency)
 	}
+
+	// Initialize refactored components
+	s.scanOrchestrator = NewScanOrchestrator(s)
+	s.workspacePreparer = NewWorkspacePreparer(s)
+
 	return s
 }
 
@@ -344,8 +351,8 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 		return ListResult{}, err
 	}
 
-	items := make([]ListItem, 0, len(result.List))
-	for _, review := range result.List {
+	items := make([]ListItem, 0, len(result.Items))
+	for _, review := range result.Items {
 		// review 已是 domain.Record，Request/Response 强类型，无需 unmarshal。
 		items = append(items, ListItem{
 			ReviewID:        review.ID,
@@ -522,382 +529,7 @@ func (s *Service) DelegateRule(ctx context.Context, req domain.Request, paths []
 }
 
 func (s *Service) Scan(ctx context.Context, req domain.ScanRequest) (*domain.ScanResult, error) {
-	providerName := strings.TrimSpace(req.Provider)
-	repo := strings.TrimSpace(req.Repo)
-	head := strings.TrimSpace(req.HeadSHA)
-	if providerName == "" {
-		return nil, fmt.Errorf("provider is required")
-	}
-	if repo == "" {
-		return nil, fmt.Errorf("repo is required")
-	}
-	if head == "" {
-		return nil, fmt.Errorf("head_sha is required")
-	}
-	if s.ScanRunner == nil {
-		return nil, fmt.Errorf("scan feature not configured")
-	}
-
-	if req.Preview {
-		return s.scanPreview(ctx, req)
-	}
-
-	return s.scanAsync(ctx, req)
-}
-
-// scanPreview 走轻量预览路径：clone + ocr scan --preview（秒级返回文件列表），
-// 不调用 LLM。之前走 scanExecuteWithPolicy 会跑完整 OCR scan（3-7 分钟），
-// 导致前端 120s 超时。
-//
-// scan 模式没有 PR diff 范围的概念，BaseSHA 与 HeadSHA 一致是合理的；
-// 若未来需要支持「对指定 base..head 范围做 scan preview」，需在 domain.ScanRequest
-// 增加 BaseSHA 字段并改这里。
-func (s *Service) scanPreview(ctx context.Context, req domain.ScanRequest) (*domain.ScanResult, error) {
-	domainReq := domain.Request{
-		Provider: strings.TrimSpace(req.Provider),
-		Repo:     strings.TrimSpace(req.Repo),
-		BaseSHA:  strings.TrimSpace(req.HeadSHA),
-		HeadSHA:  strings.TrimSpace(req.HeadSHA),
-	}
-	// scan 不调 LLM，跳过审查员规则包收集，避免一次 ListEnabled 查询与污染 ocr scan --preview。
-	files, err := s.previewCore(ctx, domainReq, req.Paths, req.Exclude, false)
-	if err != nil {
-		return nil, err
-	}
-	return &domain.ScanResult{PreviewFiles: files}, nil
-}
-
-func (s *Service) scanAsync(ctx context.Context, req domain.ScanRequest) (*domain.ScanResult, error) {
-	providerName := strings.TrimSpace(req.Provider)
-	repo := strings.TrimSpace(req.Repo)
-	head := strings.TrimSpace(req.HeadSHA)
-
-	id := newReviewID(time.Now().UTC())
-	scanReq := domain.Request{
-		Provider:     providerName,
-		Repo:         repo,
-		ProjectID:    strings.TrimSpace(req.ProjectID),
-		BaseSHA:      head,
-		HeadSHA:      head,
-		CallbackMode: "scan",
-	}
-	fingerprint, err := requestFingerprint(scanReq)
-	if err != nil {
-		return nil, err
-	}
-
-	queuedResp := domain.Response{
-		ReviewID: id,
-		Status:   StatusQueued,
-		Summary:  "repository scan queued",
-		Gate:     domain.PendingGate(),
-		History: []domain.Event{{
-			Stage:     stageQueued,
-			Status:    statusCompleted,
-			Message:   "repository scan queued",
-			CreatedAt: time.Now().UTC(),
-		}},
-	}
-
-	reviewRow := &domain.Record{
-		ID:                 id,
-		RequestFingerprint: fingerprint,
-		Provider:           providerName,
-		Repo:               repo,
-		Status:             StatusQueued,
-		BaseSHA:            head,
-		HeadSHA:            head,
-		Summary:            queuedResp.Summary,
-		Request:            scanReq,
-		Response:           queuedResp,
-	}
-	if err := s.reviewRepo.Create(ctx, reviewRow); err != nil {
-		return nil, err
-	}
-
-	var reporter progress.ProgressReporter
-	if s.progressManager != nil {
-		tracker := s.progressManager.CreateTracker(id, id, 1)
-		reporter = tracker
-	}
-
-	s.inFlight.Add(1)
-	async.GoSafe(func() {
-		defer s.inFlight.Done()
-		defer func() {
-			if s.progressManager != nil {
-				s.progressManager.RemoveTracker(id)
-			}
-		}()
-
-		// 获取并发槽：可被 ctx 取消，避免停机时阻塞发送导致 Shutdown 超时死锁。
-		if !s.acquireConcurrency(ctx) {
-			logx.Warnf("scan %s cancelled while waiting for concurrency slot", id)
-			return
-		}
-		defer s.releaseConcurrency()
-
-		// PR-03 修复：派生自 ctx，使得 HTTP 请求被取消时 scan goroutine 也能收到信号。
-		// 旧的 context.WithCancel(context.Background()) 与请求 lifecycle 完全脱钩，
-		// 只能依赖外部 Cancel() 显式调用。
-		scanCtx, cancel := context.WithCancel(ctx)
-		s.scanCancels.Store(id, cancel)
-		defer func() {
-			cancel()
-			s.scanCancels.Delete(id)
-		}()
-
-		s.runScanBackground(scanCtx, id, req, reporter)
-	})
-
-	return &domain.ScanResult{ReviewID: id}, nil
-}
-
-func (s *Service) runScanBackground(scanCtx context.Context, reviewID string, req domain.ScanRequest, reporter progress.ProgressReporter) {
-	if reporter != nil {
-		scanCtx = progress.WithProgressReporter(scanCtx, reporter)
-		reporter.UpdatePhase(progress.PhaseContext, "active", 3, "准备仓库工作区...")
-	}
-
-	if err := s.updateReviewFields(scanCtx, reviewID, func(review *domain.Record) {
-		resp := review.Response
-		if resp.ReviewID == "" {
-			resp = domain.Response{ReviewID: reviewID}
-		}
-		resp.Status = statusRunning
-		resp.Summary = "repository scan running"
-		resp.History = append(resp.History, domain.Event{
-			Stage:     "repository",
-			Status:    statusRunning,
-			Message:   "preparing workspace and running full scan",
-			CreatedAt: time.Now().UTC(),
-		})
-		review.Status = statusRunning
-		review.Response = resp
-		review.UpdatedAt = time.Now().UTC()
-	}); err != nil {
-		logx.Errorf("failed to update scan status to running: review_id=%s: %v", reviewID, err)
-	}
-
-	scanResult, projectPolicy, err := s.scanExecuteWithPolicy(scanCtx, reviewID, req)
-	if err != nil {
-		logx.Errorf("async scan failed: review_id=%s: %v", reviewID, err)
-		s.recordScanFailure(scanCtx, reviewID, err)
-		if tracker, ok := reporter.(*progress.ProgressTracker); ok {
-			tracker.SetError(err.Error())
-		}
-		return
-	}
-
-	if err := s.persistScanResultUpdate(scanCtx, reviewID, req, projectPolicy, scanResult); err != nil {
-		logx.Errorf("failed to persist scan result: review_id=%s: %v", reviewID, err)
-		s.recordScanFailure(scanCtx, reviewID, err)
-		if tracker, ok := reporter.(*progress.ProgressTracker); ok {
-			tracker.SetError(err.Error())
-		}
-		return
-	}
-
-	if tracker, ok := reporter.(*progress.ProgressTracker); ok {
-		tracker.UpdatePhase(progress.PhaseSynthesis, "active", 90, "保存扫描结果...")
-		tracker.Complete()
-	}
-}
-
-func (s *Service) scanExecute(ctx context.Context, req domain.ScanRequest) (*domain.ScanResult, error) {
-	scanResult, _, err := s.scanExecuteWithPolicy(ctx, "", req)
-	return scanResult, err
-}
-
-func (s *Service) scanExecuteWithPolicy(ctx context.Context, reviewID string, req domain.ScanRequest) (*domain.ScanResult, projectpolicy.ProjectPolicy, error) {
-	providerName := strings.TrimSpace(req.Provider)
-	repo := strings.TrimSpace(req.Repo)
-	head := strings.TrimSpace(req.HeadSHA)
-
-	reporter := progress.ProgressReporterFromContext(ctx)
-
-	p, ok := s.Providers.Get(providerName)
-	if !ok {
-		logx.Errorf("Scan: provider not found: requested=%q", providerName)
-		return nil, projectpolicy.ProjectPolicy{}, fmt.Errorf("%w: %s", domain.ErrUnsupportedProvider, providerName)
-	}
-
-	if reporter != nil {
-		reporter.UpdatePhase(progress.PhaseContext, "active", 5, "克隆/检出仓库...")
-	}
-	workspace, err := p.Prepare(ctx, domain.Request{
-		Provider: providerName,
-		Repo:     repo,
-		BaseSHA:  head,
-		HeadSHA:  head,
-	})
-	if err != nil {
-		return nil, projectpolicy.ProjectPolicy{}, err
-	}
-	if workspace.Dir != "" {
-		defer func() { _ = os.RemoveAll(workspace.Dir) }()
-	}
-
-	projectPolicy := projectpolicy.NewDefault(providerName, repo)
-	if s.projectRepo != nil {
-		if policyRecord, err := s.projectRepo.GetOrCreateDefault(ctx, providerName, repo); err == nil {
-			projectPolicy = policyRecord
-		} else if !errors.Is(err, repoerr.ErrNotFound) {
-			logx.Warn("failed to get/create project policy, using default", "error", err)
-		}
-	}
-	workspace.OCR = ProjectPolicyToOCROverrides(projectPolicy)
-	if strings.TrimSpace(req.Background) != "" {
-		workspace.OCR.Background = req.Background
-	}
-
-	if s.globalRulesRepo != nil {
-		rulePath, cleanup, ruleErr := ResolveRuleFileForAgents(ctx, projectPolicy, s.rulePackageRepo, s.globalRulesRepo, AgentRulePackageRefs(ctx, s.agentRepo)...)
-		if ruleErr != nil {
-			logx.Warn("failed to resolve rule file", "error", ruleErr)
-		} else if rulePath != "" {
-			workspace.RulePath = rulePath
-			if cleanup != nil {
-				defer cleanup()
-			}
-		}
-	}
-
-	if reporter != nil {
-		reporter.UpdatePhase(progress.PhaseAnalysis, "active", 10, "启动代码扫描引擎...")
-	}
-
-	if reviewID != "" && workspace.Dir != "" {
-		ocrInput := domain.OCRInput{
-			Binary: ResolveOCRBinary(ctx, s.ocrSettingsRepo),
-			Workspace: domain.WorkspaceInfo{
-				Provider: providerName,
-				Repo:     repo,
-				BaseSHA:  workspace.BaseSHA,
-				HeadSHA:  workspace.HeadSHA,
-				Dir:      workspace.Dir,
-			},
-			RulePath:  workspace.RulePath,
-			StartedAt: time.Now().UTC(),
-		}
-		if err := s.updateReviewFields(ctx, reviewID, func(review *domain.Record) {
-			rawOCRInputJSON, _ := json.Marshal(ocrInput)
-			review.RawOCRInput = rawOCRInputJSON
-		}); err != nil {
-			logx.Warn("failed to persist scan ocr input", "review_id", reviewID, "error", err)
-		}
-	}
-
-	scanResult, err := s.ScanRunner.Scan(ctx, workspace, req)
-	if err != nil {
-		return nil, projectpolicy.ProjectPolicy{}, err
-	}
-	if req.Preview || scanResult == nil || scanResult.Result == nil {
-		return scanResult, projectPolicy, nil
-	}
-
-	if reporter != nil {
-		reporter.UpdatePhase(progress.PhaseSynthesis, "active", 80, "生成扫描报告...")
-	}
-	report := BuildReport(scanResult.Result)
-	analysis := BuildAnalysis(*scanResult.Result)
-	scanResult.Report = &report
-	scanResult.Analysis = &analysis
-
-	return scanResult, projectPolicy, nil
-}
-
-func (s *Service) recordScanFailure(ctx context.Context, reviewID string, scanErr error) {
-	err := s.updateReviewFields(ctx, reviewID, func(review *domain.Record) {
-		resp := review.Response
-		if resp.ReviewID == "" {
-			resp = domain.Response{ReviewID: reviewID}
-		}
-		resp.Status = statusFailed
-		resp.Summary = "repository scan failed"
-		resp.Gate = domain.ErrorGate("scan execution failed")
-		resp.Error = scanErr.Error()
-		resp.History = append(resp.History, domain.Event{
-			Stage:     "ocr_scan",
-			Status:    statusFailed,
-			Message:   scanErr.Error(),
-			CreatedAt: time.Now().UTC(),
-		})
-		review.Status = statusFailed
-		review.Response = resp
-		review.UpdatedAt = time.Now().UTC()
-	})
-	if err != nil {
-		logx.Errorf("failed to record scan failure: review_id=%s: %v", reviewID, err)
-	}
-}
-
-func (s *Service) persistScanResultUpdate(ctx context.Context, reviewID string, scanReq domain.ScanRequest, projectPolicy projectpolicy.ProjectPolicy, scanResult *domain.ScanResult) error {
-	result := scanResult.Result
-	if result == nil {
-		return fmt.Errorf("scan result is empty")
-	}
-	// 在 gate/report/writeback 消费 findings 之前，统一计算跨 review 稳定指纹。
-	types.ComputeFingerprints(result.Findings)
-	report := BuildReport(result)
-	if scanResult.Report != nil {
-		report = *scanResult.Report
-	}
-	analysis := BuildAnalysis(*result)
-	if scanResult.Analysis != nil {
-		analysis = *scanResult.Analysis
-	}
-
-	gateEngine := s.policy
-	if gateEngine == nil {
-		gateEngine = policy.NewEngine(policy.Config{})
-	}
-	if projectPolicy.FailOn != "" {
-		gateEngine = policy.NewEngine(policy.Config{FailOn: projectPolicy.FailOn})
-	}
-	gate := gateEngine.Evaluate(scanPolicyFindings(result.Findings))
-
-	resp := domain.Response{
-		ReviewID: reviewID,
-		Status:   statusSuccess,
-		Summary:  result.Summary,
-		Gate:     domain.CompletedGate(gate.Passed, gate.Reason),
-		Report:   report,
-		Analysis: analysis,
-		Findings: result.Findings,
-		History: []domain.Event{
-			{
-				Stage:     "repository",
-				Status:    statusCompleted,
-				Message:   "repository prepared for full scan",
-				CreatedAt: time.Now().UTC(),
-			},
-			{
-				Stage:   "ocr_scan",
-				Status:  statusCompleted,
-				Message: "full repository scan completed",
-				Details: map[string]any{
-					"files_reviewed": result.OCR.FilesReviewed,
-					"comments":       result.OCR.Comments,
-					"total_tokens":   result.OCR.TotalTokens,
-					"elapsed":        result.OCR.Elapsed,
-				},
-				CreatedAt: time.Now().UTC(),
-			},
-		},
-	}
-
-	return s.updateReviewFields(ctx, reviewID, func(review *domain.Record) {
-		review.Status = resp.Status
-		review.Score = report.Score.Value
-		review.Grade = report.Score.Grade
-		review.Summary = resp.Summary
-		review.Response = resp
-		if len(result.RawOCR) > 0 {
-			review.RawOCR = result.RawOCR
-		}
-		review.UpdatedAt = time.Now().UTC()
-	})
+	return s.scanOrchestrator.Scan(ctx, req)
 }
 
 func (s *Service) updateReviewFields(ctx context.Context, reviewID string, fn func(review *domain.Record)) error {
@@ -958,14 +590,6 @@ func MergeRequirementsIntoBackground(existing string, requirements []string) str
 	return strings.Join(parts, "\n")
 }
 
-func scanPolicyFindings(findings []domain.Finding) []policy.Finding {
-	out := make([]policy.Finding, 0, len(findings))
-	for _, finding := range findings {
-		out = append(out, policy.Finding{Severity: finding.Severity, Path: finding.Path})
-	}
-	return out
-}
-
 func validate(req domain.Request) error {
 	if strings.TrimSpace(req.Provider) == "" {
 		return bizerrors.NewBadRequestError("provider is required")
@@ -975,8 +599,17 @@ func validate(req domain.Request) error {
 	}
 
 	hasPR := strings.TrimSpace(req.PullRequestID) != "" || strings.TrimSpace(req.MergeRequestIID) != ""
+	hasCommit := strings.TrimSpace(req.CommitSHA) != ""
 
-	if !hasPR {
+	if hasCommit {
+		// 单 commit 评审模式（OCR v1.9.5+ --commit）：CommitSHA 与 PR/MR 互斥。
+		if hasPR {
+			return bizerrors.NewBadRequestError("commit_sha cannot be used together with pull_request_id or merge_request_iid")
+		}
+		if !gitObjectIDPattern.MatchString(req.CommitSHA) {
+			return bizerrors.NewBadRequestError("commit_sha must be a 7-64 character hexadecimal Git object ID")
+		}
+	} else if !hasPR {
 		if strings.TrimSpace(req.BaseSHA) == "" {
 			return bizerrors.NewBadRequestError("base_sha is required when pull_request_id or merge_request_iid is not provided")
 		}

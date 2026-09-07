@@ -68,6 +68,9 @@ type SettingsData struct {
 	// DefaultSeverity 是 OCRSettings.DefaultSeverity 字段的直传。
 	// 阶段 A+1：完整字段映射表（与 models.OCRSettings 一对一）。
 	DefaultSeverity string
+
+	// GitHubMirror 是 OCR 资产的 GitHub 下载镜像地址（OCR v1.9.5+）。
+	GitHubMirror string
 }
 
 // ToolSettings 是工具包配置接口（兼容旧 toolPackageSource）。

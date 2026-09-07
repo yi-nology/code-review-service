@@ -52,6 +52,8 @@ type OCRSettings struct {
 	PolicyIgnorePaths datatypes.JSON `gorm:"type:jsonb" json:"policy_ignore_paths,omitempty"`
 	// 写回配置
 	MaxDiffBytes int64 `gorm:"not null;default:5242880" json:"max_diff_bytes,omitempty"`
+	// GitHubMirror 是 OCR 资产的 GitHub 下载镜像地址（OCR v1.9.5+）。
+	GitHubMirror string `gorm:"type:text" json:"github_mirror,omitempty"`
 }
 
 func (OCRSettings) TableName() string {

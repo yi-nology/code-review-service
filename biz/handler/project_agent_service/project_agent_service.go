@@ -39,14 +39,14 @@ func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
 	projectAgents, err := handlerInst.projectAgentRepo.GetByProject(ctx, req.Provider, req.Repo)
 	if err != nil {
 		logx.Errorf("get project agents failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
 	allAgents, err := handlerInst.reviewerAgentRepo.List(ctx)
 	if err != nil {
 		logx.Errorf("get all agents failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -90,7 +90,7 @@ func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
 
 	_, err := handlerInst.reviewerAgentRepo.GetByID(ctx, common.SafeUint(req.AgentID))
 	if err != nil {
-		common.Fail(c, common.NotFound("agent not found"))
+		common.Fail(ctx, c, common.NotFound("agent not found"))
 		return
 	}
 
@@ -104,7 +104,7 @@ func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
 
 	if err := handlerInst.projectAgentRepo.Upsert(ctx, pa); err != nil {
 		logx.Errorf("upsert project agent failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -121,7 +121,7 @@ func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
 
 	if err := handlerInst.projectAgentRepo.DeleteByProject(ctx, req.Provider, req.Repo); err != nil {
 		logx.Errorf("delete project agents failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -152,7 +152,7 @@ func DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
 
 	if err := handlerInst.projectAgentRepo.Delete(ctx, req.Provider, req.Repo, common.SafeUint(req.AgentID)); err != nil {
 		logx.Errorf("delete project agent failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 

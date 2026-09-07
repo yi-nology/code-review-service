@@ -30,13 +30,13 @@ type upsertFeedbackReq struct {
 
 func ListFeedback(ctx context.Context, c *app.RequestContext) {
 	if handlerInst == nil || handlerInst.repo == nil {
-		common.Fail(c, common.BizErr(500, "feedback handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "feedback handler not initialized"))
 		return
 	}
 	reviewID := c.Param("id")
 	items, err := handlerInst.repo.ListByReview(ctx, reviewID)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"items": items})
@@ -44,7 +44,7 @@ func ListFeedback(ctx context.Context, c *app.RequestContext) {
 
 func UpsertFeedback(ctx context.Context, c *app.RequestContext) {
 	if handlerInst == nil || handlerInst.repo == nil {
-		common.Fail(c, common.BizErr(500, "feedback handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "feedback handler not initialized"))
 		return
 	}
 	req, ok := common.Bind[upsertFeedbackReq](c)
@@ -55,12 +55,12 @@ func UpsertFeedback(ctx context.Context, c *app.RequestContext) {
 	switch status {
 	case "false_positive", "accepted_risk", "deferred", "fixed":
 	default:
-		common.Fail(c, common.BadRequest("status 仅支持 false_positive、accepted_risk、deferred、fixed"))
+		common.Fail(ctx, c, common.BadRequest("status 仅支持 false_positive、accepted_risk、deferred、fixed"))
 		return
 	}
 	index, err := common.ParseUintID(c.Param("index"))
 	if err != nil {
-		common.Fail(c, common.BadRequest("invalid finding index"))
+		common.Fail(ctx, c, common.BadRequest("invalid finding index"))
 		return
 	}
 	item := &feedback.Feedback{
@@ -72,7 +72,7 @@ func UpsertFeedback(ctx context.Context, c *app.RequestContext) {
 		UpdatedAt:    time.Now().UTC(),
 	}
 	if err := handlerInst.repo.Upsert(ctx, item); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, item)
@@ -87,7 +87,7 @@ type lookupFeedbackReq struct {
 // POST /api/v1/findings/feedback/lookup  body: {"fingerprints": ["abc","def"]}
 func ListFeedbackByFingerprints(ctx context.Context, c *app.RequestContext) {
 	if handlerInst == nil || handlerInst.repo == nil {
-		common.Fail(c, common.BizErr(500, "feedback handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "feedback handler not initialized"))
 		return
 	}
 	req, ok := common.Bind[lookupFeedbackReq](c)
@@ -96,7 +96,7 @@ func ListFeedbackByFingerprints(ctx context.Context, c *app.RequestContext) {
 	}
 	items, err := handlerInst.repo.ListByFingerprints(ctx, req.Fingerprints)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"items": items})

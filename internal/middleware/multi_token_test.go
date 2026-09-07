@@ -168,7 +168,7 @@ func (f *fakeAuthRepo) CreateToken(context.Context, *auth.Token) error          
 func (f *fakeAuthRepo) ListTokens(context.Context) ([]auth.Token, error)          { return nil, nil }
 func (f *fakeAuthRepo) DeleteToken(context.Context, uint) error                   { return nil }
 func (f *fakeAuthRepo) UpdateLastUsed(context.Context, string, interface{}) error { return nil }
-func (f *fakeAuthRepo) WriteAudit(context.Context, *auth.AuditEntry) error { return nil }
+func (f *fakeAuthRepo) WriteAudit(context.Context, *auth.AuditEntry) error        { return nil }
 func (f *fakeAuthRepo) ListAudit(context.Context, int, int) ([]auth.AuditEntry, int64, error) {
 	return nil, 0, nil
 }

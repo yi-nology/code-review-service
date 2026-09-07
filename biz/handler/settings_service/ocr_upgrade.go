@@ -17,7 +17,7 @@ func CheckOCRUpdate(ctx context.Context, c *app.RequestContext) {
 	}
 	info, err := handlerInst.ocr.Upgrader().CheckUpdate(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	resp := &modelSettings.OCRUpdateInfoResp{
@@ -50,10 +50,10 @@ func StartOCRUpgrade(ctx context.Context, c *app.RequestContext) {
 	status, err := handlerInst.ocr.Upgrader().Upgrade(ctx, version)
 	if err != nil {
 		if status != nil {
-			common.Fail(c, common.BizErr(409, err.Error()))
+			common.Fail(ctx, c, common.BizErr(409, err.Error()))
 			return
 		}
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, upgradeStatusToResp(status))
@@ -66,7 +66,7 @@ func OCRUpgradeStatus(ctx context.Context, c *app.RequestContext) {
 	}
 	status, err := handlerInst.ocr.Upgrader().UpgradeStatus(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, upgradeStatusToResp(status))

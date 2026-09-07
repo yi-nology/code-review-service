@@ -39,6 +39,7 @@ type Registry struct {
 	versioner domain.OCRVersioner
 	viewer    domain.ViewerManager
 	upgrader  domain.OCRUpgrader
+	sessions  domain.SessionLister
 
 	llmProvider Provider
 
@@ -64,6 +65,7 @@ func New(
 	versioner domain.OCRVersioner,
 	viewer domain.ViewerManager,
 	upgrader domain.OCRUpgrader,
+	sessions domain.SessionLister,
 	llmProvider Provider,
 ) *Registry {
 	_ = fallback // 阶段 A15 part 4: 用 fallback 构造 default Runner
@@ -79,6 +81,7 @@ func New(
 		versioner:   versioner,
 		viewer:      viewer,
 		upgrader:    upgrader,
+		sessions:    sessions,
 		llmProvider: llmProvider,
 	}
 }
@@ -151,6 +154,9 @@ func (r *Registry) Viewer() domain.ViewerManager { return r.viewer }
 
 // Upgrader 返回 OCR 在线升级器。
 func (r *Registry) Upgrader() domain.OCRUpgrader { return r.upgrader }
+
+// SessionLister 返回 OCR session 列表器。
+func (r *Registry) SessionLister() domain.SessionLister { return r.sessions }
 
 // LLM 返回统一 LLM Provider，供 discussion / tech-lead 等阶段直接调用。
 func (r *Registry) LLM() Provider { return r.llmProvider }

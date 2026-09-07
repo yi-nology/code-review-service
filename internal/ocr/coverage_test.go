@@ -180,7 +180,7 @@ func TestRunner_Scanner(t *testing.T) {
 
 func TestRegistry_Resolver(t *testing.T) {
 	resolver := NewConfigResolver(NewSettingsSnapshot(&SettingsData{}), Defaults(), nil)
-	r := New(nil, Config{}, resolver, &stubTester{}, &stubLister{}, &stubChecker{}, &stubVersioner{}, &stubViewer{}, &stubUpgrader{}, &stubLLM{})
+	r := New(nil, Config{}, resolver, &stubTester{}, &stubLister{}, &stubChecker{}, &stubVersioner{}, &stubViewer{}, &stubUpgrader{}, &stubSessionLister{}, &stubLLM{})
 	if r.Resolver() != resolver {
 		t.Errorf("expected Resolver to return same instance")
 	}

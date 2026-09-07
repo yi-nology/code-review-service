@@ -34,6 +34,7 @@ export interface ReviewDetail {
   history: Event[]
   findings: Finding[]
   report: Report
+  judgment?: Judgment
   raw_ocr?: any
   raw_ocr_input?: any
   error?: string
@@ -43,6 +44,27 @@ export interface ReviewDetail {
   retry_count?: number
   created_at: string
   updated_at: string
+}
+
+// Judgment 是 OCR 结果二次综合判断（agentkit LLM）。
+export interface Judgment {
+  overall_assessment: string
+  confidence: 'high' | 'medium' | 'low'
+  recommended_gate: 'pass' | 'fail' | 'conditional_pass'
+  gate_reason: string
+  prioritized_findings?: FindingJudgment[]
+  summary_for_human?: string
+}
+
+// FindingJudgment 是单个 finding 的判断结果。
+export interface FindingJudgment {
+  path: string
+  line?: number
+  title: string
+  severity: string
+  is_likely_true: boolean
+  priority: number
+  reason: string
 }
 
 export interface Gate {
@@ -64,6 +86,10 @@ export interface Event {
   message: string
   details?: Record<string, any>
   created_at: string
+  how?: string
+  input?: any
+  output?: any
+  duration_ms?: number
 }
 
 export interface Finding {
@@ -158,6 +184,7 @@ export interface OCRMetadata {
     by_tool?: Record<string, number>
   }
   project_summary?: string
+  budget_exceeded?: boolean
 }
 
 export interface ScopeMetadata {
@@ -229,6 +256,7 @@ export interface CreateReviewOptions {
   repo: string
   base_sha?: string
   head_sha?: string
+  commit_sha?: string
   project_id?: string
   pull_request_id?: string
   merge_request_iid?: string
@@ -254,6 +282,7 @@ export interface ScanRepositoryOptions {
   no_summary?: boolean
   preview?: boolean
   timeout_minutes?: number
+  resume_session_id?: string
 }
 
 export interface ScanRepositoryResult {

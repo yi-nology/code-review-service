@@ -330,16 +330,32 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 		audience = "agent"
 	}
 
-	args := []string{
-		"review",
-		"--repo", workspace.Dir,
-		"--from", fromRef,
-		"--to", toRef,
-		"--format", "json",
-		"--concurrency", convert.IntToStr(cfg.Concurrency),
-		"--max-git-procs", convert.IntToStr(cfg.MaxGitProcs),
-		"--timeout", convert.IntToStr(cfg.TimeoutMinutes),
-		"--audience", audience,
+	var args []string
+	// OCR v1.9.5+ --commit：单 commit 评审模式，对比 commit 与其 parent。
+	// 与 --from/--to 互斥。
+	if workspace.CommitSHA != "" {
+		args = []string{
+			"review",
+			"--repo", workspace.Dir,
+			"--commit", workspace.CommitSHA,
+			"--format", "json",
+			"--concurrency", convert.IntToStr(cfg.Concurrency),
+			"--max-git-procs", convert.IntToStr(cfg.MaxGitProcs),
+			"--timeout", convert.IntToStr(cfg.TimeoutMinutes),
+			"--audience", audience,
+		}
+	} else {
+		args = []string{
+			"review",
+			"--repo", workspace.Dir,
+			"--from", fromRef,
+			"--to", toRef,
+			"--format", "json",
+			"--concurrency", convert.IntToStr(cfg.Concurrency),
+			"--max-git-procs", convert.IntToStr(cfg.MaxGitProcs),
+			"--timeout", convert.IntToStr(cfg.TimeoutMinutes),
+			"--audience", audience,
+		}
 	}
 	// OCR v1.7.6+ --resume：复用上次 session 的已完成文件 checkpoint，跳过重复 LLM 调用。
 	// 由 executor 在 retry 路径填入（读上次 review 的 response.report.ocr.session_id）。
@@ -745,12 +761,13 @@ func parseOpenCodeReviewOutput(data []byte, defaultSeverity string) domain.Resul
 	var payload struct {
 		Status  string `json:"status"`
 		Summary struct {
-			FilesReviewed int    `json:"files_reviewed"`
-			Comments      int    `json:"comments"`
-			TotalTokens   int64  `json:"total_tokens"`
-			InputTokens   int64  `json:"input_tokens"`
-			OutputTokens  int64  `json:"output_tokens"`
-			Elapsed       string `json:"elapsed"`
+			FilesReviewed  int    `json:"files_reviewed"`
+			Comments       int    `json:"comments"`
+			TotalTokens    int64  `json:"total_tokens"`
+			InputTokens    int64  `json:"input_tokens"`
+			OutputTokens   int64  `json:"output_tokens"`
+			Elapsed        string `json:"elapsed"`
+			BudgetExceeded bool   `json:"budget_exceeded"`
 		} `json:"summary"`
 		ToolCalls *domain.ToolCallsMetadata `json:"tool_calls"`
 		// Session 是 OCR v1.7.6+ 引入的 review session 元数据；旧版本无此字段，零值即可。
@@ -827,6 +844,7 @@ func parseOpenCodeReviewOutput(data []byte, defaultSeverity string) domain.Resul
 		result.OCR.SessionID = payload.Session.SessionID
 		result.OCR.ReusedFiles = payload.Session.ReusedFiles
 	}
+	result.OCR.BudgetExceeded = payload.Summary.BudgetExceeded
 	return result
 }
 

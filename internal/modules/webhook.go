@@ -21,6 +21,7 @@ func NewWebhookService(cfg *config.Config, repos *repository.RepoContainer, gps 
 			"gitea":        webhook.NewGiteaNormalizer(gps),
 			"gitcode":      webhook.NewGitCodeNormalizer(gps),
 			"tencent_code": webhook.NewTencentCodeNormalizer(gps),
+			"gerrit":       webhook.NewGerritNormalizer(),
 		},
 		DeliveryRepo:       repos.WebhookDelivery,
 		ChangeRevisionRepo: repos.ChangeRevision,

@@ -8,9 +8,15 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/oekit/bootstrap"
+	"github.com/oekit/logx"
 
 	_ "github.com/yi-nology/git-platform-sdk/backends/all" // 注册所有平台后端（v0.32.0 起 provider 不再自动注册）
 )
+
+func init() {
+	// ekit v0.17.4 hlog guard: 显式切 slog, 62 个文件 package-level logx.* 走 slog
+	logx.SetDefault(logx.NewSlogLogger("review-service"))
+}
 
 const defaultShutdownTimeout = 30 * time.Second
 

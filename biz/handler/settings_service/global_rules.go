@@ -14,7 +14,7 @@ import (
 func GetGlobalRules(ctx context.Context, c *app.RequestContext) {
 	rules, err := handlerInst.globalRules.Get(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, &modelSettings.GetGlobalRulesResp{Rules: dbGlobalRulesToAPI(rules)})
@@ -27,7 +27,7 @@ func UpdateGlobalRules(ctx context.Context, c *app.RequestContext) {
 	}
 	dbRules := apiGlobalRulesToDomain(req.Rules)
 	if err := handlerInst.globalRules.Save(ctx, dbRules); err != nil {
-		common.Fail(c, common.BizErr(500, "保存全局规则失败"))
+		common.Fail(ctx, c, common.BizErr(500, "保存全局规则失败"))
 		return
 	}
 	common.Success(c, &modelSettings.UpdateGlobalRulesResp{Rules: dbGlobalRulesToAPI(dbRules)})

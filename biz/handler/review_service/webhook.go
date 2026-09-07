@@ -43,39 +43,39 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 	}
 
 	if req.Provider == "" || req.Installation == "" {
-		common.Fail(c, common.BadRequest("provider and installation are required"))
+		common.Fail(ctx, c, common.BadRequest("provider and installation are required"))
 		return
 	}
 
 	rawBody := req.Body
 	if len(rawBody) == 0 {
-		common.Fail(c, common.BadRequest("empty body"))
+		common.Fail(ctx, c, common.BadRequest("empty body"))
 		return
 	}
 
 	if h.webhookSvc.MaxPayloadBytes() > 0 && int64(len(rawBody)) > h.webhookSvc.MaxPayloadBytes() {
-		common.Fail(c, common.BizErr(413, "payload too large"))
+		common.Fail(ctx, c, common.BizErr(413, "payload too large"))
 		return
 	}
 
 	platform, err := h.platformRepo.Get(ctx, req.Provider, req.Installation)
 	if err != nil {
 		if errors.Is(err, repoerr.ErrNotFound) {
-			common.Fail(c, common.NotFound("installation not found"))
+			common.Fail(ctx, c, common.NotFound("installation not found"))
 			return
 		}
 		logx.Error("lookup installation failed", "provider", req.Provider, "installation", req.Installation, "error", err)
-		common.Fail(c, common.BizErr(500, "internal error"))
+		common.Fail(ctx, c, common.BizErr(500, "internal error"))
 		return
 	}
 	if platform == nil {
-		common.Fail(c, common.NotFound("installation not found"))
+		common.Fail(ctx, c, common.NotFound("installation not found"))
 		return
 	}
 
 	normalizer, ok := h.webhookSvc.GetNormalizer(req.Provider)
 	if !ok {
-		common.Fail(c, common.BadRequest(fmt.Sprintf("unsupported provider %q", req.Provider)))
+		common.Fail(ctx, c, common.BadRequest(fmt.Sprintf("unsupported provider %q", req.Provider)))
 		return
 	}
 
@@ -87,11 +87,11 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 	result, err := h.webhookSvc.HandleWebhook(ctx, req.Provider, req.Installation, rawBody, eventType, deliveryID, signature, platform.WebhookSecret)
 	if err != nil {
 		if errors.Is(err, webhook.ErrSignatureMismatch) {
-			common.Fail(c, common.BizErr(401, "signature verification failed"))
+			common.Fail(ctx, c, common.BizErr(401, "signature verification failed"))
 			return
 		}
 		logx.Error("webhook handling failed", "provider", req.Provider, "error", err)
-		common.Fail(c, common.BizErr(500, "internal error"))
+		common.Fail(ctx, c, common.BizErr(500, "internal error"))
 		return
 	}
 
@@ -133,7 +133,7 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 	if err != nil {
 		logx.Error("create review from webhook failed", "provider", req.Provider, "error", err)
 		_ = h.webhookSvc.MarkDeliveryProcessed(ctx, req.Provider, req.Installation, deliveryID, "error", err.Error())
-		common.Fail(c, common.BizErr(500, "failed to create review"))
+		common.Fail(ctx, c, common.BizErr(500, "failed to create review"))
 		return
 	}
 
@@ -166,6 +166,7 @@ var providerHeaders = map[string]webhookHeaders{
 	"gitcode":      {EventType: "X-GitLab-Event", DeliveryID: "X-Gitlab-Event-UUID", Signature: "X-Gitlab-Token"},
 	"tencent_code": {EventType: "X-GitLab-Event", DeliveryID: "X-Gitlab-Event-UUID", Signature: "X-Gitlab-Token"},
 	"gitea":        {EventType: "X-Gitea-Event", DeliveryID: "X-Gitea-Delivery", Signature: "X-Gitea-Signature"},
+	"gerrit":       {EventType: "X-Gerrit-Event", DeliveryID: "X-Gerrit-Event-UUID", Signature: "X-Gerrit-Identity"},
 }
 
 func getProviderHeaders(provider string) webhookHeaders {

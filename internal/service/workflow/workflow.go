@@ -99,8 +99,9 @@ func (w *ReviewWorkflow) RunReview(ctx context.Context, request ReviewRequest) (
 	}
 
 	// Build and run pipeline
-	pipe := w.buildPipeline()
-	if err := pipe.Run(ctx, request, rs); err != nil {
+	// v0.19.0 PipeFlow.Run(ctx) error 不再接受 req/sess, 通过 step 字段传入 (rs)
+	pipe := w.buildPipeline(rs)
+	if err := pipe.Run(ctx); err != nil {
 		w.failSession(ctx, session.SessionID, err.Error())
 		tracker.SetError(err.Error())
 		return nil, err
@@ -128,19 +129,22 @@ func (w *ReviewWorkflow) RunReview(ctx context.Context, request ReviewRequest) (
 }
 
 // buildPipeline 构建 review 流程管道
-func (w *ReviewWorkflow) buildPipeline() *workflow.PipeFlow {
+// v0.19.0 Runnable.Run(ctx) error: req/sess 通过 step 字段传入 (rs)
+func (w *ReviewWorkflow) buildPipeline(rs *ReviewSession) *workflow.PipeFlow {
 	pipe := workflow.NewPipe()
 
 	// Phase 1: Context Discovery
-	pipe.Add(&contextDiscoveryStep{})
+	pipe.Add(&contextDiscoveryStep{rs: rs})
 
 	// Phase 2: Change Analysis
 	pipe.Add(&changeAnalysisStep{
+		rs:             rs,
 		sessionService: w.sessionService,
 	})
 
 	// Phase 3: Analysis
 	pipe.Add(&analysisStep{
+		rs:             rs,
 		sessionService: w.sessionService,
 		llmProvider:    w.llmProvider,
 		config:         w.config,
@@ -148,18 +152,21 @@ func (w *ReviewWorkflow) buildPipeline() *workflow.PipeFlow {
 
 	// Phase 4: Parallel Reviews
 	pipe.Add(&parallelReviewsStep{
+		rs:             rs,
 		agentManager:   w.agentManager,
 		sessionService: w.sessionService,
 	})
 
 	// Phase 5: Aggregation
 	pipe.Add(&aggregationStep{
+		rs:             rs,
 		sessionService: w.sessionService,
 	})
 
 	// Phase 6: Discussion (if enabled)
 	if w.config.EnableDiscussion {
 		pipe.Add(&discussionStep{
+			rs:               rs,
 			discussionOrch:   w.discussionOrch,
 			sessionService:   w.sessionService,
 			discussionRounds: w.config.DiscussionRounds,
@@ -168,6 +175,7 @@ func (w *ReviewWorkflow) buildPipeline() *workflow.PipeFlow {
 
 	// Phase 7: Synthesis
 	pipe.Add(&synthesisStep{
+		rs:                 rs,
 		sessionService:     w.sessionService,
 		enableRequirements: w.config.EnableRequirements,
 		llmProvider:        w.llmProvider,
@@ -175,6 +183,7 @@ func (w *ReviewWorkflow) buildPipeline() *workflow.PipeFlow {
 
 	// Phase 8: Complete
 	pipe.Add(&completeStep{
+		rs:             rs,
 		sessionService: w.sessionService,
 	})
 

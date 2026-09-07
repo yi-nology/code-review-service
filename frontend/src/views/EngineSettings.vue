@@ -140,12 +140,6 @@
           <el-tab-pane label="MCP 服务器" name="mcp">
             <McpServersTab />
           </el-tab-pane>
-          <el-tab-pane label="审查背景" name="review">
-            <ReviewFocusTab />
-          </el-tab-pane>
-          <el-tab-pane label="审查策略" name="policy">
-            <PolicyTab />
-          </el-tab-pane>
         </el-tabs>
       </section>
 
@@ -176,9 +170,7 @@ import PageShell from '@/components/common/PageShell.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import ModelProviderSection from '@/components/model-settings/ModelProviderSection.vue'
 import ExecutionParamsTab from '@/components/model-settings/ExecutionParamsTab.vue'
-import ReviewFocusTab from '@/components/model-settings/ReviewFocusTab.vue'
 import McpServersTab from '@/components/model-settings/McpServersTab.vue'
-import PolicyTab from '@/components/model-settings/PolicyTab.vue'
 import { settingsFormKey, type SettingsFormContext } from '@/components/model-settings/context'
 import { useOcrSettingsForm } from '@/composables/useOcrSettingsForm'
 import {

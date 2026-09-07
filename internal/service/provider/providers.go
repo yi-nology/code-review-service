@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/oekit/logx"
 )
 
 // DefaultMaxDiffBytes 是单次评审 diff 的默认字节上限（5 MiB）。
@@ -61,7 +62,13 @@ func (a *gitProviderAdapter) Prepare(ctx context.Context, req domain.Request) (d
 
 		diff, err = a.svc.GetCRDiffString(ctx, a.platform, owner, repoName, number)
 		if err != nil {
-			return domain.Workspace{}, fmt.Errorf("get diff via API: %w", err)
+			// Gerrit 等无 SDK 后端的平台，API diff 获取会失败。
+			// 此时 diff 留空，由 cloneAndResolvePR 克隆后由 OCR 引擎从 git 计算。
+			if a.platform == "gerrit" {
+				logx.CtxWarnf(ctx, "gerrit: API diff fetch skipped (no SDK backend), will compute from git: %v", err)
+			} else {
+				return domain.Workspace{}, fmt.Errorf("get diff via API: %w", err)
+			}
 		}
 
 		cr, crErr := a.svc.GetCR(ctx, a.platform, owner, repoName, number)
@@ -82,7 +89,10 @@ func (a *gitProviderAdapter) Prepare(ctx context.Context, req domain.Request) (d
 	skipTLS := a.svc.GetSkipTLS(a.platform)
 
 	var dir, baseSHA, headSHA string
-	if hasPR {
+	if req.CommitSHA != "" {
+		// 单 commit 评审模式（OCR v1.9.5+ --commit）：只需克隆并检出 commit，diff 由 OCR binary 内部处理。
+		dir, err = cloneAndResolveCommit(ctx, cloneURL, token, skipTLS, req.CommitSHA)
+	} else if hasPR {
 		dir, baseSHA, headSHA, err = cloneAndResolvePR(
 			ctx, cloneURL, token, skipTLS, prNumber, a.platform, sourceBranch, targetBranch, headSHAFromAPI, baseSHAFromAPI,
 		)
@@ -114,6 +124,7 @@ func (a *gitProviderAdapter) Prepare(ctx context.Context, req domain.Request) (d
 		BaseSHA:         baseSHA,
 		HeadSHA:         headSHA,
 		OriginalHeadSHA: originalHeadSHA,
+		CommitSHA:       req.CommitSHA,
 		Diff:            diff,
 		Dir:             dir,
 	}, nil

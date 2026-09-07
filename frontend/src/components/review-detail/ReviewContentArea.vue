@@ -8,6 +8,8 @@ import type { ReviewDetail } from '@/types/review'
 import ReviewFindingsPanel from './ReviewFindingsPanel.vue'
 import ReviewOcrCard from './ReviewOcrCard.vue'
 import ReviewDebugPanel from './ReviewDebugPanel.vue'
+import JudgmentPanel from './JudgmentPanel.vue'
+import ReviewAuditTrail from './ReviewAuditTrail.vue'
 import PublishPanel from '@/components/PublishPanel.vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { downloadSuggestionPatch } from '@/api/review'
@@ -16,6 +18,17 @@ const props = defineProps<{
   detail: ReviewDetail
   debugMode: boolean
 }>()
+
+// 简易 Markdown 渲染（加粗、换行、代码块）
+function renderMarkdown(md: string): string {
+  if (!md) return ''
+  return md
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/```[\s\S]*?```/g, (m) => `<pre class="md-code">${m.slice(3, -3).trim()}</pre>`)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>')
+}
 
 const emit = defineEmits<{
   (e: 'toggle-debug'): void
@@ -51,10 +64,16 @@ defineExpose({ resetPatchState, focusFinding })
 
 <template>
   <div class="review-content">
-    <!-- 摘要 -->
-    <div v-if="detail.summary" class="review-summary-text">
-      {{ detail.summary }}
+    <!-- 摘要（Markdown 渲染） -->
+    <div v-if="detail.summary" class="review-summary-card">
+      <div class="summary-content" v-html="renderMarkdown(detail.summary)"></div>
     </div>
+
+    <!-- AI 综合判断（agentkit Judge） -->
+    <JudgmentPanel v-if="detail.judgment" :judgment="detail.judgment" />
+
+    <!-- 审查步骤审计面板 -->
+    <ReviewAuditTrail v-if="detail.history?.length" :history="detail.history" />
 
     <!-- Findings 列表（核心区域） -->
     <ReviewFindingsPanel
@@ -125,14 +144,33 @@ defineExpose({ resetPatchState, focusFinding })
   min-width: 0;
 }
 
-.review-summary-text {
-  padding: 16px 20px;
-  border: 1px solid var(--app-border);
+.review-summary-card {
+  padding: 20px 24px;
+  border: 1px solid #e5e7eb;
   border-radius: 12px;
-  background: #fff;
+  background: linear-gradient(135deg, #f8fafc 0%, #fff 100%);
   font-size: 14px;
-  line-height: 1.7;
-  color: #4b5563;
+  line-height: 1.8;
+  color: #334155;
+}
+.review-summary-card :deep(strong) {
+  color: #1e293b;
+  font-weight: 600;
+}
+.review-summary-card :deep(code) {
+  background: #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+.review-summary-card :deep(.md-code) {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 12px;
 }
 
 .analysis-card {

@@ -46,7 +46,7 @@ func PublishReview(ctx context.Context, c *app.RequestContext) {
 
 	wbResult, err := publishReview(ctx, req.ID, req.SummaryOnly != nil && *req.SummaryOnly, false)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -59,12 +59,12 @@ func PublishReview(ctx context.Context, c *app.RequestContext) {
 func PublishStatus(ctx context.Context, c *app.RequestContext) {
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {
-		common.Fail(c, common.BadRequest("review id 不能为空"))
+		common.Fail(ctx, c, common.BadRequest("review id 不能为空"))
 		return
 	}
 	status, err := handlerInst.writeback.Status(ctx, id)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, status)
@@ -73,12 +73,12 @@ func PublishStatus(ctx context.Context, c *app.RequestContext) {
 func RetryPublish(ctx context.Context, c *app.RequestContext) {
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {
-		common.Fail(c, common.BadRequest("review id 不能为空"))
+		common.Fail(ctx, c, common.BadRequest("review id 不能为空"))
 		return
 	}
 	status, err := handlerInst.writeback.Status(ctx, id)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	if status.Failed == 0 && status.Pending == 0 {
@@ -87,7 +87,7 @@ func RetryPublish(ctx context.Context, c *app.RequestContext) {
 	}
 	wbResult, err := publishReview(ctx, id, false, false)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"message": publishMessage(wbResult, "retry published"), "review_id": id})
@@ -145,7 +145,7 @@ func PreviewComment(ctx context.Context, c *app.RequestContext) {
 
 	record, found, err := handlerInst.reviewSvc.Get(ctx, req.ID)
 	if err != nil || !found {
-		common.Fail(c, common.NotFound("review not found"))
+		common.Fail(ctx, c, common.NotFound("review not found"))
 		return
 	}
 
@@ -168,7 +168,7 @@ func UpdatePublishedComment(ctx context.Context, c *app.RequestContext) {
 
 	wbResult, err := publishReview(ctx, req.ID, false, true)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 

@@ -204,11 +204,11 @@ func (r *PostgresSessionRepository) List(ctx context.Context, page, pageSize int
 		return nil, err
 	}
 	out := &ekitGorm.PageResponse[session.Session]{
-		List:  make([]session.Session, len(resp.List)),
+		Items: make([]session.Session, len(resp.Items)),
 		Total: resp.Total,
 	}
-	for i, m := range resp.List {
-		out.List[i] = sessionToDomain(m)
+	for i, m := range resp.Items {
+		out.Items[i] = sessionToDomain(m)
 	}
 	return out, nil
 }

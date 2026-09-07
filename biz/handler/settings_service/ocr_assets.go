@@ -57,12 +57,12 @@ func ListRulePackages(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if err := ensureDefaultRulePackages(ctx); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	items, err := handlerInst.rulePackages.List(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	resp := make([]rulePackageDTO, 0, len(items))
@@ -83,24 +83,24 @@ func UpdateRulePackage(ctx context.Context, c *app.RequestContext) {
 func upsertRulePackage(ctx context.Context, c *app.RequestContext) {
 	var req rulePackageDTO
 	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
+		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
 	}
 	if req.ID == 0 && c.Param("id") != "" {
 		id, err := common.ParseUintID(c.Param("id"))
 		if err != nil {
-			common.Fail(c, common.BadRequest("规则包 ID 无效"))
+			common.Fail(ctx, c, common.BadRequest("规则包 ID 无效"))
 			return
 		}
 		req.ID = id
 	}
 	pkg, err := dtoToRulePackage(req)
 	if err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
+		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
 	}
 	if err := handlerInst.rulePackages.Save(ctx, pkg); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"item": dbRulePackageToDTO(pkg)})
@@ -109,20 +109,20 @@ func upsertRulePackage(ctx context.Context, c *app.RequestContext) {
 func DeleteRulePackage(ctx context.Context, c *app.RequestContext) {
 	id, err := common.ParseUintID(c.Param("id"))
 	if err != nil {
-		common.Fail(c, common.BadRequest("规则包 ID 无效"))
+		common.Fail(ctx, c, common.BadRequest("规则包 ID 无效"))
 		return
 	}
 	existing, err := handlerInst.rulePackages.GetByID(ctx, id)
 	if err != nil {
-		common.Fail(c, common.BadRequest("规则包不存在"))
+		common.Fail(ctx, c, common.BadRequest("规则包不存在"))
 		return
 	}
 	if existing.BuiltIn {
-		common.Fail(c, common.BadRequest("内置规则包不能删除"))
+		common.Fail(ctx, c, common.BadRequest("内置规则包不能删除"))
 		return
 	}
 	if err := handlerInst.rulePackages.Delete(ctx, id); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{})
@@ -134,12 +134,12 @@ func ListRulePackageVersions(ctx context.Context, c *app.RequestContext) {
 	}
 	id, err := common.ParseUintID(c.Param("id"))
 	if err != nil {
-		common.Fail(c, common.BadRequest("规则包 ID 无效"))
+		common.Fail(ctx, c, common.BadRequest("规则包 ID 无效"))
 		return
 	}
 	items, err := handlerInst.rulePackages.ListVersions(ctx, id)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	resp := make([]assetVersionDTO, 0, len(items))
@@ -157,17 +157,17 @@ func RestoreRulePackageVersion(ctx context.Context, c *app.RequestContext) {
 	}
 	id, err := common.ParseUintID(c.Param("id"))
 	if err != nil {
-		common.Fail(c, common.BadRequest("规则包 ID 无效"))
+		common.Fail(ctx, c, common.BadRequest("规则包 ID 无效"))
 		return
 	}
 	version, err := strconv.Atoi(strings.TrimSpace(c.Param("version")))
 	if err != nil || version <= 0 {
-		common.Fail(c, common.BadRequest("版本号无效"))
+		common.Fail(ctx, c, common.BadRequest("版本号无效"))
 		return
 	}
 	pkg, err := handlerInst.rulePackages.RestoreVersion(ctx, id, version)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"item": dbRulePackageToDTO(pkg)})
@@ -178,12 +178,12 @@ func ListToolPackages(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if err := ensureDefaultToolPackages(ctx); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	items, err := handlerInst.toolPackages.List(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	resp := make([]toolPackageDTO, 0, len(items))
@@ -204,24 +204,24 @@ func UpdateToolPackage(ctx context.Context, c *app.RequestContext) {
 func upsertToolPackage(ctx context.Context, c *app.RequestContext) {
 	var req toolPackageDTO
 	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
+		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
 	}
 	if req.ID == 0 && c.Param("id") != "" {
 		id, err := common.ParseUintID(c.Param("id"))
 		if err != nil {
-			common.Fail(c, common.BadRequest("工具包 ID 无效"))
+			common.Fail(ctx, c, common.BadRequest("工具包 ID 无效"))
 			return
 		}
 		req.ID = id
 	}
 	pkg, err := dtoToToolPackage(req)
 	if err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
+		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
 	}
 	if err := handlerInst.toolPackages.Save(ctx, pkg); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"item": dbToolPackageToDTO(pkg)})
@@ -230,20 +230,20 @@ func upsertToolPackage(ctx context.Context, c *app.RequestContext) {
 func DeleteToolPackage(ctx context.Context, c *app.RequestContext) {
 	id, err := common.ParseUintID(c.Param("id"))
 	if err != nil {
-		common.Fail(c, common.BadRequest("工具包 ID 无效"))
+		common.Fail(ctx, c, common.BadRequest("工具包 ID 无效"))
 		return
 	}
 	existing, err := handlerInst.toolPackages.GetByID(ctx, id)
 	if err != nil {
-		common.Fail(c, common.BadRequest("工具包不存在"))
+		common.Fail(ctx, c, common.BadRequest("工具包不存在"))
 		return
 	}
 	if existing.BuiltIn {
-		common.Fail(c, common.BadRequest("内置工具包不能删除"))
+		common.Fail(ctx, c, common.BadRequest("内置工具包不能删除"))
 		return
 	}
 	if err := handlerInst.toolPackages.Delete(ctx, id); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{})
@@ -255,12 +255,12 @@ func ListToolPackageVersions(ctx context.Context, c *app.RequestContext) {
 	}
 	id, err := common.ParseUintID(c.Param("id"))
 	if err != nil {
-		common.Fail(c, common.BadRequest("工具包 ID 无效"))
+		common.Fail(ctx, c, common.BadRequest("工具包 ID 无效"))
 		return
 	}
 	items, err := handlerInst.toolPackages.ListVersions(ctx, id)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	resp := make([]assetVersionDTO, 0, len(items))
@@ -278,17 +278,17 @@ func RestoreToolPackageVersion(ctx context.Context, c *app.RequestContext) {
 	}
 	id, err := common.ParseUintID(c.Param("id"))
 	if err != nil {
-		common.Fail(c, common.BadRequest("工具包 ID 无效"))
+		common.Fail(ctx, c, common.BadRequest("工具包 ID 无效"))
 		return
 	}
 	version, err := strconv.Atoi(strings.TrimSpace(c.Param("version")))
 	if err != nil || version <= 0 {
-		common.Fail(c, common.BadRequest("版本号无效"))
+		common.Fail(ctx, c, common.BadRequest("版本号无效"))
 		return
 	}
 	pkg, err := handlerInst.toolPackages.RestoreVersion(ctx, id, version)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"item": dbToolPackageToDTO(pkg)})
@@ -300,18 +300,18 @@ func ValidateToolPackage(ctx context.Context, c *app.RequestContext) {
 		DryRun bool            `json:"dry_run"`
 	}
 	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
+		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
 	}
 	if err := validateToolConfig(req.Config); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
+		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
 	}
 	resp := map[string]any{"valid": true, "message": "工具配置 JSON 可用"}
 	if req.DryRun {
 		output, err := dryRunToolConfig(ctx, req.Config)
 		if err != nil {
-			common.Fail(c, common.BadRequest(err.Error()))
+			common.Fail(ctx, c, common.BadRequest(err.Error()))
 			return
 		}
 		resp["message"] = "工具配置已通过 OCR dry-run"

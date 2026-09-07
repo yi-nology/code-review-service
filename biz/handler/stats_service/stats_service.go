@@ -61,7 +61,7 @@ func ListContributors(ctx context.Context, c *hertzApp.RequestContext) {
 		pageSize,
 	)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -83,11 +83,11 @@ func GetContributor(ctx context.Context, c *hertzApp.RequestContext) {
 		ptrx.Deref(req.To, ""),
 	)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	if detail == nil {
-		common.Fail(c, common.NotFound("contributor not found"))
+		common.Fail(ctx, c, common.NotFound("contributor not found"))
 		return
 	}
 
@@ -109,7 +109,7 @@ func GetContributorTrend(ctx context.Context, c *hertzApp.RequestContext) {
 		ptrx.Deref(req.To, ""),
 	)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -131,7 +131,7 @@ func GetContributorCategories(ctx context.Context, c *hertzApp.RequestContext) {
 		ptrx.Deref(req.To, ""),
 	)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -160,7 +160,7 @@ func ListProjects(ctx context.Context, c *hertzApp.RequestContext) {
 		pageSize,
 	)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -175,11 +175,11 @@ func GetProject(ctx context.Context, c *hertzApp.RequestContext) {
 
 	detail, err := handlerInst.statsSvc.GetProject(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	if detail == nil {
-		common.Fail(c, common.NotFound("project not found"))
+		common.Fail(ctx, c, common.NotFound("project not found"))
 		return
 	}
 
@@ -194,7 +194,7 @@ func GetProjectTrend(ctx context.Context, c *hertzApp.RequestContext) {
 
 	trend, err := handlerInst.statsSvc.GetProjectTrend(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -208,7 +208,7 @@ func GetProjectOCRMetrics(ctx context.Context, c *hertzApp.RequestContext) {
 	}
 	metrics, err := handlerInst.statsSvc.GetProjectOCRMetrics(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"metrics": metrics})
@@ -221,7 +221,7 @@ func GetProjectOCRTrend(ctx context.Context, c *hertzApp.RequestContext) {
 	}
 	trend, err := handlerInst.statsSvc.GetProjectOCRTrend(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"trend": trend})
@@ -235,7 +235,7 @@ func GetProjectCategories(ctx context.Context, c *hertzApp.RequestContext) {
 
 	categories, err := handlerInst.statsSvc.GetProjectCategories(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -250,7 +250,7 @@ func GetProjectFiles(ctx context.Context, c *hertzApp.RequestContext) {
 
 	files, err := handlerInst.statsSvc.GetProjectFiles(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -269,7 +269,7 @@ func GetProjectContributors(ctx context.Context, c *hertzApp.RequestContext) {
 	}
 	contributors, err := handlerInst.statsSvc.GetProjectContributors(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""), limit)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 

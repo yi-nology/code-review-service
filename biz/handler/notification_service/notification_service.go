@@ -26,7 +26,7 @@ func InitHandler(repo repository.NotificationRepository) {
 
 func (h *Handler) list(ctx context.Context, c *app.RequestContext) {
 	if h == nil || h.repo == nil {
-		common.Fail(c, common.BizErr(500, "notification handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "notification handler not initialized"))
 		return
 	}
 	var opts notification.ListOptions
@@ -44,7 +44,7 @@ func (h *Handler) list(ctx context.Context, c *app.RequestContext) {
 	}
 	items, total, err := h.repo.List(ctx, opts)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"items": items, "total": total})
@@ -52,12 +52,12 @@ func (h *Handler) list(ctx context.Context, c *app.RequestContext) {
 
 func (h *Handler) unreadCount(ctx context.Context, c *app.RequestContext) {
 	if h == nil || h.repo == nil {
-		common.Fail(c, common.BizErr(500, "notification handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "notification handler not initialized"))
 		return
 	}
 	n, err := h.repo.UnreadCount(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"unread": n})
@@ -65,17 +65,17 @@ func (h *Handler) unreadCount(ctx context.Context, c *app.RequestContext) {
 
 func (h *Handler) markRead(ctx context.Context, c *app.RequestContext) {
 	if h == nil || h.repo == nil {
-		common.Fail(c, common.BizErr(500, "notification handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "notification handler not initialized"))
 		return
 	}
 	idStr := c.Param("id")
 	id, err := common.ParseUintID(idStr)
 	if err != nil {
-		common.Fail(c, common.BadRequest("invalid notification id"))
+		common.Fail(ctx, c, common.BadRequest("invalid notification id"))
 		return
 	}
 	if err := h.repo.MarkRead(ctx, uint(id)); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"ok": true})
@@ -83,11 +83,11 @@ func (h *Handler) markRead(ctx context.Context, c *app.RequestContext) {
 
 func (h *Handler) markAllRead(ctx context.Context, c *app.RequestContext) {
 	if h == nil || h.repo == nil {
-		common.Fail(c, common.BizErr(500, "notification handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "notification handler not initialized"))
 		return
 	}
 	if err := h.repo.MarkAllRead(ctx); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"ok": true})

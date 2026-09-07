@@ -47,4 +47,7 @@ type Settings struct {
 	PolicyIgnorePaths []string `json:"policy_ignore_paths,omitempty"`
 	// 写回配置
 	MaxDiffBytes int64 `json:"max_diff_bytes,omitempty"`
+	// GitHubMirror 是 OCR 资产（规则包、工具包等）的 GitHub 下载镜像地址（OCR v1.9.5+）。
+	// 留空=直连 github.com；国内环境可设为 https://ghproxy.com 等加速镜像。
+	GitHubMirror string `json:"github_mirror,omitempty"`
 }

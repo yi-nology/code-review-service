@@ -18,6 +18,7 @@ func TestRegistry_LLMAvailableAndComplete(t *testing.T) {
 		&stubVersioner{v: "v0.1.0"},
 		&stubViewer{},
 		&stubUpgrader{},
+		&stubSessionLister{},
 		&stubLLM{},
 	)
 	_ = r.WithRunner(&stubRunner{v: "ok"}, &stubPreviewer{}, &stubScanner{})
@@ -46,7 +47,7 @@ func TestRegistry_LLMAvailableAndComplete(t *testing.T) {
 func TestRegistry_AllDomainInterfaces(t *testing.T) {
 	r := New(nil, Config{}, nil,
 		&stubTester{}, &stubLister{}, &stubChecker{}, &stubVersioner{},
-		&stubViewer{}, &stubUpgrader{}, &stubLLM{},
+		&stubViewer{}, &stubUpgrader{}, &stubSessionLister{}, &stubLLM{},
 	)
 	_ = r.WithRunner(&stubRunner{}, &stubPreviewer{}, &stubScanner{})
 
@@ -61,6 +62,7 @@ func TestRegistry_AllDomainInterfaces(t *testing.T) {
 		_ domain.OCRVersioner      = r.Versioner()
 		_ domain.ViewerManager     = r.Viewer()
 		_ domain.OCRUpgrader       = r.Upgrader()
+		_ domain.SessionLister     = r.SessionLister()
 		_ Provider                 = r.LLM()
 	)
 	_ = r
@@ -71,7 +73,7 @@ func TestRegistry_AllDomainInterfaces(t *testing.T) {
 func TestRegistry_GettersAreImmutable(t *testing.T) {
 	r := New(nil, Config{}, nil,
 		&stubTester{}, &stubLister{}, &stubChecker{}, &stubVersioner{},
-		&stubViewer{}, &stubUpgrader{}, &stubLLM{},
+		&stubViewer{}, &stubUpgrader{}, &stubSessionLister{}, &stubLLM{},
 	)
 	_ = r.WithRunner(&stubRunner{}, &stubPreviewer{}, &stubScanner{})
 

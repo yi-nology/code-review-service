@@ -146,22 +146,26 @@ func (r *ReviewRepo) List(ctx context.Context, opts domain.ListOptions) (*ekitGo
 		return nil, err
 	}
 	out := &ekitGorm.PageResponse[domain.Record]{
-		List:  make([]domain.Record, len(resp.List)),
-		Total: resp.Total,
+		Items:    make([]domain.Record, len(resp.Items)),
+		Total:    resp.Total,
+		Page:     resp.Page,
+		PageSize: resp.PageSize,
+		Pages:    resp.Pages,
 	}
-	for i, m := range resp.List {
-		out.List[i] = reviewToDomain(m)
+	for i, m := range resp.Items {
+		out.Items[i] = reviewToDomain(m)
 	}
 	return out, nil
 }
 
 // reviewSortClause 把前端传入的排序字段白名单映射为 SQL ORDER BY 表达式。
 // 字段名严格白名单匹配（绝不字符串拼接外部输入），方向仅允许 asc/desc，
-// 其余一律回退到默认 created_at DESC，杜绝 ORDER BY 注入。
+// 其余一律回退到默认 updated_at DESC（最近更新排最前），杜绝 ORDER BY 注入。
 func reviewSortClause(by, order string) string {
 	columns := map[string]string{
 		"score":      "score",
 		"updated_at": "updated_at",
+		"created_at": "created_at",
 		"findings":   "COALESCE(jsonb_array_length(response->'findings'), 0)",
 	}
 	dir := "DESC"
@@ -171,7 +175,7 @@ func reviewSortClause(by, order string) string {
 	if col, ok := columns[strings.ToLower(strings.TrimSpace(by))]; ok {
 		return col + " " + dir
 	}
-	return "created_at DESC"
+	return "updated_at DESC"
 }
 
 func (r *ReviewRepo) ClaimQueued(ctx context.Context, limit int) ([]domain.Record, error) {

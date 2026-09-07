@@ -368,6 +368,7 @@ func ocrSettingsToModel(s *ocrsettings.Settings) models.OCRSettings {
 		PolicySummaryOnly:       s.PolicySummaryOnly,
 		PolicyIgnorePaths:       stringSliceToJSON(s.PolicyIgnorePaths),
 		MaxDiffBytes:            s.MaxDiffBytes,
+		GitHubMirror:            s.GitHubMirror,
 	}
 }
 
@@ -409,6 +410,7 @@ func ocrSettingsToDomain(m models.OCRSettings) ocrsettings.Settings {
 		PolicySummaryOnly:       m.PolicySummaryOnly,
 		PolicyIgnorePaths:       rawJSONArray(m.PolicyIgnorePaths),
 		MaxDiffBytes:            m.MaxDiffBytes,
+		GitHubMirror:            m.GitHubMirror,
 	}
 }
 

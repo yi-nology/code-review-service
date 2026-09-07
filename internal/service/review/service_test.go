@@ -108,7 +108,7 @@ func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, provider, re
 }
 
 func (m *mockReviewRepo) List(_ context.Context, opts domain.ListOptions) (*ekitGorm.PageResponse[domain.Record], error) {
-	return &ekitGorm.PageResponse[domain.Record]{List: nil, Total: 0}, nil
+	return &ekitGorm.PageResponse[domain.Record]{Items: nil, Total: 0}, nil
 }
 
 func (m *mockReviewRepo) AggregateStats(_ context.Context, _ domain.ListOptions) (*domain.AggregateStats, error) {
