@@ -147,7 +147,8 @@ func main() {
 	runCtx, runCancel := context.WithCancel(context.Background())
 	defer runCancel()
 
-	errCh := async.GoSafeWithErr(func() error {
+	errCh := make(chan error, 1)
+	async.GoSafeWithErrChannel(errCh, func() error {
 		return transport.RunHTTP(runCtx, mcpSrv.Runtime(), transport.Config{
 			Token: mcpToken,
 			Port:  *portFlag,

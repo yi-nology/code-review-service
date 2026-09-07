@@ -239,6 +239,18 @@ export interface OCRVersion {
   build_time?: string
 }
 
+export interface OCRSession {
+  session_id: string
+  status: string
+  mode?: string
+  created_at?: string
+  files_count?: number
+}
+
+export interface OCRSessionListResult {
+  sessions: OCRSession[]
+}
+
 export interface OCRUpdateInfo {
   current_version: string
   latest_version: string

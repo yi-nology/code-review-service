@@ -15,6 +15,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/httpx"
 	"github.com/yi-nology/code-review-service/internal/observability/redact"
 
+	"github.com/oagentkit/breaker"
 	"github.com/oekit/logx"
 )
 
@@ -28,11 +29,13 @@ import (
 //   - 错误消息 redact 脱敏（Bearer / api_key / sk- / ghp_ 等）
 //   - settings 缓存：避免每次 Available/Complete 都读 DB
 //   - HTTP 连接池：Transport 配置 MaxIdleConns/IdleConnTimeout
+//   - 熔断保护：连续 3 次失败后熔断 5 分钟（agentkit/breaker）
 //
 // 取代 internal/service/llm/openai.go（282 LOC）。
 type LLMProvider struct {
 	settings Settings
 	client   *http.Client
+	breaker  *breaker.Breaker
 
 	// settings 缓存：避免高频热路径（Available/Complete）每次都读 DB
 	// 缓存有效期 30s，期间直接返回缓存值
@@ -97,6 +100,7 @@ func NewLLMProvider(settings Settings) *LLMProvider {
 				IdleConnTimeout:     90 * time.Second,
 			},
 		},
+		breaker: breaker.New(3, 5*time.Minute), // 连续 3 次失败熔断，5 分钟后探测恢复
 	}
 }
 
@@ -112,9 +116,18 @@ func (p *LLMProvider) Available(ctx context.Context) bool {
 
 // Complete 执行一次补全。
 // 性能优化：通过 settings 缓存避免每次调用都读 DB（30s 缓存有效期）。
+// 熔断保护：连续 3 次 LLM 调用失败后，后续调用快速失败（5 分钟后自动探测恢复）。
 func (p *LLMProvider) Complete(ctx context.Context, req LLMRequest) (LLMResponse, error) {
+	// 熔断检查
+	if p.breaker != nil && !p.breaker.Allow(time.Now()) {
+		return LLMResponse{}, fmt.Errorf("LLM 熔断中（连续失败过多，请稍后重试）")
+	}
+
 	data, err := p.getSettingsCached(ctx)
 	if err != nil {
+		if p.breaker != nil {
+			p.breaker.Failure(time.Now())
+		}
 		return LLMResponse{}, fmt.Errorf("读取 LLM 配置失败: %w", err)
 	}
 	if data == nil {
@@ -124,10 +137,22 @@ func (p *LLMProvider) Complete(ctx context.Context, req LLMRequest) (LLMResponse
 		return LLMResponse{}, errLLMNotConfigured
 	}
 
+	var resp LLMResponse
 	if data.UseAnthropic {
-		return p.completeAnthropic(ctx, data, req)
+		resp, err = p.completeAnthropic(ctx, data, req)
+	} else {
+		resp, err = p.completeOpenAI(ctx, data, req)
 	}
-	return p.completeOpenAI(ctx, data, req)
+
+	// 熔断状态更新
+	if p.breaker != nil {
+		if err != nil {
+			p.breaker.Failure(time.Now())
+		} else {
+			p.breaker.Success()
+		}
+	}
+	return resp, err
 }
 
 // completeOpenAI 走 OpenAI 兼容 chat completions 协议。

@@ -17,7 +17,7 @@ import (
 func ListReviewerAgents(ctx context.Context, c *app.RequestContext) {
 	agents, err := handlerInst.agentRepo.List(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	items := slicex.Map(agents, func(a reviewer.Agent) *modelSettings.ReviewerAgentInfo {
@@ -61,7 +61,7 @@ func CreateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 		agent.RulePackageIDs = json.RawMessage(mustMarshalJSON(ids))
 	}
 	if err := handlerInst.agentRepo.Create(ctx, agent); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, &modelSettings.CreateReviewerAgentResp{Agent: dbReviewerAgentToAPI(agent)})
@@ -74,12 +74,12 @@ func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	}
 	id, err := common.ParseUintID(req.ID)
 	if err != nil {
-		common.Fail(c, common.BadRequest("invalid agent id"))
+		common.Fail(ctx, c, common.BadRequest("invalid agent id"))
 		return
 	}
 	existing, err := handlerInst.agentRepo.GetByID(ctx, id)
 	if err != nil {
-		common.Fail(c, common.NotFound("agent not found"))
+		common.Fail(ctx, c, common.NotFound("agent not found"))
 		return
 	}
 	if req.DisplayName != nil {
@@ -118,7 +118,7 @@ func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 		existing.RulePackageIDs = json.RawMessage(mustMarshalJSON(ids))
 	}
 	if err := handlerInst.agentRepo.Update(ctx, existing); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, &modelSettings.UpdateReviewerAgentResp{Agent: dbReviewerAgentToAPI(existing)})
@@ -131,11 +131,11 @@ func DeleteReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	}
 	id, err := common.ParseUintID(req.ID)
 	if err != nil {
-		common.Fail(c, common.BadRequest("invalid agent id"))
+		common.Fail(ctx, c, common.BadRequest("invalid agent id"))
 		return
 	}
 	if err := handlerInst.agentRepo.Delete(ctx, id); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, &modelSettings.DeleteReviewerAgentResp{})

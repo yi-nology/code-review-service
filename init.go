@@ -37,6 +37,7 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 		modules.DatabaseModule,
 		modules.RepositoryModule,
 		modules.ProviderModule,
+		modules.GerritModule,
 		modules.RunnerModule,
 		modules.OCRModule,
 		modules.LLMModule,

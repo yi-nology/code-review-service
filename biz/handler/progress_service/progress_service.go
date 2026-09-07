@@ -139,7 +139,7 @@ func (h *ProgressWSHandler) GetProgressMethod(ctx context.Context, c *app.Reques
 
 	tracker := h.progressManager.GetTracker(req.ID)
 	if tracker == nil {
-		common.Fail(c, common.NotFound("no active review found"))
+		common.Fail(ctx, c, common.NotFound("no active review found"))
 		return
 	}
 

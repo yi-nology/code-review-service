@@ -44,6 +44,7 @@ func Register(r *server.Hertz) {
 				_ocr.GET("/upgrade/info", append(_checkocrupdateMw(), settings_service.CheckOCRUpdate)...)
 				_ocr.POST("/upgrade", append(_startocrupgradeMw(), settings_service.StartOCRUpgrade)...)
 				_ocr.GET("/upgrade/status", append(_ocrupgradestatusMw(), settings_service.OCRUpgradeStatus)...)
+				_ocr.GET("/sessions", settings_service.ListOCRSessions)
 				_ocr.GET("/tool-packages", append(_listtoolpackagesMw(), settings_service.ListToolPackages)...)
 				_ocr.POST("/tool-packages", append(_upserttoolpackageMw(), settings_service.UpsertToolPackage)...)
 				_ocr.POST("/tool-packages/validate", append(_validatetoolpackageMw(), settings_service.ValidateToolPackage)...)

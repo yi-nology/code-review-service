@@ -19,7 +19,7 @@ import (
 func ListProjectPolicies(ctx context.Context, c *app.RequestContext) {
 	items, err := handlerInst.project.List(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	policies := slicex.Map(items, func(item projectpolicy.ProjectPolicy) *modelSettings.ProjectPolicy {
@@ -35,11 +35,11 @@ func PutProjectPolicy(ctx context.Context, c *app.RequestContext) {
 	}
 	dbPolicy := apiProjectPolicyToDB(req.Policy)
 	if err := validateProjectPolicy(dbPolicy); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
+		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
 	}
 	if err := handlerInst.project.Save(ctx, dbPolicy); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
+		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
 	}
 	common.Success(c, &modelSettings.PutProjectPolicyResp{Policy: dbProjectPolicyToAPI(dbPolicy)})
@@ -51,11 +51,11 @@ func DeleteProjectPolicy(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if req.Provider == "" || req.Repo == "" {
-		common.Fail(c, common.BadRequest("代码平台和仓库不能为空"))
+		common.Fail(ctx, c, common.BadRequest("代码平台和仓库不能为空"))
 		return
 	}
 	if err := handlerInst.project.Delete(ctx, req.Provider, req.Repo); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, &modelSettings.DeleteProjectPolicyResp{})

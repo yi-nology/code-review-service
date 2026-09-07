@@ -55,6 +55,7 @@ func NewOCRRegistry(
 		versioner,
 		NewOCRViewerManager(repos, resolver),
 		NewOCRUpgrader(repos, resolver, versioner),
+		NewOCRSessionLister(repos, resolver),
 		llmProvider,
 	).WithRunner(ocrRunner, ocrRunner, ocrRunner)
 }
@@ -184,6 +185,10 @@ func NewOCRUpgrader(repos *repository.RepoContainer, resolver *ocrcore.ConfigRes
 		"", // UpgradeInstallDir: 从 DB 或默认值获取
 		"", // GitHubRepo: 从 DB 或默认值获取
 	)
+}
+
+func NewOCRSessionLister(repos *repository.RepoContainer, resolver *ocrcore.ConfigResolver) *ocrcore.SessionLister {
+	return ocrcore.NewSessionLister(ocrcore.NewSettingsAdapter(repos.OCRSettings), resolver)
 }
 
 // RegisterViewerShutdown 在服务关闭时停止 viewer 子进程，避免孤儿进程残留。

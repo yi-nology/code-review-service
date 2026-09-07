@@ -4,6 +4,9 @@ ENV GOPROXY=https://goproxy.cn,direct \
     GONOSUMCHECK='*' \
     GONOSUMDB='*' \
     GOPRIVATE='' \
+    # github.com/yi-nology 证书过期时仍可拉取 ekit（仅构建期,运行时不含源码）。
+    GOINSECURE='' \
+    GIT_SSL_NO_VERIFY='false' \
     GOTOOLCHAIN=auto
 RUN apk add --no-cache git
 
@@ -18,13 +21,28 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/review-service . \
 
 FROM docker.io/library/alpine:3.21
 
-RUN apk add --no-cache ca-certificates git wget \
+RUN apk add --no-cache ca-certificates git wget curl \
     && adduser -D review
 
-ARG OCR_VERSION=v1.7.12
+# Node.js（MCP server 运行时）
+RUN apk add --no-cache nodejs npm \
+    && npm install -g npx
+
+# OCR binary
+ARG OCR_VERSION=v1.11.5
 RUN wget -qO /usr/local/bin/ocr \
     "https://github.com/alibaba/open-code-review/releases/download/${OCR_VERSION}/opencodereview-linux-amd64" \
     && chmod +x /usr/local/bin/ocr
+
+# 预装 MCP server 包（与前端 mcp-templates.ts 一一对应）
+# npx -y 首次调用时直接使用缓存，无需网络下载
+RUN npm install -g \
+    zfetch-mcp \
+    @upstash/context7-mcp \
+    @modelcontextprotocol/server-sequential-thinking \
+    @modelcontextprotocol/server-memory \
+    @modelcontextprotocol/server-time \
+    2>/dev/null || true
 
 WORKDIR /app
 USER review

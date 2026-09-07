@@ -47,6 +47,13 @@ func IsDraftEvent(provider string, payload map[string]any) bool {
 				}
 			}
 		}
+	case "gerrit":
+		// Gerrit change 的 wip 字段标识 work-in-progress 状态。
+		if change, ok := payload["change"].(map[string]any); ok {
+			if wip, ok := change["wip"].(bool); ok && wip {
+				return true
+			}
+		}
 	}
 	return false
 }
@@ -80,6 +87,23 @@ func IsBotSender(provider string, payload map[string]any, botName string) bool {
 			if user, ok := pr["user"].(map[string]any); ok {
 				if login, ok := user["login"].(string); ok {
 					sender = login
+				}
+			}
+		}
+	case "gerrit":
+		// Gerrit webhooks 插件的 patchset-created 事件中，
+		// uploader 在顶层，包含 username 字段。
+		if uploader, ok := payload["uploader"].(map[string]any); ok {
+			if username, ok := uploader["username"].(string); ok {
+				sender = username
+			}
+		}
+		if sender == "" {
+			if change, ok := payload["change"].(map[string]any); ok {
+				if owner, ok := change["owner"].(map[string]any); ok {
+					if username, ok := owner["username"].(string); ok {
+						sender = username
+					}
 				}
 			}
 		}

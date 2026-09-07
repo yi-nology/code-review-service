@@ -18,7 +18,7 @@ import (
 func ListPlatforms(ctx context.Context, c *app.RequestContext) {
 	items, err := handlerInst.platform.List(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	platforms := slicex.Map(items, func(item platform.Platform) *modelSettings.GitPlatformInfo {
@@ -39,7 +39,7 @@ func PutPlatform(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if req.Provider == "" {
-		common.Fail(c, common.BadRequest("代码平台不能为空"))
+		common.Fail(ctx, c, common.BadRequest("代码平台不能为空"))
 		return
 	}
 	token := ptrx.Deref(req.Token, "")
@@ -54,7 +54,7 @@ func PutPlatform(ctx context.Context, c *app.RequestContext) {
 		}
 	}
 	if token == "" {
-		common.Fail(c, common.BadRequest("Token 不能为空"))
+		common.Fail(ctx, c, common.BadRequest("Token 不能为空"))
 		return
 	}
 	enabled := true
@@ -71,13 +71,13 @@ func PutPlatform(ctx context.Context, c *app.RequestContext) {
 		InstallationID: installationID, SkipTLS: ptrx.Deref(req.SkipTLS, false),
 	}
 	if err := handlerInst.platform.Save(ctx, p); err != nil {
-		common.Fail(c, common.BizErr(500, "保存平台配置失败"))
+		common.Fail(ctx, c, common.BizErr(500, "保存平台配置失败"))
 		return
 	}
 	if handlerInst.gitMgr != nil {
 		if enabled {
 			if err := handlerInst.gitMgr.AddOrUpdateFromDB(p); err != nil {
-				common.Fail(c, fmt.Errorf("注册平台失败: %w", err))
+				common.Fail(ctx, c, fmt.Errorf("注册平台失败: %w", err))
 				return
 			}
 		} else {
@@ -101,7 +101,7 @@ func DeletePlatform(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if req.Provider == "" {
-		common.Fail(c, common.BadRequest("代码平台不能为空"))
+		common.Fail(ctx, c, common.BadRequest("代码平台不能为空"))
 		return
 	}
 	installationID := ptrx.Deref(req.InstallationID, "")
@@ -110,7 +110,7 @@ func DeletePlatform(ctx context.Context, c *app.RequestContext) {
 	}
 	// 按 (provider, installation_id) 精确删除，避免误删同 provider 其它 installation。
 	if err := handlerInst.platform.Delete(ctx, req.Provider, installationID); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	// 运行态 provider map 是 per-provider 的（非 per-installation），删除一个 installation
@@ -143,7 +143,7 @@ func TestPlatform(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if req.Provider == "" || req.Token == "" {
-		common.Fail(c, common.BadRequest("平台和 Token 不能为空"))
+		common.Fail(ctx, c, common.BadRequest("平台和 Token 不能为空"))
 		return
 	}
 	result, err := handlerInst.gitMgr.TestWithToken(ctx, req.Provider, ptrx.Deref(req.BaseURL, ""), req.Token, ptrx.Deref(req.SkipTLS, false))

@@ -61,6 +61,8 @@ type OCRMetadata struct {
 	SessionID string `json:"session_id,omitempty"`
 	// ReusedFiles 是 resume 命中后复用的文件 checkpoint 数量（OCR v1.7.6+）。
 	ReusedFiles int `json:"reused_files,omitempty"`
+	// BudgetExceeded 表示 scan 时 token 预算已耗尽（OCR v1.9.5+）。
+	BudgetExceeded bool `json:"budget_exceeded,omitempty"`
 }
 
 type ToolCallsMetadata struct {
@@ -90,11 +92,14 @@ type Workspace struct {
 	BaseSHA         string
 	HeadSHA         string
 	OriginalHeadSHA string
-	Diff            string
-	Dir             string
-	Scope           ScopeMetadata
-	RulePath        string
-	OCR             OCROverrides
+	// CommitSHA 用于单 commit 评审模式（OCR v1.9.5+ --commit）。
+	// 非空时 Runner 使用 `--commit <sha>` 替代 `--from --to`。
+	CommitSHA string
+	Diff      string
+	Dir       string
+	Scope     ScopeMetadata
+	RulePath  string
+	OCR       OCROverrides
 
 	// ScanPaths / ScanExclude 仅供 scan preview 使用（传给 ocr scan --preview --path/--exclude）。
 	// 普通 review preview 留空 = 扫描整个仓库。
@@ -174,6 +179,8 @@ type ScanRequest struct {
 	NoSummary       bool     `json:"no_summary,omitempty"`
 	Preview         bool     `json:"preview,omitempty"`
 	TimeoutMinutes  int      `json:"timeout_minutes,omitempty"`
+	// ResumeSessionID 是上一次 OCR scan 的 session_id（OCR v1.11.0+），非空时 scanner 会传 `--resume <id>`。
+	ResumeSessionID string `json:"resume_session_id,omitempty"`
 }
 
 type ScanResult struct {

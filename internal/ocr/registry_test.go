@@ -63,10 +63,16 @@ func (s *stubUpgrader) CheckUpdate(_ context.Context) (*domain.OCRUpdateInfo, er
 	return &domain.OCRUpdateInfo{}, nil
 }
 func (s *stubUpgrader) Upgrade(_ context.Context, _ string) (*domain.OCRUpgradeStatus, error) {
-	return &domain.OCRUpgradeStatus{State: domain.UpgradeIdle}, nil
+	return &domain.OCRUpgradeStatus{}, nil
 }
 func (s *stubUpgrader) UpgradeStatus(_ context.Context) (*domain.OCRUpgradeStatus, error) {
-	return &domain.OCRUpgradeStatus{State: domain.UpgradeIdle}, nil
+	return &domain.OCRUpgradeStatus{}, nil
+}
+
+type stubSessionLister struct{}
+
+func (s *stubSessionLister) ListOCRSessions(_ context.Context) (*domain.OCRSessionListResult, error) {
+	return &domain.OCRSessionListResult{}, nil
 }
 
 type stubRunner struct{ v string }
@@ -106,6 +112,7 @@ func makeRegistry() *Registry {
 		&stubVersioner{},
 		&stubViewer{},
 		&stubUpgrader{},
+		&stubSessionLister{},
 		&stubLLM{},
 	)
 	return r.WithRunner(&stubRunner{v: "runner"}, &stubPreviewer{}, &stubScanner{})
@@ -167,7 +174,7 @@ func TestRegistry_TesterErrorPropagated(t *testing.T) {
 	r := New(stubRepository(), Config{}, nil,
 		&stubTester{err: errors.New("boom")},
 		&stubLister{}, &stubChecker{}, &stubVersioner{},
-		&stubViewer{}, &stubUpgrader{}, &stubLLM{})
+		&stubViewer{}, &stubUpgrader{}, &stubSessionLister{}, &stubLLM{})
 	_, err := r.Tester().TestLLM(context.Background())
 	if err == nil {
 		t.Fatalf("expected err to propagate")
@@ -184,7 +191,7 @@ func TestRegistry_ListerDelegation(t *testing.T) {
 		&stubTester{},
 		&stubLister{providers: providers},
 		&stubChecker{}, &stubVersioner{},
-		&stubViewer{}, &stubUpgrader{}, &stubLLM{})
+		&stubViewer{}, &stubUpgrader{}, &stubSessionLister{}, &stubLLM{})
 	got, err := r.Lister().ListLLMProviders(context.Background())
 	if err != nil {
 		t.Fatalf("ListLLMProviders err: %v", err)
@@ -199,7 +206,7 @@ func TestRegistry_CheckerDelegation(t *testing.T) {
 	r := New(stubRepository(), Config{}, nil,
 		&stubTester{}, &stubLister{},
 		&stubChecker{applicable: true},
-		&stubVersioner{}, &stubViewer{}, &stubUpgrader{}, &stubLLM{})
+		&stubVersioner{}, &stubViewer{}, &stubUpgrader{}, &stubSessionLister{}, &stubLLM{})
 	got, err := r.Checker().RulesCheck(context.Background(), "/some/path")
 	if err != nil {
 		t.Fatalf("RulesCheck err: %v", err)
@@ -214,7 +221,7 @@ func TestRegistry_VersionerDelegation(t *testing.T) {
 	r := New(stubRepository(), Config{}, nil,
 		&stubTester{}, &stubLister{}, &stubChecker{},
 		&stubVersioner{v: "v1.2.3"},
-		&stubViewer{}, &stubUpgrader{}, &stubLLM{})
+		&stubViewer{}, &stubUpgrader{}, &stubSessionLister{}, &stubLLM{})
 	got, err := r.Versioner().OCRVersion(context.Background())
 	if err != nil {
 		t.Fatalf("OCRVersion err: %v", err)
@@ -242,7 +249,7 @@ func TestRegistry_RunnerTripleInterfaces(t *testing.T) {
 	tr := tripleRunner{}
 	r := New(stubRepository(), Config{}, nil,
 		&stubTester{}, &stubLister{}, &stubChecker{}, &stubVersioner{},
-		&stubViewer{}, &stubUpgrader{}, &stubLLM{},
+		&stubViewer{}, &stubUpgrader{}, &stubSessionLister{}, &stubLLM{},
 	).WithRunner(tr, tr, tr)
 
 	// 验证 3 个 getter 拿到的都是同一实例
@@ -292,7 +299,7 @@ func TestRegistry_ImmutabilityAfterConstruction(t *testing.T) {
 // TestNew_NilSafety 验证 nil manager 时不 panic。
 // 设计上 getter 返回 nil，由调用方保证使用前已注入。
 func TestNew_NilSafety(t *testing.T) {
-	r := New(nil, Config{}, nil, nil, nil, nil, nil, nil, nil, nil)
+	r := New(nil, Config{}, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if r == nil {
 		t.Fatalf("New returned nil")
 	}

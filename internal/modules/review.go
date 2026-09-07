@@ -4,11 +4,12 @@ import (
 	"context"
 
 	"github.com/yi-nology/code-review-service/internal/config"
+	"github.com/yi-nology/code-review-service/internal/eino"
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/cost"
-	"github.com/yi-nology/code-review-service/internal/service/executor"
+	"github.com/yi-nology/code-review-service/internal/service/judge"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
@@ -24,6 +25,7 @@ import (
 var ReviewModule = fx.Options(
 	fx.Provide(NewProgressManager),
 	fx.Provide(NewPolicyEngine),
+	fx.Provide(NewJudge),
 	fx.Provide(NewExecutorService),
 	fx.Provide(NewReviewService),
 )
@@ -77,10 +79,17 @@ type ExecutorDeps struct {
 	GitProviderSvc  *gitProvider.GitProviderService
 	BudgetChecker   *cost.BudgetChecker
 	CostCalc        *cost.Calculator
+	Judge           *judge.Judge // OCR 结果二次综合判断
 }
 
-func NewExecutorService(deps ExecutorDeps) *executor.Service {
-	return executor.NewService(executor.Config{
+// NewJudge 构造 OCR 结果二次综合判断器。
+// 使用 ocr.Provider（LLM）对 OCR 产出的 findings 做二次分析。
+func NewJudge(llmProvider ocr.Provider) *judge.Judge {
+	return judge.NewJudge(llmProvider)
+}
+
+func NewExecutorService(deps ExecutorDeps) *eino.Executor {
+	return eino.NewExecutor(eino.ExecutorConfig{
 		ReviewRepo:      deps.Repos.Review,
 		ProjectRepo:     deps.Repos.ProjectPolicy,
 		GlobalRulesRepo: deps.Repos.GlobalRules,
@@ -105,6 +114,7 @@ func NewExecutorService(deps ExecutorDeps) *executor.Service {
 		Workflow:     deps.Workflow,
 		AgentManager: deps.AgentManager,
 		LLMMetrics:   deps.LLMMetrics,
+		Judge:        deps.Judge,
 	})
 }
 
@@ -119,7 +129,7 @@ type ReviewServiceDeps struct {
 	OcrRunner       *ocr.Runner
 	ProgressManager *progress.ProgressManager
 	PolicyEngine    *policy.Engine
-	ExecutorSvc     *executor.Service
+	ExecutorSvc     *eino.Executor
 }
 
 func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {

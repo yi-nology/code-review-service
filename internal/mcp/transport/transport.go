@@ -71,7 +71,10 @@ func RunHTTP(ctx context.Context, srv *mcpserver.MCPServer, cfg Config) error {
 		// SSE 长连接需要 MaxHeaderBytes 放宽,默认 1MB 够用,不动。
 	}
 
-	errCh := async.GoSafeWithErr(server.ListenAndServe)
+	errCh := make(chan error, 1)
+	async.GoSafeWithErrChannel(errCh, func() error {
+		return server.ListenAndServe()
+	})
 
 	select {
 	case err := <-errCh:

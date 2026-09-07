@@ -29,7 +29,7 @@ type snapshotReq struct {
 
 func Snapshot(ctx context.Context, c *app.RequestContext) {
 	if handlerInst == nil || handlerInst.svc == nil {
-		common.Fail(c, common.BizErr(500, "diagnostics handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "diagnostics handler not initialized"))
 		return
 	}
 	req, ok := common.Bind[snapshotReq](c)
@@ -43,7 +43,7 @@ func Snapshot(ctx context.Context, c *app.RequestContext) {
 		Status:   strings.TrimSpace(req.Status),
 	})
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, snapshot)

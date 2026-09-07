@@ -190,7 +190,9 @@ func ParseRepoPath(repoPath string) (string, string, error) {
 
 	parts := strings.Split(repoPath, "/")
 	if len(parts) < 2 {
-		return "", "", fmt.Errorf("invalid repo path: %s", repoPath)
+		// Gerrit 等平台使用单层 project 命名空间（如 "my-project"），
+		// 此时 owner 为空，repo 为完整 project name。
+		return "", repoPath, nil
 	}
 
 	owner := strings.Join(parts[:len(parts)-1], "/")
@@ -233,6 +235,18 @@ func (s *GitProviderService) BuildCloneURL(platform, owner, repo string) string 
 	case "github":
 		base = strings.TrimSuffix(base, "/api/v3")
 		base = strings.Replace(base, "://api.github.com", "://github.com", 1)
+	case "gerrit":
+		// Gerrit 认证 clone 使用 /a/ 前缀。
+		// 不 strip API path（Gerrit REST API 路径就是根路径）。
+		// Gerrit 的 repo 参数是完整 project name（owner 为空），
+		// 需要提前返回，避免走通用的 /%s/%s.git 格式产生双斜杠。
+		if !strings.HasSuffix(base, "/a") && !strings.Contains(base, "/a/") {
+			base = strings.TrimSuffix(base, "/") + "/a"
+		}
+		if base == "" {
+			return ""
+		}
+		return base + "/" + repo + ".git"
 	}
 
 	if base == "" {

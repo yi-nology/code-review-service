@@ -10,6 +10,7 @@ struct CreateReviewReq {
     9: optional bool wait (api.body="wait")
     10: optional list<string> requirements (api.body="requirements")
     11: optional list<EphemeralReviewerInput> ephemeral_reviewers (api.body="ephemeral_reviewers")
+    12: optional string commit_sha (api.body="commit_sha")
 }
 
 struct EphemeralReviewerInput {
@@ -71,6 +72,7 @@ struct OCRMetadata {
     10: optional string elapsed (api.body="elapsed")
     11: optional OCRToolCalls tool_calls (api.body="tool_calls")
     12: optional string project_summary (api.body="project_summary")
+    13: optional bool budget_exceeded (api.body="budget_exceeded")
 }
 
 struct ScopeMetadata {

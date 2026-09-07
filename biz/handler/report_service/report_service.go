@@ -30,13 +30,13 @@ func InitHandler(reviewRepo repository.ReviewRepository, contributorRepo reposit
 // GET /api/v1/reports/weekly?provider=x&repo=y
 func GenerateWeeklyReport(ctx context.Context, c *app.RequestContext) {
 	if handlerInst == nil {
-		common.Fail(c, common.BizErr(500, "report handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "report handler not initialized"))
 		return
 	}
 	provider := string(c.QueryArgs().Peek("provider"))
 	repo := string(c.QueryArgs().Peek("repo"))
 	if provider == "" || repo == "" {
-		common.Fail(c, common.BadRequest("provider 和 repo 不能为空"))
+		common.Fail(ctx, c, common.BadRequest("provider 和 repo 不能为空"))
 		return
 	}
 
@@ -52,7 +52,7 @@ func GenerateWeeklyReport(ctx context.Context, c *app.RequestContext) {
 	}
 	agg, err := handlerInst.reviewRepo.AggregateStats(ctx, listOpts)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 

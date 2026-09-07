@@ -23,12 +23,12 @@ func InitHandler(calc *cost.Calculator) {
 // ListPricing 列出所有模型单价。
 func ListPricing(ctx context.Context, c *app.RequestContext) {
 	if handlerInst == nil {
-		common.Fail(c, common.BizErr(500, "cost handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "cost handler not initialized"))
 		return
 	}
 	rows, err := handlerInst.calc.ListPricing(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"items": rows})
@@ -37,7 +37,7 @@ func ListPricing(ctx context.Context, c *app.RequestContext) {
 // UpsertPricing 创建或更新一条模型单价。
 func UpsertPricing(ctx context.Context, c *app.RequestContext) {
 	if handlerInst == nil {
-		common.Fail(c, common.BizErr(500, "cost handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "cost handler not initialized"))
 		return
 	}
 	req, ok := common.Bind[models.LLMModelPricing](c)
@@ -45,11 +45,11 @@ func UpsertPricing(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if req.Provider == "" || req.ModelName == "" {
-		common.Fail(c, common.BadRequest("provider 和 model 不能为空"))
+		common.Fail(ctx, c, common.BadRequest("provider 和 model 不能为空"))
 		return
 	}
 	if err := handlerInst.calc.SetPricing(ctx, *req); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, req)
@@ -58,17 +58,17 @@ func UpsertPricing(ctx context.Context, c *app.RequestContext) {
 // DeletePricing 删除一条模型单价。
 func DeletePricing(ctx context.Context, c *app.RequestContext) {
 	if handlerInst == nil {
-		common.Fail(c, common.BizErr(500, "cost handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "cost handler not initialized"))
 		return
 	}
 	idStr := c.Param("id")
 	id, err := common.ParseUintID(idStr)
 	if err != nil {
-		common.Fail(c, common.BadRequest("invalid pricing id"))
+		common.Fail(ctx, c, common.BadRequest("invalid pricing id"))
 		return
 	}
 	if err := handlerInst.calc.DeletePricing(ctx, uint(id)); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"ok": true})

@@ -83,5 +83,6 @@ func convertOCRSettings(m *ocrsettings.Settings) *SettingsData {
 		TelemetryOTLPEndpoint:   m.TelemetryOTLPEndpoint,
 		TelemetryContentLogging: m.TelemetryContentLogging,
 		DefaultSeverity:         m.DefaultSeverity,
+		GitHubMirror:            m.GitHubMirror,
 	}
 }

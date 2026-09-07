@@ -43,7 +43,7 @@ type createTokenReq struct {
 // 明文 token 格式：rs_<32 hex>，DB 只存 SHA256 哈希。
 func CreateToken(ctx context.Context, c *app.RequestContext) {
 	if handlerInst == nil {
-		common.Fail(c, common.BizErr(500, "auth handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "auth handler not initialized"))
 		return
 	}
 	req, ok := common.Bind[createTokenReq](c)
@@ -52,14 +52,14 @@ func CreateToken(ctx context.Context, c *app.RequestContext) {
 	}
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
-		common.Fail(c, common.BadRequest("name 不能为空"))
+		common.Fail(ctx, c, common.BadRequest("name 不能为空"))
 		return
 	}
 
 	// 生成明文 token：rs_ + 32 字节随机 hex（64 字符）。
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
-		common.Fail(c, common.BizErr(500, "生成 token 失败"))
+		common.Fail(ctx, c, common.BizErr(500, "生成 token 失败"))
 		return
 	}
 	plaintext := "rs_" + hex.EncodeToString(raw)
@@ -72,7 +72,7 @@ func CreateToken(ctx context.Context, c *app.RequestContext) {
 		CreatedBy: req.CreatedBy,
 	}
 	if err := handlerInst.repo.CreateToken(ctx, t); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	// 明文只在创建时返回一次，后续无法再获取。
@@ -88,12 +88,12 @@ func CreateToken(ctx context.Context, c *app.RequestContext) {
 
 func ListTokens(ctx context.Context, c *app.RequestContext) {
 	if handlerInst == nil {
-		common.Fail(c, common.BizErr(500, "auth handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "auth handler not initialized"))
 		return
 	}
 	tokens, err := handlerInst.repo.ListTokens(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	// 不返回 token_hash（敏感），只返回 name/scopes/时间。
@@ -102,17 +102,17 @@ func ListTokens(ctx context.Context, c *app.RequestContext) {
 
 func DeleteToken(ctx context.Context, c *app.RequestContext) {
 	if handlerInst == nil {
-		common.Fail(c, common.BizErr(500, "auth handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "auth handler not initialized"))
 		return
 	}
 	idStr := c.Param("id")
 	id, err := common.ParseUintID(idStr)
 	if err != nil {
-		common.Fail(c, common.BadRequest("invalid token id"))
+		common.Fail(ctx, c, common.BadRequest("invalid token id"))
 		return
 	}
 	if err := handlerInst.repo.DeleteToken(ctx, uint(id)); err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"ok": true})
@@ -120,14 +120,14 @@ func DeleteToken(ctx context.Context, c *app.RequestContext) {
 
 func ListAudit(ctx context.Context, c *app.RequestContext) {
 	if handlerInst == nil {
-		common.Fail(c, common.BizErr(500, "auth handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "auth handler not initialized"))
 		return
 	}
 	limit := convert.Str2Int(string(c.QueryArgs().Peek("limit")), 0)
 	offset := convert.Str2Int(string(c.QueryArgs().Peek("offset")), 0)
 	entries, total, err := handlerInst.repo.ListAudit(ctx, limit, offset)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"items": entries, "total": total})

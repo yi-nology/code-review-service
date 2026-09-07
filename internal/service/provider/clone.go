@@ -167,6 +167,14 @@ func pullRequestFetchRefs(platform string, prNumber int, sourceBranch, headSHA s
 	switch platform {
 	case "gitlab":
 		refs = append(refs, fmt.Sprintf("merge-requests/%d/head:%s", prNumber, localRef))
+	case "gerrit":
+		// Gerrit change ref 格式: refs/changes/XX/NNNNN/P
+		// XX = changeNumber % 100, P = patchset number。
+		// 用 glob 获取所有 patchset，由 headSHA 精确 checkout 到目标 patchset。
+		suffix := fmt.Sprintf("%02d", prNumber%100)
+		refs = append(refs,
+			fmt.Sprintf("refs/changes/%s/%d/*:%s", suffix, prNumber, localRef),
+		)
 	default:
 		refs = append(refs,
 			fmt.Sprintf("pull/%d/head:%s", prNumber, localRef),
@@ -254,4 +262,40 @@ func cloneAndResolveSHA(ctx context.Context, cloneURL, token string, skipTLS boo
 
 	headSHA = restoreDeletedFiles(ctx, git, baseSHA, headSHA, headSHA)
 	return dir, baseSHA, headSHA, diff, nil
+}
+
+// cloneAndResolveCommit 克隆仓库并检出指定 commit（OCR v1.9.5+ --commit 模式）。
+//
+// 与 cloneAndResolveSHA 不同：
+//   - 不需要 baseSHA（OCR binary 内部对比 commit 与其 parent）
+//   - 不计算 diff（由 OCR binary 处理）
+//   - 不调 restoreDeletedFiles（commit 是已发布的快照）
+func cloneAndResolveCommit(ctx context.Context, cloneURL, token string, skipTLS bool, commitSHA string) (string, error) {
+	if err := validateGitSHA("commitSHA", commitSHA); err != nil {
+		return "", err
+	}
+
+	dir, err := os.MkdirTemp("", "review-workspace-*")
+	if err != nil {
+		return "", fmt.Errorf("create temp dir: %w", err)
+	}
+
+	git, err := vcs.Clone(ctx, dir, cloneURL, token, skipTLS)
+	if err != nil {
+		_ = os.RemoveAll(dir)
+		return "", err
+	}
+	defer func() { _ = git.Close() }()
+
+	if err := git.FetchAll(ctx); err != nil {
+		_ = os.RemoveAll(dir)
+		return "", fmt.Errorf("git fetch: %w", err)
+	}
+
+	if err := git.Checkout(ctx, commitSHA); err != nil {
+		_ = os.RemoveAll(dir)
+		return "", fmt.Errorf("git checkout commit: %w", err)
+	}
+
+	return dir, nil
 }

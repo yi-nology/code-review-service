@@ -50,7 +50,7 @@ func (s *contextDiscoveryStep) Run(ctx context.Context) error {
 
 // changeAnalysisStep Phase 2: 分析 git diff 和理解变更
 type changeAnalysisStep struct {
-	rs *ReviewSession
+	rs             *ReviewSession
 	sessionService sessionService
 }
 
@@ -68,7 +68,7 @@ func (s *changeAnalysisStep) Run(ctx context.Context) error {
 
 // analysisStep Phase 3: Tech Lead 分析（B2）——总结变更、识别风险
 type analysisStep struct {
-	rs *ReviewSession
+	rs             *ReviewSession
 	sessionService sessionService
 	llmProvider    ocr.Provider
 	config         WorkflowConfig
@@ -167,7 +167,7 @@ func techLeadPrompts(language string) (systemPrompt, sectionFiles, sectionDiff, 
 
 // parallelReviewsStep Phase 4: 并行运行多个 review agents
 type parallelReviewsStep struct {
-	rs *ReviewSession
+	rs             *ReviewSession
 	agentManager   *agent.AgentManager
 	sessionService sessionService
 }
@@ -216,7 +216,7 @@ func (s *parallelReviewsStep) Run(ctx context.Context) error {
 
 // aggregationStep Phase 5: 合并来自多个 agents 的 findings
 type aggregationStep struct {
-	rs *ReviewSession
+	rs             *ReviewSession
 	sessionService sessionService
 }
 
@@ -234,7 +234,7 @@ func (s *aggregationStep) Run(ctx context.Context) error {
 
 // discussionStep Phase 6: Agents 讨论和验证 findings
 type discussionStep struct {
-	rs *ReviewSession
+	rs               *ReviewSession
 	discussionOrch   *discussion.Orchestrator
 	sessionService   sessionService
 	discussionRounds int
@@ -281,7 +281,7 @@ func (s *discussionStep) Run(ctx context.Context) error {
 
 // synthesisStep Phase 7: 生成最终报告
 type synthesisStep struct {
-	rs *ReviewSession
+	rs                 *ReviewSession
 	sessionService     sessionService
 	enableRequirements bool
 	llmProvider        ocr.Provider
@@ -358,7 +358,7 @@ func (s *synthesisStep) Run(ctx context.Context) error {
 
 // completeStep Phase 8: 完成 review
 type completeStep struct {
-	rs *ReviewSession
+	rs             *ReviewSession
 	sessionService sessionService
 }
 

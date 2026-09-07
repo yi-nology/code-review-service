@@ -10,8 +10,9 @@ import (
 // LLMModule 提供统一的 LLM Provider + 调用指标。
 // 复用 OCR 配置（URL/Token/Model），无需新凭证；未配置时上层自动降级。
 //
-// 阶段 A10：底层 provider 从 llm.NewDynamicProvider 切换到 ocr.LLMProvider。
-// 所有 LLM 调用经 MetricsProvider 包装，可统一观测调用/成功/失败/降级率。
+// ocr.Provider 用于：discussion 多轮讨论、tech-lead 分析等 post-OCR 阶段。
+// OCR binary 自身的 LLM 调用由 ocr-engine 通过 OCR_LLM_* 环境变量管理，
+// 不经过此模块。
 var LLMModule = fx.Options(
 	fx.Provide(NewLLMProviderWithMetrics),
 	fx.Provide(AsLLMProvider),

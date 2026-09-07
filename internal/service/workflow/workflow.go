@@ -138,13 +138,13 @@ func (w *ReviewWorkflow) buildPipeline(rs *ReviewSession) *workflow.PipeFlow {
 
 	// Phase 2: Change Analysis
 	pipe.Add(&changeAnalysisStep{
-		rs:              rs,
+		rs:             rs,
 		sessionService: w.sessionService,
 	})
 
 	// Phase 3: Analysis
 	pipe.Add(&analysisStep{
-		rs:              rs,
+		rs:             rs,
 		sessionService: w.sessionService,
 		llmProvider:    w.llmProvider,
 		config:         w.config,
@@ -152,21 +152,21 @@ func (w *ReviewWorkflow) buildPipeline(rs *ReviewSession) *workflow.PipeFlow {
 
 	// Phase 4: Parallel Reviews
 	pipe.Add(&parallelReviewsStep{
-		rs:              rs,
+		rs:             rs,
 		agentManager:   w.agentManager,
 		sessionService: w.sessionService,
 	})
 
 	// Phase 5: Aggregation
 	pipe.Add(&aggregationStep{
-		rs:              rs,
+		rs:             rs,
 		sessionService: w.sessionService,
 	})
 
 	// Phase 6: Discussion (if enabled)
 	if w.config.EnableDiscussion {
 		pipe.Add(&discussionStep{
-			rs:                rs,
+			rs:               rs,
 			discussionOrch:   w.discussionOrch,
 			sessionService:   w.sessionService,
 			discussionRounds: w.config.DiscussionRounds,
@@ -175,7 +175,7 @@ func (w *ReviewWorkflow) buildPipeline(rs *ReviewSession) *workflow.PipeFlow {
 
 	// Phase 7: Synthesis
 	pipe.Add(&synthesisStep{
-		rs:                rs,
+		rs:                 rs,
 		sessionService:     w.sessionService,
 		enableRequirements: w.config.EnableRequirements,
 		llmProvider:        w.llmProvider,
@@ -183,7 +183,7 @@ func (w *ReviewWorkflow) buildPipeline(rs *ReviewSession) *workflow.PipeFlow {
 
 	// Phase 8: Complete
 	pipe.Add(&completeStep{
-		rs:              rs,
+		rs:             rs,
 		sessionService: w.sessionService,
 	})
 

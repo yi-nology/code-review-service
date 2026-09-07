@@ -61,7 +61,7 @@ func CreateReview(ctx context.Context, c *app.RequestContext) {
 	idempotencyKey := string(c.GetHeader("Idempotency-Key"))
 	resp, err := handlerInst.reviewSvc.Create(ctx, svcReq, idempotencyKey)
 	if err != nil {
-		common.Fail(c, mapReviewError(err))
+		common.Fail(ctx, c, mapReviewError(err))
 		return
 	}
 
@@ -76,18 +76,20 @@ func CreateReview(ctx context.Context, c *app.RequestContext) {
 }
 
 func GetReview(ctx context.Context, c *app.RequestContext) {
-	req, ok := common.Bind[modelReview.GetReviewReq](c)
-	if !ok {
+	// 手动提取 :id URL 参数（thrift 生成的 struct 无法自动绑定 URL 参数）
+	reviewID := c.Param("id")
+	if reviewID == "" {
+		common.Fail(ctx, c, common.BadRequest("review id is required"))
 		return
 	}
 
-	record, ok, err := handlerInst.reviewSvc.Get(ctx, req.ID)
+	record, ok, err := handlerInst.reviewSvc.Get(ctx, reviewID)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	if !ok {
-		common.Fail(c, common.NotFound("review not found"))
+		common.Fail(ctx, c, common.NotFound("review not found"))
 		return
 	}
 
@@ -101,10 +103,17 @@ func ListReviews(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	page, pageSize := common.PageParams(
-		convert.Int64ToStr(ptrx.Deref(req.Page, 0)),
-		convert.Int64ToStr(ptrx.Deref(req.PageSize, 0)),
-	)
+	// thrift 生成的 struct 没有 query tag，BindAndValidate 无法绑定 GET 查询参数。
+	// page/page_size 需要从 query string 手动读取，与 sort_by/gate_status 一致。
+	pageStr := string(c.Query("page"))
+	if pageStr == "" {
+		pageStr = convert.Int64ToStr(ptrx.Deref(req.Page, 0))
+	}
+	pageSizeStr := string(c.Query("page_size"))
+	if pageSizeStr == "" {
+		pageSizeStr = convert.Int64ToStr(ptrx.Deref(req.PageSize, 0))
+	}
+	page, pageSize := common.PageParams(pageStr, pageSizeStr)
 
 	result, err := handlerInst.reviewSvc.List(ctx, review.ListOptions{
 		Status:     strings.TrimSpace(ptrx.Deref(req.Status, "")),
@@ -117,7 +126,7 @@ func ListReviews(ctx context.Context, c *app.RequestContext) {
 		Offset:     (page - 1) * pageSize,
 	})
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -176,7 +185,7 @@ func PreviewReview(ctx context.Context, c *app.RequestContext) {
 
 	files, err := handlerInst.reviewSvc.Preview(ctx, svcReq)
 	if err != nil {
-		common.Fail(c, mapReviewError(err))
+		common.Fail(ctx, c, mapReviewError(err))
 		return
 	}
 
@@ -198,6 +207,7 @@ type scanRepositoryReq struct {
 	NoSummary       bool     `json:"no_summary,omitempty"`
 	Preview         bool     `json:"preview,omitempty"`
 	TimeoutMinutes  int      `json:"timeout_minutes,omitempty"`
+	ResumeSessionID string   `json:"resume_session_id,omitempty"`
 }
 
 func ScanRepository(ctx context.Context, c *app.RequestContext) {
@@ -206,22 +216,22 @@ func ScanRepository(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if strings.TrimSpace(req.Provider) == "" || strings.TrimSpace(req.Repo) == "" || strings.TrimSpace(req.HeadSHA) == "" {
-		common.Fail(c, common.BadRequest("provider、repo、head_sha 不能为空"))
+		common.Fail(ctx, c, common.BadRequest("provider、repo、head_sha 不能为空"))
 		return
 	}
 	batch := strings.TrimSpace(req.Batch)
 	switch batch {
 	case "", "none", "by-language", "by-directory":
 	default:
-		common.Fail(c, common.BadRequest("batch 仅支持 none、by-language、by-directory"))
+		common.Fail(ctx, c, common.BadRequest("batch 仅支持 none、by-language、by-directory"))
 		return
 	}
 	if req.MaxTokensBudget < 0 {
-		common.Fail(c, common.BadRequest("max_tokens_budget 不能为负数"))
+		common.Fail(ctx, c, common.BadRequest("max_tokens_budget 不能为负数"))
 		return
 	}
 	if req.TimeoutMinutes > 0 && (req.TimeoutMinutes < 5 || req.TimeoutMinutes > 120) {
-		common.Fail(c, common.BadRequest("timeout_minutes 范围 5-120"))
+		common.Fail(ctx, c, common.BadRequest("timeout_minutes 范围 5-120"))
 		return
 	}
 
@@ -240,9 +250,10 @@ func ScanRepository(ctx context.Context, c *app.RequestContext) {
 		NoSummary:       req.NoSummary,
 		Preview:         req.Preview,
 		TimeoutMinutes:  req.TimeoutMinutes,
+		ResumeSessionID: strings.TrimSpace(req.ResumeSessionID),
 	})
 	if err != nil {
-		common.Fail(c, mapReviewError(err))
+		common.Fail(ctx, c, mapReviewError(err))
 		return
 	}
 
@@ -273,14 +284,14 @@ func RerunReview(ctx context.Context, c *app.RequestContext) {
 	resp, err := handlerInst.reviewSvc.Requeue(ctx, req.ID)
 	if err != nil {
 		if errors.Is(err, review.ErrNotFound) {
-			common.Fail(c, common.NotFound("review not found"))
+			common.Fail(ctx, c, common.NotFound("review not found"))
 			return
 		}
 		if errors.Is(err, review.ErrInvalidState) {
-			common.Fail(c, common.BizErr(409, err.Error()))
+			common.Fail(ctx, c, common.BizErr(409, err.Error()))
 			return
 		}
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -297,14 +308,14 @@ func CancelReview(ctx context.Context, c *app.RequestContext) {
 	resp, err := handlerInst.reviewSvc.Cancel(ctx, req.ID)
 	if err != nil {
 		if errors.Is(err, review.ErrNotFound) {
-			common.Fail(c, common.NotFound("review not found"))
+			common.Fail(ctx, c, common.NotFound("review not found"))
 			return
 		}
 		if errors.Is(err, review.ErrInvalidState) {
-			common.Fail(c, common.BizErr(409, err.Error()))
+			common.Fail(ctx, c, common.BizErr(409, err.Error()))
 			return
 		}
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -316,7 +327,7 @@ func CancelReview(ctx context.Context, c *app.RequestContext) {
 
 func HandleWebhook(ctx context.Context, c *app.RequestContext) {
 	if webhookInst == nil {
-		common.Fail(c, common.BizErr(500, "webhook handler not initialized"))
+		common.Fail(ctx, c, common.BizErr(500, "webhook handler not initialized"))
 		return
 	}
 	webhookInst.HandleWebhook(ctx, c)
@@ -330,7 +341,7 @@ func ListProviderRepos(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
-		common.Fail(c, common.BadRequest(fmt.Sprintf("未配置的代码平台: %s", req.Provider)))
+		common.Fail(ctx, c, common.BadRequest(fmt.Sprintf("未配置的代码平台: %s", req.Provider)))
 		return
 	}
 
@@ -343,7 +354,7 @@ func ListProviderRepos(ctx context.Context, c *app.RequestContext) {
 
 	repos, err := handlerInst.gitMgr.ListRepos(ctx, req.Provider, provider_sdk.ListRepoOptions{Page: page, PerPage: perPage})
 	if err != nil {
-		common.Fail(c, common.BizErr(500, fmt.Sprintf("获取仓库列表失败: %v", err)))
+		common.Fail(ctx, c, common.BizErr(500, fmt.Sprintf("获取仓库列表失败: %v", err)))
 		return
 	}
 
@@ -362,13 +373,13 @@ func ListProviderBranches(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
-		common.Fail(c, common.BadRequest(fmt.Sprintf("未配置的代码平台: %s", req.Provider)))
+		common.Fail(ctx, c, common.BadRequest(fmt.Sprintf("未配置的代码平台: %s", req.Provider)))
 		return
 	}
 
 	branches, err := handlerInst.gitMgr.ListBranches(ctx, req.Provider, req.Owner, req.Repo)
 	if err != nil {
-		common.Fail(c, common.BizErr(500, fmt.Sprintf("获取分支列表失败: %v", err)))
+		common.Fail(ctx, c, common.BizErr(500, fmt.Sprintf("获取分支列表失败: %v", err)))
 		return
 	}
 
@@ -384,7 +395,7 @@ func ListProviderPulls(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
-		common.Fail(c, common.BadRequest(fmt.Sprintf("未配置的代码平台: %s", req.Provider)))
+		common.Fail(ctx, c, common.BadRequest(fmt.Sprintf("未配置的代码平台: %s", req.Provider)))
 		return
 	}
 
@@ -400,7 +411,7 @@ func ListProviderPulls(ctx context.Context, c *app.RequestContext) {
 		Owner: req.Owner, Repo: req.Repo, State: provider_sdk.CRState(state), Page: page, PerPage: perPage,
 	})
 	if err != nil {
-		common.Fail(c, common.BizErr(500, fmt.Sprintf("获取 PR/MR 列表失败: %v", err)))
+		common.Fail(ctx, c, common.BizErr(500, fmt.Sprintf("获取 PR/MR 列表失败: %v", err)))
 		return
 	}
 
@@ -427,13 +438,13 @@ func GetBranchSHA(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
-		common.Fail(c, common.BadRequest(fmt.Sprintf("未配置的代码平台: %s", req.Provider)))
+		common.Fail(ctx, c, common.BadRequest(fmt.Sprintf("未配置的代码平台: %s", req.Provider)))
 		return
 	}
 
 	sha, err := handlerInst.gitMgr.GetBranchSHA(ctx, req.Provider, req.Owner, req.Repo, req.Branch)
 	if err != nil {
-		common.Fail(c, common.BizErr(500, fmt.Sprintf("获取分支 SHA 失败: %v", err)))
+		common.Fail(ctx, c, common.BizErr(500, fmt.Sprintf("获取分支 SHA 失败: %v", err)))
 		return
 	}
 	common.Success(c, &modelPlatform.GetBranchSHAResp{Sha: sha})
@@ -492,6 +503,7 @@ func toServiceRequest(req *modelReview.CreateReviewReq) domain.Request {
 		MergeRequestIID: ptrx.Deref(req.MergeRequestIid, ""),
 		BaseSHA:         ptrx.Deref(req.BaseSha, ""),
 		HeadSHA:         ptrx.Deref(req.HeadSha, ""),
+		CommitSHA:       ptrx.Deref(req.CommitSha, ""),
 		CallbackMode:    ptrx.Deref(req.CallbackMode, ""),
 		Wait:            ptrx.Deref(req.Wait, false),
 		Requirements:    req.Requirements,
@@ -581,6 +593,9 @@ func convertOCRMetadata(o domain.OCRMetadata) *modelReview.OCRMetadata {
 	}
 	if strings.TrimSpace(o.ProjectSummary) != "" {
 		item.ProjectSummary = common.StrPtr(o.ProjectSummary)
+	}
+	if o.BudgetExceeded {
+		item.BudgetExceeded = ptrx.Of(true)
 	}
 	return item
 }

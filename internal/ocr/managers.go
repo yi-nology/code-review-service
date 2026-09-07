@@ -517,6 +517,122 @@ func (u *Upgrader) UpgradeStatus(_ context.Context) (*domain.OCRUpgradeStatus, e
 	return &domain.OCRUpgradeStatus{State: domain.UpgradeIdle}, nil
 }
 
+// SessionLister 实现 domain.SessionLister。
+type SessionLister struct {
+	settings Settings
+	resolver *ConfigResolver
+}
+
+// NewSessionLister 构造 SessionLister。
+func NewSessionLister(settings Settings, resolver *ConfigResolver) *SessionLister {
+	return &SessionLister{settings: settings, resolver: resolver}
+}
+
+// ListOCRSessions 调 "ocr session list" 子进程，返回历史 session 列表。
+func (l *SessionLister) ListOCRSessions(ctx context.Context) (*domain.OCRSessionListResult, error) {
+	data, err := l.settings.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ocr settings: %w", err)
+	}
+	binary := resolveBinaryFrom(adaptSettings(data), l.resolver.fallback)
+
+	stdout, _, err := RunWithTimeout(ctx, 15*time.Second, binary, "session", "list")
+	if err != nil {
+		return nil, fmt.Errorf("ocr session list 失败: %w", err)
+	}
+
+	sessions := parseSessionList(string(stdout))
+	return &domain.OCRSessionListResult{Sessions: sessions}, nil
+}
+
+// parseSessionList 解析 "ocr session list" 的输出。
+//
+// OCR session list 输出格式为 markdown 表格或列表，每行一个 session。
+// 示例格式（markdown 表格）：
+//
+//	| Session ID | Status | Mode | Created | Files |
+//	|------------|--------|------|---------|-------|
+//	| 01JAR...   | done   | diff | 2025-08-28 10:30 | 5 |
+//
+// 或简单文本列表：
+//
+//	Session: 01JAR...  Status: done  Mode: diff  Created: 2025-08-28 10:30  Files: 5
+func parseSessionList(output string) []domain.OCRSession {
+	lines := strings.Split(output, "\n")
+	var sessions []domain.OCRSession
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// 跳过表头和分隔行
+		if strings.HasPrefix(line, "| Session") || strings.HasPrefix(line, "|--") || strings.HasPrefix(line, "| ---") || strings.HasPrefix(line, "|---") {
+			continue
+		}
+
+		// 尝试解析 markdown 表格行（| 分隔）
+		if strings.HasPrefix(line, "|") {
+			sess := parseSessionTableRow(line)
+			if sess != nil {
+				sessions = append(sessions, *sess)
+			}
+			continue
+		}
+
+		// 尝试解析 key-value 格式（Session: xxx  Status: xxx）
+		sess := parseSessionKVLine(line)
+		if sess != nil {
+			sessions = append(sessions, *sess)
+		}
+	}
+
+	return sessions
+}
+
+// sessionTableRowRe 匹配 markdown 表格行：| id | status | mode | created | files |
+var sessionTableRowRe = regexp.MustCompile(`^\|\s*([0-9a-zA-Z_-]+)\s*\|\s*(\S+)\s*\|\s*(\S*)\s*\|\s*([^|]*?)\s*\|\s*(\d*)\s*\|`)
+
+func parseSessionTableRow(line string) *domain.OCRSession {
+	m := sessionTableRowRe.FindStringSubmatch(line)
+	if m == nil {
+		return nil
+	}
+	filesCount := 0
+	if m[5] != "" {
+		fmt.Sscanf(m[5], "%d", &filesCount)
+	}
+	return &domain.OCRSession{
+		SessionID:  strings.TrimSpace(m[1]),
+		Status:     strings.TrimSpace(m[2]),
+		Mode:       strings.TrimSpace(m[3]),
+		CreatedAt:  strings.TrimSpace(m[4]),
+		FilesCount: filesCount,
+	}
+}
+
+// sessionKVRe 匹配 key-value 格式：Session: xxx  Status: xxx  Mode: xxx  Created: xxx  Files: N
+var sessionKVRe = regexp.MustCompile(`Session:\s*(\S+).*?Status:\s*(\S+)(?:.*?Mode:\s*(\S+))?(?:.*?Created:\s*([^F]+?))?(?:.*?Files:\s*(\d+))?`)
+
+func parseSessionKVLine(line string) *domain.OCRSession {
+	m := sessionKVRe.FindStringSubmatch(line)
+	if m == nil {
+		return nil
+	}
+	filesCount := 0
+	if m[5] != "" {
+		fmt.Sscanf(m[5], "%d", &filesCount)
+	}
+	return &domain.OCRSession{
+		SessionID:  strings.TrimSpace(m[1]),
+		Status:     strings.TrimSpace(m[2]),
+		Mode:       strings.TrimSpace(m[3]),
+		CreatedAt:  strings.TrimSpace(m[4]),
+		FilesCount: filesCount,
+	}
+}
+
 // adaptSettings 把 SettingsData 转为 domain ocrsettings.Settings（#6：不再依赖 models）。
 func adaptSettings(data *SettingsData) *ocrsettings.Settings {
 	if data == nil {

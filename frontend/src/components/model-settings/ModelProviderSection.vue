@@ -195,13 +195,14 @@ const currentContextWindow = computed(() => {
 })
 
 // 根据 context window 动态计算推理模式选项
+// 2026年主流模型已达 1M~10M context，上限需相应提高
 const reasoningModeOptions = computed(() => {
   const ctx = currentContextWindow.value
-  // 按比例计算：轻量 ~2%, 中等 ~12%, 充分 ~50%；
-  // 上限刻意调高，确保 128K/200K/256K 等常见模型之间能看到差异
-  const light = Math.min(8192, Math.max(1024, Math.round(ctx * 0.02)))
-  const medium = Math.min(32768, Math.max(4096, Math.round(ctx * 0.12)))
-  const full = Math.min(131072, Math.max(8192, Math.round(ctx * 0.5)))
+  // 按比例计算：轻量 ~2%, 中等 ~12%, 充分 ~50%
+  // 上限跟随 context window：1M 模型可分配 500K 推理预算
+  const light = Math.min(32768, Math.max(1024, Math.round(ctx * 0.02)))
+  const medium = Math.min(131072, Math.max(4096, Math.round(ctx * 0.12)))
+  const full = Math.min(524288, Math.max(8192, Math.round(ctx * 0.5)))
 
   return [
     { label: '禁用', value: 'disabled' },
@@ -370,14 +371,13 @@ defineExpose({ syncProviders })
             <el-radio :value="true">Anthropic</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="LLM 协议 (OCR v1.7.10+)">
-          <el-select v-model="form.protocol" placeholder="自动（由上方协议推断）" clearable style="width: 100%">
-            <el-option label="自动（由请求协议推断，兼容旧版）" value="" />
+        <el-form-item label="LLM 协议">
+          <el-select v-model="form.protocol" placeholder="自动" clearable style="width: 100%">
+            <el-option label="自动" value="" />
             <el-option label="anthropic" value="anthropic" />
-            <el-option label="openai (Chat Completions)" value="openai" />
-            <el-option label="openai-responses (GPT-5.x / o-series)" value="openai-responses" />
+            <el-option label="openai" value="openai" />
+            <el-option label="openai-responses" value="openai-responses" />
           </el-select>
-          <div class="form-hint">设为「自动」时由「请求协议」推断；GPT-5.x / o-series 等走 Responses API 的模型必须选 openai-responses。</div>
         </el-form-item>
       </el-form>
     </div>
@@ -386,17 +386,26 @@ defineExpose({ syncProviders })
       <h3 class="block-title">模型</h3>
       <el-form label-position="top" :model="form">
         <el-form-item label="模型名称" required>
-          <el-select
+          <el-input
             v-model="form.model"
-            filterable
-            allow-create
-            default-first-option
-            :placeholder="currentModels.length ? '选择或输入模型名称' : '输入模型名称（如 gpt-4o）'"
-            style="width: 100%"
-          >
-            <el-option v-for="m in currentModels" :key="m" :label="m" :value="m" />
-          </el-select>
-          <div class="tip">模型版本更新频繁，请以服务商文档为准；可直接输入任意模型名。</div>
+            placeholder="输入模型名称，如 gpt-4o、claude-sonnet-4、mimo-v2.5-pro"
+            clearable
+          />
+          <div class="model-hint">
+            <span v-if="currentModels.length" class="model-suggestions">
+              推荐：
+              <button
+                v-for="m in currentModels.slice(0, 5)"
+                :key="m"
+                type="button"
+                class="model-chip"
+                @click="form.model = m"
+              >{{ m }}</button>
+            </span>
+            <span v-if="form.model && currentContextWindow" class="context-badge">
+              {{ formatTokens(currentContextWindow) }} context
+            </span>
+          </div>
         </el-form-item>
         <div class="grid-2 inner">
           <el-form-item label="推理模式">
@@ -573,6 +582,48 @@ defineExpose({ syncProviders })
   font-size: 12px;
   color: var(--app-muted);
   margin-top: 4px;
+}
+
+/* 模型输入提示 */
+.model-hint {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.model-suggestions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--app-muted);
+}
+.model-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--app-border);
+  border-radius: 4px;
+  background: #f8fafc;
+  font-size: 11px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.model-chip:hover {
+  background: #e0e7ff;
+  border-color: #818cf8;
+  color: #4338ca;
+}
+.context-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #ecfdf5;
+  color: #059669;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Fira Code', monospace;
 }
 
 .empty-banner {

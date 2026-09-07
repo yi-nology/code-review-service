@@ -55,7 +55,7 @@ type DelegateRuleReq struct {
 func DelegatePreviewHandler(ctx context.Context, c *app.RequestContext) {
 	var req DelegatePreviewReq
 	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(fmt.Sprintf("invalid request: %v", err)))
+		common.Fail(ctx, c, common.BadRequest(fmt.Sprintf("invalid request: %v", err)))
 		return
 	}
 
@@ -75,7 +75,7 @@ func DelegatePreviewHandler(ctx context.Context, c *app.RequestContext) {
 
 	result, err := handlerInst.reviewSvc.DelegatePreview(ctx, svcReq, exclude)
 	if err != nil {
-		common.Fail(c, mapReviewError(err))
+		common.Fail(ctx, c, mapReviewError(err))
 		return
 	}
 	common.Success(c, result)
@@ -87,7 +87,7 @@ func DelegatePreviewHandler(ctx context.Context, c *app.RequestContext) {
 func DelegateRuleHandler(ctx context.Context, c *app.RequestContext) {
 	var req DelegateRuleReq
 	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(fmt.Sprintf("invalid request: %v", err)))
+		common.Fail(ctx, c, common.BadRequest(fmt.Sprintf("invalid request: %v", err)))
 		return
 	}
 
@@ -103,7 +103,7 @@ func DelegateRuleHandler(ctx context.Context, c *app.RequestContext) {
 
 	result, err := handlerInst.reviewSvc.DelegateRule(ctx, svcReq, req.Paths)
 	if err != nil {
-		common.Fail(c, mapReviewError(err))
+		common.Fail(ctx, c, mapReviewError(err))
 		return
 	}
 	common.Success(c, result)

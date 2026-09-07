@@ -101,12 +101,12 @@ func ListSessions(ctx context.Context, c *app.RequestContext) {
 	result, err := handlerInst.sessionService.ListSessions(ctx, page, pageSize)
 	if err != nil {
 		logx.Errorf("list sessions failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
-	sessions := make([]sessionInfo, len(result.List))
-	for i, s := range result.List {
+	sessions := make([]sessionInfo, len(result.Items))
+	for i, s := range result.Items {
 		sessions[i] = toSessionInfo(s)
 	}
 	common.Success(c, map[string]interface{}{
@@ -127,7 +127,7 @@ func GetSessions(ctx context.Context, c *app.RequestContext) {
 	rawSessions, err := handlerInst.sessionService.GetSessionsByReview(ctx, req.ID)
 	if err != nil {
 		logx.Errorf("get sessions failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	sessions := make([]sessionInfo, len(rawSessions))
@@ -148,14 +148,14 @@ func CreateSession(ctx context.Context, c *app.RequestContext) {
 	round, err := handlerInst.sessionService.GetNextRound(ctx, req.ID)
 	if err != nil {
 		logx.Errorf("get next round failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
 	session, err := handlerInst.sessionService.CreateSession(ctx, req.ID, round)
 	if err != nil {
 		logx.Errorf("create session failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -171,12 +171,12 @@ func GetActiveSession(ctx context.Context, c *app.RequestContext) {
 	session, err := handlerInst.sessionService.GetActiveSession(ctx, req.ID)
 	if err != nil {
 		logx.Errorf("get active session failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
 	if session == nil {
-		common.Fail(c, common.NotFound("no active session found"))
+		common.Fail(ctx, c, common.NotFound("no active session found"))
 		return
 	}
 
@@ -192,7 +192,7 @@ func GetSession(ctx context.Context, c *app.RequestContext) {
 	session, err := handlerInst.sessionService.GetSession(ctx, req.SessionID)
 	if err != nil {
 		logx.Errorf("get session failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -208,7 +208,7 @@ func UpdateSessionPhase(ctx context.Context, c *app.RequestContext) {
 	progress := ptrx.Deref(req.Progress, 0)
 	if err := handlerInst.sessionService.UpdatePhase(ctx, req.SessionID, req.Phase, progress); err != nil {
 		logx.Errorf("update session phase failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -225,7 +225,7 @@ func UpdateSessionStatus(ctx context.Context, c *app.RequestContext) {
 
 	if err := handlerInst.sessionService.UpdateStatus(ctx, req.SessionID, req.Status); err != nil {
 		logx.Errorf("update session status failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -242,13 +242,13 @@ func UpdateSessionAgentResults(ctx context.Context, c *app.RequestContext) {
 
 	var agentResults []dsession.AgentResultData
 	if err := json.Unmarshal([]byte(req.AgentResults), &agentResults); err != nil {
-		common.Fail(c, common.BadRequest("invalid agent_results format"))
+		common.Fail(ctx, c, common.BadRequest("invalid agent_results format"))
 		return
 	}
 
 	if err := handlerInst.sessionService.UpdateAgentResults(ctx, req.SessionID, agentResults); err != nil {
 		logx.Errorf("update session agent results failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -265,13 +265,13 @@ func UpdateSessionDiscussion(ctx context.Context, c *app.RequestContext) {
 
 	var discussion dsession.DiscussionData
 	if err := json.Unmarshal([]byte(req.Discussion), &discussion); err != nil {
-		common.Fail(c, common.BadRequest("invalid discussion format"))
+		common.Fail(ctx, c, common.BadRequest("invalid discussion format"))
 		return
 	}
 
 	if err := handlerInst.sessionService.UpdateDiscussion(ctx, req.SessionID, discussion); err != nil {
 		logx.Errorf("update session discussion failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -288,13 +288,13 @@ func UpdateSessionFinalReport(ctx context.Context, c *app.RequestContext) {
 
 	var finalReport dsession.FinalReportData
 	if err := json.Unmarshal([]byte(req.FinalReport), &finalReport); err != nil {
-		common.Fail(c, common.BadRequest("invalid final_report format"))
+		common.Fail(ctx, c, common.BadRequest("invalid final_report format"))
 		return
 	}
 
 	if err := handlerInst.sessionService.UpdateFinalReport(ctx, req.SessionID, finalReport); err != nil {
 		logx.Errorf("update session final report failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -311,13 +311,13 @@ func CompleteSession(ctx context.Context, c *app.RequestContext) {
 
 	var finalReport dsession.FinalReportData
 	if err := json.Unmarshal([]byte(req.FinalReport), &finalReport); err != nil {
-		common.Fail(c, common.BadRequest("invalid final_report format"))
+		common.Fail(ctx, c, common.BadRequest("invalid final_report format"))
 		return
 	}
 
 	if err := handlerInst.sessionService.CompleteSession(ctx, req.SessionID, finalReport); err != nil {
 		logx.Errorf("complete session failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -334,7 +334,7 @@ func FailSession(ctx context.Context, c *app.RequestContext) {
 
 	if err := handlerInst.sessionService.FailSession(ctx, req.SessionID, req.Reason); err != nil {
 		logx.Errorf("fail session failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 
@@ -351,7 +351,7 @@ func CancelSession(ctx context.Context, c *app.RequestContext) {
 
 	if err := handlerInst.sessionService.CancelSession(ctx, req.SessionID); err != nil {
 		logx.Errorf("cancel session failed: %v", err)
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 

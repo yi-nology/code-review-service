@@ -53,6 +53,9 @@ type Config struct {
 	// 模型参数
 	ContextWindow   int
 	MaxOutputTokens int
+
+	// GitHubMirror 是 OCR 资产的 GitHub 下载镜像地址（OCR v1.9.5+）。
+	GitHubMirror string
 }
 
 // Fallback 是 YAML 文件兜底配置，用于在没有 DB settings 时的最低保障。
@@ -146,6 +149,7 @@ func BuildConfig(settings *SettingsData, overrides OCROverrides, fallback Fallba
 		TelemetryExporter:       settings.TelemetryExporter,
 		TelemetryOTLPEndpoint:   settings.TelemetryOTLPEndpoint,
 		TelemetryContentLogging: settings.TelemetryContentLogging,
+		GitHubMirror:            settings.GitHubMirror,
 	}
 	cfg.Concurrency = firstPositive(overrides.Concurrency, settings.Concurrency, fallback.Concurrency)
 	cfg.MaxGitProcs = firstPositive(overrides.MaxGitProcs, settings.MaxGitProcs, fallback.MaxGitProcs)
@@ -224,6 +228,9 @@ func (c Config) AppendEnv(env []string) []string {
 	}
 	if c.TelemetryContentLogging {
 		env = append(env, "OCR_CONTENT_LOGGING=true")
+	}
+	if c.GitHubMirror != "" {
+		env = append(env, "OCR_GITHUB_MIRROR="+c.GitHubMirror)
 	}
 	return env
 }

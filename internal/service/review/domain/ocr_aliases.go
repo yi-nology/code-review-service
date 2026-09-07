@@ -41,3 +41,22 @@ type OCRUpgrader interface {
 	Upgrade(ctx context.Context, targetVersion string) (*OCRUpgradeStatus, error)
 	UpgradeStatus(ctx context.Context) (*OCRUpgradeStatus, error)
 }
+
+// SessionLister 列出 OCR review session 历史。
+type SessionLister interface {
+	ListOCRSessions(ctx context.Context) (*OCRSessionListResult, error)
+}
+
+// OCRSession 描述一个 OCR review session。
+type OCRSession struct {
+	SessionID  string `json:"session_id"`
+	Status     string `json:"status"`
+	Mode       string `json:"mode,omitempty"`
+	CreatedAt  string `json:"created_at,omitempty"`
+	FilesCount int    `json:"files_count,omitempty"`
+}
+
+// OCRSessionListResult 是 ocr session list 的返回。
+type OCRSessionListResult struct {
+	Sessions []OCRSession `json:"sessions"`
+}

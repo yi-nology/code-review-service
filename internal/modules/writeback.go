@@ -7,6 +7,7 @@ import (
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
 
+	"github.com/oekit/logx"
 	"go.uber.org/fx"
 )
 
@@ -18,6 +19,7 @@ var WritebackModule = fx.Options(
 func NewWritebackOrchestrator(
 	gitProviderSvc *gitProvider.GitProviderService,
 	repos *repository.RepoContainer,
+	gerritContainer *GerritClientContainer,
 ) *writeback.Orchestrator {
 	// 从 DB 加载策略配置，使用内置默认值兜底。
 	maxComments := 20
@@ -32,34 +34,41 @@ func NewWritebackOrchestrator(
 		}
 	}
 
+	// 平台差异收敛在 writeback.AdapterOptions（行号映射/降级策略）。
+	adapters := map[string]writeback.Adapter{
+		"github": writeback.NewPlatformAdapter(gitProviderSvc, writeback.AdapterOptions{
+			Platform: "github",
+		}),
+		"gitlab": writeback.NewPlatformAdapter(gitProviderSvc, writeback.AdapterOptions{
+			Platform:       "gitlab",
+			InlineFallback: true,
+		}),
+		"gitea": writeback.NewPlatformAdapter(gitProviderSvc, writeback.AdapterOptions{
+			Platform:     "gitea",
+			NoteFallback: true,
+		}),
+		"forgejo": writeback.NewPlatformAdapter(gitProviderSvc, writeback.AdapterOptions{
+			Platform:     "forgejo",
+			NoteFallback: true,
+		}),
+		"gitcode": writeback.NewPlatformAdapter(gitProviderSvc, writeback.AdapterOptions{
+			Platform:     "gitcode",
+			NoteFallback: true,
+		}),
+		"tencent_code": writeback.NewPlatformAdapter(gitProviderSvc, writeback.AdapterOptions{
+			Platform:       "tencent_code",
+			InlineFallback: true,
+		}),
+	}
+
+	// Gerrit 走独立的 go-gerrit 客户端，不经过 SDK。
+	if gerritClient := gerritContainer.Get(); gerritClient != nil {
+		adapters["gerrit"] = writeback.NewGerritAdapter(gerritClient)
+		logx.Info("gerrit writeback adapter registered")
+	}
+
 	return writeback.NewOrchestrator(writeback.OrchestratorConfig{
-		// 平台差异收敛在 writeback.AdapterOptions（行号映射/降级策略）。
-		// tencent_code 此前缺失导致行内评论回写报 no writeback adapter，已补齐。
-		Adapters: map[string]writeback.Adapter{
-			"github": writeback.NewPlatformAdapter(gitProviderSvc, writeback.AdapterOptions{
-				Platform: "github",
-			}),
-			"gitlab": writeback.NewPlatformAdapter(gitProviderSvc, writeback.AdapterOptions{
-				Platform:       "gitlab",
-				InlineFallback: true,
-			}),
-			"gitea": writeback.NewPlatformAdapter(gitProviderSvc, writeback.AdapterOptions{
-				Platform:     "gitea",
-				NoteFallback: true,
-			}),
-			"forgejo": writeback.NewPlatformAdapter(gitProviderSvc, writeback.AdapterOptions{
-				Platform:     "forgejo",
-				NoteFallback: true,
-			}),
-			"gitcode": writeback.NewPlatformAdapter(gitProviderSvc, writeback.AdapterOptions{
-				Platform:     "gitcode",
-				NoteFallback: true,
-			}),
-			"tencent_code": writeback.NewPlatformAdapter(gitProviderSvc, writeback.AdapterOptions{
-				Platform:       "tencent_code",
-				InlineFallback: true,
-			}),
-		},
+		Adapters:    adapters,
 		ItemRepo:    repos.WritebackItem,
 		ChangeRepo:  repos.ChangeRevision,
 		MaxComments: maxComments,

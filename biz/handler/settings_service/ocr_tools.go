@@ -24,7 +24,7 @@ func RulesCheck(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if req.Path == "" {
-		common.Fail(c, common.BadRequest("文件路径不能为空"))
+		common.Fail(ctx, c, common.BadRequest("文件路径不能为空"))
 		return
 	}
 	if !common.FeatureGuard(c, handlerInst.ocr.Checker(), "规则检查") {
@@ -32,7 +32,7 @@ func RulesCheck(ctx context.Context, c *app.RequestContext) {
 	}
 	result, err := handlerInst.ocr.Checker().RulesCheck(ctx, req.Path)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	resp := &modelSettings.RulesCheckResult{Applicable: result.Applicable}
@@ -51,7 +51,7 @@ func OCRVersion(ctx context.Context, c *app.RequestContext) {
 	}
 	result, err := handlerInst.ocr.Versioner().OCRVersion(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	resp := &modelSettings.OCRVersionResp{Version: result.Version}
@@ -73,7 +73,7 @@ func ViewerStatus(ctx context.Context, c *app.RequestContext) {
 	}
 	result, err := handlerInst.ocr.Viewer().ViewerStatus(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	resp := &modelSettings.ViewerStatusResp{Running: result.Running}
@@ -97,7 +97,7 @@ func StartViewer(ctx context.Context, c *app.RequestContext) {
 	addr := ptrx.Deref(req.Addr, "")
 	result, err := handlerInst.ocr.Viewer().StartViewer(ctx, addr)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	resp := &modelSettings.StartViewerResp{Running: result.Running}
@@ -116,7 +116,7 @@ func StopViewer(ctx context.Context, c *app.RequestContext) {
 	}
 	result, err := handlerInst.ocr.Viewer().StopViewer(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	resp := &modelSettings.ViewerStatusResp{Running: result.Running}
@@ -135,18 +135,18 @@ func LocateViewerSession(ctx context.Context, c *app.RequestContext) {
 		StartedAt    string `json:"started_at"`
 	}
 	if err := c.BindAndValidate(&req); err != nil {
-		common.Fail(c, common.BadRequest(err.Error()))
+		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
 	}
 	workspaceDir := strings.TrimSpace(req.WorkspaceDir)
 	startedAt, _ := time.Parse(time.RFC3339, strings.TrimSpace(req.StartedAt))
 	if workspaceDir == "" && startedAt.IsZero() {
-		common.Fail(c, common.BadRequest("workspace_dir 和 started_at 不能同时为空"))
+		common.Fail(ctx, c, common.BadRequest("workspace_dir 和 started_at 不能同时为空"))
 		return
 	}
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	location := locateViewerSession(homeDir, workspaceDir, startedAt)
@@ -159,7 +159,7 @@ func ListLLMProviders(ctx context.Context, c *app.RequestContext) {
 	}
 	providers, err := handlerInst.ocr.Lister().ListLLMProviders(ctx)
 	if err != nil {
-		common.Fail(c, err)
+		common.Fail(ctx, c, err)
 		return
 	}
 	var items []*modelSettings.LLMProvider
@@ -174,6 +174,19 @@ func ListLLMProviders(ctx context.Context, c *app.RequestContext) {
 		items = append(items, item)
 	}
 	common.Success(c, &modelSettings.ListLLMProvidersResp{BuiltIn: items})
+}
+
+// ListOCRSessions 返回 OCR review session 历史列表。
+func ListOCRSessions(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, handlerInst.ocr.SessionLister(), "OCR Session 列表") {
+		return
+	}
+	result, err := handlerInst.ocr.SessionLister().ListOCRSessions(ctx)
+	if err != nil {
+		common.Fail(ctx, c, err)
+		return
+	}
+	common.Success(c, result)
 }
 
 type viewerSessionLocation struct {
