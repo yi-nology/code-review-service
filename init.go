@@ -34,19 +34,9 @@ func runApp(cfg *config.Config, app *bootstrap.App) error {
 		//   WorkerModule/LLMProbeModule 在其后注册 → 其 OnStop 先执行（drain in-flight / 停探活）。
 		// 这保证了 worker 能在 DB 关闭前完成对 in-flight review 的落库。
 		// 调整顺序时务必保持 WorkerModule 位于 DatabaseModule 之后。
-		modules.DatabaseModule,
-		modules.RepositoryModule,
-		modules.ProviderModule,
-		modules.GerritModule,
-		modules.RunnerModule,
-		modules.OCRModule,
-		modules.LLMModule,
-		modules.WritebackModule,
-		modules.NotificationModule,
-		modules.CostModule,
-		modules.AgentModule,
-		modules.WorkflowModule,
-		modules.ReviewModule,
+		// CoreServiceModule：Database→Review 的共享装配（与 cmd/mcp-server 同源，
+		// ReviewService 依赖变化只改 modules/core.go，防止 mcp 侧手工拷贝清单漂移）。
+		modules.CoreServiceModule,
 		modules.WebhookModule,
 		modules.HandlerModule,
 		modules.ServerModule,

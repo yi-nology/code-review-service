@@ -25,6 +25,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/domain/argusingest"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	svcReview "github.com/yi-nology/code-review-service/internal/service/review"
+	svcReviewDomain "github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -38,15 +39,20 @@ type Handler struct {
 	reviewRepo repository.ReviewRepository
 	// argus 出站调用收口（触发/状态查询/误报抑制代理）；Enabled()=false 表示未配置。
 	argus *argusclient.Client
+	// notifier 回报收敛后的应用内通知出口（nil 安全）。
+	notifier svcReviewDomain.Notifier
 }
 
 // InitHandler 装配 handler。argus 来自 config.Argus
 // （凭证只在服务端，浏览器不接触 argus token）。
-func InitHandler(repo repository.ArgusReviewRepository, reviewRepo repository.ReviewRepository, argus *argusclient.Client) {
+// notifier 用于回报收敛后的应用内通知（nil 安全）。
+func InitHandler(repo repository.ArgusReviewRepository, reviewRepo repository.ReviewRepository,
+	argus *argusclient.Client, notifier svcReviewDomain.Notifier) {
 	handlerInst = &Handler{
 		repo:       repo,
 		reviewRepo: reviewRepo,
 		argus:      argus,
+		notifier:   notifier,
 	}
 }
 
@@ -77,7 +83,7 @@ func IngestHandler(ctx context.Context, c *app.RequestContext) {
 	}
 	// 回报关联：把 engine=argus 的 active 评审收敛到终态（不匹配则 no-op，
 	// 纯 push 场景不受影响；失败只记日志，不影响上报本身的成功语义）。
-	svcReview.CompleteFromArgusReport(ctx, handlerInst.reviewRepo, rev, id)
+	svcReview.CompleteFromArgusReport(ctx, handlerInst.reviewRepo, handlerInst.notifier, rev, id)
 	c.JSON(consts.StatusOK, &modelReview.ArgusIngestResp{ID: int64(id), Status: "accepted"})
 }
 

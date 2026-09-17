@@ -16,10 +16,12 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/argusclient"
 	"github.com/yi-nology/code-review-service/internal/domain/argusingest"
+	notifdomain "github.com/yi-nology/code-review-service/internal/domain/notification"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
+	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
 )
 
@@ -143,9 +145,10 @@ func splitOwnerRepo(full string) (string, string, error) {
 // CompleteFromArgusReport 把 argus push 回报收敛到对应的 active Record 终态。
 // 匹配键：provider=platform（小写）、repo=owner/repo、PR number、（可选）head_sha，
 // 且 Record 引擎为 argus。不匹配（纯 push 场景/engine=ocr/head 不一致）为 no-op。
+// notifier 为收敛完成后的应用内通知出口（nil 安全，与 OCR 路径 notifyCompletion 对齐）；
 // 由 argus_service.IngestHandler 在 upsert 成功后调用。
 func CompleteFromArgusReport(ctx context.Context, reviewRepo repository.ReviewRepository,
-	rep *argusingest.Review, argusID uint) {
+	notifier domain.Notifier, rep *argusingest.Review, argusID uint) {
 	if reviewRepo == nil || rep == nil {
 		return
 	}
@@ -211,6 +214,42 @@ func CompleteFromArgusReport(ctx context.Context, reviewRepo repository.ReviewRe
 		return
 	}
 	logx.Infof("argus report: review=%s completed by argus push (verdict=%s)", rec.ID, rep.Verdict)
+	notifyArgusCompletion(ctx, notifier, rec, rep, summary, status, gate)
+}
+
+// notifyArgusCompletion argus 回报收敛后发应用内通知（复用 OCR 路径的事件契约，
+// 前端通知中心零改动）。notifier nil 安全（未装配/单测静默跳过）；通知失败只告警，
+// 不影响已落库的收敛结果。
+func notifyArgusCompletion(ctx context.Context, notifier domain.Notifier,
+	rec *domain.Record, rep *argusingest.Review, summary, status string, gate domain.Gate) {
+	if notifier == nil {
+		return
+	}
+	kind := notifdomain.KindCompleted
+	if gate.Status == domain.GateFailed {
+		kind = notifdomain.KindGateFailed
+	}
+	if status == statusFailed {
+		kind = notifdomain.KindFailed
+	}
+	event := notifdomain.Event{
+		ReviewID:   rec.ID,
+		Provider:   rec.Request.Provider,
+		Repo:       rec.Request.Repo,
+		Ref:        rep.Number,
+		Kind:       kind,
+		GateStatus: gate.Status,
+		Findings:   rep.FindingsTotal,
+		Summary:    summary,
+	}
+	async.GoSafe(func() {
+		notifyCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := notifier.Notify(notifyCtx, event); err != nil {
+			logx.CtxWarnf(notifyCtx, "[notification] argus review %s kind=%s notify failed: %v",
+				event.ReviewID, event.Kind, err)
+		}
+	})
 }
 
 func argusVerdictLabel(v string) string {

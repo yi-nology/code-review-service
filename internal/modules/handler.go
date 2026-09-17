@@ -24,6 +24,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 	svcReview "github.com/yi-nology/code-review-service/internal/service/review"
+	reviewdomain "github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/session"
 	statsSvc "github.com/yi-nology/code-review-service/internal/service/stats"
 	"github.com/yi-nology/code-review-service/internal/service/suggestion"
@@ -35,7 +36,7 @@ import (
 
 var HandlerModule = fx.Options(
 	fx.Provide(NewSuggestionService),
-	fx.Provide(NewArgusClient),
+	// NewArgusClient 已上提至 CoreServiceModule（mcp-server 等不拉 Handler 的入口也需要它）。
 	fx.Invoke(InitReviewHandler),
 	fx.Invoke(InitWebhookHandler),
 	fx.Invoke(InitSettingsHandler),
@@ -115,9 +116,11 @@ func NewArgusClient(cfg *config.Config) *argusclient.Client {
 }
 
 // InitArgusHandler Argus 审查结果承接（push 模型，见 biz/handler/argus_service）；
-// push 落库后经 CompleteFromArgusReport 关联收敛 engine=argus 的 active 评审。
-func InitArgusHandler(repos *repository.RepoContainer, argus *argusclient.Client) {
-	argus_service.InitHandler(repos.ArgusReview, repos.Review, argus)
+// push 落库后经 CompleteFromArgusReport 关联收敛 engine=argus 的 active 评审，
+// 并发应用内通知（notifier 与 OCR 路径同源）。
+func InitArgusHandler(repos *repository.RepoContainer, argus *argusclient.Client,
+	notifier reviewdomain.Notifier) {
+	argus_service.InitHandler(repos.ArgusReview, repos.Review, argus, notifier)
 }
 
 func InitNotificationHandler(repos *repository.RepoContainer) {

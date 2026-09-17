@@ -108,24 +108,9 @@ func main() {
 
 	fxApp := fx.New(
 		fx.Supply(cfg),
-		// 与主服务共享同一组基础设施 module，但跳过 HTTP / webhook / worker 相关。
-		// 顺序约束：DatabaseModule 在最前 → ReviewModule 最后（依赖前置 module）。
-		modules.DatabaseModule,
-		modules.RepositoryModule,
-		modules.ProviderModule,
-		modules.RunnerModule,
-		modules.OCRModule,
-		modules.LLMModule,
-		modules.GerritModule, // WritebackOrchestrator 依赖 GerritClientContainer（此前漏拼 → mcp-server 启动即 crash）
-		// ArgusClient 是 ReviewService 的依赖；HandlerModule 不拉（HTTP handler 专用），
-		// 需单独 Provide（此前漏拼 → mcp-server 启动即 crash）。
-		fx.Provide(modules.NewArgusClient),
-		modules.WritebackModule,
-		modules.NotificationModule,
-		modules.CostModule,
-		modules.AgentModule,
-		modules.WorkflowModule,
-		modules.ReviewModule,
+		// 与主服务共享同一组基础设施 module（CoreServiceModule 单一来源，
+		// ReviewService 依赖变化只改 modules/core.go；TestCoreServiceModule_MCPWiring 防漂移）。
+		modules.CoreServiceModule,
 		mcpserver.MCPModule,
 		// fx.Invoke 把 *mcp.Server 从 fx container 提出来给 main 用：
 		// fx.Provide 注册的对象不会自动暴露给 main 之外的代码，
