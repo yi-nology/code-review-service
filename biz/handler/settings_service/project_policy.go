@@ -34,6 +34,13 @@ func PutProjectPolicy(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	dbPolicy := apiProjectPolicyToDB(req.Policy)
+	// review_engine 未随请求上送（旧前端/客户端不感知该字段，nil）时保留库中现值，
+	// 避免在设置页保存其它字段把它清空；显式上送才覆盖（空串 = 重置为跟随默认）。
+	if req.Policy == nil || req.Policy.ReviewEngine == nil {
+		if prev, err := handlerInst.project.GetByProviderRepo(ctx, dbPolicy.Provider, dbPolicy.Repo); err == nil && prev != nil {
+			dbPolicy.ReviewEngine = prev.ReviewEngine
+		}
+	}
 	if err := validateProjectPolicy(dbPolicy); err != nil {
 		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
@@ -121,6 +128,7 @@ func dbProjectPolicyToAPI(p *projectpolicy.ProjectPolicy) *modelSettings.Project
 		OcrTelemetryOtlpEndpoint:   common.StrPtr(p.OCRTelemetryOTLPEndpoint),
 		OcrTelemetryContentLogging: ptrx.Of(p.OCRTelemetryContentLogging),
 		RulePackageIDs:             rulePackageIDsToAPI(p.RulePackageIDs),
+		ReviewEngine:               common.StrPtr(p.ReviewEngine),
 	}
 }
 
@@ -132,6 +140,10 @@ func apiProjectPolicyToDB(p *modelSettings.ProjectPolicy) *projectpolicy.Project
 	db.Provider = p.Provider
 	db.Repo = p.Repo
 	db.FailOn = p.FailOn
+	db.ReviewEngine = strings.ToLower(strings.TrimSpace(ptrx.Deref(p.ReviewEngine, "")))
+	if db.ReviewEngine != "" && db.ReviewEngine != "ocr" && db.ReviewEngine != "argus" {
+		db.ReviewEngine = ""
+	}
 	db.OCREnabled = p.OcrEnabled
 	db.OCRConcurrency = int(ptrx.Deref(p.OcrConcurrency, 0))
 	db.OCRTimeoutMinutes = int(ptrx.Deref(p.OcrTimeoutMinutes, 0))
