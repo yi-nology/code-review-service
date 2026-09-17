@@ -4,16 +4,19 @@
       <div class="card-header">
         <span>问题报告</span>
         <div class="finding-header-actions">
-          <el-tag>{{ findings.length }} 个问题</el-tag>
-          <el-tooltip
-            :disabled="Boolean(patchableFindingIndexes.length)"
-            content="当前没有满足文件路径、起始行号、现有代码和建议代码的问题"
-            placement="top"
-          >
-            <el-button size="small" plain :disabled="!patchableFindingIndexes.length" @click="selectPatchableFindings">
-              全选可生成
-            </el-button>
-          </el-tooltip>
+          <template v-if="patchCapable">
+            <el-tag>{{ findings.length }} 个问题</el-tag>
+            <el-tooltip
+              :disabled="Boolean(patchableFindingIndexes.length)"
+              content="当前没有满足文件路径、起始行号、现有代码和建议代码的问题"
+              placement="top"
+            >
+              <el-button size="small" plain :disabled="!patchableFindingIndexes.length" @click="selectPatchableFindings">
+                全选可生成
+              </el-button>
+            </el-tooltip>
+          </template>
+          <el-tag v-else>{{ findings.length }} 个问题</el-tag>
         </div>
       </div>
     </template>
@@ -41,7 +44,7 @@
         <el-option label="暂不处理" value="deferred" />
         <el-option label="已修复" value="fixed" />
       </el-select>
-      <el-checkbox v-model="onlyPatchable" size="small">仅可生成 Patch</el-checkbox>
+      <el-checkbox v-if="patchCapable" v-model="onlyPatchable" size="small">仅可生成 Patch</el-checkbox>
       <el-checkbox v-model="hideDisposed" size="small">隐藏已处置</el-checkbox>
       <div class="filter-spacer" />
       <span class="filter-count">显示 {{ visibleCount }} / {{ findings.length }}</span>
@@ -53,8 +56,8 @@
       <el-button size="small" plain @click="toggleAllGroups">{{ allCollapsed ? '展开全部' : '折叠全部' }}</el-button>
     </div>
 
-    <!-- Patch 工作流：默认折叠，降低噪音；带步骤引导 -->
-    <details class="patch-panel-wrap">
+    <!-- Patch 工作流：默认折叠，降低噪音；带步骤引导（argus 模式无建议代码，整块隐藏） -->
+    <details v-if="patchCapable" class="patch-panel-wrap">
       <summary class="patch-panel-summary">
         <strong>修复 Patch 工作流</strong>
         <span class="patch-panel-hint">已选 {{ patchSelectionIndexes.length }} / 可生成 {{ patchableFindingIndexes.length }} · 点击展开</span>
@@ -173,6 +176,7 @@
               :selected="selectedPatchIndexes.includes(entry.index)"
               :patchable="isPatchableFinding(entry.finding)"
               :patch-block-reason="patchBlockReason(entry.finding)"
+              :show-patch="patchCapable"
               :feedback="feedbackByIndex[entry.index]"
               :historical-fp="Boolean(entry.finding.fingerprint && historicalFalsePositiveByFp[entry.finding.fingerprint])"
               :highlight="highlightIndex === entry.index"
@@ -200,11 +204,16 @@ import FindingItem from './FindingItem.vue'
 const props = defineProps<{
   reviewId: string
   findings: Finding[]
+  // mode 审查模式（ocr | argus | scan）：argus 无建议代码，隐藏 Patch 工作流与占位标签
+  mode?: 'ocr' | 'argus' | 'scan'
 }>()
 
 const emit = defineEmits<{
   'download-patch': [indexes: number[]]
 }>()
+
+// argus 模式的发现没有 existing_code/suggestion_code，Patch 全链路不适用
+const patchCapable = computed(() => (props.mode ?? 'ocr') !== 'argus')
 
 // ---- Patch 相关状态（与原实现一致） ----
 const selectedPatchIndexes = ref<number[]>([])

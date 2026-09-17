@@ -113,6 +113,7 @@ defineExpose({ resetPatchState, focusFinding })
       v-if="detail.findings?.length"
       :review-id="detail.review_id"
       :findings="detail.findings"
+      :mode="mode"
       @download-patch="handleDownloadPatch"
     />
 

@@ -1,7 +1,7 @@
 <template>
   <div :id="`finding-${index}`" class="finding-item" :class="{ highlight, disposed: Boolean(feedback) }">
     <div class="finding-header">
-      <el-tooltip :disabled="patchable" :content="patchBlockReason" placement="top">
+      <el-tooltip v-if="showPatch" :disabled="patchable" :content="patchBlockReason" placement="top">
         <el-checkbox
           class="finding-patch-checkbox"
           :model-value="selected"
@@ -16,7 +16,7 @@
       <span class="finding-path" v-if="finding.path">
         {{ finding.path }}{{ finding.line ? `:${finding.line}` : '' }}
       </span>
-      <el-tag v-if="!patchable" size="small" type="info">
+      <el-tag v-if="showPatch && !patchable" size="small" type="info">
         {{ patchBlockReason }}
       </el-tag>
       <el-dropdown trigger="click" @command="(command: string) => emit('feedback', command)">
@@ -70,6 +70,8 @@ const props = defineProps<{
   feedback?: FindingFeedback
   historicalFp: boolean
   highlight: boolean
+  // showPatch 是否展示 Patch 勾选与不可生成占位（argus 等无建议代码的模式置 false）
+  showPatch?: boolean
 }>()
 
 const emit = defineEmits<{
