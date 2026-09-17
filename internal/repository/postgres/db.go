@@ -48,6 +48,8 @@ func InitDB(cfg *config.DatabaseConfig) (*gormDB.DB, error) {
 			&models.APIToken{},
 			&models.AuditLog{},
 			&models.LLMModelPricing{},
+			&models.ArgusReview{},
+			&models.ArgusFinding{},
 		); err != nil {
 			return nil, fmt.Errorf("auto migrate: %w", err)
 		}
@@ -61,6 +63,19 @@ func InitDB(cfg *config.DatabaseConfig) (*gormDB.DB, error) {
 			WHERE status IN ('queued', 'running')
 			AND COALESCE(NULLIF(pull_request_id, ''), NULLIF(merge_request_iid, ''), request->>'pull_request_id', request->>'merge_request_iid') != ''`).Error; err != nil {
 			logx.Warnf("failed to create active review partial index (可能存在历史重复 active review，需人工清理): %v", err)
+		}
+
+		// Argus 承接：(review, fp) 唯一只约束非空 fp——空 fp 的旧行允许多条共存，
+		// 否则一次上报多条无指纹意见会在第二条撞唯一约束、整组入库失败。
+		// 先 DROP 再 CREATE：早期版本的 GORM 模型用 uniqueIndex tag 建过全量唯一
+		// 索引（同名），IF NOT EXISTS 会跳过、让坏索引在存量部署上存活——全量
+		// 索引不可能存在重复行，先删后建（放宽为部分索引）总是安全的。
+		if err := db.Exec(`DROP INDEX IF EXISTS idx_argus_finding_review_fp`).Error; err != nil {
+			logx.Warnf("failed to drop legacy argus finding fingerprint index: %v", err)
+		}
+		if err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_argus_finding_review_fp
+			ON argus_findings (review_id, fp) WHERE fp <> ''`).Error; err != nil {
+			logx.Warnf("failed to create argus finding fingerprint index: %v", err)
 		}
 	} else {
 		logx.Infof("database auto-migration disabled")

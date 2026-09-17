@@ -6,6 +6,7 @@
 *.dylib
 review-service
 code-review-service
+mcp-server
 # Platform-specific Go build artifacts
 *-linux-amd64
 *-linux-arm64
@@ -58,3 +59,6 @@ data/*.json
 .zcode/
 .harness/
 .mimosa/
+
+# ZCode/本地工具状态
+.v2c/

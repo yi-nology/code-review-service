@@ -35,6 +35,9 @@ const totalDuration = computed(() =>
 )
 
 const stageConfig: Record<string, { icon: string; label: string; color: string }> = {
+  queued:       { icon: '·', label: '任务入队', color: '#94a3b8' },
+  dispatch:     { icon: '↗', label: '派发引擎', color: '#0d9488' },
+  argus_report: { icon: '◉', label: 'Argus 回报', color: '#0d9488' },
   repository:  { icon: '1', label: '仓库准备', color: '#6366f1' },
   scope:       { icon: '2', label: '文件过滤', color: '#8b5cf6' },
   policy:      { icon: '3', label: '项目策略', color: '#f59e0b' },
@@ -51,7 +54,7 @@ const stageConfig: Record<string, { icon: string; label: string; color: string }
 }
 
 function cfg(stage: string) {
-  return stageConfig[stage] || { icon: '▶️', label: stage, color: '#94a3b8' }
+  return stageConfig[stage] || { icon: '?', label: stage, color: '#94a3b8' }
 }
 
 function fmtDuration(ms: number): string {
@@ -119,7 +122,25 @@ function outputSummary(step: Event): string {
   if (o.changed_files != null) parts.push(`${o.changed_files} 个变更文件`)
   if (o.excluded_files) parts.push(`${o.excluded_files} 个排除`)
 
+  // argus 步骤（dispatch / argus_report）
+  if (o.verdict) parts.push(`裁决: ${verdictLabel(o.verdict)}`)
+  if (o.findings_total != null) parts.push(`${o.findings_total} 个发现`)
+  if (o.taskId) parts.push(`任务 ${o.taskId}`)
+  if (o.duplicated) parts.push('重复任务命中幂等')
+
   return parts.join(' · ') || step.message || ''
+}
+
+const VERDICT_LABELS: Record<string, string> = {
+  approve: '通过',
+  comment: '评论',
+  request_changes: '要求修改',
+  error: '失败',
+  pending: '等待中',
+}
+
+function verdictLabel(v: string) {
+  return VERDICT_LABELS[v] || v
 }
 </script>
 

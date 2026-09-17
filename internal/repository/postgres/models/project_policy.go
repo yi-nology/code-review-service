@@ -6,10 +6,13 @@ import (
 )
 
 type ProjectPolicy struct {
-	gorm.Model         `json:"-"`
-	Provider           string         `gorm:"type:text;not null;uniqueIndex:idx_provider_repo" json:"provider"`
-	Repo               string         `gorm:"type:text;not null;uniqueIndex:idx_provider_repo" json:"repo"`
-	FailOn             string         `gorm:"type:text;not null;default:'critical'" json:"fail_on"`
+	gorm.Model `json:"-"`
+	Provider   string `gorm:"type:text;not null;uniqueIndex:idx_provider_repo" json:"provider"`
+	Repo       string `gorm:"type:text;not null;uniqueIndex:idx_provider_repo" json:"repo"`
+	FailOn     string `gorm:"type:text;not null;default:'critical'" json:"fail_on"`
+	// ReviewEngine 该项目的默认审查引擎：''（默认 OCR）| 'ocr' | 'argus'。
+	// webhook 创建评审时按此路由；请求显式指定 engine 时优先于本字段。
+	ReviewEngine       string         `gorm:"type:text;not null;default:''" json:"review_engine,omitempty"`
 	IgnorePaths        datatypes.JSON `gorm:"type:jsonb" json:"ignore_paths"`
 	Rules              datatypes.JSON `gorm:"type:jsonb" json:"rules"`
 	OCREnabled         *bool          `gorm:"type:boolean" json:"ocr_enabled,omitempty"`

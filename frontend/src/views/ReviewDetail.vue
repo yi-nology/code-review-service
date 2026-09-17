@@ -5,17 +5,28 @@
         <el-button class="back-button" circle plain aria-label="返回审查列表" @click="router.push('/reviews')">
           <el-icon><ArrowLeft /></el-icon>
         </el-button>
-        <PageHeader
-          eyebrow="REVIEW REPORT"
-          :title="detail?.repo || '审查详情'"
-          :description="detail ? `${getProviderLabel(detail.provider)} · ${detail.review_id}` : undefined"
+        <ReviewModeHero
+          v-if="detail"
+          :mode="reviewMode"
+          :repo="detail.repo"
+          :provider="detail.provider"
+          :review-id="detail.review_id"
+          :pull-request-id="detail.pull_request_id"
+          :merge-request-iid="detail.merge_request_iid"
+          :head-sha="detail.head_sha"
+          :base-sha="detail.base_sha"
+          :author="detail.author"
+          :author-name="detail.author_name"
+          :author-avatar="detail.author_avatar"
+          :argus-task-id="argusOutcome.argusTaskId"
         >
           <template #actions>
             <el-button class="debug-toggle-btn" :type="debugMode ? 'warning' : 'default'" plain size="small" @click="toggleDebugMode">
               {{ debugMode ? 'Debug ON' : 'Debug' }}
             </el-button>
           </template>
-        </PageHeader>
+        </ReviewModeHero>
+        <PageHeader v-else eyebrow="REVIEW REPORT" title="审查详情" />
 
       <template v-if="detail">
         <!-- 失败告警 -->
@@ -29,18 +40,19 @@
           :closable="false"
         />
 
-        <!-- 实时进度追踪器 -->
+        <!-- 实时进度追踪器（按模式切换阶段定义） -->
         <ProgressTracker
           v-if="showProgressTracker"
           :review-id="detail.review_id"
           :review-status="detail.status"
           :sessions="sessions"
           :history="detail.history"
+          :mode="reviewMode"
         />
 
         <!-- 左右双栏布局 -->
         <div class="review-layout">
-          <!-- 左栏：门禁 + 评分 + 严重度 + 元信息 + 操作（sticky） -->
+          <!-- 左栏：模式化摘要卡（门禁/评分/裁决/范围） + 元信息 + 操作（sticky） -->
           <div class="review-sidebar-wrapper">
             <ReviewSummarySidebar
               :detail="detail"
@@ -64,6 +76,7 @@
             ref="contentRef"
             :detail="detail"
             :debug-mode="debugMode"
+            :mode="reviewMode"
             @toggle-debug="toggleDebugMode"
           />
         </div>
@@ -85,14 +98,15 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import PageShell from '@/components/common/PageShell.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import ProgressTracker from '@/components/ProgressTracker.vue'
+import ReviewModeHero from '@/components/review-detail/ReviewModeHero.vue'
 import ReviewSummarySidebar from '@/components/review-detail/ReviewSummarySidebar.vue'
 import ReviewContentArea from '@/components/review-detail/ReviewContentArea.vue'
 import ReviewHistoryCard from '@/components/review-detail/ReviewHistoryCard.vue'
 import ReviewSessionsCard from '@/components/review-detail/ReviewSessionsCard.vue'
 import { getReview, cancelReview, rerunReview, requeueReview } from '@/api/review'
 import { sessionApi, type ReviewSession } from '@/api/session'
-import { getProviderLabel } from '@/utils/url-parser'
 import type { ReviewDetail as ReviewDetailType } from '@/types/review'
+import { resolveReviewMode, extractArgusOutcome } from '@/constants/reviewMode'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 
@@ -109,6 +123,12 @@ let fetchInFlight = false
 const showProgressTracker = computed(() => Boolean(detail.value && (
   ['queued', 'running', 'failed'].includes(detail.value.status)
 )))
+
+// 审查模式：ocr 多智能体 / argus 外部引擎 / scan 全库扫描
+const reviewMode = computed(() => resolveReviewMode(detail.value))
+const argusOutcome = computed(() =>
+  detail.value ? extractArgusOutcome(detail.value) : { verdict: 'pending' as const },
+)
 
 const debugMode = ref(localStorage.getItem('review-debug-mode') === 'true')
 

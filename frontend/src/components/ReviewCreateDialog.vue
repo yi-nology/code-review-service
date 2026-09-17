@@ -6,6 +6,7 @@
     class="review-create-dialog"
     @close="resetForm"
   >
+    <div class="create-root" @keydown="onRootKeydown">
     <div class="mode-switch">
       <button
         v-for="mode in modeCards"
@@ -25,19 +26,24 @@
       :url-input="urlInput"
       :parsed-url="parsedUrl"
       :parsed-compare-url="parsedCompareUrl"
+      :submit-disabled="!canSubmit || creating"
       @update:url-input="urlInput = $event"
       @url-input="onUrlInput"
       @url-paste="onUrlPaste"
       @apply-url="applyParsedUrl('pr')"
       @apply-compare-url="applyParsedCompareUrl('branch')"
+      @submit="handleSubmit"
     >
       <submit-options
+        v-model:engine="engine"
         v-model:mode="submitMode"
         v-model:advanced="showAdvanced"
         v-model:idempotency-key="createForm.idempotency_key"
         v-model:callback-mode="createForm.callback_mode"
         v-model:requirements="requirements"
         v-model:ephemeral-reviewers="ephemeralReviewers"
+        :argus-blocked="argusModeBlocked"
+        :argus-block-reason="argusBlockReason"
         @add-reviewer="ephemeralReviewers.push({ name: '', background: '' })"
         @remove-reviewer="(i: number) => ephemeralReviewers.splice(i, 1)"
       />
@@ -62,12 +68,15 @@
       @select-pr="onPRChange"
     >
       <submit-options
+        v-model:engine="engine"
         v-model:mode="submitMode"
         v-model:advanced="showAdvanced"
         v-model:idempotency-key="createForm.idempotency_key"
         v-model:callback-mode="createForm.callback_mode"
         v-model:requirements="requirements"
         v-model:ephemeral-reviewers="ephemeralReviewers"
+        :argus-blocked="argusModeBlocked"
+        :argus-block-reason="argusBlockReason"
         @add-reviewer="ephemeralReviewers.push({ name: '', background: '' })"
         @remove-reviewer="(i: number) => ephemeralReviewers.splice(i, 1)"
       />
@@ -91,16 +100,20 @@
       @swap-branches="swapBranches"
     >
       <submit-options
+        v-model:engine="engine"
         v-model:mode="submitMode"
         v-model:advanced="showAdvanced"
         v-model:idempotency-key="createForm.idempotency_key"
         v-model:callback-mode="createForm.callback_mode"
         v-model:requirements="requirements"
         v-model:ephemeral-reviewers="ephemeralReviewers"
+        :argus-blocked="argusModeBlocked"
+        :argus-block-reason="argusBlockReason"
         @add-reviewer="ephemeralReviewers.push({ name: '', background: '' })"
         @remove-reviewer="(i: number) => ephemeralReviewers.splice(i, 1)"
       />
     </ReviewBranchSelector>
+    </div>
 
     <template #footer>
       <div class="dialog-footer">
@@ -109,12 +122,14 @@
             <el-icon><View /></el-icon>
             预览变更
           </el-button>
-          <span class="submit-hint">{{ submitHint }}</span>
+          <span class="submit-hint">
+            {{ submitHint }}<template v-if="canSubmit && !creating">（⌘/Ctrl + Enter 快捷提交）</template>
+          </span>
         </div>
         <div>
           <el-button @click="visible = false">取消</el-button>
           <el-button type="primary" @click="handleSubmit" :loading="creating" :disabled="!canSubmit">
-            {{ submitMode === 'sync' ? '提交并等待' : '提交审查' }}
+            {{ submitButtonLabel }}
           </el-button>
         </div>
       </div>
@@ -189,6 +204,8 @@ const modeCards = [
 
 const creating = ref(false)
 const inputMode = ref<InputMode>('url')
+// 审查引擎：'' = 跟随项目策略（不发送，后端解析）；'ocr' | 'argus' = 显式指定。
+const engine = ref<'' | 'ocr' | 'argus'>('')
 const urlInput = ref('')
 const parsedUrl = ref<{ provider: string; repo: string; number: number } | null>(null)
 const parsedCompareUrl = ref<{ provider: string; repo: string; base_branch: string; head_branch: string } | null>(null)
@@ -251,6 +268,7 @@ const branchSummary = computed(() => {
 
 const canSubmit = computed(() => {
   if (!createForm.provider) return false
+  if (argusUnsupported.value) return false
   if (inputMode.value === 'url') return !!parsedUrl.value || !!parsedCompareUrl.value
   if (inputMode.value === 'pr') return !!createForm.repo && selectedPR.value !== null
   if (inputMode.value === 'branch') {
@@ -262,7 +280,34 @@ const canSubmit = computed(() => {
   return false
 })
 
+// 当前模式是否带 PR 号：分支对比 / compare 链接没有 PR 号，不支持 Argus。
+// 注意与「当前已选引擎」解耦——回落到其他引擎后卡片仍要保持禁用。
+const argusModeBlocked = computed(() => {
+  if (inputMode.value === 'branch') return true
+  return inputMode.value === 'url' && !parsedUrl.value && !!parsedCompareUrl.value
+})
+
+// Argus 引擎按 PR 维度审查：选中 Argus 且模式不支持时，禁止提交并提示。
+const argusUnsupported = computed(() => engine.value === 'argus' && argusModeBlocked.value)
+
+// Argus 卡片禁用提示：分支对比 / compare 链接没有 PR 号。
+const argusBlockReason = '分支对比没有 PR 号，暂不支持 Argus'
+
+const submitButtonLabel = computed(() => {
+  if (engine.value === 'argus') return '派发 Argus 审查'
+  return submitMode.value === 'sync' ? '提交并等待' : '提交审查'
+})
+
+// ⌘/Ctrl + Enter 快捷提交
+function onRootKeydown(e: KeyboardEvent) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && canSubmit.value && !creating.value) {
+    e.preventDefault()
+    handleSubmit()
+  }
+}
+
 const submitHint = computed(() => {
+  if (argusUnsupported.value) return 'Argus 引擎仅支持 PR/MR 审查，请选择 PR 链接或 PR 选择模式'
   if (inputMode.value === 'url') {
     if (parsedUrl.value) return `${parsedUrl.value.repo} #${parsedUrl.value.number}`
     if (parsedCompareUrl.value) return `${parsedCompareUrl.value.head_branch} → ${parsedCompareUrl.value.base_branch}`
@@ -286,8 +331,11 @@ function switchMode(mode: InputMode) {
 }
 
 function onUrlInput() {
-  parsedUrl.value = parseMRUrl(urlInput.value)
-  parsedCompareUrl.value = parsedUrl.value ? null : parseCompareUrl(urlInput.value)
+  // 把已配置平台的 base_url 传给解析器：自定义域名（如自建 Gitea）按平台归属判定 provider，
+  // 而不是被 github 通配路径误吃。
+  const endpoints = availablePlatforms.value.map((p) => ({ provider: p.provider, baseUrl: p.base_url }))
+  parsedUrl.value = parseMRUrl(urlInput.value, endpoints)
+  parsedCompareUrl.value = parsedUrl.value ? null : parseCompareUrl(urlInput.value, endpoints)
   if (parsedUrl.value) syncParsedUrlToForm()
   if (parsedCompareUrl.value) syncParsedCompareUrlToForm()
 }
@@ -500,6 +548,8 @@ function resetForm() {
   parsedUrl.value = null
   parsedCompareUrl.value = null
   submitMode.value = 'async'
+  // 引擎保留上次选择（localStorage），不做重置
+  engine.value = (localStorage.getItem(ENGINE_PREF_KEY) as '' | 'ocr' | 'argus') || ''
   showAdvanced.value = []
   createForm.provider = availablePlatforms.value[0]?.provider || 'github'
   createForm.repo = ''
@@ -534,8 +584,10 @@ async function handleSubmit() {
       provider: createForm.provider,
       repo: createForm.repo,
       callback_mode: createForm.callback_mode,
-      wait: submitMode.value === 'sync',
+      // '' = 跟随项目策略（后端按 review_engine 解析）；argus 无同步等待语义。
+      wait: engine.value === 'argus' ? false : submitMode.value === 'sync',
     }
+    if (engine.value === 'argus' || engine.value === 'ocr') payload.engine = engine.value
 
     const reviewNumber = inputMode.value === 'url' ? parsedUrl.value?.number : selectedPR.value
     if ((inputMode.value === 'url' || inputMode.value === 'pr') && reviewNumber) {
@@ -580,9 +632,11 @@ async function handleSubmit() {
 
     const result = await createReview(payload as any)
 
-    if (submitMode.value === 'sync' && result?.review_id) {
+    if (submitMode.value === 'sync' && engine.value !== 'argus' && result?.review_id) {
       ElMessage.success('审查完成，跳转详情...')
       emit('goto', result.review_id)
+    } else if (engine.value === 'argus') {
+      ElMessage.success('已派发 Argus 审查，完成后在审查记录与 Argus 审查页查看结果')
     } else {
       ElMessage.success('审查任务已创建')
     }
@@ -598,6 +652,23 @@ async function handleSubmit() {
 function shortSha(sha?: string): string {
   return sha ? sha.slice(0, 8) : '-'
 }
+
+// 记住上次使用的引擎，下次打开弹窗不再重新选择。
+const ENGINE_PREF_KEY = 'review-create-engine'
+
+watch(engine, (v) => {
+  localStorage.setItem(ENGINE_PREF_KEY, v)
+  // argus 为异步回报引擎，切回 argus 时撤销同步等待选择。
+  if (v === 'argus') submitMode.value = 'async'
+})
+
+// 当前模式不支持 Argus（切到分支对比 / 粘贴了 compare 链接）时自动回落到跟随项目策略。
+watch(argusModeBlocked, (blocked) => {
+  if (blocked && engine.value === 'argus') {
+    engine.value = ''
+    ElMessage.info('分支对比模式暂不支持 Argus，已切换为跟随项目策略')
+  }
+})
 
 watch(visible, async (v) => {
   if (v) {

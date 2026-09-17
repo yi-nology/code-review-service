@@ -24,6 +24,7 @@ type RepoContainer struct {
 	FindingFeedback  FindingFeedbackRepository
 	Notification     NotificationRepository
 	Auth             AuthRepository
+	ArgusReview      ArgusReviewRepository
 }
 
 func NewRepoContainer(db *gormDB.DB) *RepoContainer {
@@ -45,5 +46,6 @@ func NewRepoContainer(db *gormDB.DB) *RepoContainer {
 		FindingFeedback:  postgres.NewFindingFeedbackRepo(db),
 		Notification:     postgres.NewNotificationRepo(db),
 		Auth:             postgres.NewAuthRepo(db),
+		ArgusReview:      postgres.NewArgusReviewRepo(db),
 	}
 }

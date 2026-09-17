@@ -63,6 +63,8 @@ export interface ProjectPolicy {
   provider: string
   repo: string
   fail_on: string
+  /** 该项目默认审查引擎：''（OCR）| 'ocr' | 'argus'（外部 Bot，webhook 自动路由） */
+  review_engine?: 'ocr' | 'argus' | ''
   ignore_paths: string[]
   rules?: ReviewRule[]
   rule_package_ids?: number[]

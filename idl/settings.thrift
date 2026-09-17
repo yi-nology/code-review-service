@@ -229,6 +229,8 @@ struct ProjectPolicy {
     27: optional string ocr_protocol (api.body="ocr_protocol")
     // 项目级 --background-file 路径覆盖（OCR v1.7.6+）；留空=回退到全局。
     28: optional string ocr_background_file (api.body="ocr_background_file")
+    // review_engine 该项目的默认审查引擎：''（OCR）| 'ocr' | 'argus'（外部 Bot）。
+    29: optional string review_engine (api.body="review_engine")
 }
 
 struct ListProjectPoliciesResp {

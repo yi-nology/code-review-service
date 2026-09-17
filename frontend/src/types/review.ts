@@ -42,6 +42,8 @@ export interface ReviewDetail {
   author_name?: string
   author_avatar?: string
   retry_count?: number
+  /** 生效审查引擎：'ocr' | 'argus'（历史记录可能为空 = ocr） */
+  engine?: string
   created_at: string
   updated_at: string
 }
@@ -265,6 +267,8 @@ export interface CreateReviewOptions {
   wait?: boolean
   requirements?: string[]
   ephemeral_reviewers?: EphemeralReviewer[]
+  /** 审查引擎：'ocr'（默认）| 'argus'（外部 Bot，仅 PR 维度、异步回报） */
+  engine?: 'ocr' | 'argus'
 }
 
 export interface ScanRepositoryOptions {

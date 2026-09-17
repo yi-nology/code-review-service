@@ -140,3 +140,40 @@ func _handlewebhookMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
+
+// ---- Argus 承接（镜像 idl/api.thrift 注解；鉴权由全局 auth middleware 强制）----
+
+func _argusMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _listargusreviewsMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getargusreviewMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _ingestargusreviewMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _suppressargusfindingMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _reviews1Mw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _reviews2Mw() []app.HandlerFunc {
+	// your code...
+	return nil
+}

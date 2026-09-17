@@ -26,6 +26,16 @@ const router = createRouter({
       component: () => import('@/views/Reviews.vue'),
     },
     {
+      path: '/argus',
+      name: 'ArgusReviews',
+      component: () => import('@/views/ArgusReviews.vue'),
+    },
+    {
+      path: '/argus/:id',
+      name: 'ArgusReviewDetail',
+      component: () => import('@/views/ArgusReviewDetail.vue'),
+    },
+    {
       path: '/scan',
       name: 'RepositoryScan',
       component: () => import('@/views/RepositoryScan.vue'),

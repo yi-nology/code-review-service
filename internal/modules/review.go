@@ -3,6 +3,7 @@ package modules
 import (
 	"context"
 
+	"github.com/yi-nology/code-review-service/internal/argusclient"
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/eino"
 	"github.com/yi-nology/code-review-service/internal/ocr"
@@ -130,9 +131,14 @@ type ReviewServiceDeps struct {
 	ProgressManager *progress.ProgressManager
 	PolicyEngine    *policy.Engine
 	ExecutorSvc     *eino.Executor
+	ArgusClient     *argusclient.Client
 }
 
 func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
+	// 引擎分流：engine=ocr（默认）走原 OCR 执行器（一行不改）；
+	// engine=argus 走 ArgusExecutor（触发外部任务，push 回报收敛终态）。
+	// argus 未配置时创建期即拒绝 engine=argus（ArgusEnabled=false）。
+	argusExecutor := svcReview.NewArgusExecutor(deps.ArgusClient, deps.Repos.Review)
 	return svcReview.NewService(svcReview.ServiceConfig{
 		ReviewRepo:      deps.Repos.Review,
 		OCRSettingsRepo: deps.Repos.OCRSettings,
@@ -149,7 +155,8 @@ func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 		ScanRunner:      deps.OcrRunner,
 		Delegator:       deps.OcrRunner, // *ocr.Runner 同时实现 domain.Delegator（OCR v1.7.11+）
 		ProgressManager: deps.ProgressManager,
-		Executor:        deps.ExecutorSvc,
+		Executor:        svcReview.NewEngineExecutor(deps.ExecutorSvc, argusExecutor),
 		Concurrency:     deps.Config.Review.WorkerConcurrency,
+		ArgusEnabled:    deps.ArgusClient.Enabled(),
 	})
 }

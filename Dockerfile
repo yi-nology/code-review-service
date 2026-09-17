@@ -29,7 +29,7 @@ RUN apk add --no-cache nodejs npm \
     && npm install -g npx
 
 # OCR binary
-ARG OCR_VERSION=v1.11.5
+ARG OCR_VERSION=v1.12.1
 RUN wget -qO /usr/local/bin/ocr \
     "https://github.com/alibaba/open-code-review/releases/download/${OCR_VERSION}/opencodereview-linux-amd64" \
     && chmod +x /usr/local/bin/ocr

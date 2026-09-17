@@ -11,6 +11,9 @@ struct CreateReviewReq {
     10: optional list<string> requirements (api.body="requirements")
     11: optional list<EphemeralReviewerInput> ephemeral_reviewers (api.body="ephemeral_reviewers")
     12: optional string commit_sha (api.body="commit_sha")
+    // engine 审查引擎：'ocr'（默认，多智能体）| 'argus'（外部 Argus Bot，异步回报）。
+    // 留空按项目策略 review_engine 解析，仍空则 ocr。
+    13: optional string engine (api.body="engine")
 }
 
 struct EphemeralReviewerInput {
@@ -30,6 +33,10 @@ struct Event {
     3: string message (api.body="message")
     4: optional map<string, string> details (api.body="details")
     5: optional string created_at (api.body="created_at")
+    6: optional string how (api.body="how")
+    7: optional string input (api.body="input")
+    8: optional string output (api.body="output")
+    9: optional i64 duration_ms (api.body="duration_ms")
 }
 
 struct SeverityCounts {
@@ -165,6 +172,8 @@ struct ReviewDetail {
     23: optional string author_avatar (api.body="author_avatar")
     24: optional OCRInput raw_ocr_input (api.body="raw_ocr_input")
     25: optional i64 retry_count (api.body="retry_count")
+    // engine 生效审查引擎：'ocr' | 'argus'（解析后随记录返回）。
+    26: optional string engine (api.body="engine")
 }
 
 struct OCRInputWorkspace {
@@ -293,4 +302,99 @@ struct SuggestionPatchCheck {
 struct CheckSuggestionPatchReq {
     1: string id (api.path="id")
     2: optional string finding_indexes (api.query="finding_indexes")
+}
+
+// ---------- Argus 承接（push 上报 + 反馈回流） ----------
+// 契约：argus 审查完成后 POST /argus/reviews 落库（幂等键 platform+owner+repo+
+// number+head_sha，重审覆盖；意见整组替换、(review,fp) 唯一兜底）。
+// 前端「Argus 审查」页读列表/详情；误报抑制由服务端代理调 argus（凭证不出服务端）。
+
+struct ArgusFindingItem {
+    1: optional string fp (api.body="fp")
+    2: string file (api.body="file")
+    3: i32 line (api.body="line")
+    4: string severity (api.body="severity")
+    5: string comment (api.body="comment")
+    6: optional string suggested_fix (api.body="suggested_fix")
+    7: optional string by (api.body="by")
+    8: optional string suppress_state (api.body="suppress_state")
+}
+
+struct ArgusIngestReq {
+    1: optional string argus_task_id (api.body="argus_task_id")
+    2: string platform (api.body="platform")
+    3: string owner (api.body="owner")
+    4: string repo (api.body="repo")
+    5: string number (api.body="number")
+    6: optional string title (api.body="title")
+    7: string head_sha (api.body="head_sha")
+    8: optional string base_branch (api.body="base_branch")
+    9: string verdict (api.body="verdict")
+    10: optional list<ArgusFindingItem> findings (api.body="findings")
+    11: optional list<string> plugins (api.body="plugins")
+    12: optional i64 duration_ms (api.body="duration_ms")
+    13: optional i32 token_usage (api.body="token_usage")
+    14: optional string occurred_at (api.body="occurred_at")
+    // error_message 仅 verdict=error 时有意义（argus 侧审查失败原因）。
+    15: optional string error_message (api.body="error_message")
+}
+
+struct ArgusReviewItem {
+    1: i64 id (api.body="id")
+    2: string argus_task_id (api.body="argus_task_id")
+    3: string platform (api.body="platform")
+    4: string owner (api.body="owner")
+    5: string repo (api.body="repo")
+    6: string number (api.body="number")
+    7: string title (api.body="title")
+    8: string head_sha (api.body="head_sha")
+    9: optional string base_branch (api.body="base_branch")
+    10: string verdict (api.body="verdict")
+    11: i32 findings_total (api.body="findings_total")
+    12: i32 findings_high (api.body="findings_high")
+    13: i32 findings_medium (api.body="findings_medium")
+    14: i32 findings_low (api.body="findings_low")
+    15: optional list<string> plugins (api.body="plugins")
+    16: optional i64 duration_ms (api.body="duration_ms")
+    17: optional i32 token_usage (api.body="token_usage")
+    18: string occurred_at (api.body="occurred_at")
+    19: optional list<ArgusFindingItem> findings (api.body="findings")
+    20: optional string error_message (api.body="error_message")
+}
+
+struct ArgusIngestResp {
+    1: i64 id (api.body="id")
+    2: string status (api.body="status")
+}
+
+struct ArgusListReviewsReq {
+    1: optional string repo (api.query="repo")
+    2: optional string severity (api.query="severity")
+    3: optional string since (api.query="since")
+    4: optional i64 page (api.query="page")
+    5: optional i64 page_size (api.query="page_size")
+    6: optional string platform (api.query="platform")
+}
+
+struct ArgusListReviewsResp {
+    1: list<ArgusReviewItem> items (api.body="items")
+    2: i64 total (api.body="total")
+}
+
+struct ArgusGetReviewReq {
+    1: string id (api.path="id")
+}
+
+struct ArgusGetReviewResp {
+    1: ArgusReviewItem review (api.body="review")
+}
+
+struct ArgusSuppressReq {
+    1: string fp (api.body="fp")
+}
+
+struct ArgusSuppressResp {
+    1: bool matched (api.body="matched")
+    2: optional string state (api.body="state")
+    3: optional string message (api.body="message")
 }

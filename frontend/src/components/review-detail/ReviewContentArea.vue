@@ -1,9 +1,10 @@
 <script setup lang="ts">
 /**
  * ReviewContentArea — 评审详情右栏（正常滚动）。
- * 包含：摘要文本、Findings 列表、分析概览、OCR 执行信息（可折叠）、发布面板、调试面板。
+ * 包含：裁决/摘要文本、Findings 列表、分析概览、OCR 执行信息（可折叠）、发布面板、调试面板。
+ * 按 mode 适配：argus 模式摘要卡带裁决色条、隐藏 OCR 执行信息；空状态文案随模式变化。
  */
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { ReviewDetail } from '@/types/review'
 import ReviewFindingsPanel from './ReviewFindingsPanel.vue'
 import ReviewOcrCard from './ReviewOcrCard.vue'
@@ -13,11 +14,33 @@ import ReviewAuditTrail from './ReviewAuditTrail.vue'
 import PublishPanel from '@/components/PublishPanel.vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { downloadSuggestionPatch } from '@/api/review'
+import {
+  extractArgusOutcome, ARGUS_VERDICT_META,
+  type ReviewMode, type ArgusVerdict,
+} from '@/constants/reviewMode'
 
 const props = defineProps<{
   detail: ReviewDetail
   debugMode: boolean
+  mode?: ReviewMode
 }>()
+
+const mode = computed(() => props.mode || 'ocr')
+
+// argus 模式：裁决色条（等待回报时不着色）
+const argusAccent = computed(() => {
+  if (mode.value !== 'argus') return null
+  const outcome = extractArgusOutcome(props.detail)
+  if (outcome.verdict === 'pending') return null
+  const meta = ARGUS_VERDICT_META[outcome.verdict as ArgusVerdict]
+  return { ...meta, verdict: outcome.verdict as ArgusVerdict }
+})
+
+const emptyFindingsText = computed(() => {
+  if (mode.value === 'argus') return argusAccent.value ? 'Argus 裁决完成，未回报具体代码发现' : 'Argus 审查进行中，回报后展示发现'
+  if (mode.value === 'scan') return '全库扫描完成，未发现问题'
+  return '本次审查未发现问题'
+})
 
 // 简易 Markdown 渲染（加粗、换行、代码块）
 function renderMarkdown(md: string): string {
@@ -64,8 +87,17 @@ defineExpose({ resetPatchState, focusFinding })
 
 <template>
   <div class="review-content">
-    <!-- 摘要（Markdown 渲染） -->
-    <div v-if="detail.summary" class="review-summary-card">
+    <!-- 摘要（argus 模式带裁决色条） -->
+    <div
+      v-if="detail.summary"
+      class="review-summary-card"
+      :class="{ 'has-verdict': argusAccent }"
+      :style="argusAccent ? { '--verdict-color': argusAccent.color, '--verdict-soft': argusAccent.soft, '--verdict-border': argusAccent.border } : undefined"
+    >
+      <div v-if="argusAccent" class="verdict-strip">
+        <span class="verdict-dot" :style="{ background: argusAccent.color }"></span>
+        <strong :style="{ color: argusAccent.color }">Argus 裁决：{{ argusAccent.label }}</strong>
+      </div>
       <div class="summary-content" v-html="renderMarkdown(detail.summary)"></div>
     </div>
 
@@ -84,7 +116,7 @@ defineExpose({ resetPatchState, focusFinding })
       @download-patch="handleDownloadPatch"
     />
 
-    <el-empty v-else description="本次审查未发现问题" :image-size="100" />
+    <el-empty v-else :description="emptyFindingsText" :image-size="100" />
 
     <!-- 分析概览 -->
     <el-card v-if="detail.analysis?.overview || detail.analysis?.root_cause?.length || detail.analysis?.risks?.length || detail.analysis?.recommendations?.length" class="analysis-card">
@@ -106,12 +138,12 @@ defineExpose({ resetPatchState, focusFinding })
       </div>
     </el-card>
 
-    <!-- OCR 执行信息（可折叠，默认收起降低噪音） -->
-    <el-card v-if="detail.report?.ocr" class="ocr-collapse-card">
+    <!-- OCR 执行信息（可折叠，默认收起降低噪音；argus 无本地执行数据，隐藏） -->
+    <el-card v-if="mode !== 'argus' && detail.report?.ocr" class="ocr-collapse-card">
       <el-collapse v-model="ocrExpanded">
         <el-collapse-item name="ocr">
           <template #title>
-            <span class="collapse-title">OCR 执行信息</span>
+            <span class="collapse-title">{{ mode === 'scan' ? '扫描执行信息' : 'OCR 执行信息' }}</span>
             <el-tag v-if="detail.report.ocr.total_tokens" size="small" type="info" class="collapse-tag">
               {{ detail.report.ocr.total_tokens.toLocaleString() }} tokens
             </el-tag>
@@ -152,6 +184,29 @@ defineExpose({ resetPatchState, focusFinding })
   font-size: 14px;
   line-height: 1.8;
   color: #334155;
+}
+.review-summary-card.has-verdict {
+  border-color: var(--verdict-border);
+  background: linear-gradient(135deg, var(--verdict-soft) 0%, #fff 45%);
+  padding-top: 0;
+}
+.verdict-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 -24px;
+  padding: 10px 24px;
+  border-bottom: 1px dashed var(--verdict-border);
+  font-size: 14px;
+}
+.verdict-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--verdict-color) 18%, transparent);
+}
+.review-summary-card.has-verdict .summary-content {
+  padding-top: 14px;
 }
 .review-summary-card :deep(strong) {
   color: #1e293b;

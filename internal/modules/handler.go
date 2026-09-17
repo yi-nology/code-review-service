@@ -1,6 +1,7 @@
 package modules
 
 import (
+	"github.com/yi-nology/code-review-service/biz/handler/argus_service"
 	"github.com/yi-nology/code-review-service/biz/handler/auth_service"
 	"github.com/yi-nology/code-review-service/biz/handler/cost_service"
 	"github.com/yi-nology/code-review-service/biz/handler/diagnostics_service"
@@ -14,6 +15,8 @@ import (
 	"github.com/yi-nology/code-review-service/biz/handler/session_service"
 	"github.com/yi-nology/code-review-service/biz/handler/settings_service"
 	"github.com/yi-nology/code-review-service/biz/handler/stats_service"
+	"github.com/yi-nology/code-review-service/internal/argusclient"
+	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/cost"
@@ -32,6 +35,7 @@ import (
 
 var HandlerModule = fx.Options(
 	fx.Provide(NewSuggestionService),
+	fx.Provide(NewArgusClient),
 	fx.Invoke(InitReviewHandler),
 	fx.Invoke(InitWebhookHandler),
 	fx.Invoke(InitSettingsHandler),
@@ -42,6 +46,7 @@ var HandlerModule = fx.Options(
 	fx.Invoke(InitProjectAgentHandler),
 	fx.Invoke(InitDiagnosticsHandler),
 	fx.Invoke(InitFeedbackHandler),
+	fx.Invoke(InitArgusHandler),
 	fx.Invoke(InitNotificationHandler),
 	fx.Invoke(InitAuthHandler),
 	fx.Invoke(InitCostHandler),
@@ -100,6 +105,19 @@ func InitDiagnosticsHandler(repos *repository.RepoContainer) {
 
 func InitFeedbackHandler(repos *repository.RepoContainer) {
 	feedback_service.InitHandler(repos.FindingFeedback)
+}
+
+// NewArgusClient argus 出站调用唯一收口（触发审查任务/状态查询/误报抑制代理），
+// base URL 与凭证来自 config.Argus（argus.bot_url / argus.bot_token）。
+// bot_url 为空时 Enabled()=false：argus 引擎与反馈回流整体关闭。
+func NewArgusClient(cfg *config.Config) *argusclient.Client {
+	return argusclient.New(cfg.Argus.BotURL, cfg.Argus.BotToken)
+}
+
+// InitArgusHandler Argus 审查结果承接（push 模型，见 biz/handler/argus_service）；
+// push 落库后经 CompleteFromArgusReport 关联收敛 engine=argus 的 active 评审。
+func InitArgusHandler(repos *repository.RepoContainer, argus *argusclient.Client) {
+	argus_service.InitHandler(repos.ArgusReview, repos.Review, argus)
 }
 
 func InitNotificationHandler(repos *repository.RepoContainer) {

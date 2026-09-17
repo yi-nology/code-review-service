@@ -81,6 +81,9 @@ type ServiceConfig struct {
 	// Concurrency 限制同时进行的 review 数（worker 与 scan 共享）。
 	// <=0 表示不限制。在构造期一次性创建信号量，避免运行期懒初始化导致的数据竞争。
 	Concurrency int
+	// ArgusEnabled 表示 argus 引擎可用（argus.bot_url 已配置）。
+	// false 时 engine=argus 的创建请求 fail-fast 拒绝，而非入队后在 worker 失败。
+	ArgusEnabled bool
 }
 
 type Service struct {
@@ -100,6 +103,7 @@ type Service struct {
 	Delegator       domain.Delegator
 	progressManager *progress.ProgressManager
 	Executor        Executor
+	argusEnabled    bool
 	inFlight        sync.WaitGroup
 	concurrencySem  chan struct{}
 	scanCancels     sync.Map
@@ -127,6 +131,7 @@ func NewService(cfg ServiceConfig) *Service {
 		Delegator:       cfg.Delegator,
 		progressManager: cfg.ProgressManager,
 		Executor:        cfg.Executor,
+		argusEnabled:    cfg.ArgusEnabled,
 	}
 	// 构造期一次性创建并发信号量，消除运行期懒初始化的数据竞争。
 	// nil 表示不限制（Concurrency<=0）。
@@ -178,6 +183,11 @@ func (s *Service) createReview(ctx context.Context, req domain.Request, idempote
 	idempotencyKey = strings.TrimSpace(idempotencyKey)
 	if len(idempotencyKey) > idempotencyKeyMaxLength {
 		return domain.Response{}, errIdempotencyKeyTooLong
+	}
+	// 引擎解析（请求显式 > 项目策略 review_engine > 默认 OCR）在指纹计算前完成：
+	// 生效引擎随 Request 持久化，worker/执行器据此分流。
+	if err := s.resolveEngine(ctx, &req); err != nil {
+		return domain.Response{}, err
 	}
 	fingerprint, err := requestFingerprint(req)
 	if err != nil {
@@ -282,6 +292,27 @@ func (s *Service) findActiveReview(ctx context.Context, req domain.Request) *dom
 	return &resp
 }
 
+// resolveEngine 解析生效审查引擎：请求显式指定 > 项目策略 review_engine > 默认 OCR。
+// 结果写回 req.Engine（随 Request 持久化，worker/执行器据此分流）；
+// engine=argus 但未配置 argus 对接时 fail-fast 拒绝。
+func (s *Service) resolveEngine(ctx context.Context, req *domain.Request) error {
+	req.Engine = strings.ToLower(strings.TrimSpace(req.Engine))
+	if req.Engine == "" && s.projectRepo != nil {
+		if p, err := s.projectRepo.GetByProviderRepo(ctx, req.Provider, req.Repo); err == nil && p != nil {
+			req.Engine = strings.ToLower(strings.TrimSpace(p.ReviewEngine))
+		}
+	}
+	if req.Engine == "" {
+		req.Engine = domain.EngineOCR
+	}
+	if req.Engine == domain.EngineArgus && !s.argusEnabled {
+		return bizerrors.NewBadRequestError("argus 引擎未启用（argus.bot_url 未配置）")
+	}
+	return nil
+}
+
+// requestFingerprint 对请求做幂等指纹。engine 参与指纹：同一 PR 换引擎重审
+// 是不同的请求，不应命中 idempotency-key 冲突。
 func requestFingerprint(req domain.Request) (string, error) {
 	data, err := json.Marshal(req)
 	if err != nil {
@@ -635,6 +666,16 @@ func validate(req domain.Request) error {
 				return bizerrors.NewBadRequestError("merge_request_iid must be a valid number")
 			}
 		}
+	}
+
+	switch strings.TrimSpace(req.Engine) {
+	case "", domain.EngineOCR, domain.EngineArgus:
+	default:
+		return bizerrors.NewBadRequestError("engine 仅支持 ocr、argus")
+	}
+	// argus 引擎按 PR 维度审查，单 commit 模式（--commit）是 OCR 专属能力。
+	if req.Engine == domain.EngineArgus && hasCommit {
+		return bizerrors.NewBadRequestError("engine=argus 不支持 commit_sha 单 commit 模式")
 	}
 
 	return nil

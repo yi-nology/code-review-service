@@ -3,6 +3,7 @@
 package review_service
 
 import (
+	argusHandler "github.com/yi-nology/code-review-service/biz/handler/argus_service"
 	review_service "github.com/yi-nology/code-review-service/biz/handler/review_service"
 	"github.com/cloudwego/hertz/pkg/app/server"
 )
@@ -58,6 +59,19 @@ func Register(r *server.Hertz) {
 				{
 					_provider0 := _webhooks.Group("/:provider", _provider0Mw()...)
 					_provider0.POST("/:installation", append(_handlewebhookMw(), review_service.HandleWebhook)...)
+				}
+			}
+			// Argus 承接（镜像 idl/api.thrift reviewService 四条注解；实现
+			// biz/handler/argus_service，模型 biz/model/review.Argus*）。
+			{
+				_argus := _v1.Group("/argus", _argusMw()...)
+				_argus.GET("/reviews", append(_listargusreviewsMw(), argusHandler.ListArgusReviews)...)
+				_reviews1 := _argus.Group("/reviews", _reviews1Mw()...)
+				_reviews1.GET("/:id", append(_getargusreviewMw(), argusHandler.GetArgusReview)...)
+				_argus.POST("/reviews", append(_ingestargusreviewMw(), argusHandler.IngestHandler)...)
+				{
+					_reviews2 := _reviews1.Group("/:id", _reviews2Mw()...)
+					_reviews2.POST("/findings/suppress", append(_suppressargusfindingMw(), argusHandler.SuppressArgusFinding)...)
 				}
 			}
 		}

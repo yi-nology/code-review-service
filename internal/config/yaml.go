@@ -17,8 +17,18 @@ type Config struct {
 	Agents       AgentsConfig       `yaml:"agents"`
 	RateLimit    RateLimitConfig    `yaml:"rate_limit"`
 	Webhook      WebhookConfig      `yaml:"webhook"`
+	Argus        ArgusConfig        `yaml:"argus"`
 	Notification NotificationConfig `yaml:"notification"`
 	Cost         CostConfig         `yaml:"cost"`
+}
+
+// ArgusConfig Argus（PR 自动审查 Bot）对接：反馈回流（误报抑制代理）需要
+// 服务端直连 argus，凭证不出服务端、不下发浏览器。
+type ArgusConfig struct {
+	// BotURL argus 服务基地址（如 http://argus:8899）；空 = 反馈回流关闭。
+	BotURL string `yaml:"bot_url"`
+	// BotToken argus 的 API token（即 argus 侧 ARGUS_APITOKEN）。
+	BotToken string `yaml:"bot_token"`
 }
 
 // CostConfig 控制 LLM 成本与预算。

@@ -145,6 +145,13 @@
                     <span>{{ option.description }}</span>
                   </button>
                 </div>
+                <div class="section-title compact-title engine-title"><strong>审查引擎</strong></div>
+                <p class="step-hint">本仓库默认使用的审查引擎；单次审查仍可在创建时临时切换。</p>
+                <el-radio-group v-model="form.review_engine">
+                  <el-radio value="">OCR 多智能体（默认）</el-radio>
+                  <el-radio value="ocr">OCR（显式）</el-radio>
+                  <el-radio value="argus">Argus Bot</el-radio>
+                </el-radio-group>
               </section>
 
               <!-- Step 2: 审查范围 -->
@@ -218,6 +225,13 @@
                       <span>{{ option.description }}</span>
                     </button>
                   </div>
+                  <div class="section-title compact-title engine-title"><strong>审查引擎</strong></div>
+                  <el-radio-group v-model="form.review_engine">
+                    <el-radio value="">OCR 多智能体（默认）</el-radio>
+                    <el-radio value="ocr">OCR（显式）</el-radio>
+                    <el-radio value="argus">Argus Bot</el-radio>
+                  </el-radio-group>
+                  <small class="engine-hint">选 Argus 后，本仓库的 webhook 与控制台创建的评审默认派发给外部 Argus Bot；单次创建时仍可临时切换。</small>
                 </section>
 
                 <section class="form-section">
@@ -385,6 +399,7 @@ const form = reactive<ProjectPolicyForm>({
   provider: '',
   repo: '',
   fail_on: 'major',
+  review_engine: '' as any,
   ignore_paths: [] as string[],
   rules: [] as ReviewRule[],
   ocr_enabled: null,
@@ -431,6 +446,7 @@ const payloadPreview = computed<ProjectPolicy>(() => ({
   provider: form.provider.trim(),
   repo: form.repo.trim(),
   fail_on: form.fail_on,
+  review_engine: form.review_engine || '',
   ignore_paths: normalizedIgnorePaths.value,
   rules: normalizedRules.value,
   ocr_enabled: ocrEnabledValue.value,
@@ -602,6 +618,7 @@ function handleEdit(policy: ProjectPolicy) {
   form.provider = policy.provider
   form.repo = policy.repo
   form.fail_on = policy.fail_on || 'major'
+  form.review_engine = (policy.review_engine || '') as any
   form.ignore_paths = policy.ignore_paths || []
   form.rules = policy.rules ? policy.rules.map((rule) => ({ ...rule })) : []
   form.ocr_enabled = policy.ocr_enabled ?? null
@@ -637,6 +654,7 @@ function startCreate() {
   form.provider = platforms.value[0]?.provider || ''
   form.repo = ''
   form.fail_on = 'major'
+  form.review_engine = '' as any
   form.ignore_paths = []
   form.rules = []
   form.ocr_enabled = null
@@ -1203,6 +1221,16 @@ onMounted(async () => {
   margin: 0 0 12px;
   font-size: 14px;
   color: var(--app-text);
+}
+
+.engine-title {
+  margin-top: 20px;
+}
+.engine-hint {
+  display: block;
+  margin-top: 8px;
+  color: var(--app-muted);
+  font-size: 12px;
 }
 
 .tab-hint {

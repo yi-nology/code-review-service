@@ -17,17 +17,20 @@ func NewDefault(provider, repo string) ProjectPolicy {
 // ProjectPolicy 是某项目（provider+repo）的评审策略与 OCR 覆盖配置。
 // IgnorePaths/Rules 为 JSONB，领域层用 json.RawMessage 解耦 GORM datatypes.JSON。
 type ProjectPolicy struct {
-	Provider           string          `json:"provider"`
-	Repo               string          `json:"repo"`
-	FailOn             string          `json:"fail_on"`
-	IgnorePaths        json.RawMessage `json:"ignore_paths"`
-	Rules              json.RawMessage `json:"rules"`
-	OCREnabled         *bool           `json:"ocr_enabled,omitempty"`
-	OCRConcurrency     int             `json:"ocr_concurrency,omitempty"`
-	OCRTimeoutMinutes  int             `json:"ocr_timeout_minutes,omitempty"`
-	OCRMaxTools        int             `json:"ocr_max_tools,omitempty"`
-	OCRDefaultSeverity string          `json:"ocr_default_severity,omitempty"`
-	OCRBackground      string          `json:"ocr_background,omitempty"`
+	Provider    string          `json:"provider"`
+	Repo        string          `json:"repo"`
+	FailOn      string          `json:"fail_on"`
+	IgnorePaths json.RawMessage `json:"ignore_paths"`
+	Rules       json.RawMessage `json:"rules"`
+	// ReviewEngine 该项目的默认审查引擎：''（默认 OCR）| 'ocr' | 'argus'。
+	// webhook 创建评审时按此路由；请求显式指定 engine 时优先于本字段。
+	ReviewEngine       string `json:"review_engine,omitempty"`
+	OCREnabled         *bool  `json:"ocr_enabled,omitempty"`
+	OCRConcurrency     int    `json:"ocr_concurrency,omitempty"`
+	OCRTimeoutMinutes  int    `json:"ocr_timeout_minutes,omitempty"`
+	OCRMaxTools        int    `json:"ocr_max_tools,omitempty"`
+	OCRDefaultSeverity string `json:"ocr_default_severity,omitempty"`
+	OCRBackground      string `json:"ocr_background,omitempty"`
 	// OCRBackgroundFile 项目级 --background-file 路径覆盖（OCR v1.7.6+）；留空=回退到全局。
 	OCRBackgroundFile string `json:"ocr_background_file,omitempty"`
 	OCRAudience       string `json:"ocr_audience,omitempty"`

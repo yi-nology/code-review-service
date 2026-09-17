@@ -36,6 +36,7 @@ export const navGroups: NavGroup[] = [
     label: '评审',
     items: [
       { path: '/reviews', label: '审查记录', icon: DocumentChecked },
+      { path: '/argus', label: 'Argus 审查', icon: Connection },
       { path: '/sessions', label: '审查会话', icon: Histogram },
       { path: '/scan', label: '代码库扫描', icon: Search },
     ],

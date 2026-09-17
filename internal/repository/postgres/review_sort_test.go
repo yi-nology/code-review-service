@@ -15,10 +15,10 @@ func TestReviewSortClause(t *testing.T) {
 		{"updated_at desc", "updated_at", "desc", "updated_at DESC"},
 		{"findings uses jsonb length", "findings", "asc", "COALESCE(jsonb_array_length(response->'findings'), 0) ASC"},
 		{"findings trimmed", "  findings  ", "desc", "COALESCE(jsonb_array_length(response->'findings'), 0) DESC"},
-		{"empty by falls back", "", "desc", "created_at DESC"},
+		{"empty by falls back", "", "desc", "updated_at DESC"},
 		{"empty order defaults desc", "score", "", "score DESC"},
-		{"injection fragment rejected", "score; DROP TABLE reviews--", "desc", "created_at DESC"},
-		{"raw predicate rejected", "1=1", "asc", "created_at DESC"},
+		{"injection fragment rejected", "score; DROP TABLE reviews--", "desc", "updated_at DESC"},
+		{"raw predicate rejected", "1=1", "asc", "updated_at DESC"},
 		{"arbitrary order ignored", "score", "sideways", "score DESC"},
 	}
 	for _, tt := range tests {

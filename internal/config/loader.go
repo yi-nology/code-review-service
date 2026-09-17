@@ -46,6 +46,13 @@ func applyEnvOverrides(cfg *Config) {
 	if v := config.Get("REVIEW_TOKEN"); v != "" {
 		cfg.Auth.Token = v
 	}
+	// Argus 对接（反馈回流代理）：ARGUS_BOT_URL 非空启用「误报抑制」回流
+	if v := config.Get("ARGUS_BOT_URL"); v != "" {
+		cfg.Argus.BotURL = v
+	}
+	if v := config.Get("ARGUS_BOT_TOKEN"); v != "" {
+		cfg.Argus.BotToken = v
+	}
 	// PR-19：AUTH_INSECURE 显式开关，允许 dev 环境空 token 启动
 	if v, ok := config.GetBool("AUTH_INSECURE"); ok {
 		cfg.Auth.Insecure = v

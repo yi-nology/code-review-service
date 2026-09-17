@@ -19,6 +19,11 @@ service reviewService {
     review.SuggestionPatchCheck CheckSuggestionPatch(1: review.CheckSuggestionPatchReq req) (api.get="/api/v1/reviews/:id/suggestion-patch/check")
     review.SuggestionPatchPreview DownloadSuggestionPatch(1: review.PreviewSuggestionPatchReq req) (api.get="/api/v1/reviews/:id/suggestion-patch.diff")
 
+    review.ArgusIngestResp IngestArgusReview(1: review.ArgusIngestReq req) (api.post="/api/v1/argus/reviews")
+    review.ArgusListReviewsResp ListArgusReviews(1: review.ArgusListReviewsReq req) (api.get="/api/v1/argus/reviews")
+    review.ArgusGetReviewResp GetArgusReview(1: review.ArgusGetReviewReq req) (api.get="/api/v1/argus/reviews/:id")
+    review.ArgusSuppressResp SuppressArgusFinding(1: review.ArgusSuppressReq req) (api.post="/api/v1/argus/reviews/:id/findings/suppress")
+
     webhook.HandleWebhookResp HandleWebhook(1: webhook.HandleWebhookReq req) (api.post="/api/v1/webhooks/:provider/:installation")
 
     platform.ListProviderReposResp ListProviderRepos(1: platform.ListProviderReposReq req) (api.get="/api/v1/platforms/:provider/repos")

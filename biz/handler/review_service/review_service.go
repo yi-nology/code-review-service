@@ -507,6 +507,7 @@ func toServiceRequest(req *modelReview.CreateReviewReq) domain.Request {
 		CallbackMode:    ptrx.Deref(req.CallbackMode, ""),
 		Wait:            ptrx.Deref(req.Wait, false),
 		Requirements:    req.Requirements,
+		Engine:          ptrx.Deref(req.Engine, ""),
 	}
 	if len(req.EphemeralReviewers) > 0 {
 		svcReq.EphemeralReviewers = make([]domain.EphemeralReviewer, len(req.EphemeralReviewers))
@@ -545,8 +546,10 @@ func convertDetail(r domain.Record) modelReview.ReviewDetail {
 		Error: common.StrPtr(r.Response.Error), Author: common.StrPtr(r.Request.Author),
 		AuthorName: common.StrPtr(r.Request.AuthorName), AuthorAvatar: common.StrPtr(r.Request.AuthorAvatar),
 		RetryCount: ptrx.Of(int64(r.RetryCount)),
-		CreatedAt:  common.StrPtr(common.FormatTime(r.CreatedAt)),
-		UpdatedAt:  common.StrPtr(common.FormatTime(r.UpdatedAt)),
+		// 生效引擎（创建时已解析并随 Request 持久化；空值视为 ocr 以兼容历史记录）。
+		Engine:    common.StrPtr(r.Request.Engine),
+		CreatedAt: common.StrPtr(common.FormatTime(r.CreatedAt)),
+		UpdatedAt: common.StrPtr(common.FormatTime(r.UpdatedAt)),
 	}
 }
 
@@ -632,10 +635,27 @@ func convertEvents(events []domain.Event) []*modelReview.Event {
 		for k, v := range e.Details {
 			details[k] = convert.AnyToStr(v)
 		}
-		return &modelReview.Event{
+		ev := &modelReview.Event{
 			Stage: e.Stage, Status: e.Status, Message: e.Message, Details: details,
 			CreatedAt: common.StrPtr(common.FormatTime(e.CreatedAt)),
 		}
+		if e.How != "" {
+			ev.How = common.StrPtr(e.How)
+		}
+		if e.DurationMs > 0 {
+			ev.DurationMs = &e.DurationMs
+		}
+		if e.Input != nil {
+			if data, err := json.Marshal(e.Input); err == nil {
+				ev.Input = common.StrPtr(string(data))
+			}
+		}
+		if e.Output != nil {
+			if data, err := json.Marshal(e.Output); err == nil {
+				ev.Output = common.StrPtr(string(data))
+			}
+		}
+		return ev
 	})
 }
 

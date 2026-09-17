@@ -9,6 +9,7 @@
     </div>
 
     <el-input
+      ref="urlInputRef"
       :model-value="urlInput"
       class="url-box"
       type="textarea"
@@ -28,7 +29,12 @@
           <span>{{ parsedUrl.repo }} · #{{ parsedUrl.number }}</span>
         </div>
       </div>
-      <el-button type="primary" plain @click="$emit('apply-url')">去选择详情</el-button>
+      <div class="parse-actions">
+        <el-button text size="small" @click="$emit('apply-url')">从 PR 列表选择</el-button>
+        <el-button type="primary" :disabled="submitDisabled" @click="$emit('submit')">
+          立即提交
+        </el-button>
+      </div>
     </div>
     <div v-else-if="parsedCompareUrl" class="parse-card success">
       <div class="parse-main">
@@ -38,7 +44,12 @@
           <span>{{ parsedCompareUrl.repo }} · {{ parsedCompareUrl.head_branch }} → {{ parsedCompareUrl.base_branch }}</span>
         </div>
       </div>
-      <el-button type="primary" plain @click="$emit('apply-compare-url')">去分支对比</el-button>
+      <div class="parse-actions">
+        <el-button text size="small" @click="$emit('apply-compare-url')">查看分支对比</el-button>
+        <el-button type="primary" :disabled="submitDisabled" @click="$emit('submit')">
+          立即提交
+        </el-button>
+      </div>
     </div>
     <div v-else-if="urlInput.trim()" class="parse-card danger">
       <div class="parse-main">
@@ -55,13 +66,16 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
 import { DocumentCopy, Select, Warning } from '@element-plus/icons-vue'
 import { getProviderLabel } from '@/utils/url-parser'
 
-defineProps<{
+const props = defineProps<{
   urlInput: string
   parsedUrl: { provider: string; repo: string; number: number } | null
   parsedCompareUrl: { provider: string; repo: string; base_branch: string; head_branch: string } | null
+  /** 当前不可提交（如 Argus + 分支对比）时置灰「立即提交」 */
+  submitDisabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -70,13 +84,22 @@ const emit = defineEmits<{
   'url-paste': []
   'apply-url': []
   'apply-compare-url': []
+  submit: []
 }>()
+
+const urlInputRef = ref<{ focus: () => void } | null>(null)
+
+// 弹窗打开时聚焦输入框，粘贴动作少一步点击；等 dialog 动画后再聚焦
+onMounted(() => {
+  setTimeout(() => urlInputRef.value?.focus(), 260)
+})
 
 async function pasteFromClipboard() {
   try {
     const text = await navigator.clipboard.readText()
     emit('update:urlInput', text)
     emit('url-input')
+    urlInputRef.value?.focus()
   } catch {
     // Silently fail - user can paste manually
   }
@@ -115,6 +138,13 @@ async function pasteFromClipboard() {
   min-width: 0;
 }
 
+.parse-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
 .parse-main .el-icon {
   flex: 0 0 auto;
   font-size: 20px;
@@ -134,5 +164,12 @@ async function pasteFromClipboard() {
   color: #707782;
   font-size: 12px;
   margin-top: 2px;
+}
+
+@media (max-width: 760px) {
+  .parse-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 </style>

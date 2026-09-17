@@ -38,9 +38,20 @@ Content-Type: application/json
   "author": "username",
   "author_name": "Display Name",
   "author_avatar": "https://...",
-  "callback_mode": "comment"
+  "callback_mode": "comment",
+  "engine": "ocr"
 }
 ```
+
+`engine` 审查引擎（可选）：
+- `ocr`（默认）——本服务多智能体 OCR 子进程工作流，全输入形态（PR/分支对比/单 commit）；
+- `argus`——派发外部 Argus Bot（`POST {argus.bot_url}/tasks`，kind=CODE_REVIEW），**仅支持
+  PR/MR 维度**（需 `pull_request_id`/`merge_request_iid`，repo 须为 `owner/repo`，不支持
+  `commit_sha` 与同步 `wait`）；异步回报：Argus 完成后 push 到 `/api/v1/argus/reviews`，
+  服务端自动把对应 active 评审收敛到终态（verdict→门禁：request_changes→failed，
+  error→failed+error_message，其余 passed）。
+- 留空时按项目策略 `review_engine` 解析（项目策略页/设置 API 可配），仍空则 `ocr`。
+- `argus` 需配置 `argus.bot_url`，否则创建即被拒（400）。
 
 #### Get Review
 ```http
@@ -734,3 +745,85 @@ curl http://localhost:8080/api/v1/reviews/review-xxx/maps \
 curl -X POST http://localhost:8080/api/v1/reviews/review-xxx/publish \
   -H "Authorization: Bearer token"
 ```
+
+---
+
+## Argus Reviews (承接 Argus 审查结果)
+
+Argus（PR 自动审查 Bot）以 push 模型上报审查结果；本组端点供其落库与查询。
+鉴权同 `/api/v1/*`（Bearer token）。幂等：业务键 `(platform, owner, repo, number, head_sha)`
+upsert，同 PR 同 SHA 重审覆盖；意见整组替换，非空 fp 上 `(review, fp)` 唯一
+（同 payload 重复 fp 由承接侧 last-wins 去重；已抑制意见的 `suppress_state`
+在重报同 SHA 时按 fp 继承，不被替换清空）。
+
+**双向流程**：除 Argus 自主触发的 push 外，`POST /reviews` 携带 `engine=argus`
+（或项目策略 `review_engine=argus`）时，本服务主动调 Argus `POST {argus.bot_url}/tasks`
+创建 CODE_REVIEW 任务（Argus 侧同 PR 在飞任务幂等去重），评审 Record 停在 running；
+Argus 完成后 POST 本端点落库，服务端按 `(platform, owner/repo, number, head_sha)` 把
+engine=argus 的 active 评审自动收敛到终态（dispatch/argus_report 事件全程留痕）。
+Argus 迟迟不回报时由既有 stale 重排兜底（重派发命中 Argus 幂等去重，不重复审查）。
+
+### Ingest Argus Review
+
+```http
+POST /argus/reviews
+Content-Type: application/json
+
+{
+  "argus_task_id": "task-123",
+  "platform": "gitea",
+  "owner": "owner",
+  "repo": "repo",
+  "number": "7",
+  "title": "PR 标题",
+  "head_sha": "abc123",
+  "base_branch": "main",
+  "verdict": "approve|comment|request_changes|error",
+  "error_message": "verdict=error 时的失败原因（可选）",
+  "findings": [
+    {"fp": "指纹", "file": "a.go", "line": 3, "severity": "high|medium|low",
+     "comment": "意见", "suggested_fix": "修复建议", "by": "来源插件"}
+  ],
+  "plugins": ["correctness", "ocr"],
+  "duration_ms": 1500,
+  "token_usage": 42,
+  "occurred_at": "2026-09-16T12:00:00Z"
+}
+```
+
+响应：`{"id": 1, "status": "accepted"}`。单次意见上限 500 条。
+
+### List Argus Reviews
+
+```http
+GET /argus/reviews?repo=owner/repo&platform=gitea&severity=high&since=2026-09-01T00:00:00Z&page=1&page_size=20
+```
+
+响应：`{"items": [ArgusReview...], "total": N}`（按 occurred_at 降序；severity 过滤语义为"含该档意见"；
+`platform` 精确匹配，多平台同名 repo 区分用）。
+
+### Get Argus Review Detail
+
+```http
+GET /argus/reviews/:id
+```
+
+响应：`{"review": {..., "findings": [...]}}`（意见按 file/line 排序）。
+
+### Suppress Argus Finding (反馈回流)
+
+```http
+POST /argus/reviews/:id/findings/suppress
+Content-Type: application/json
+
+{"fp": "argus 规范指纹"}
+```
+
+服务端代理调用 argus `POST /findings/suppress`（凭证只在服务端），命中后本地落
+`suppress_state=suppressed`。响应：
+
+- `{"matched": true, "state": "suppressed"}` —— argus 已置抑制，下一轮审查起自动剔除；
+- `{"matched": false, "message": "..."}` —— argus 未命中（意见已被重审覆盖/措辞漂移）。
+
+前置：配置 `argus.bot_url` + `argus.bot_token`（或环境变量 `ARGUS_BOT_URL`/`ARGUS_BOT_TOKEN`，
+token 即 argus 侧 `ARGUS_APITOKEN`）；未配置时返回 400。

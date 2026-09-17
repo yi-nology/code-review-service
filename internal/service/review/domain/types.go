@@ -38,7 +38,17 @@ type Request struct {
 	Requirements []string `json:"requirements,omitempty"`
 	// EphemeralReviewers 是本次评审临时加入的 reviewer 描述，不入库。
 	EphemeralReviewers []EphemeralReviewer `json:"ephemeral_reviewers,omitempty"`
+	// Engine 审查引擎：''|EngineOCR（默认，OCR 多智能体子进程）|EngineArgus
+	// （外部 Argus Bot，触发后异步执行、经 /api/v1/argus/reviews 回报）。
+	// 未显式指定时按项目策略 review_engine 解析，仍空则 OCR。
+	Engine string `json:"engine,omitempty"`
 }
+
+// 审查引擎词表。
+const (
+	EngineOCR   = "ocr"
+	EngineArgus = "argus"
+)
 
 // EphemeralReviewer 描述一个临时的、不入库的 reviewer。
 // 在 executor 层映射为 agent.EphemeralSpec。
@@ -59,6 +69,8 @@ type Response struct {
 	Error    string    `json:"error,omitempty"`
 	// Writeback 记录回写（PR/MR 评论发布）的结果。
 	Writeback WritebackSummary `json:"writeback,omitempty"`
+	// ArgusTaskID engine=argus 时派发的 argus 任务 ID（回报关联与失败轮询用）。
+	ArgusTaskID string `json:"argus_task_id,omitempty"`
 	// Judgment 是 OCR 结果二次综合判断（agentkit LLM）。
 	// 包含误报判断、优先级排序、人可读总结、门禁建议。
 	Judgment *Judgment `json:"judgment,omitempty"`

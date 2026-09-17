@@ -11,59 +11,79 @@ export interface ParsedCompare {
   head_branch: string
 }
 
-const PATTERNS: Array<{
+/** PlatformEndpoint 已配置代码平台的 provider + 服务地址（用于自定义域名归属判定）。 */
+export interface PlatformEndpoint {
   provider: string
-  regex: RegExp
-}> = [
-  {
-    provider: 'github',
-    regex: /^https?:\/\/[^/]+\/([^/]+)\/([^/]+)\/pull\/(\d+)/,
-  },
-  {
-    provider: 'gitlab',
-    regex: /^https?:\/\/[^/]+\/(.+?)\/([^/]+)\/-\/merge_requests\/(\d+)/,
-  },
-  {
-    provider: 'gitea',
-    regex: /^https?:\/\/[^/]+\/([^/]+)\/([^/]+)\/pulls\/(\d+)/,
-  },
-  {
-    provider: 'gitcode',
-    regex: /^https?:\/\/[^/]+\/([^/]+)\/([^/]+)\/pulls?\/(\d+)/,
-  },
+  baseUrl?: string
+}
+
+/** 内置公共平台的域名归属。 */
+const BUILTIN_HOSTS: Record<string, string> = {
+  'github.com': 'github',
+  'gitlab.com': 'gitlab',
+  'gitee.com': 'gitee',
+  'gitcode.com': 'gitcode',
+}
+
+function normalizeHost(host: string): string {
+  return host.toLowerCase().replace(/^www\./, '')
+}
+
+/**
+ * providerForHost 判定 URL host 属于哪个平台：优先匹配已配置平台的
+ * base_url 域名（自建 Gitea/Forgejo/GitLab 等），再回退内置公共平台。
+ * 未匹配返回 null（由路径形状兜底推断）。
+ */
+export function providerForHost(host: string, platforms?: PlatformEndpoint[]): string | null {
+  const normalized = normalizeHost(host)
+  if (platforms) {
+    for (const p of platforms) {
+      if (!p.baseUrl) continue
+      try {
+        if (normalizeHost(new URL(p.baseUrl).host) === normalized) return p.provider
+      } catch {
+        // base_url 非法时跳过该平台
+      }
+    }
+  }
+  return BUILTIN_HOSTS[normalized] ?? null
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host
+  } catch {
+    return url.replace(/^https?:\/\/([^/]+).*/, '$1')
+  }
+}
+
+/**
+ * 路径形状 → 默认 provider（host 未能判定时用）。
+ * 自定义域名 + /pulls/ 多为自建 Gitea/Forgejo；/pull/ 保留 github 兜底
+ *（与历史行为一致）。merge_requests 形状只属于 GitLab。
+ */
+const SHAPE_PATTERNS: Array<{ provider: string | null; regex: RegExp }> = [
+  { provider: 'gitlab', regex: /^https?:\/\/[^/]+\/(.+?)\/([^/]+)\/-\/merge_requests\/(\d+)/ },
+  { provider: null, regex: /^https?:\/\/[^/]+\/([^/]+)\/([^/]+)\/pull\/(\d+)/ },
+  { provider: null, regex: /^https?:\/\/[^/]+\/([^/]+)\/([^/]+)\/pulls\/(\d+)/ },
 ]
 
-const COMPARE_PATTERNS: Array<{
-  provider: string
-  regex: RegExp
-}> = [
-  {
-    provider: 'github',
-    regex: /^https?:\/\/[^/]+\/([^/]+)\/([^/]+)\/compare\/([^?]+?)\.\.\.([^?#]+)/,
-  },
-  {
-    provider: 'gitlab',
-    regex: /^https?:\/\/[^/]+\/(.+?)\/([^/]+)\/-\/compare\/([^?]+?)\.\.\.([^?#]+)/,
-  },
-  {
-    provider: 'gitea',
-    regex: /^https?:\/\/[^/]+\/([^/]+)\/([^/]+)\/compare\/([^?]+?)\.\.\.([^?#]+)/,
-  },
-  {
-    provider: 'gitcode',
-    regex: /^https?:\/\/[^/]+\/([^/]+)\/([^/]+)\/compare\/([^?]+?)\.\.\.([^?#]+)/,
-  },
-]
+function defaultProviderForShape(shapeProvider: string | null, url: string, platforms?: PlatformEndpoint[]): string {
+  if (shapeProvider) return shapeProvider
+  const fallback = providerForHost(hostOf(url), platforms)
+  if (fallback) return fallback
+  return /\/pulls\/\d+/.test(url) ? 'gitea' : 'github'
+}
 
-export function parseMRUrl(url: string): ParsedMR | null {
+export function parseMRUrl(url: string, platforms?: PlatformEndpoint[]): ParsedMR | null {
   const trimmed = url.trim()
   if (!trimmed) return null
 
-  for (const { provider, regex } of PATTERNS) {
+  for (const { provider, regex } of SHAPE_PATTERNS) {
     const match = trimmed.match(regex)
     if (match) {
       return {
-        provider,
+        provider: defaultProviderForShape(provider, trimmed, platforms),
         repo: `${match[1]}/${match[2]}`,
         number: parseInt(match[3], 10),
       }
@@ -73,15 +93,20 @@ export function parseMRUrl(url: string): ParsedMR | null {
   return null
 }
 
-export function parseCompareUrl(url: string): ParsedCompare | null {
+const COMPARE_SHAPE_PATTERNS: Array<{ provider: string | null; regex: RegExp }> = [
+  { provider: 'gitlab', regex: /^https?:\/\/[^/]+\/(.+?)\/([^/]+)\/-\/compare\/([^?]+?)\.\.\.([^?#]+)/ },
+  { provider: null, regex: /^https?:\/\/[^/]+\/([^/]+)\/([^/]+)\/compare\/([^?]+?)\.\.\.([^?#]+)/ },
+]
+
+export function parseCompareUrl(url: string, platforms?: PlatformEndpoint[]): ParsedCompare | null {
   const trimmed = url.trim()
   if (!trimmed) return null
 
-  for (const { provider, regex } of COMPARE_PATTERNS) {
+  for (const { provider, regex } of COMPARE_SHAPE_PATTERNS) {
     const match = trimmed.match(regex)
     if (match) {
       return {
-        provider,
+        provider: defaultProviderForShape(provider, trimmed, platforms),
         repo: `${match[1]}/${match[2]}`,
         base_branch: normalizeBranch(match[3]),
         head_branch: normalizeBranch(match[4]),
@@ -96,7 +121,7 @@ export function parseCompareUrl(url: string): ParsedCompare | null {
     const to = params.get('to')
     if (from && to) {
       return {
-        provider: 'gitlab',
+        provider: providerForHost(hostOf(trimmed), platforms) ?? 'gitlab',
         repo: `${queryMatch[1]}/${queryMatch[2]}`,
         base_branch: normalizeBranch(from),
         head_branch: normalizeBranch(to),

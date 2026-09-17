@@ -1,7 +1,7 @@
 <template>
-  <div class="progress-tracker">
+  <div class="progress-tracker" :class="mode ? `mode-${mode}` : ''">
     <div class="progress-header">
-      <h3>审查进度</h3>
+      <h3>{{ mode === 'argus' ? 'Argus 审查进度' : mode === 'scan' ? '扫描进度' : '审查进度' }}</h3>
       <span class="progress-percentage">{{ overallProgress }}%</span>
     </div>
 
@@ -71,6 +71,7 @@ import { CircleCheckFilled, Loading, Clock } from '@element-plus/icons-vue'
 import { progressApi } from '@/api/session'
 import type { ReviewSession, ReviewProgress, ProgressEvent, ReviewHistoryEvent } from '@/types/session'
 import { REVIEW_PHASES, type PhaseDefinition } from '@/constants/phases'
+import { ARGUS_PHASES, SCAN_PHASES, type ReviewMode } from '@/constants/reviewMode'
 
 interface Agent {
   name: string
@@ -99,9 +100,18 @@ const props = defineProps<{
   sessions?: ReviewSession[]
   history?: ReviewHistoryEvent[]
   phaseDefinitions?: PhaseDefinition[]
+  /** 审查模式：决定阶段定义与进度推断逻辑（ocr 多智能体 / argus 外部引擎 / scan 全库扫描） */
+  mode?: ReviewMode
 }>()
 
-const phaseDefinitions = computed(() => props.phaseDefinitions?.length ? props.phaseDefinitions : REVIEW_PHASES)
+// 阶段定义优先级：显式 prop > 模式默认（argus/scan 有各自的阶段语义）
+const modePhases = computed<PhaseDefinition[]>(() => {
+  if (props.mode === 'argus') return ARGUS_PHASES
+  if (props.mode === 'scan') return SCAN_PHASES
+  return REVIEW_PHASES
+})
+
+const phaseDefinitions = computed(() => props.phaseDefinitions?.length ? props.phaseDefinitions : modePhases.value)
 
 const phases = ref<Phase[]>(
   REVIEW_PHASES.map(p => ({ ...p, status: 'pending' as const, progress: 0 }))
@@ -252,11 +262,31 @@ function applyReviewFallback() {
   }
 
   const history = props.history || []
+
+  // Argus 模式：阶段即 history.stage（queued → dispatch → argus_report），按事件推导。
+  if (props.mode === 'argus') {
+    if (status === 'queued') {
+      applyPhaseState('queued', 'active', 0)
+      return
+    }
+    if (status === 'running') {
+      const done = new Set(history.filter(e => e.status === 'completed').map(e => e.stage))
+      const current = done.has('dispatch') ? 'argus_report' : done.has('queued') ? 'dispatch' : 'queued'
+      applyPhaseState(current, 'active', current === 'argus_report' ? 40 : 15)
+      return
+    }
+    if (status === 'failed') {
+      applyPhaseState('argus_report', 'active', 40)
+      error.value = { title: 'Argus 审查异常', message: '审查任务失败，请查看执行历史与失败提示。' }
+    }
+    return
+  }
+
   if (status === 'failed') {
     const failedStage = inferPhaseFromHistory(history) || 'analysis'
     applyPhaseState(failedStage, 'active', inferProgressFromHistory(history, status))
     error.value = {
-      title: '审查执行失败',
+      title: props.mode === 'scan' ? '扫描执行失败' : '审查执行失败',
       message: '实时进度已不可用，当前展示的是审查记录推导出的最后进度。',
     }
     return
@@ -275,7 +305,11 @@ function applyReviewFallback() {
 function inferPhaseFromHistory(history: ReviewHistoryEvent[]) {
   const stages = new Set(history.map(item => item.stage))
   if (stages.has('success')) return 'complete'
-  if (stages.has('ocr')) return history.some(item => item.stage === 'ocr' && item.status === 'completed') ? 'synthesis' : 'reviews'
+  if (stages.has('ocr')) {
+    const ocrDone = history.some(item => item.stage === 'ocr' && item.status === 'completed')
+    // scan 无 synthesis 阶段，OCR 完成即进入收尾；OCR 模式还有综合裁决阶段
+    return ocrDone ? (props.mode === 'scan' ? 'complete' : 'synthesis') : 'reviews'
+  }
   if (stages.has('scope')) return 'change_context'
   if (stages.has('repository')) return 'analysis'
   if (stages.has('running')) return 'context'
@@ -376,8 +410,9 @@ function closeWebSocket() {
 onMounted(() => {
   resetPhases()
   applySessionFallback()
-  // 实时进度（tracker）仅在 queued/running 时存在；终态评审直接走会话/历史回退，避免 404 噪音。
-  if (['queued', 'running'].includes(props.reviewStatus || '')) {
+  // Argus 为外部异步回报，没有 OCR tracker 进度流，仅按 history 推导；
+  // ocr/scan 在 queued/running 时拉取实时进度（scan 走同一 OCR 管线）。
+  if (props.mode !== 'argus' && ['queued', 'running'].includes(props.reviewStatus || '')) {
     loadInitialProgress()
     connectWebSocket()
   }
@@ -391,12 +426,17 @@ onUnmounted(() => {
 watch(
   () => [
     props.reviewStatus,
+    props.mode,
     props.sessions?.map(s => `${s.session_id}:${s.phase}:${s.status}:${s.progress}`).join('|'),
     props.history?.map(item => `${item.stage}:${item.status}`).join('|'),
   ],
-  () => {
+  (_, prev) => {
+    // 模式切换意味着阶段定义整体更换，重置后再按新阶段推导
+    if (prev && prev[1] !== props.mode) {
+      resetPhases()
+    }
     applySessionFallback()
-    if (['queued', 'running'].includes(props.reviewStatus || '') && !wsConnection && shouldReconnect) {
+    if (props.mode !== 'argus' && ['queued', 'running'].includes(props.reviewStatus || '') && !wsConnection && shouldReconnect) {
       connectWebSocket()
     }
   }
@@ -409,6 +449,21 @@ watch(
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 模式主题色（argus=teal / scan=amber），覆盖进度与激活态蓝色 */
+.progress-tracker.mode-argus { --pt-color: #0d9488; }
+.progress-tracker.mode-scan { --pt-color: #d97706; }
+.progress-tracker.mode-argus .progress-percentage,
+.progress-tracker.mode-scan .progress-percentage { color: var(--pt-color); }
+.progress-tracker.mode-argus .phase.active,
+.progress-tracker.mode-scan .phase.active {
+  background: color-mix(in srgb, var(--pt-color) 8%, #fff);
+  border-color: var(--pt-color);
+}
+.progress-tracker.mode-argus .phase.active .phase-icon,
+.progress-tracker.mode-scan .phase.active .phase-icon {
+  background: var(--pt-color);
 }
 
 .progress-header {

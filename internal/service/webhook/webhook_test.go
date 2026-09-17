@@ -3,6 +3,8 @@ package webhook
 import (
 	"strings"
 	"testing"
+
+	sdkprovider "github.com/yi-nology/git-platform-sdk/provider"
 )
 
 func TestIsSupportedAction(t *testing.T) {
@@ -175,6 +177,77 @@ func TestGiteaNormalizerNormalize(t *testing.T) {
 			t.Error("expected nil for unsupported event")
 		}
 	})
+}
+
+// TestMapNormalizedEvent_RecoversActionFromCRType 回归修复：
+// SDK v0.48 的 gitea/github 后端不回填 NormalizedEvent.Action（只编进 Type 的
+// "cr.<action>" 前缀），导致 IsSupportedAction 拿到空串、所有 CR webhook 被静默
+// ignore。mapNormalizedEvent 必须从 Type 恢复 action 后再过滤。
+func TestMapNormalizedEvent_RecoversActionFromCRType(t *testing.T) {
+	tests := []struct {
+		name       string
+		platform   string
+		crType     string
+		wantEvent  bool
+		wantAction string
+	}{
+		{
+			name:       "gitea synchronized",
+			platform:   "gitea",
+			crType:     "cr.synchronized",
+			wantEvent:  true,
+			wantAction: "synchronized",
+		},
+		{
+			name:       "gitea opened",
+			platform:   "gitea",
+			crType:     "cr.opened",
+			wantEvent:  true,
+			wantAction: "opened",
+		},
+		{
+			name:       "github synchronize",
+			platform:   "github",
+			crType:     "cr.synchronize",
+			wantEvent:  true,
+			wantAction: "synchronize",
+		},
+		{
+			name:       "unsupported action still dropped",
+			platform:   "gitea",
+			crType:     "cr.closed",
+			wantEvent:  false,
+			wantAction: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ne := &sdkprovider.NormalizedEvent{
+				Type: tt.crType,
+				Repo: &sdkprovider.EventRepo{ID: 70, FullName: "zhangyi/rs-argus-e2e"},
+				CR:   &sdkprovider.ChangeRequest{Number: "1", HeadSHA: "abc", BaseSHA: "def"},
+			}
+			raw := []byte(`{"repository":{"id":70}}`)
+			ce := mapNormalizedEvent(tt.platform, ne, raw)
+
+			if !tt.wantEvent {
+				if ce != nil {
+					t.Fatalf("expected nil event for action %q, got %+v", tt.wantAction, ce)
+				}
+				return
+			}
+			if ce == nil {
+				t.Fatalf("expected event, got nil (action not recovered from Type %q?)", tt.crType)
+			}
+			if ce.Action != tt.wantAction {
+				t.Errorf("Action = %q, want %q", ce.Action, tt.wantAction)
+			}
+			if ce.Number != "1" || ce.HeadSHA != "abc" || ce.RepositoryID != "70" {
+				t.Errorf("unexpected ChangeEvent mapping: %+v", ce)
+			}
+		})
+	}
 }
 
 func TestWebhookServiceMaxPayloadBytes(t *testing.T) {
