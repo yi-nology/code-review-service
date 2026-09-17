@@ -14,7 +14,7 @@ type ContributorSummary struct {
 	MajorCount    int       `json:"major_count"`
 	MinorCount    int       `json:"minor_count"`
 	InfoCount     int       `json:"info_count"`
-	LastReviewAt  time.Time `json:"last_review_at"`
+	LastReviewAt  *time.Time `json:"last_review_at"`
 }
 
 type ContributorDetail struct {
@@ -56,7 +56,7 @@ type ProjectSummary struct {
 	MajorCount    int       `json:"major_count"`
 	MinorCount    int       `json:"minor_count"`
 	InfoCount     int       `json:"info_count"`
-	LastReviewAt  time.Time `json:"last_review_at"`
+	LastReviewAt  *time.Time `json:"last_review_at"`
 }
 
 type ProjectDetail struct {

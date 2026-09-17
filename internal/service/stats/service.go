@@ -245,6 +245,15 @@ func (s *Service) GetProjectOCRTrend(ctx context.Context, provider, repo, from, 
 	}), nil
 }
 
+// lastReviewAtPtr 无审查记录时聚合出 Go 零值时间，序列化成 null（前端显示「无记录」），
+// 避免输出 0001-01-01T08:05:43+08:05 这种零值时区串。
+func lastReviewAtPtr(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	return &t
+}
+
 func toContributorSummary(s stats.ContributorSummary) ContributorSummary {
 	return ContributorSummary{
 		Author:        s.Author,
@@ -258,7 +267,7 @@ func toContributorSummary(s stats.ContributorSummary) ContributorSummary {
 		MajorCount:    s.MajorCount,
 		MinorCount:    s.MinorCount,
 		InfoCount:     s.InfoCount,
-		LastReviewAt:  s.LastReviewAt,
+		LastReviewAt:  lastReviewAtPtr(s.LastReviewAt),
 	}
 }
 
@@ -295,7 +304,7 @@ func toProjectSummary(s stats.ProjectSummary) ProjectSummary {
 		MajorCount:    s.MajorCount,
 		MinorCount:    s.MinorCount,
 		InfoCount:     s.InfoCount,
-		LastReviewAt:  s.LastReviewAt,
+		LastReviewAt:  lastReviewAtPtr(s.LastReviewAt),
 	}
 }
 
