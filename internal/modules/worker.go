@@ -8,6 +8,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	svcReview "github.com/yi-nology/code-review-service/internal/service/review"
+	reviewdomain "github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
@@ -20,12 +21,14 @@ var WorkerModule = fx.Options(
 )
 
 // StartArgusPoller argus 任务失败兜底轮询（argus 失败终态不回推 sink，
-// 靠本轮询把 engine=argus 的 running 记录在 argus 任务失败后收敛到 failed）。
-func StartArgusPoller(lc fx.Lifecycle, repos *repository.RepoContainer, argus *argusclient.Client) {
+// 靠本轮询把 engine=argus 的 running 记录在 argus 任务失败后收敛到 failed，
+// 并经 notifier 发应用内通知）。
+func StartArgusPoller(lc fx.Lifecycle, repos *repository.RepoContainer, argus *argusclient.Client,
+	notifier reviewdomain.Notifier) {
 	if !argus.Enabled() {
 		return
 	}
-	poller := svcReview.NewArgusPoller(repos.Review, argus, 30*time.Second)
+	poller := svcReview.NewArgusPoller(repos.Review, argus, notifier, 30*time.Second)
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			async.GoSafe(func() { poller.Run(ctx) })

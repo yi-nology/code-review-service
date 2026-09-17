@@ -15,9 +15,11 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/argusclient"
+	notifdomain "github.com/yi-nology/code-review-service/internal/domain/notification"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
+	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
 )
 
@@ -25,15 +27,18 @@ import (
 type ArgusPoller struct {
 	reviewRepo repository.ReviewRepository
 	client     *argusclient.Client
-	interval   time.Duration
+	// notifier 强制收敛（任务失败/回推丢失）后的应用内通知出口；nil 安全。
+	notifier domain.Notifier
+	interval time.Duration
 }
 
 // NewArgusPoller 构造；client 未启用时 Run 直接退出（argus 引擎不可用）。
-func NewArgusPoller(reviewRepo repository.ReviewRepository, client *argusclient.Client, interval time.Duration) *ArgusPoller {
+func NewArgusPoller(reviewRepo repository.ReviewRepository, client *argusclient.Client,
+	notifier domain.Notifier, interval time.Duration) *ArgusPoller {
 	if interval <= 0 {
 		interval = 30 * time.Second
 	}
-	return &ArgusPoller{reviewRepo: reviewRepo, client: client, interval: interval}
+	return &ArgusPoller{reviewRepo: reviewRepo, client: client, notifier: notifier, interval: interval}
 }
 
 // Run 阻塞轮询直到 ctx 取消（fx lifecycle OnStart 里 async.GoSafe）。
@@ -105,10 +110,12 @@ func (p *ArgusPoller) markFailed(ctx context.Context, rec *domain.Record, task *
 		reason = "argus 任务 " + task.Status
 	}
 	msg := fmt.Sprintf("argus 任务失败：%s", reason)
+	applied := false
 	err := p.reviewRepo.UpdateInTransaction(ctx, rec.ID, func(r *domain.Record) error {
 		if r.Status != statusRunning {
 			return nil // 已被 sink 回推收敛，不覆盖
 		}
+		applied = true
 		r.Status = statusFailed
 		r.Response.Status = statusFailed
 		r.Response.Error = msg
@@ -125,15 +132,21 @@ func (p *ArgusPoller) markFailed(ctx context.Context, rec *domain.Record, task *
 		logx.CtxErrorf(ctx, "argus poller: mark review %s failed: %v", rec.ID, err)
 		return
 	}
+	if !applied {
+		return // 已被并发收敛，不重复通知
+	}
 	logx.Warnf("argus poller: review=%s task=%s %s → failed", rec.ID, task.TaskID, task.Status)
+	p.notify(ctx, rec, msg)
 }
 
 func (p *ArgusPoller) markReportLost(ctx context.Context, rec *domain.Record, task *argusclient.TaskState) {
 	msg := "argus 审查已完成但结果回推未达（详见「Argus 审查」页的意见明细）"
+	applied := false
 	err := p.reviewRepo.UpdateInTransaction(ctx, rec.ID, func(r *domain.Record) error {
 		if r.Status != statusRunning {
 			return nil
 		}
+		applied = true
 		r.Status = statusFailed
 		r.Response.Status = statusFailed
 		r.Response.Error = msg
@@ -150,5 +163,34 @@ func (p *ArgusPoller) markReportLost(ctx context.Context, rec *domain.Record, ta
 		logx.CtxErrorf(ctx, "argus poller: mark review %s report-lost: %v", rec.ID, err)
 		return
 	}
+	if !applied {
+		return // 已被并发收敛，不重复通知
+	}
 	logx.Warnf("argus poller: review=%s task=%s done but sink report lost → failed", rec.ID, task.TaskID)
+	p.notify(ctx, rec, msg)
+}
+
+// notify 强制收敛后发应用内通知：argus 任务失败/回推丢失时记录停在 running，
+// 用户在通知中心以外无从感知。nil 安全；失败只告警，不影响已落库的收敛。
+func (p *ArgusPoller) notify(ctx context.Context, rec *domain.Record, msg string) {
+	if p.notifier == nil {
+		return
+	}
+	event := notifdomain.Event{
+		ReviewID: rec.ID,
+		Provider: rec.Request.Provider,
+		Repo:     rec.Request.Repo,
+		Ref:      rec.Request.PullRequestID + rec.Request.MergeRequestIID,
+		Kind:     notifdomain.KindFailed,
+		Stage:    "argus_poll",
+		Error:    msg,
+		Summary:  msg,
+	}
+	async.GoSafe(func() {
+		notifyCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := p.notifier.Notify(notifyCtx, event); err != nil {
+			logx.CtxWarnf(notifyCtx, "[notification] argus poller review %s notify failed: %v", event.ReviewID, err)
+		}
+	})
 }
