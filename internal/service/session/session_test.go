@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	dsession "github.com/yi-nology/code-review-service/internal/domain/session"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
@@ -138,6 +139,8 @@ func newTestSession(reviewID, sessionID, status, phase string) *dsession.Session
 		Status:    status,
 		Progress:  0,
 		Metadata:  json.RawMessage([]byte("{}")),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 }
 
@@ -165,19 +168,23 @@ func TestCreateSession_Success(t *testing.T) {
 	}
 }
 
-func TestCreateSession_AlreadyHasActiveSession(t *testing.T) {
+func TestCreateSession_AutoCancelsActiveSession(t *testing.T) {
 	repo := newMockSessionRepo()
 	// 预先创建一个 active session
 	repo.sessions["existing"] = newTestSession("review-1", "existing", string(dsession.StatusActive), string(dsession.PhaseContext))
 
 	svc := NewSessionService(repo)
-	_, err := svc.CreateSession(context.Background(), "review-1", 1)
-	if err == nil {
-		t.Fatal("expected error for duplicate active session")
+	newSess, err := svc.CreateSession(context.Background(), "review-1", 1)
+	if err != nil {
+		t.Fatalf("expected success (auto-cancel old session), got error: %v", err)
 	}
-	expected := "review review-1 already has an active session: existing"
-	if err.Error() != expected {
-		t.Errorf("expected %q, got %q", expected, err.Error())
+	if newSess == nil {
+		t.Fatal("expected new session to be created")
+	}
+	// 旧 session 应被取消
+	old := repo.sessions["existing"]
+	if old.Status != dsession.StatusCancelled {
+		t.Errorf("expected old session status=cancelled, got %s", old.Status)
 	}
 }
 

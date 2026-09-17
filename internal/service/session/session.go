@@ -29,7 +29,13 @@ func (s *SessionService) CreateSession(ctx context.Context, reviewID string, rou
 		return nil, fmt.Errorf("check active session: %w", err)
 	}
 	if activeSession != nil {
-		return nil, fmt.Errorf("review %s already has an active session: %s", reviewID, activeSession.SessionID)
+		// 一个 review 同时只应有一个 active session。
+		// 新执行启动时，旧 active session 视为被取代（前一次超时/崩溃/重试）。
+		logx.Warnf("[session] review %s has active session %s (created %v ago), cancelling for new execution",
+			reviewID, activeSession.SessionID, time.Since(activeSession.CreatedAt).Round(time.Second))
+		if cancelErr := s.CancelSession(ctx, activeSession.SessionID); cancelErr != nil {
+			return nil, fmt.Errorf("cancel previous session: %w", cancelErr)
+		}
 	}
 
 	sess := &dsession.Session{
