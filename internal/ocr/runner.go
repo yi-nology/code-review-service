@@ -796,7 +796,7 @@ func parseOpenCodeReviewOutput(data []byte, defaultSeverity string) domain.Resul
 
 	severity := strings.TrimSpace(defaultSeverity)
 	if severity == "" {
-		severity = "major"
+		severity = DefaultSeverity
 	}
 
 	findings := make([]domain.Finding, 0, len(payload.Comments))

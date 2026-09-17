@@ -3,7 +3,7 @@ module github.com/yi-nology/code-review-service
 go 1.26.4
 
 require (
-	github.com/yi-nology/agentkit v0.8.2
+	github.com/yi-nology/agentkit v0.10.2
 	github.com/yi-nology/ekit v0.27.2
 	github.com/andygrunwald/go-gerrit v1.2.0
 	github.com/apache/thrift v0.23.0

@@ -1,8 +1,11 @@
 package modules
 
 import (
+	"context"
+
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/oekit/logx"
 
 	"go.uber.org/fx"
 )
@@ -10,20 +13,23 @@ import (
 // LLMModule 提供统一的 LLM Provider + 调用指标。
 // 复用 OCR 配置（URL/Token/Model），无需新凭证；未配置时上层自动降级。
 //
-// ocr.Provider 用于：discussion 多轮讨论、tech-lead 分析等 post-OCR 阶段。
-// OCR binary 自身的 LLM 调用由 ocr-engine 通过 OCR_LLM_* 环境变量管理，
-// 不经过此模块。
+// 使用 agentkit/llm.Resilient 作为后端（自动获得重试/限速/熔断/fitInput/降级链）。
+// ocr.Provider 用于：discussion 多轮讨论、tech-lead 分析、Judge 二次判断等 post-OCR 阶段。
 var LLMModule = fx.Options(
 	fx.Provide(NewLLMProviderWithMetrics),
 	fx.Provide(AsLLMProvider),
 )
 
-// NewLLMProviderWithMetrics 创建带指标统计的 Provider，同时返回指标对象。
+// NewLLMProviderWithMetrics 创建基于 agentkit 的 Provider + 指标统计。
+// 使用 BuildGeneratorFromSettings → AgentKitProvider 替代旧的手撸 HTTP LLMProvider。
 func NewLLMProviderWithMetrics(repos *repository.RepoContainer) (*ocr.Metrics, *ocr.MetricsProvider) {
 	settings := ocr.NewSettingsAdapter(repos.OCRSettings)
-	dynamic := ocr.NewLLMProvider(settings)
-	adapter := ocr.WrapLLMProvider(dynamic)
-	mp, m := ocr.NewMetricsProvider(adapter)
+	gen, err := ocr.BuildGeneratorFromSettings(context.Background(), settings)
+	if err != nil {
+		logx.Warnf("build agentkit generator failed, falling back to noop: %v", err)
+	}
+	provider := ocr.NewAgentKitProvider(gen, settings)
+	mp, m := ocr.NewMetricsProvider(provider)
 	return m, mp
 }
 

@@ -8,11 +8,12 @@
 //   - 辅助门禁决策（pass/fail 的置信度）
 //
 // 调用流程：
-//   OCR binary → findings + summary
-//       ↓
-//   Judge.Analyze(ctx, input, ocrResult) → Judgment（综合判断）
-//       ↓
-//   门禁决策 + 写回 PR
+//
+//	OCR binary → findings + summary
+//	    ↓
+//	Judge.Analyze(ctx, input, ocrResult) → Judgment（综合判断）
+//	    ↓
+//	门禁决策 + 写回 PR
 package judge
 
 import (
@@ -55,16 +56,16 @@ type Judgment struct {
 
 // FindingJudgment 是单个 finding 的判断。
 type FindingJudgment struct {
-	Path        string `json:"path"`
-	Line        int    `json:"line,omitempty"`
-	Title       string `json:"title"`
-	Severity    string `json:"severity"`
+	Path     string `json:"path"`
+	Line     int    `json:"line,omitempty"`
+	Title    string `json:"title"`
+	Severity string `json:"severity"`
 	// IsLikelyTrue 是否可能是真实问题（false = 可能误报）
-	IsLikelyTrue bool  `json:"is_likely_true"`
+	IsLikelyTrue bool `json:"is_likely_true"`
 	// Priority 人工处理优先级（1=最高）
-	Priority    int    `json:"priority"`
+	Priority int `json:"priority"`
 	// Reason 判断理由
-	Reason      string `json:"reason"`
+	Reason string `json:"reason"`
 }
 
 // AnalyzeInput 是 Judge.Analyze 的输入。
@@ -140,12 +141,12 @@ func (j *Judge) defaultJudgment(ocrResult domain.Result) *Judgment {
 	}
 	gate := defaultGate(ocrResult)
 	return &Judgment{
-		OverallAssessment:  fmt.Sprintf("OCR 完成审查，发现 %d 个问题。", len(ocrResult.Findings)),
-		Confidence:         "medium",
-		RecommendedGate:    gate,
-		GateReason:         fmt.Sprintf("基于 OCR 结果自动判定：%d 个 findings", len(ocrResult.Findings)),
+		OverallAssessment:   fmt.Sprintf("OCR 完成审查，发现 %d 个问题。", len(ocrResult.Findings)),
+		Confidence:          "medium",
+		RecommendedGate:     gate,
+		GateReason:          fmt.Sprintf("基于 OCR 结果自动判定：%d 个 findings", len(ocrResult.Findings)),
 		PrioritizedFindings: findings,
-		SummaryForHuman:    buildDefaultSummary(ocrResult),
+		SummaryForHuman:     buildDefaultSummary(ocrResult),
 	}
 }
 

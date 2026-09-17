@@ -177,13 +177,20 @@ func (r *MultiAgentRunner) Execute(ctx context.Context, input *AgentReviewInput)
 	return output, nil
 }
 
+// findingKey 用于 finding 去重的复合键（避免 fmt.Sprintf 分配）。
+type findingKey struct {
+	Path  string
+	Line  int
+	Title string
+}
+
 // deduplicateFindings removes duplicate findings based on path, line, and title
 func deduplicateFindings(findings []domain.Finding) []domain.Finding {
-	seen := make(map[string]bool)
-	var unique []domain.Finding
+	seen := make(map[findingKey]bool, len(findings))
+	unique := make([]domain.Finding, 0, len(findings))
 
 	for _, f := range findings {
-		key := fmt.Sprintf("%s:%d:%s", f.Path, f.Line, f.Title)
+		key := findingKey{Path: f.Path, Line: f.Line, Title: f.Title}
 		if !seen[key] {
 			seen[key] = true
 			unique = append(unique, f)

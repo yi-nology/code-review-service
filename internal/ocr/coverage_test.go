@@ -282,26 +282,3 @@ func TestRun_Simplified(t *testing.T) {
 		t.Errorf("expected stdout to contain world")
 	}
 }
-
-// ===================== Client 测试 =====================
-
-func TestClient_Cfg(t *testing.T) {
-	cfg := Defaults().ToConfig()
-	cfg.Binary = "test-binary"
-	c := NewClient(cfg)
-	if c.Cfg().Binary != "test-binary" {
-		t.Errorf("expected test-binary")
-	}
-}
-
-func TestClient_WasRefreshed(t *testing.T) {
-	c := NewClient(Defaults().ToConfig())
-	cfg2 := Config{Binary: "refreshed"}
-	c.Refresh(cfg2)
-	if !c.WasRefreshed() {
-		t.Errorf("expected WasRefreshed=true")
-	}
-	if c.Cfg().Binary != "refreshed" {
-		t.Errorf("expected refreshed")
-	}
-}

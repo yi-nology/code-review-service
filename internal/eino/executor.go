@@ -27,8 +27,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
 	"github.com/yi-nology/code-review-service/internal/vcs"
 
-	notifdomain "github.com/yi-nology/code-review-service/internal/domain/notification"
 	"github.com/oagentkit/obsx"
+	notifdomain "github.com/yi-nology/code-review-service/internal/domain/notification"
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/slicex"
@@ -143,8 +143,15 @@ func (e *Executor) Execute(ctx context.Context, id string, req domain.Request, p
 	e.runningMu.Unlock()
 
 	// 启用 eino LLM 调用追踪（结构化日志：stage/model/duration/tokens/慢调用告警）
+	// OnUsage 回调将真实 token 用量注入 llmMetrics（覆盖 ReAct agent 直用 BaseChatModel 的场景）
 	ctx = obsx.InitLLMObservability(ctx, logx.Default(), obsx.Options{
 		SlowThreshold: 30 * time.Second,
+		OnUsage: func(component, model, stage string, prompt, completion int) {
+			if e.llmMetrics != nil {
+				e.llmMetrics.InputTokens.Add(int64(prompt))
+				e.llmMetrics.OutputTokens.Add(int64(completion))
+			}
+		},
 	})
 
 	// Ensure we clean up when done
@@ -226,7 +233,9 @@ func (e *Executor) Execute(ctx context.Context, id string, req domain.Request, p
 	// 记录项目策略配置
 	var ignorePaths []string
 	if len(projectPolicy.IgnorePaths) > 0 {
-		_ = json.Unmarshal(projectPolicy.IgnorePaths, &ignorePaths)
+		if err := json.Unmarshal(projectPolicy.IgnorePaths, &ignorePaths); err != nil {
+			logx.Warnf("[executor] failed to parse ignore_paths for %s/%s: %v", req.Provider, req.Repo, err)
+		}
 	}
 	e.appendAuditStep(ctx, id, stepPolicy.done(
 		"项目策略已加载",
@@ -362,21 +371,21 @@ func (e *Executor) Execute(ctx context.Context, id string, req domain.Request, p
 		"OCR 执行参数已确定",
 		"合并项目策略覆盖 + 全局 OCR 设置",
 		map[string]any{
-			"ocr_binary":    workspace.OCR.Binary,
-			"ocr_language":  workspace.OCR.Language,
-			"ocr_audience":  workspace.OCR.Audience,
-			"ocr_provider":  workspace.OCR.Provider,
-			"ocr_url":       workspace.OCR.URL,
-			"ocr_model":     workspace.OCR.Model,
-			"ocr_protocol":  workspace.OCR.Protocol,
+			"ocr_binary":     workspace.OCR.Binary,
+			"ocr_language":   workspace.OCR.Language,
+			"ocr_audience":   workspace.OCR.Audience,
+			"ocr_provider":   workspace.OCR.Provider,
+			"ocr_url":        workspace.OCR.URL,
+			"ocr_model":      workspace.OCR.Model,
+			"ocr_protocol":   workspace.OCR.Protocol,
 			"ocr_background": truncateString(workspace.OCR.Background, 300),
-			"concurrency":   workspace.OCR.Concurrency,
-			"timeout_min":   workspace.OCR.TimeoutMinutes,
-			"max_tools":     workspace.OCR.MaxTools,
-			"rule_path":     workspace.RulePath,
-			"diff_bytes":    len(workspace.Diff),
-			"head_sha":      workspace.HeadSHA,
-			"base_sha":      workspace.BaseSHA,
+			"concurrency":    workspace.OCR.Concurrency,
+			"timeout_min":    workspace.OCR.TimeoutMinutes,
+			"max_tools":      workspace.OCR.MaxTools,
+			"rule_path":      workspace.RulePath,
+			"diff_bytes":     len(workspace.Diff),
+			"head_sha":       workspace.HeadSHA,
+			"base_sha":       workspace.BaseSHA,
 		},
 		map[string]any{
 			"ready":     workspace.Dir != "" && len(workspace.Diff) > 0,
@@ -573,7 +582,10 @@ func (e *Executor) executeWithRunner(ctx context.Context, id string, req domain.
 		stepJudge := newAuditStep("judge")
 		judgeInput := judge.FindingsToInput(req.Provider, req.Repo, workspace.Diff, nil)
 		judgeInput.ProjectContext = projectPolicy.OCRLanguage
-		judgment, _ = e.judge.Analyze(ctx, judgeInput, result)
+		judgment, judgeErr := e.judge.Analyze(ctx, judgeInput, result)
+		if judgeErr != nil {
+			logx.Warnf("[executor] judge analysis failed for review %s: %v", id, judgeErr)
+		}
 		if judgment != nil {
 			e.appendAuditStep(ctx, id, stepJudge.done(
 				"二次综合判断完成",
@@ -1164,11 +1176,11 @@ func judgmentToDomain(j *judge.Judgment) *domain.Judgment {
 		}
 	}
 	return &domain.Judgment{
-		OverallAssessment:  j.OverallAssessment,
-		Confidence:         j.Confidence,
-		RecommendedGate:    j.RecommendedGate,
-		GateReason:         j.GateReason,
+		OverallAssessment:   j.OverallAssessment,
+		Confidence:          j.Confidence,
+		RecommendedGate:     j.RecommendedGate,
+		GateReason:          j.GateReason,
 		PrioritizedFindings: findings,
-		SummaryForHuman:    j.SummaryForHuman,
+		SummaryForHuman:     j.SummaryForHuman,
 	}
 }

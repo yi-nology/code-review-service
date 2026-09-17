@@ -205,7 +205,7 @@ func (r *Runner) Scan(ctx context.Context, workspace domain.Workspace, req domai
 	// 不能直接 json.Unmarshal 到 ScanResult——那会因字段不匹配导致 Result 为 nil。
 	severity := cfg.DefaultSeverity
 	if strings.TrimSpace(severity) == "" {
-		severity = "major"
+		severity = DefaultSeverity
 	}
 	result := parseOpenCodeReviewOutput(stdout.Bytes(), severity)
 	return &domain.ScanResult{Result: &result}, nil

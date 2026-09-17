@@ -21,8 +21,8 @@ type ReviewADKAgentConfig struct {
 	Description string
 	// Instruction used as the system prompt
 	Instruction string
-	// LLMClient for the agent's model (from agentkit)
-	LLMClient *llm.Client
+	// LLMGenerator for the agent's model (agentkit Generator: *Client or *Resilient)
+	LLMGenerator llm.Generator
 	// Tools available to the agent
 	Tools []tool.BaseTool
 	// AgentManager for multi-agent coordination
@@ -37,12 +37,12 @@ type ReviewADKAgent struct {
 
 // NewReviewADKAgent creates a new review ADK agent
 func NewReviewADKAgent(ctx context.Context, config ReviewADKAgentConfig) (*ReviewADKAgent, error) {
-	if config.LLMClient == nil {
-		return nil, fmt.Errorf("LLM client is required")
+	if config.LLMGenerator == nil {
+		return nil, fmt.Errorf("LLM generator is required")
 	}
 
-	// Create ChatModel wrapper using agentkit
-	chatModel := NewAgentKitChatModel(config.LLMClient, config.Name)
+	// Create ChatModel wrapper using agentkit (supports both Client and Resilient)
+	chatModel := NewAgentKitChatModel(config.LLMGenerator, config.Name)
 
 	// Configure tools
 	toolsConfig := adk.ToolsConfig{}

@@ -1,10 +1,8 @@
 // agentkit 适配层：把 agentkit/llm.Generator 包装为 ocr.Provider 接口。
 //
-// 迁移策略：
-//   - 新实现 AgentKitProvider 实现 ocr.Provider（Complete / Available）
-//   - 内部委托 agentkit/llm.Generator（自动获得重试/限速/预算/fitInput/熔断）
-//   - 调用方（workflow / discussion / executor）零改动——仍用 ocr.Provider 接口
-//   - 旧 LLMProvider（HTTP 手撸）保留作为降级 fallback，待稳定后删除
+// 调用方（workflow / discussion / judge / executor）零改动——仍用 ocr.Provider 接口。
+// 内部委托 agentkit/llm.Resilient（自动获得重试/限速/熔断/fitInput/降级链）。
+// 旧 LLMProvider（HTTP 手撸）已废弃，保留作为参考实现。
 package ocr
 
 import (
@@ -92,13 +90,20 @@ func (p *AgentKitProvider) Complete(ctx context.Context, req CompleteRequest) (C
 		return CompleteResponse{}, err
 	}
 
-	// 提取 usage
+	// 提取 usage（含 cached/reasoning token 细分）
 	resp := CompleteResponse{
 		Content: out.Content,
 	}
 	if out.ResponseMeta != nil && out.ResponseMeta.Usage != nil {
-		resp.InputTokens = int64(out.ResponseMeta.Usage.PromptTokens)
-		resp.OutputTokens = int64(out.ResponseMeta.Usage.CompletionTokens)
+		u := out.ResponseMeta.Usage
+		resp.InputTokens = int64(u.PromptTokens)
+		resp.OutputTokens = int64(u.CompletionTokens)
+		if u.PromptTokenDetails.CachedTokens > 0 {
+			resp.CacheReadTokens = int64(u.PromptTokenDetails.CachedTokens)
+		}
+		if u.CompletionTokensDetails.ReasoningTokens > 0 {
+			resp.ReasoningTokens = int64(u.CompletionTokensDetails.ReasoningTokens)
+		}
 	}
 	return resp, nil
 }

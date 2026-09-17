@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,15 +20,13 @@ import (
 
 // LLMProvider 实现 Provider / Complete 接口（吸收 llm.DynamicProvider）。
 //
-// 阶段 A11 完整化：
-//   - OpenAI 兼容 chat completions 协议
-//   - Anthropic messages 协议（UseAnthropic=true 切换）
+// Deprecated: 已被 AgentKitProvider + agentkit/llm.Resilient 替代。
+// 保留作为降级 fallback 参考实现，新代码应使用 AgentKitProvider。
+//
+// 旧实现特性（供参考）：
+//   - OpenAI 兼容 chat completions 协议 + Anthropic messages 协议
 //   - 5xx / 429 自动重试 1 次（指数退避 1s + jitter）
-//   - 4xx 不重试
-//   - 错误消息 redact 脱敏（Bearer / api_key / sk- / ghp_ 等）
-//   - settings 缓存：避免每次 Available/Complete 都读 DB
-//   - HTTP 连接池：Transport 配置 MaxIdleConns/IdleConnTimeout
-//   - 熔断保护：连续 3 次失败后熔断 5 分钟（agentkit/breaker）
+//   - settings 缓存 + HTTP 连接池 + 熔断保护（agentkit/breaker）
 //
 // 取代 internal/service/llm/openai.go（282 LOC）。
 type LLMProvider struct {
@@ -84,7 +81,8 @@ func (p *LLMProvider) Reset() {
 	p.settingsCacheMu.Unlock()
 }
 
-// LLMRequest / LLMResponse 是 CompleteRequest / CompleteResponse 的别名（兼容旧调用方）。
+// LLMRequest / LLMResponse 是 CompleteRequest / CompleteResponse 的别名。
+// Deprecated: 使用 CompleteRequest / CompleteResponse。
 type LLMRequest = CompleteRequest
 type LLMResponse = CompleteResponse
 
@@ -103,6 +101,9 @@ func NewLLMProvider(settings Settings) *LLMProvider {
 		breaker: breaker.New(3, 5*time.Minute), // 连续 3 次失败熔断，5 分钟后探测恢复
 	}
 }
+
+// 编译期断言：LLMProvider 直接满足 Provider 接口。
+var _ Provider = (*LLMProvider)(nil)
 
 // Available 报告 LLM 是否已配置可用。
 // 性能优化：通过 settings 缓存避免每次调用都读 DB（30s 缓存有效期）。
@@ -131,10 +132,10 @@ func (p *LLMProvider) Complete(ctx context.Context, req LLMRequest) (LLMResponse
 		return LLMResponse{}, fmt.Errorf("读取 LLM 配置失败: %w", err)
 	}
 	if data == nil {
-		return LLMResponse{}, errLLMNotConfigured
+		return LLMResponse{}, ErrNotConfigured
 	}
 	if strings.TrimSpace(data.URL) == "" || strings.TrimSpace(data.ModelName) == "" {
-		return LLMResponse{}, errLLMNotConfigured
+		return LLMResponse{}, ErrNotConfigured
 	}
 
 	var resp LLMResponse
@@ -373,11 +374,13 @@ func (p *LLMProvider) CompleteJSON(ctx context.Context, req LLMRequest, out any)
 }
 
 // LLMProviderAdapter 把 LLMProvider 适配为 Provider 接口。
+// Deprecated: LLMProvider 已直接实现 Provider，此适配器不再需要。
 type LLMProviderAdapter struct {
 	inner *LLMProvider
 }
 
 // WrapLLMProvider 构造 Adapter。
+// Deprecated: LLMProvider 已直接实现 Provider，直接使用即可。
 func WrapLLMProvider(p *LLMProvider) *LLMProviderAdapter {
 	return &LLMProviderAdapter{inner: p}
 }
@@ -395,9 +398,3 @@ func (a *LLMProviderAdapter) Complete(ctx context.Context, req CompleteRequest) 
 	}
 	return resp, nil
 }
-
-// errLLMNotConfigured 是 LLM 未配置时返回的哨兵错误。
-var errLLMNotConfigured = errors.New("llm: not configured")
-
-// ErrLLMNotConfigured 导出供 llm 包消费者使用。
-var ErrLLMNotConfigured = errLLMNotConfigured

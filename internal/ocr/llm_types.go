@@ -37,10 +37,12 @@ type CompleteRequest struct {
 
 // CompleteResponse 描述一次补全响应。
 type CompleteResponse struct {
-	Content      string
-	InputTokens  int64
-	OutputTokens int64
-	FinishReason string
+	Content         string
+	InputTokens     int64
+	OutputTokens    int64
+	CacheReadTokens int64 // prompt cache 命中 token 数（DeepSeek/OpenAI 等支持）
+	ReasoningTokens int64 // 推理 token 数（o1/DeepSeek-R1 等推理模型）
+	FinishReason    string
 }
 
 // CompleteJSON 是便利方法：请求 JSON 输出并把响应解析到 out。

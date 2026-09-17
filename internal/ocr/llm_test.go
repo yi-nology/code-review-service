@@ -64,8 +64,8 @@ func TestLLMProviderAdapter_RoundTrip(t *testing.T) {
 	}
 }
 
-func TestErrLLMNotConfigured(t *testing.T) {
-	if errLLMNotConfigured.Error() != "llm: not configured" {
-		t.Errorf("unexpected message: %v", errLLMNotConfigured)
+func TestErrNotConfigured(t *testing.T) {
+	if ErrNotConfigured.Error() != "llm not configured or disabled" {
+		t.Errorf("unexpected message: %v", ErrNotConfigured)
 	}
 }

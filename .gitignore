@@ -57,3 +57,4 @@ data/*.json
 # Mavis / mavis local artifacts (plan files, scratchpads, agent memory dumps)
 .zcode/
 .harness/
+.mimosa/

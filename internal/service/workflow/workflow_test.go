@@ -126,7 +126,7 @@ func (m *MockSessionService) ListSessions(ctx context.Context, page, pageSize in
 		sessions = append(sessions, *session)
 	}
 	return &gormx.PageResponse[dsession.Session]{
-		Items:  sessions,
+		Items: sessions,
 		Total: int64(len(sessions)),
 		Page:  page,
 		Pages: 1,

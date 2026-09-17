@@ -1,5 +1,8 @@
 package ocr
 
+// 默认严重级别：未指定时使用 "major"。
+const DefaultSeverity = "major"
+
 // Config 是 open-code-review 的运行时配置。
 //
 // 阶段 A 设计：
@@ -79,7 +82,7 @@ func Defaults() Fallback {
 	return Fallback{
 		Binary:          "ocr",
 		Audience:        "agent",
-		DefaultSeverity: "major",
+		DefaultSeverity: DefaultSeverity,
 		Concurrency:     2,
 		MaxGitProcs:     4,
 		TimeoutMinutes:  10,
@@ -122,7 +125,7 @@ func BuildConfig(settings *SettingsData, overrides OCROverrides, fallback Fallba
 		Binary:          firstNonBlank(settings.Binary, fallback.Binary),
 		Audience:        firstNonBlank(overrides.Audience, settings.Audience, fallback.Audience, "agent"),
 		RulePath:        fallback.RulePath,
-		DefaultSeverity: firstNonBlank(overrides.DefaultSeverity, settings.DefaultSeverity, fallback.DefaultSeverity, "major"),
+		DefaultSeverity: firstNonBlank(overrides.DefaultSeverity, settings.DefaultSeverity, fallback.DefaultSeverity, DefaultSeverity),
 		URL:             firstNonBlank(overrides.URL, settings.URL),
 		Model:           firstNonBlank(overrides.Model, settings.Model),
 		AuthToken:       firstNonBlank(overrides.AuthToken, settings.AuthToken),

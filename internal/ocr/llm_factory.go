@@ -1,7 +1,8 @@
 // LLM 工厂：从 OCR settings 构建 agentkit/llm.Generator。
 //
-// 支持 OpenAI 兼容和 Anthropic 两种协议。
-// 构建结果为 agentkit/llm.Client（单模型）或 agentkit/llm.Resilient（多模型降级链）。
+// 构建结果统一为 agentkit/llm.Resilient（即使只有一个 Provider），
+// 自动获得多模型降级、按模型熔断、预算短路、窗口自适应 fitInput。
+// 降级事件和 token 用量通过 OnFallback/OnUsage 回调上报结构化日志。
 package ocr
 
 import (
@@ -11,12 +12,13 @@ import (
 	"time"
 
 	"github.com/oagentkit/llm"
-
-	"github.com/cloudwego/eino/components/model"
+	"github.com/oekit/logx"
 )
 
 // BuildGeneratorFromSettings 从 OCR settings 构建 agentkit Generator。
 // 返回 nil 表示 LLM 未配置（调用方应降级到 NoopProvider）。
+// 统一返回 *llm.Resilient，即使只有一个 Provider——为未来多模型降级预留。
+// 自动注册 OnUsage/OnFallback 回调用于结构化日志和指标采集。
 func BuildGeneratorFromSettings(ctx context.Context, settings Settings) (llm.Generator, error) {
 	data, err := settings.Get(ctx)
 	if err != nil {
@@ -26,80 +28,47 @@ func BuildGeneratorFromSettings(ctx context.Context, settings Settings) (llm.Gen
 		return nil, nil
 	}
 	url := strings.TrimSpace(data.URL)
-	model := strings.TrimSpace(data.ModelName)
+	modelName := strings.TrimSpace(data.ModelName)
 	token := strings.TrimSpace(data.AuthToken)
-	if url == "" || model == "" {
+	if url == "" || modelName == "" {
 		return nil, nil
 	}
 
-	// 根据协议选择 Provider
-	protocol := strings.TrimSpace(data.Protocol)
-	if protocol == "" {
-		if data.UseAnthropic {
-			protocol = "anthropic"
-		} else {
-			protocol = "openai"
-		}
-	}
-
-	var provider llm.Provider
-	switch strings.ToLower(protocol) {
-	case "anthropic":
-		provider, err = llm.NewOpenAIProvider(ctx, llm.OpenAIProviderConfig{
-			BaseURL: url,
-			APIKey:  token,
-			Model:   model,
-			Timeout: 5 * time.Minute,
-		})
-	default: // openai / openai-responses
-		provider, err = llm.NewOpenAIProvider(ctx, llm.OpenAIProviderConfig{
-			BaseURL: url,
-			APIKey:  token,
-			Model:   model,
-			Timeout: 5 * time.Minute,
-		})
-	}
+	provider, err := llm.NewOpenAIProvider(ctx, llm.OpenAIProviderConfig{
+		BaseURL: url,
+		APIKey:  token,
+		Model:   modelName,
+		Timeout: 5 * time.Minute,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("create LLM provider: %w", err)
 	}
 
-	// 构建 agentkit Client（带重试/限速/预算）
-	client := llm.NewClient(provider.Model(), model, nil)
-	client.MaxRetries = 3
-	client.BaseDelay = 2 * time.Second
-	client.MaxDelay = 30 * time.Second
-	return client, nil
-}
-
-// BuildResilientFromSettings 构建多模型降级链（Resilient）。
-// 当前只支持单模型；未来可从 DB 读取多个 provider 配置构建降级链。
-func BuildResilientFromSettings(ctx context.Context, settings Settings) (llm.Generator, error) {
-	gen, err := BuildGeneratorFromSettings(ctx, settings)
-	if err != nil || gen == nil {
-		return gen, err
+	// 统一包装为 Resilient：单 Provider 时为直通，未来扩展多 Provider 降级链零改动。
+	chain := llm.NewFallbackChain(provider)
+	resilient, err := llm.NewResilient(chain, llm.ResilientConfig{})
+	if err != nil {
+		return nil, fmt.Errorf("create resilient client: %w", err)
 	}
 
-	// 包装为 Resilient（即使只有一个 provider，也为未来扩展预留）
-	if client, ok := gen.(*llm.Client); ok {
-		provider := &singleProvider{
-			chatModel: client.RawModel(),
-			modelName: client.ModelName,
-		}
-		chain := llm.NewFallbackChain(provider)
-		return llm.NewResilient(chain, llm.ResilientConfig{})
+	// 注册可观测性回调
+	resilient.OnUsage = func(model, stage string, prompt, completion int) {
+		logx.Infof("[llm] usage model=%s stage=%s prompt=%d completion=%d total=%d",
+			model, stage, prompt, completion, prompt+completion)
 	}
-	return gen, nil
+	resilient.OnFallback = func(from, to, stage, reason string) {
+		logx.Warnf("[llm] fallback stage=%s from=%s to=%s reason=%s",
+			stage, from, to, truncateMiddle(reason, 200))
+	}
+
+	return resilient, nil
 }
 
-// singleProvider 把单个 eino ChatModel 包装为 llm.Provider 接口。
-type singleProvider struct {
-	chatModel model.BaseChatModel
-	modelName string
+// truncateMiddle 截断字符串中间部分，保留头尾。
+func truncateMiddle(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	half := maxLen / 2
+	return s[:half] + "..." + s[len(s)-half:]
 }
-
-func (p *singleProvider) Name() string                          { return p.modelName }
-func (p *singleProvider) Model() model.BaseChatModel            { return p.chatModel }
-func (p *singleProvider) ModelName() string                     { return p.modelName }
-func (p *singleProvider) ContextTokens() int                    { return 128_000 }
-func (p *singleProvider) MaxOutputTokens() int                  { return 4096 }
-func (p *singleProvider) CostPer1KTokens() (float64, float64)   { return 0, 0 }
