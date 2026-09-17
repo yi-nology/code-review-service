@@ -3,7 +3,7 @@
 // 与主 HTTP 服务的区别：
 //   - 不起 Hertz：HTTP 模式由 transport.RunHTTP 启 streamable_http server。
 //   - 复用 service 层：fx 拉 DatabaseModule / RepositoryModule / ProviderModule /
-//     RunnerModule / OCRModule / LLMModule / WritebackModule / NotificationModule /
+//     RunnerModule / OCRModule / LLMModule / GerritModule / WritebackModule / NotificationModule /
 //     CostModule / AgentModule / WorkflowModule / ReviewModule；
 //     不拉 ServerModule / WebhookModule / HandlerModule / WorkerModule /
 //     PreflightModule / LLMProbeModule / MigrateModule / MigrateRulesModule /
@@ -116,6 +116,10 @@ func main() {
 		modules.RunnerModule,
 		modules.OCRModule,
 		modules.LLMModule,
+		modules.GerritModule, // WritebackOrchestrator 依赖 GerritClientContainer（此前漏拼 → mcp-server 启动即 crash）
+		// ArgusClient 是 ReviewService 的依赖；HandlerModule 不拉（HTTP handler 专用），
+		// 需单独 Provide（此前漏拼 → mcp-server 启动即 crash）。
+		fx.Provide(modules.NewArgusClient),
 		modules.WritebackModule,
 		modules.NotificationModule,
 		modules.CostModule,
