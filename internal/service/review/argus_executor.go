@@ -20,6 +20,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/service/statuscheck"
 
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
@@ -52,11 +53,14 @@ func (e *EngineExecutor) Execute(ctx context.Context, id string, req domain.Requ
 type ArgusExecutor struct {
 	client     *argusclient.Client
 	reviewRepo repository.ReviewRepository
+	// statusPoster 派发成功后向 PR head 写 pending status（nil 安全）。
+	statusPoster domain.StatusPoster
 }
 
 // NewArgusExecutor 构造 argus 执行器（client.Enabled()=false 时不应被装配）。
-func NewArgusExecutor(client *argusclient.Client, reviewRepo repository.ReviewRepository) *ArgusExecutor {
-	return &ArgusExecutor{client: client, reviewRepo: reviewRepo}
+func NewArgusExecutor(client *argusclient.Client, reviewRepo repository.ReviewRepository,
+	statusPoster domain.StatusPoster) *ArgusExecutor {
+	return &ArgusExecutor{client: client, reviewRepo: reviewRepo, statusPoster: statusPoster}
 }
 
 func (a *ArgusExecutor) Execute(ctx context.Context, id string, req domain.Request,
@@ -72,7 +76,14 @@ func (a *ArgusExecutor) Execute(ctx context.Context, id string, req domain.Reque
 	}
 
 	started := time.Now()
-	res, err := a.client.TriggerReview(ctx, req.Provider, owner, repo, number)
+	res, err := a.client.TriggerTask(ctx, argusclient.TriggerOptions{
+		Platform:  req.Provider,
+		Owner:     owner,
+		Repo:      repo,
+		Number:    number,
+		Kind:      argusKind(req.TaskKind),
+		Artifacts: argusArtifacts(req),
+	})
 	duration := time.Since(started).Milliseconds()
 	if err != nil {
 		a.failRecord(ctx, id, req, err)
@@ -84,11 +95,14 @@ func (a *ArgusExecutor) Execute(ctx context.Context, id string, req domain.Reque
 		msg = "argus 同 PR 已有在飞任务，复用既有任务等待回报"
 	}
 	evt := domain.Event{
-		Stage:      "dispatch",
-		Status:     "completed",
-		Message:    msg,
-		How:        "argus trigger (POST /tasks, kind=CODE_REVIEW)",
-		Input:      map[string]any{"platform": req.Provider, "owner": owner, "repo": repo, "number": number},
+		Stage:   "dispatch",
+		Status:  "completed",
+		Message: msg,
+		How:     "argus trigger (POST /tasks, kind=" + domain.NormalizeTaskKind(req.TaskKind) + ")",
+		Input: map[string]any{
+			"platform": req.Provider, "owner": owner, "repo": repo, "number": number,
+			"task_kind": domain.NormalizeTaskKind(req.TaskKind),
+		},
 		Output:     map[string]any{"taskId": res.TaskID, "status": res.Status, "duplicated": res.Duplicated},
 		DurationMs: duration,
 		CreatedAt:  started.UTC(),
@@ -110,8 +124,32 @@ func (a *ArgusExecutor) Execute(ctx context.Context, id string, req domain.Reque
 		logx.CtxErrorf(ctx, "argus dispatch: persist running record failed: review=%s err=%v", id, err)
 		return domain.Response{}, err
 	}
-	logx.Infof("argus dispatch: review=%s task=%s duplicated=%v", id, res.TaskID, res.Duplicated)
+	// 派发即发 pending status：PR 作者立刻可见审查已启动（与 OCR 路径 notifyStart 对齐）。
+	domain.PostStatus(a.statusPoster, context.Background(), req.Provider, req.Repo, req.HeadSHA,
+		statuscheck.StatePending, "Argus 代码审查进行中…", id)
+	logx.Infof("argus dispatch: review=%s task=%s duplicated=%v kind=%s",
+		id, res.TaskID, res.Duplicated, domain.NormalizeTaskKind(req.TaskKind))
 	return out, nil
+}
+
+// argusKind 任务类型词表 → argus 整数枚举（NormalizeTaskKind 已在 validate 保证合法）。
+func argusKind(kind string) int {
+	switch domain.NormalizeTaskKind(kind) {
+	case domain.TaskKindRequirementCompliance:
+		return argusclient.TaskKindRequirementCompliance
+	case domain.TaskKindVisualCheck:
+		return argusclient.TaskKindVisualCheck
+	default:
+		return argusclient.TaskKindCodeReview
+	}
+}
+
+// argusArtifacts 请求携带需求时注入 artifacts（argus 需求复核 workflow 的需求来源）。
+func argusArtifacts(req domain.Request) map[string]string {
+	if len(req.Requirements) == 0 {
+		return nil
+	}
+	return map[string]string{"requirements": strings.Join(req.Requirements, "\n")}
 }
 
 // failRecord 触发失败落终态（worker 只记日志，持久化由执行器自负）。
@@ -130,7 +168,11 @@ func (a *ArgusExecutor) failRecord(ctx context.Context, id string, req domain.Re
 	})
 	if err != nil {
 		logx.CtxErrorf(ctx, "argus dispatch: persist failure record failed: review=%s err=%v", id, err)
+		return
 	}
+	// 触发失败同样在 PR 上留痕（error status），与 OCR 路径失败语义对齐。
+	domain.PostStatus(a.statusPoster, context.Background(), req.Provider, req.Repo, req.HeadSHA,
+		statuscheck.StateError, "Argus 审查触发失败："+cause.Error(), id)
 }
 
 // splitOwnerRepo 拆 "owner/repo"；无 "/" 视为非法（argus 契约 owner/repo 分列出参）。
@@ -146,9 +188,10 @@ func splitOwnerRepo(full string) (string, string, error) {
 // 匹配键：provider=platform（小写）、repo=owner/repo、PR number、（可选）head_sha，
 // 且 Record 引擎为 argus。不匹配（纯 push 场景/engine=ocr/head 不一致）为 no-op。
 // notifier 为收敛完成后的应用内通知出口（nil 安全，与 OCR 路径 notifyCompletion 对齐）；
-// 由 argus_service.IngestHandler 在 upsert 成功后调用。
+// statusPoster 收敛后向 PR head 写质量门禁 commit status（nil 安全）；
+// 由 argus_service.IngestHandler 在 upsert 成功后调用，亦被 ArgusPoller 恢复路径复用。
 func CompleteFromArgusReport(ctx context.Context, reviewRepo repository.ReviewRepository,
-	notifier domain.Notifier, rep *argusingest.Review, argusID uint) {
+	notifier domain.Notifier, statusPoster domain.StatusPoster, rep *argusingest.Review, argusID uint) {
 	if reviewRepo == nil || rep == nil {
 		return
 	}
@@ -195,7 +238,12 @@ func CompleteFromArgusReport(ctx context.Context, reviewRepo repository.ReviewRe
 	}
 
 	findings := argusFindingsToDomain(rep.Findings)
+	applied := false
 	err = reviewRepo.UpdateInTransaction(ctx, rec.ID, func(r *domain.Record) error {
+		if r.Status != statusRunning {
+			return nil // 已被并发收敛（sink push 与轮询器竞态），不覆盖、不重复通知
+		}
+		applied = true
 		r.Status = status
 		r.Response.Status = status
 		r.Response.Summary = summary
@@ -213,8 +261,36 @@ func CompleteFromArgusReport(ctx context.Context, reviewRepo repository.ReviewRe
 		logx.CtxErrorf(ctx, "argus report: complete record failed: review=%s argus=%d err=%v", rec.ID, argusID, err)
 		return
 	}
+	if !applied {
+		logx.CtxInfof(ctx, "argus report: review=%s already converged by concurrent path, skip", rec.ID)
+		return
+	}
 	logx.Infof("argus report: review=%s completed by argus push (verdict=%s)", rec.ID, rep.Verdict)
+	postArgusGateStatus(ctx, statusPoster, rec.Request.Provider, rec.Request.Repo,
+		shaOr(rep.HeadSHA, rec.HeadSHA), status, gate, summary, rec.ID)
 	notifyArgusCompletion(ctx, notifier, rec, rep, summary, status, gate)
+}
+
+// postArgusGateStatus 按 verdict/gate 结果向 PR head 写门禁 status
+// （success→passed / request_changes→failed / error→error），与 OCR 路径语义对齐。
+func postArgusGateStatus(ctx context.Context, poster domain.StatusPoster, platform, repoPath, sha, status string,
+	gate domain.Gate, summary, reviewID string) {
+	state := statuscheck.StateSuccess
+	if gate.Status == domain.GateFailed {
+		state = statuscheck.StateFailed
+	}
+	if status == statusFailed {
+		state = statuscheck.StateError
+	}
+	domain.PostStatus(poster, ctx, platform, repoPath, sha, state, summary, reviewID)
+}
+
+// shaOr 返回第一个非空 SHA。
+func shaOr(preferred, fallback string) string {
+	if preferred != "" {
+		return preferred
+	}
+	return fallback
 }
 
 // notifyArgusCompletion argus 回报收敛后发应用内通知（复用 OCR 路径的事件契约，

@@ -64,3 +64,11 @@ tracing:
 # cost:
 #   monthly_budget_usd: 100.0      # 月度预算上限（美元），0 表示不限制
 #   review_action: "warn"          # warn（仅告警，默认）/ block（拒绝新评审）
+
+# Argus 对接（可选）
+# Argus Bot（外部 PR 审查引擎）基地址与 API token（即 argus 侧 ARGUS_APITOKEN）。
+# bot_url 为空 = argus 引擎整体关闭（创建期 fail-fast、轮询器与反馈回流不启动）。
+# 也可用环境变量 ARGUS_BOT_URL / ARGUS_BOT_TOKEN 覆盖。
+# argus:
+#   bot_url: "http://argus:8899"
+#   bot_token: "${ARGUS_BOT_TOKEN:}"

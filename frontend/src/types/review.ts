@@ -44,6 +44,8 @@ export interface ReviewDetail {
   retry_count?: number
   /** 生效审查引擎：'ocr' | 'argus'（历史记录可能为空 = ocr） */
   engine?: string
+  /** argus 任务类型：'code_review' | 'requirement_compliance' | 'visual_check'（engine=argus 时有值） */
+  task_kind?: string
   created_at: string
   updated_at: string
 }
@@ -269,6 +271,8 @@ export interface CreateReviewOptions {
   ephemeral_reviewers?: EphemeralReviewer[]
   /** 审查引擎：'ocr'（默认）| 'argus'（外部 Bot，仅 PR 维度、异步回报） */
   engine?: 'ocr' | 'argus'
+  /** engine=argus 时的任务类型：code_review（默认）| requirement_compliance | visual_check */
+  task_kind?: string
 }
 
 export interface ScanRepositoryOptions {

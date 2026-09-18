@@ -26,8 +26,9 @@ import (
 //     写回 PR 评论时署名用。
 func createReviewTool() mcp.Tool {
 	opts := append([]mcp.ToolOption{
-		mcp.WithDescription("创建一次代码评审。可同步等待结果（wait=true, 默认 180s 超时），或异步返回 review_id 后续轮询。"),
+		mcp.WithDescription("创建一次代码评审。可同步等待结果（wait=true, 默认 180s 超时），或异步返回 review_id 后续轮询。支持 engine=argus 走外部 Argus Bot（异步，wait 自动降级为 false 语义——argus 完成后经回报收敛）。"),
 	}, reviewRequestSchema()...)
+	opts = append(opts, argusEngineSchema()...)
 	opts = append(opts,
 		WithBoolParam("wait", false, "是否同步等待评审完成（默认 true，超时降级为异步）", true),
 		WithIntParam("timeout_seconds", false, "wait=true 时的同步等待超时（秒），默认 180，最大 600", 180),
@@ -73,6 +74,8 @@ func createReviewHandler(svc app.ReviewService) func(ctx context.Context, req mc
 			Author:          optionalString(args, "author"),
 			AuthorName:      optionalString(args, "author_name"),
 			AuthorAvatar:    optionalString(args, "author_avatar"),
+			Engine:          optionalString(args, "engine"),
+			TaskKind:        optionalString(args, "task_kind"),
 		}
 
 		if reqs, ok := args["requirements"].([]any); ok {

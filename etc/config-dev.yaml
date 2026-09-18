@@ -25,3 +25,11 @@ tracing:
   endpoint: "${OTEL_ENDPOINT}"
   insecure: true
   sample_rate: 1.0
+
+# Argus 对接（可选）
+# Argus Bot（外部 PR 审查引擎）基地址与 API token（即 argus 侧 ARGUS_APITOKEN）。
+# bot_url 为空 = argus 引擎整体关闭（创建期 fail-fast、轮询器与反馈回流不启动）。
+# 也可用环境变量 ARGUS_BOT_URL / ARGUS_BOT_TOKEN 覆盖。
+# argus:
+#   bot_url: "http://argus:8899"
+#   bot_token: "${ARGUS_BOT_TOKEN:}"

@@ -27,6 +27,7 @@ import (
 	reviewdomain "github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/session"
 	statsSvc "github.com/yi-nology/code-review-service/internal/service/stats"
+	"github.com/yi-nology/code-review-service/internal/service/statuscheck"
 	"github.com/yi-nology/code-review-service/internal/service/suggestion"
 	"github.com/yi-nology/code-review-service/internal/service/webhook"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
@@ -117,10 +118,11 @@ func NewArgusClient(cfg *config.Config) *argusclient.Client {
 
 // InitArgusHandler Argus 审查结果承接（push 模型，见 biz/handler/argus_service）；
 // push 落库后经 CompleteFromArgusReport 关联收敛 engine=argus 的 active 评审，
-// 并发应用内通知（notifier 与 OCR 路径同源）。
-func InitArgusHandler(repos *repository.RepoContainer, argus *argusclient.Client,
-	notifier reviewdomain.Notifier) {
-	argus_service.InitHandler(repos.ArgusReview, repos.Review, argus, notifier)
+// 并发应用内通知（notifier 与 OCR 路径同源）+ PR 门禁 commit status（statusPoster）。
+func InitArgusHandler(repos *repository.RepoContainer, gitSvc *gitProvider.GitProviderService,
+	argus *argusclient.Client, notifier reviewdomain.Notifier) {
+	argus_service.InitHandler(repos.ArgusReview, repos.Review, argus, notifier,
+		statuscheck.NewPoster(gitSvc))
 }
 
 func InitNotificationHandler(repos *repository.RepoContainer) {

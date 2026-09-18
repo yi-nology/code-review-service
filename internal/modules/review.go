@@ -138,7 +138,9 @@ func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 	// 引擎分流：engine=ocr（默认）走原 OCR 执行器（一行不改）；
 	// engine=argus 走 ArgusExecutor（触发外部任务，push 回报收敛终态）。
 	// argus 未配置时创建期即拒绝 engine=argus（ArgusEnabled=false）。
-	argusExecutor := svcReview.NewArgusExecutor(deps.ArgusClient, deps.Repos.Review)
+	// statusPoster 让 argus 路径与 OCR 一样在 PR 上留门禁 status（pending→终态）。
+	argusExecutor := svcReview.NewArgusExecutor(deps.ArgusClient, deps.Repos.Review,
+		statuscheck.NewPoster(deps.GitProviderSvc))
 	return svcReview.NewService(svcReview.ServiceConfig{
 		ReviewRepo:      deps.Repos.Review,
 		OCRSettingsRepo: deps.Repos.OCRSettings,

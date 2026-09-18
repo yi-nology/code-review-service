@@ -508,6 +508,7 @@ func toServiceRequest(req *modelReview.CreateReviewReq) domain.Request {
 		Wait:            ptrx.Deref(req.Wait, false),
 		Requirements:    req.Requirements,
 		Engine:          ptrx.Deref(req.Engine, ""),
+		TaskKind:        ptrx.Deref(req.TaskKind, ""),
 	}
 	if len(req.EphemeralReviewers) > 0 {
 		svcReq.EphemeralReviewers = make([]domain.EphemeralReviewer, len(req.EphemeralReviewers))
@@ -548,6 +549,7 @@ func convertDetail(r domain.Record) modelReview.ReviewDetail {
 		RetryCount: ptrx.Of(int64(r.RetryCount)),
 		// 生效引擎（创建时已解析并随 Request 持久化；空值视为 ocr 以兼容历史记录）。
 		Engine:    common.StrPtr(r.Request.Engine),
+		TaskKind:  common.StrPtr(r.Request.TaskKind),
 		CreatedAt: common.StrPtr(common.FormatTime(r.CreatedAt)),
 		UpdatedAt: common.StrPtr(common.FormatTime(r.UpdatedAt)),
 	}

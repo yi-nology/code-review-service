@@ -14,6 +14,9 @@ struct CreateReviewReq {
     // engine 审查引擎：'ocr'（默认，多智能体）| 'argus'（外部 Argus Bot，异步回报）。
     // 留空按项目策略 review_engine 解析，仍空则 ocr。
     13: optional string engine (api.body="engine")
+    // task_kind engine=argus 时的任务类型：'code_review'（默认）|
+    // 'requirement_compliance'（需求复核 R1-R5）| 'visual_check'（视觉检查）。
+    14: optional string task_kind (api.body="task_kind")
 }
 
 struct EphemeralReviewerInput {
@@ -174,6 +177,9 @@ struct ReviewDetail {
     25: optional i64 retry_count (api.body="retry_count")
     // engine 生效审查引擎：'ocr' | 'argus'（解析后随记录返回）。
     26: optional string engine (api.body="engine")
+    // task_kind argus 任务类型：'code_review' | 'requirement_compliance' | 'visual_check'
+    // （engine=argus 时有值；OCR 记录为空）。
+    27: optional string task_kind (api.body="task_kind")
 }
 
 struct OCRInputWorkspace {
@@ -390,11 +396,99 @@ struct ArgusGetReviewResp {
 }
 
 struct ArgusSuppressReq {
-    1: string fp (api.body="fp")
+    // fp 指纹模式（≥4 位前缀全值直传）；与 file+comment 二选一，fp 优先。
+    1: optional string fp (api.body="fp")
+    // file+comment 兜底模式：旧数据无 fp 或指纹未命中（措辞漂移）时按原文匹配。
+    2: optional string file (api.body="file")
+    3: optional string comment (api.body="comment")
 }
 
 struct ArgusSuppressResp {
     1: bool matched (api.body="matched")
     2: optional string state (api.body="state")
     3: optional string message (api.body="message")
+}
+
+// ---------- Argus 治理面（观测代理 + 报告 + 问答） ----------
+// 契约：argus 侧 GET /tasks、GET /usage/monthly、GET /reports/health、
+// GET /tasks/:id（report 内联）、MCP /mcp ask_argus；本服务做带鉴权与
+// 凭证收敛的代理（argus token 不出服务端）。
+
+struct ArgusTaskSummary {
+    1: string task_id (api.body="task_id")
+    2: string status (api.body="status")
+    // kind argus 侧字符串任务类型：requirement_compliance|code_review|visual_check。
+    3: string kind (api.body="kind")
+    4: string platform (api.body="platform")
+    5: string owner (api.body="owner")
+    6: string repo (api.body="repo")
+    7: string number (api.body="number")
+    8: optional string head_sha (api.body="head_sha")
+    9: optional string verdict (api.body="verdict")
+    10: i64 created_at (api.body="created_at")
+}
+
+struct ArgusListTasksReq {
+    // status 空=全部；pending|running|done|failed|stale。
+    1: optional string status (api.query="status")
+    // limit 默认 20，上限 100（argus 侧约束）。
+    2: optional i32 limit (api.query="limit")
+}
+
+struct ArgusListTasksResp {
+    1: list<ArgusTaskSummary> tasks (api.body="tasks")
+}
+
+struct ArgusUsageReq {
+}
+
+struct ArgusUsageRepo {
+    1: string platform (api.body="platform")
+    2: string owner (api.body="owner")
+    3: string repo (api.body="repo")
+    4: i64 tokens (api.body="tokens")
+    5: i64 tasks (api.body="tasks")
+}
+
+struct ArgusUsageResp {
+    1: string month (api.body="month")
+    2: i64 total (api.body="total")
+    // budget argus 侧仓库月度 token 预算；0 = 未设置。
+    3: i64 budget (api.body="budget")
+    4: list<ArgusUsageRepo> repos (api.body="repos")
+}
+
+struct ArgusHealthReq {
+}
+
+struct ArgusHealthResp {
+    // payload argus 健康报告原始 JSON（{generated_at,repos[],empty}），
+    // 透传字符串由前端解析，规避 argus 侧结构演进破坏契约。
+    1: string payload (api.body="payload")
+}
+
+struct ArgusReviewReportReq {
+    1: string id (api.path="id")
+}
+
+struct ArgusReviewReportResp {
+    1: string argus_task_id (api.body="argus_task_id")
+    2: string status (api.body="status")
+    3: optional string verdict (api.body="verdict")
+    // report argus 侧 markdown 报告全文（懒拉取代理，不落本站库）。
+    4: optional string report (api.body="report")
+    5: optional i32 findings_count (api.body="findings_count")
+}
+
+struct ArgusAskReq {
+    1: string platform (api.body="platform")
+    2: string owner (api.body="owner")
+    3: string repo (api.body="repo")
+    4: string number (api.body="number")
+    // question 追问；空串 = 返回该 PR 最近一次审查结论摘要。
+    5: string question (api.body="question")
+}
+
+struct ArgusAskResp {
+    1: string answer (api.body="answer")
 }

@@ -150,8 +150,17 @@
                 <el-radio-group v-model="form.review_engine">
                   <el-radio value="">OCR 多智能体（默认）</el-radio>
                   <el-radio value="ocr">OCR（显式）</el-radio>
-                  <el-radio value="argus">Argus Bot</el-radio>
+                  <el-radio
+                    value="argus"
+                    :disabled="!argusPlatformSupported"
+                    :title="argusPlatformSupported ? '' : 'Argus 暂不支持 ' + form.provider + ' 平台（仅 gitea/github/gitlab）'"
+                  >
+                    Argus Bot
+                  </el-radio>
                 </el-radio-group>
+                <small v-if="!argusPlatformSupported" class="engine-hint argus-unsupported-hint">
+                  {{ form.provider }} 平台暂不支持 Argus（仅 gitea/github/gitlab），已禁用该选项。
+                </small>
               </section>
 
               <!-- Step 2: 审查范围 -->
@@ -229,9 +238,18 @@
                   <el-radio-group v-model="form.review_engine">
                     <el-radio value="">OCR 多智能体（默认）</el-radio>
                     <el-radio value="ocr">OCR（显式）</el-radio>
-                    <el-radio value="argus">Argus Bot</el-radio>
+                    <el-radio
+                      value="argus"
+                      :disabled="!argusPlatformSupported"
+                      :title="argusPlatformSupported ? '' : 'Argus 暂不支持 ' + form.provider + ' 平台（仅 gitea/github/gitlab）'"
+                    >
+                      Argus Bot
+                    </el-radio>
                   </el-radio-group>
                   <small class="engine-hint">选 Argus 后，本仓库的 webhook 与控制台创建的评审默认派发给外部 Argus Bot；单次创建时仍可临时切换。</small>
+                  <small v-if="!argusPlatformSupported" class="engine-hint argus-unsupported-hint">
+                    {{ form.provider }} 平台暂不支持 Argus（仅 gitea/github/gitlab），已禁用该选项；已保存的 argus 策略保存时会回落为空（OCR）。
+                  </small>
                 </section>
 
                 <section class="form-section">
@@ -433,6 +451,11 @@ const normalizedIgnorePaths = computed(() => {
   return uniqueLines(ignorePathsText.value)
 })
 
+// argus 平台支持面（与后端 argusclient.SupportsPlatform 同源）：不支持时
+// 前端禁用 argus 选项，后端 resolveEngine 亦会 fail-fast 兜底。
+const ARGUS_PLATFORMS = ['gitea', 'github', 'gitlab']
+const argusPlatformSupported = computed(() => ARGUS_PLATFORMS.includes(form.provider))
+
 const normalizedRules = computed(() => {
   return form.rules
     .map((rule) => ({
@@ -586,6 +609,10 @@ async function fetchPlatforms() {
 
 function handleProviderChange() {
   form.repo = ''
+  // 切到 argus 不支持的平台时回落引擎选择，避免保存后创建期被后端拒绝。
+  if (!argusPlatformSupported.value && form.review_engine === 'argus') {
+    form.review_engine = '' as any
+  }
 }
 
 async function fetchPolicies() {
@@ -1231,6 +1258,9 @@ onMounted(async () => {
   margin-top: 8px;
   color: var(--app-muted);
   font-size: 12px;
+}
+.engine-hint.argus-unsupported-hint {
+  color: var(--el-color-warning);
 }
 
 .tab-hint {

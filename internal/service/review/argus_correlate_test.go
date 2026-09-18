@@ -58,7 +58,7 @@ func TestCompleteFromArgusReport(t *testing.T) {
 
 	t.Run("request_changes 收敛 success+门禁失败", func(t *testing.T) {
 		mk("rev-rc-1", domain.EngineArgus, "sha-rc", statusRunning, "101")
-		CompleteFromArgusReport(ctx, reviewRepo, nil, rep(argusingest.VerdictRequestChanges, "sha-rc", "101"), 42)
+		CompleteFromArgusReport(ctx, reviewRepo, nil, nil, rep(argusingest.VerdictRequestChanges, "sha-rc", "101"), 42)
 		got, err := reviewRepo.GetByReviewID(ctx, "rev-rc-1")
 		if err != nil {
 			t.Fatal(err)
@@ -84,7 +84,7 @@ func TestCompleteFromArgusReport(t *testing.T) {
 
 	t.Run("error 收敛 failed", func(t *testing.T) {
 		mk("rev-err-1", domain.EngineArgus, "sha-err", statusRunning, "102")
-		CompleteFromArgusReport(ctx, reviewRepo, nil, rep(argusingest.VerdictError, "sha-err", "102"), 43)
+		CompleteFromArgusReport(ctx, reviewRepo, nil, nil, rep(argusingest.VerdictError, "sha-err", "102"), 43)
 		got, err := reviewRepo.GetByReviewID(ctx, "rev-err-1")
 		if err != nil {
 			t.Fatal(err)
@@ -99,7 +99,7 @@ func TestCompleteFromArgusReport(t *testing.T) {
 
 	t.Run("engine=ocr 不被收敛", func(t *testing.T) {
 		mk("rev-ocr-1", domain.EngineOCR, "sha-x", statusRunning, "103")
-		CompleteFromArgusReport(ctx, reviewRepo, nil, rep(argusingest.VerdictApprove, "sha-x", "103"), 44)
+		CompleteFromArgusReport(ctx, reviewRepo, nil, nil, rep(argusingest.VerdictApprove, "sha-x", "103"), 44)
 		got, _ := reviewRepo.GetByReviewID(ctx, "rev-ocr-1")
 		if got.Status != statusRunning {
 			t.Fatalf("ocr 引擎记录不应被动: %s", got.Status)
@@ -108,7 +108,7 @@ func TestCompleteFromArgusReport(t *testing.T) {
 
 	t.Run("head_sha 不一致不收敛", func(t *testing.T) {
 		mk("rev-stale-1", domain.EngineArgus, "sha-new", statusRunning, "104")
-		CompleteFromArgusReport(ctx, reviewRepo, nil, rep(argusingest.VerdictApprove, "sha-old", "104"), 45)
+		CompleteFromArgusReport(ctx, reviewRepo, nil, nil, rep(argusingest.VerdictApprove, "sha-old", "104"), 45)
 		got, _ := reviewRepo.GetByReviewID(ctx, "rev-stale-1")
 		if got.Status != statusRunning {
 			t.Fatalf("旧 SHA 补报不应收敛新任务: %s", got.Status)
@@ -116,6 +116,6 @@ func TestCompleteFromArgusReport(t *testing.T) {
 	})
 
 	t.Run("无 active 记录 no-op", func(t *testing.T) {
-		CompleteFromArgusReport(ctx, reviewRepo, nil, rep(argusingest.VerdictApprove, "sha-none", "105"), 46)
+		CompleteFromArgusReport(ctx, reviewRepo, nil, nil, rep(argusingest.VerdictApprove, "sha-none", "105"), 46)
 	})
 }

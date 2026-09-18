@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/argusclient"
 	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
@@ -305,8 +306,16 @@ func (s *Service) resolveEngine(ctx context.Context, req *domain.Request) error 
 	if req.Engine == "" {
 		req.Engine = domain.EngineOCR
 	}
-	if req.Engine == domain.EngineArgus && !s.argusEnabled {
-		return bizerrors.NewBadRequestError("argus 引擎未启用（argus.bot_url 未配置）")
+	if req.Engine == domain.EngineArgus {
+		if !s.argusEnabled {
+			return bizerrors.NewBadRequestError("argus 引擎未启用（argus.bot_url 未配置）")
+		}
+		// argus 侧只支持 gitea/github/gitlab：gerrit/gitcode/tencent_code 的项目
+		// 策略误配 argus 时创建期 fail-fast（否则任务到 argus 侧才白白失败）。
+		if !argusclient.SupportsPlatform(req.Provider) {
+			return bizerrors.NewBadRequestError(
+				"argus 引擎不支持平台 " + req.Provider + "（仅支持 gitea/github/gitlab），请调整项目策略 review_engine")
+		}
 	}
 	return nil
 }
@@ -676,6 +685,18 @@ func validate(req domain.Request) error {
 	// argus 引擎按 PR 维度审查，单 commit 模式（--commit）是 OCR 专属能力。
 	if req.Engine == domain.EngineArgus && hasCommit {
 		return bizerrors.NewBadRequestError("engine=argus 不支持 commit_sha 单 commit 模式")
+	}
+	// task_kind 是 argus 专属：OCR 请求携带即拒绝（避免静默丢弃造成误解）。
+	if kind := strings.TrimSpace(req.TaskKind); kind != "" {
+		if req.Engine != domain.EngineArgus {
+			return bizerrors.NewBadRequestError("task_kind 仅 engine=argus 支持")
+		}
+		switch domain.NormalizeTaskKind(kind) {
+		case domain.TaskKindCodeReview, domain.TaskKindRequirementCompliance, domain.TaskKindVisualCheck:
+		default:
+			return bizerrors.NewBadRequestError(
+				"task_kind 仅支持 code_review、requirement_compliance、visual_check")
+		}
 	}
 
 	return nil

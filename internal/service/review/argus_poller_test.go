@@ -12,8 +12,8 @@ import (
 )
 
 // argus 任务失败（不回推）→ 轮询器把 running 记录收敛 failed；
-// done 但记录仍 running（sink 丢失）→ 收敛 failed 并提示看 Argus 页；
-// running → 不动。
+// done 但记录仍 running（sink 丢失）→ 拉全量详情恢复落库并收敛 verdict 终态，
+// 拉取失败才降级 failed；running → 不动。
 func TestArgusPollerSweep(t *testing.T) {
 	t.Run("task failed 收敛", func(t *testing.T) {
 		argus := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -26,7 +26,7 @@ func TestArgusPollerSweep(t *testing.T) {
 			Request:  domain.Request{Engine: domain.EngineArgus},
 			Response: domain.Response{ArgusTaskID: "t-1"},
 		}
-		p := NewArgusPoller(repo, argusclient.New(argus.URL, "tok"), nil, time.Second)
+		p := NewArgusPoller(repo, &fakeArgusReviewRepo{}, argusclient.New(argus.URL, "tok"), nil, nil, time.Second)
 		if err := p.sweep(context.Background()); err != nil {
 			t.Fatal(err)
 		}
@@ -40,23 +40,63 @@ func TestArgusPollerSweep(t *testing.T) {
 		}
 	})
 
-	t.Run("done 但 sink 丢失", func(t *testing.T) {
-		argus := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			_, _ = w.Write([]byte(`{"code":0,"message":"ok","data":{"taskId":"t-2","status":"done","verdict":"approve"}}`))
+	t.Run("done 但 sink 丢失 → 拉取恢复收敛 verdict 终态", func(t *testing.T) {
+		argus := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/tasks/t-2" {
+				_, _ = w.Write([]byte(`{"code":0,"message":"ok","data":{"taskId":"t-2","status":"done","verdict":"request_changes",
+					"report":"# 报告","findings":[{"file":"a.go","line":3,"severity":"high","comment":"空指针","by":"correctness"}]}}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"code":0,"message":"ok","data":{"taskId":"t-2","status":"done","verdict":"request_changes"}}`))
 		}))
 		t.Cleanup(argus.Close)
 		repo := &fakeReviewRepoForArgus{saved: map[string]*domain.Record{}}
 		repo.saved["rev-d"] = &domain.Record{
-			ID: "rev-d", Status: statusRunning,
-			Request:  domain.Request{Engine: domain.EngineArgus},
+			ID: "rev-d", Status: statusRunning, HeadSHA: "sha-d",
+			Request:  domain.Request{Engine: domain.EngineArgus, Provider: "gitea", Repo: "o/r", PullRequestID: "7"},
 			Response: domain.Response{ArgusTaskID: "t-2"},
 		}
-		p := NewArgusPoller(repo, argusclient.New(argus.URL, "tok"), nil, time.Second)
+		argusRepo := &fakeArgusReviewRepo{}
+		p := NewArgusPoller(repo, argusRepo, argusclient.New(argus.URL, "tok"), nil, nil, time.Second)
 		if err := p.sweep(context.Background()); err != nil {
 			t.Fatal(err)
 		}
-		if repo.saved["rev-d"].Status != statusFailed {
-			t.Fatalf("sink 丢失应收敛 failed: %s", repo.saved["rev-d"].Status)
+		rec := repo.saved["rev-d"]
+		if rec.Status != statusSuccess {
+			t.Fatalf("恢复后应收敛 success（request_changes → gate failed 但非 failed 终态）: %s", rec.Status)
+		}
+		if rec.Response.Gate.Status != domain.GateFailed {
+			t.Fatalf("request_changes 应 gate failed: %+v", rec.Response.Gate)
+		}
+		if len(rec.Response.Findings) != 1 || rec.Response.Findings[0].Path != "a.go" {
+			t.Fatalf("恢复的 findings 应写入评审记录: %+v", rec.Response.Findings)
+		}
+		if len(argusRepo.upserts) != 1 || argusRepo.upserts[0].HeadSHA != "sha-d" ||
+			argusRepo.upserts[0].FindingsTotal != 1 {
+			t.Fatalf("恢复结果应落承接表: %+v", argusRepo.upserts)
+		}
+	})
+
+	t.Run("done 但承接表落库失败 → 降级 failed", func(t *testing.T) {
+		// GetTask 与 GetTaskDetail 同路径，无法只让详情失败；用承接表 upsert
+		// 失败走同一降级出口（markReportLost）。
+		argus := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`{"code":0,"message":"ok","data":{"taskId":"t-2b","status":"done","verdict":"approve",
+				"findings":[{"file":"a.go","line":1,"severity":"low","comment":"x"}]}}`))
+		}))
+		t.Cleanup(argus.Close)
+		repo := &fakeReviewRepoForArgus{saved: map[string]*domain.Record{}}
+		repo.saved["rev-d2"] = &domain.Record{
+			ID: "rev-d2", Status: statusRunning,
+			Request:  domain.Request{Engine: domain.EngineArgus},
+			Response: domain.Response{ArgusTaskID: "t-2b"},
+		}
+		p := NewArgusPoller(repo, &fakeArgusReviewRepo{fail: true}, argusclient.New(argus.URL, "tok"), nil, nil, time.Second)
+		if err := p.sweep(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if repo.saved["rev-d2"].Status != statusFailed {
+			t.Fatalf("恢复失败应降级 failed: %s", repo.saved["rev-d2"].Status)
 		}
 	})
 
@@ -75,7 +115,7 @@ func TestArgusPollerSweep(t *testing.T) {
 			ID: "rev-o", Status: statusRunning,
 			Request: domain.Request{Engine: domain.EngineOCR},
 		}
-		p := NewArgusPoller(repo, argusclient.New(argus.URL, "tok"), nil, time.Second)
+		p := NewArgusPoller(repo, &fakeArgusReviewRepo{}, argusclient.New(argus.URL, "tok"), nil, nil, time.Second)
 		if err := p.sweep(context.Background()); err != nil {
 			t.Fatal(err)
 		}
@@ -98,7 +138,7 @@ func TestArgusPollerSweep(t *testing.T) {
 			Request:  domain.Request{Engine: domain.EngineArgus},
 			Response: domain.Response{ArgusTaskID: "t-4"},
 		}
-		p := NewArgusPoller(repo, argusclient.New(argus.URL, "tok"), nil, time.Second)
+		p := NewArgusPoller(repo, &fakeArgusReviewRepo{}, argusclient.New(argus.URL, "tok"), nil, nil, time.Second)
 		// 轮询期间 sink 回推先到：UpdateInTransaction 里二次校验 running。
 		// 模拟：先手动把状态改成 success（模拟并发收敛），轮询更新应跳过。
 		repo.saved["rev-x"].Status = statusSuccess

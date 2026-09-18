@@ -42,6 +42,7 @@
         v-model:callback-mode="createForm.callback_mode"
         v-model:requirements="requirements"
         v-model:ephemeral-reviewers="ephemeralReviewers"
+        v-model:task-kind="taskKind"
         :argus-blocked="argusModeBlocked"
         :argus-block-reason="argusBlockReason"
         @add-reviewer="ephemeralReviewers.push({ name: '', background: '' })"
@@ -75,6 +76,7 @@
         v-model:callback-mode="createForm.callback_mode"
         v-model:requirements="requirements"
         v-model:ephemeral-reviewers="ephemeralReviewers"
+        v-model:task-kind="taskKind"
         :argus-blocked="argusModeBlocked"
         :argus-block-reason="argusBlockReason"
         @add-reviewer="ephemeralReviewers.push({ name: '', background: '' })"
@@ -107,6 +109,7 @@
         v-model:callback-mode="createForm.callback_mode"
         v-model:requirements="requirements"
         v-model:ephemeral-reviewers="ephemeralReviewers"
+        v-model:task-kind="taskKind"
         :argus-blocked="argusModeBlocked"
         :argus-block-reason="argusBlockReason"
         @add-reviewer="ephemeralReviewers.push({ name: '', background: '' })"
@@ -177,6 +180,7 @@ import { parseMRUrl, parseCompareUrl, getProviderLabel } from '@/utils/url-parse
 import { splitRepo } from '@/utils/repo'
 import type { GitPlatform, PlatformRepo, PlatformBranch, PlatformPullRequest } from '@/types/config'
 import type { EphemeralReviewer } from '@/types/review'
+import type { ArgusTaskKind } from '@/types/argus'
 import SubmitOptions from './SubmitOptions.vue'
 import ReviewUrlInput from './review-create/ReviewUrlInput.vue'
 import ReviewPrSelector from './review-create/ReviewPrSelector.vue'
@@ -206,6 +210,8 @@ const creating = ref(false)
 const inputMode = ref<InputMode>('url')
 // 审查引擎：'' = 跟随项目策略（不发送，后端解析）；'ocr' | 'argus' = 显式指定。
 const engine = ref<'' | 'ocr' | 'argus'>('')
+// argus 任务类型（仅 engine=argus 时随 payload 发送）
+const taskKind = ref<ArgusTaskKind>('code_review')
 const urlInput = ref('')
 const parsedUrl = ref<{ provider: string; repo: string; number: number } | null>(null)
 const parsedCompareUrl = ref<{ provider: string; repo: string; base_branch: string; head_branch: string } | null>(null)
@@ -280,9 +286,16 @@ const canSubmit = computed(() => {
   return false
 })
 
-// 当前模式是否带 PR 号：分支对比 / compare 链接没有 PR 号，不支持 Argus。
+// argus 平台支持面（与后端 argusclient.SupportsPlatform 同源）
+const ARGUS_PLATFORMS = ['gitea', 'github', 'gitlab']
+const argusPlatformUnsupported = computed(
+  () => !!createForm.provider && !ARGUS_PLATFORMS.includes(createForm.provider),
+)
+
+// 当前模式是否带 PR 号 + 平台是否在 argus 支持面内。
 // 注意与「当前已选引擎」解耦——回落到其他引擎后卡片仍要保持禁用。
 const argusModeBlocked = computed(() => {
+  if (argusPlatformUnsupported.value) return true
   if (inputMode.value === 'branch') return true
   return inputMode.value === 'url' && !parsedUrl.value && !!parsedCompareUrl.value
 })
@@ -290,8 +303,12 @@ const argusModeBlocked = computed(() => {
 // Argus 引擎按 PR 维度审查：选中 Argus 且模式不支持时，禁止提交并提示。
 const argusUnsupported = computed(() => engine.value === 'argus' && argusModeBlocked.value)
 
-// Argus 卡片禁用提示：分支对比 / compare 链接没有 PR 号。
-const argusBlockReason = '分支对比没有 PR 号，暂不支持 Argus'
+// Argus 卡片禁用提示：平台不支持优先于「没有 PR 号」。
+const argusBlockReason = computed(() =>
+  argusPlatformUnsupported.value
+    ? `Argus 暂不支持 ${createForm.provider} 平台（仅 gitea/github/gitlab）`
+    : '分支对比没有 PR 号，暂不支持 Argus',
+)
 
 const submitButtonLabel = computed(() => {
   if (engine.value === 'argus') return '派发 Argus 审查'
@@ -588,6 +605,7 @@ async function handleSubmit() {
       wait: engine.value === 'argus' ? false : submitMode.value === 'sync',
     }
     if (engine.value === 'argus' || engine.value === 'ocr') payload.engine = engine.value
+    if (engine.value === 'argus') payload.task_kind = taskKind.value
 
     const reviewNumber = inputMode.value === 'url' ? parsedUrl.value?.number : selectedPR.value
     if ((inputMode.value === 'url' || inputMode.value === 'pr') && reviewNumber) {

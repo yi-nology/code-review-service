@@ -41,18 +41,22 @@ type Handler struct {
 	argus *argusclient.Client
 	// notifier 回报收敛后的应用内通知出口（nil 安全）。
 	notifier svcReviewDomain.Notifier
+	// statusPoster 收敛后向 PR head 写质量门禁 commit status（nil 安全）。
+	statusPoster svcReviewDomain.StatusPoster
 }
 
 // InitHandler 装配 handler。argus 来自 config.Argus
 // （凭证只在服务端，浏览器不接触 argus token）。
-// notifier 用于回报收敛后的应用内通知（nil 安全）。
+// notifier 用于回报收敛后的应用内通知（nil 安全）；
+// statusPoster 用于收敛后的 PR 门禁 status（nil 安全）。
 func InitHandler(repo repository.ArgusReviewRepository, reviewRepo repository.ReviewRepository,
-	argus *argusclient.Client, notifier svcReviewDomain.Notifier) {
+	argus *argusclient.Client, notifier svcReviewDomain.Notifier, statusPoster svcReviewDomain.StatusPoster) {
 	handlerInst = &Handler{
-		repo:       repo,
-		reviewRepo: reviewRepo,
-		argus:      argus,
-		notifier:   notifier,
+		repo:         repo,
+		reviewRepo:   reviewRepo,
+		argus:        argus,
+		notifier:     notifier,
+		statusPoster: statusPoster,
 	}
 }
 
@@ -83,7 +87,8 @@ func IngestHandler(ctx context.Context, c *app.RequestContext) {
 	}
 	// 回报关联：把 engine=argus 的 active 评审收敛到终态（不匹配则 no-op，
 	// 纯 push 场景不受影响；失败只记日志，不影响上报本身的成功语义）。
-	svcReview.CompleteFromArgusReport(ctx, handlerInst.reviewRepo, handlerInst.notifier, rev, id)
+	svcReview.CompleteFromArgusReport(ctx, handlerInst.reviewRepo, handlerInst.notifier,
+		handlerInst.statusPoster, rev, id)
 	c.JSON(consts.StatusOK, &modelReview.ArgusIngestResp{ID: int64(id), Status: "accepted"})
 }
 
@@ -151,15 +156,15 @@ func GetArgusReview(ctx context.Context, c *app.RequestContext) {
 }
 
 // SuppressArgusFinding 处理 POST /api/v1/argus/reviews/:id/findings/suppress。
-// 流程：校验 fp 属于该任务的意见 → 服务端代理调用 argus POST /findings/suppress
-// （fingerprint 直传全值，argus 侧按前缀解析）→ 命中则本地落 suppress_state='suppressed'。
-// matched=false（argus 未命中，行号/措辞漂移等）不落状态，由响应告知前端。
+// 流程：校验意见归属（fp 模式按指纹、comment 模式按 file+意见原文）→ 服务端代理
+// 调用 argus POST /findings/suppress → 命中则本地落 suppress_state='suppressed'。
+// fp 模式未命中且请求带 file+comment 时自动降级兜底模式（措辞漂移场景）。
+// matched=false（argus 未命中）不落状态，由响应告知前端。
 func SuppressArgusFinding(ctx context.Context, c *app.RequestContext) {
 	if !ready(c) {
 		return
 	}
-	if handlerInst.argus == nil || !handlerInst.argus.Enabled() {
-		common.Fail(ctx, c, common.BizErr(400, "argus 对接未配置（argus.bot_url 为空），反馈回流关闭"))
+	if !argusReady(c) {
 		return
 	}
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -171,12 +176,14 @@ func SuppressArgusFinding(ctx context.Context, c *app.RequestContext) {
 	if !ok {
 		return
 	}
-	fp := strings.TrimSpace(req.Fp)
-	if fp == "" {
-		common.Fail(ctx, c, common.BadRequest("fp 必填"))
+	fp := strings.TrimSpace(req.GetFp())
+	file := strings.TrimSpace(req.GetFile())
+	comment := strings.TrimSpace(req.GetComment())
+	if fp == "" && (file == "" || comment == "") {
+		common.Fail(ctx, c, common.BadRequest("fp 或 file+comment 二选一必填"))
 		return
 	}
-	matched, err := doSuppress(ctx, handlerInst, uint(id), fp)
+	matched, err := doSuppress(ctx, handlerInst, uint(id), fp, file, comment)
 	if err != nil {
 		if errors.Is(err, errUnknownFP) {
 			common.Fail(ctx, c, common.BadRequest(err.Error()))
@@ -187,10 +194,144 @@ func SuppressArgusFinding(ctx context.Context, c *app.RequestContext) {
 	}
 	if !matched {
 		c.JSON(consts.StatusOK, &modelReview.ArgusSuppressResp{Matched: false,
-			Message: strPtr("argus 侧未命中该指纹（意见可能已被重审覆盖或措辞漂移）")})
+			Message: strPtr("argus 侧未命中该意见（可能已被重审覆盖或措辞漂移）")})
 		return
 	}
 	c.JSON(consts.StatusOK, &modelReview.ArgusSuppressResp{Matched: true, State: strPtr("suppressed")})
+}
+
+// argusReady 出站代理端点共用：argus 未配置时统一 400（可发现性优于 500）。
+func argusReady(c *app.RequestContext) bool {
+	if handlerInst.argus == nil || !handlerInst.argus.Enabled() {
+		common.Fail(context.Background(), c, common.BizErr(400, "argus 对接未配置（argus.bot_url 为空）"))
+		return false
+	}
+	return true
+}
+
+// GetArgusReviewReport 处理 GET /api/v1/argus/reviews/:id/report。
+// 懒拉取代理：按承接记录的 argus_task_id 调 GET /tasks/:taskId 返回报告全文，
+// 本站不落库（报告以 argus 侧为单一真源，规避双写漂移）。
+func GetArgusReviewReport(ctx context.Context, c *app.RequestContext) {
+	if !ready(c) || !argusReady(c) {
+		return
+	}
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || id == 0 {
+		common.Fail(ctx, c, common.BadRequest("非法任务 ID"))
+		return
+	}
+	rev, err := handlerInst.repo.GetReview(ctx, uint(id))
+	if err != nil {
+		common.Fail(ctx, c, err)
+		return
+	}
+	if strings.TrimSpace(rev.ArgusTaskID) == "" {
+		common.Fail(ctx, c, common.BadRequest("该记录无 argus 任务 ID（非本服务触发或旧数据），无法拉取报告"))
+		return
+	}
+	detail, err := handlerInst.argus.GetTaskDetail(ctx, rev.ArgusTaskID)
+	if err != nil {
+		common.Fail(ctx, c, err)
+		return
+	}
+	resp := &modelReview.ArgusReviewReportResp{
+		ArgusTaskID: detail.TaskID, Status: detail.Status,
+		FindingsCount: i32Ptr(len(detail.Findings)),
+	}
+	if v := strings.TrimSpace(detail.Verdict); v != "" {
+		resp.Verdict = strPtr(v)
+	}
+	if r := strings.TrimSpace(detail.Report); r != "" {
+		resp.Report = strPtr(r)
+	}
+	c.JSON(consts.StatusOK, resp)
+}
+
+// ListArgusTasks 处理 GET /api/v1/argus/tasks（argus 侧任务列表对账代理）。
+func ListArgusTasks(ctx context.Context, c *app.RequestContext) {
+	if !ready(c) || !argusReady(c) {
+		return
+	}
+	req, ok := common.Bind[modelReview.ArgusListTasksReq](c)
+	if !ok {
+		return
+	}
+	limit := int(req.GetLimit())
+	tasks, err := handlerInst.argus.ListTasks(ctx, strings.TrimSpace(req.GetStatus()), limit)
+	if err != nil {
+		common.Fail(ctx, c, err)
+		return
+	}
+	items := make([]*modelReview.ArgusTaskSummary, 0, len(tasks))
+	for _, t := range tasks {
+		items = append(items, &modelReview.ArgusTaskSummary{
+			TaskID: t.TaskID, Status: t.Status, Kind: t.Kind,
+			Platform: t.Platform, Owner: t.Owner, Repo: t.Repo, Number: t.Number,
+			HeadSha: strPtr(t.HeadSHA), Verdict: strPtr(t.Verdict), CreatedAt: t.CreatedAt,
+		})
+	}
+	c.JSON(consts.StatusOK, &modelReview.ArgusListTasksResp{Tasks: items})
+}
+
+// GetArgusUsage 处理 GET /api/v1/argus/usage（argus 本月 token 用量代理）。
+func GetArgusUsage(ctx context.Context, c *app.RequestContext) {
+	if !ready(c) || !argusReady(c) {
+		return
+	}
+	usage, err := handlerInst.argus.GetUsageMonthly(ctx)
+	if err != nil {
+		common.Fail(ctx, c, err)
+		return
+	}
+	repos := make([]*modelReview.ArgusUsageRepo, 0, len(usage.Repos))
+	for _, r := range usage.Repos {
+		repos = append(repos, &modelReview.ArgusUsageRepo{
+			Platform: r.Platform, Owner: r.Owner, Repo: r.Repo,
+			Tokens: r.Tokens, Tasks: r.Tasks,
+		})
+	}
+	c.JSON(consts.StatusOK, &modelReview.ArgusUsageResp{
+		Month: usage.Month, Total: usage.Total, Budget: usage.Budget, Repos: repos,
+	})
+}
+
+// GetArgusHealth 处理 GET /api/v1/argus/health（argus 审查健康报告代理，原始 JSON 透传）。
+func GetArgusHealth(ctx context.Context, c *app.RequestContext) {
+	if !ready(c) || !argusReady(c) {
+		return
+	}
+	raw, err := handlerInst.argus.GetReportHealth(ctx)
+	if err != nil {
+		common.Fail(ctx, c, err)
+		return
+	}
+	c.JSON(consts.StatusOK, &modelReview.ArgusHealthResp{Payload: string(raw)})
+}
+
+// askTimeout argus 问答的代理超时：argus 侧 ReAct 问答分钟级可达，控制台场景
+// 90s 覆盖绝大多数提问，超时快速失败优于无限等待。
+const askTimeout = 90 * time.Second
+
+// AskArgus 处理 POST /api/v1/argus/ask（问 Argus：argus MCP ask_argus 的服务端代理，
+// 凭证不出服务端；question 为空返回该 PR 最近审查结论摘要）。
+func AskArgus(ctx context.Context, c *app.RequestContext) {
+	if !ready(c) || !argusReady(c) {
+		return
+	}
+	req, ok := common.Bind[modelReview.ArgusAskReq](c)
+	if !ok {
+		return
+	}
+	askCtx, cancel := context.WithTimeout(ctx, askTimeout)
+	defer cancel()
+	answer, err := handlerInst.argus.AskQuestion(askCtx,
+		req.GetPlatform(), req.GetOwner(), req.GetRepo(), req.GetNumber(), req.GetQuestion())
+	if err != nil {
+		common.Fail(ctx, c, err)
+		return
+	}
+	c.JSON(consts.StatusOK, &modelReview.ArgusAskResp{Answer: answer})
 }
 
 // ---------- 内部 ----------
@@ -316,32 +457,66 @@ func toReviewItem(rev *argusingest.Review) *modelReview.ArgusReviewItem {
 	return item
 }
 
-// doSuppress 可测核心：fp 归属校验 → 代理调用 argus → 落本地状态。
-func doSuppress(ctx context.Context, h *Handler, reviewID uint, fp string) (bool, error) {
+// doSuppress 可测核心：意见归属校验 → 代理调用 argus → 落本地状态。
+// fp 模式：fp 必须属于该任务的意见；argus 未命中且带 file+comment 时自动降级
+// 兜底模式（措辞漂移场景）。comment 模式：按 file+意见原文匹配归属。
+// 本地状态按命中的意见 fp 标记；被命中意见本身无 fp（旧数据）时跳过本地标记。
+func doSuppress(ctx context.Context, h *Handler, reviewID uint, fp, file, comment string) (bool, error) {
 	rev, err := h.repo.GetReview(ctx, reviewID)
 	if err != nil {
 		return false, err
 	}
-	known := false
-	for _, f := range rev.Findings {
-		if f.FP == fp {
-			known = true
-			break
-		}
-	}
-	if !known {
-		return false, fmt.Errorf("fp %q 不属于任务 %d 的任何意见: %w", fp, reviewID, errUnknownFP)
-	}
 
-	matched, err := h.argus.SuppressFinding(ctx, rev.Platform, rev.Owner, rev.Repo, rev.Number, fp)
-	if err != nil {
-		return false, err
+	var (
+		matched    bool
+		markedFP   string // 命中意见的本地 fp（用于落 suppress_state）
+		matchedByC = func(f argusingest.Finding) bool { return f.File == file && f.Comment == comment }
+	)
+	if fp != "" {
+		known := false
+		for _, f := range rev.Findings {
+			if f.FP == fp {
+				known, markedFP = true, f.FP
+				break
+			}
+		}
+		if !known {
+			return false, fmt.Errorf("fp %q 不属于任务 %d 的任何意见: %w", fp, reviewID, errUnknownFP)
+		}
+		matched, err = h.argus.SuppressFinding(ctx, rev.Platform, rev.Owner, rev.Repo, rev.Number, fp)
+		if err != nil {
+			return false, err
+		}
+		if !matched && file != "" && comment != "" {
+			// 指纹未命中（argus 侧重审覆盖后措辞漂移等）→ file+comment 兜底。
+			matched, err = h.argus.SuppressFindingByComment(ctx, rev.Platform, rev.Owner, rev.Repo, rev.Number, file, comment)
+			if err != nil {
+				return false, err
+			}
+		}
+	} else {
+		known := false
+		for _, f := range rev.Findings {
+			if matchedByC(f) {
+				known, markedFP = true, f.FP
+				break
+			}
+		}
+		if !known {
+			return false, fmt.Errorf("意见（%s）不属于任务 %d 的任何意见: %w", file, reviewID, errUnknownFP)
+		}
+		matched, err = h.argus.SuppressFindingByComment(ctx, rev.Platform, rev.Owner, rev.Repo, rev.Number, file, comment)
+		if err != nil {
+			return false, err
+		}
 	}
 	if !matched {
 		return false, nil
 	}
-	if err := h.repo.SetFindingSuppressState(ctx, reviewID, fp, "suppressed"); err != nil {
-		return false, fmt.Errorf("落抑制状态失败: %w", err)
+	if markedFP != "" {
+		if err := h.repo.SetFindingSuppressState(ctx, reviewID, markedFP, "suppressed"); err != nil {
+			return false, fmt.Errorf("落抑制状态失败: %w", err)
+		}
 	}
 	return true, nil
 }

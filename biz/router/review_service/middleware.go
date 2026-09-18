@@ -177,3 +177,28 @@ func _reviews2Mw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
+
+func _getargusreviewreportMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _listargustasksMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getargususageMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _getargushealthMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _askargusMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}

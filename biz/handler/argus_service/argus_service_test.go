@@ -185,7 +185,7 @@ func TestDoSuppressMatched(t *testing.T) {
 	repo := &fakeRepo{reviews: map[uint]*argusingest.Review{1: sampleReview()}, states: map[string]string{}}
 	h := &Handler{repo: repo, argus: argusclient.New(argus.URL, "tok")}
 
-	matched, err := doSuppress(context.Background(), h, 1, "fp-1")
+	matched, err := doSuppress(context.Background(), h, 1, "fp-1", "", "")
 	if err != nil || !matched {
 		t.Fatalf("matched=%v err=%v", matched, err)
 	}
@@ -203,7 +203,7 @@ func TestDoSuppressUnmatched(t *testing.T) {
 	repo := &fakeRepo{reviews: map[uint]*argusingest.Review{1: sampleReview()}, states: map[string]string{}}
 	h := &Handler{repo: repo, argus: argusclient.New(argus.URL, "tok")}
 
-	matched, err := doSuppress(context.Background(), h, 1, "fp-2")
+	matched, err := doSuppress(context.Background(), h, 1, "fp-2", "", "")
 	if err != nil || matched {
 		t.Fatalf("未命中应 matched=false，got %v/%v", matched, err)
 	}
@@ -223,11 +223,68 @@ func TestDoSuppressForeignFP(t *testing.T) {
 	repo := &fakeRepo{reviews: map[uint]*argusingest.Review{1: sampleReview()}, states: map[string]string{}}
 	h := &Handler{repo: repo, argus: argusclient.New(argus.URL, "tok")}
 
-	if _, err := doSuppress(context.Background(), h, 1, "fp-unknown"); err == nil {
+	if _, err := doSuppress(context.Background(), h, 1, "fp-unknown", "", ""); err == nil {
 		t.Fatal("陌生 fp 应本地拒绝")
 	}
 	if called {
 		t.Fatal("不得触达 argus")
+	}
+}
+
+// comment 兜底模式：按 file+comment 原文匹配，命中后按该意见的本地 fp 落状态。
+func TestDoSuppressByComment(t *testing.T) {
+	var gotBody string
+	argus := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		buf := make([]byte, r.ContentLength)
+		_, _ = r.Body.Read(buf)
+		gotBody = string(buf)
+		_, _ = w.Write([]byte(`{"code":0,"message":"ok","data":{"matched":true,"fingerprint":"fp-1-full"}}`))
+	}))
+	t.Cleanup(argus.Close)
+	repo := &fakeRepo{reviews: map[uint]*argusingest.Review{1: sampleReview()}, states: map[string]string{}}
+	h := &Handler{repo: repo, argus: argusclient.New(argus.URL, "tok")}
+
+	rev := sampleReview()
+	target := rev.Findings[0]
+	matched, err := doSuppress(context.Background(), h, 1, "", target.File, target.Comment)
+	if err != nil || !matched {
+		t.Fatalf("matched=%v err=%v", matched, err)
+	}
+	if !strings.Contains(gotBody, `"file"`) || !strings.Contains(gotBody, `"comment"`) {
+		t.Fatalf("应走 file+comment 模式: %s", gotBody)
+	}
+	if target.FP != "" && repo.states["1|"+target.FP] != "suppressed" {
+		t.Fatalf("应按命中意见的 fp 落状态: %v", repo.states)
+	}
+}
+
+// fp 未命中且带 file+comment → 自动降级兜底模式。
+func TestDoSuppressFPFallbackToComment(t *testing.T) {
+	mode := ""
+	argus := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		buf := make([]byte, r.ContentLength)
+		_, _ = r.Body.Read(buf)
+		body := string(buf)
+		if strings.Contains(body, "fingerprint") {
+			mode = "fp"
+			_, _ = w.Write([]byte(`{"code":0,"message":"ok","data":{"matched":false,"fingerprint":""}}`))
+			return
+		}
+		mode = "comment"
+		_, _ = w.Write([]byte(`{"code":0,"message":"ok","data":{"matched":true,"fingerprint":"fp-x"}}`))
+	}))
+	t.Cleanup(argus.Close)
+	repo := &fakeRepo{reviews: map[uint]*argusingest.Review{1: sampleReview()}, states: map[string]string{}}
+	h := &Handler{repo: repo, argus: argusclient.New(argus.URL, "tok")}
+
+	rev := sampleReview()
+	target := rev.Findings[0]
+	matched, err := doSuppress(context.Background(), h, 1, "fp-1", target.File, target.Comment)
+	if err != nil || !matched {
+		t.Fatalf("降级兜底应命中: matched=%v err=%v", matched, err)
+	}
+	if mode != "comment" {
+		t.Fatalf("应先 fp 后 comment 两次调用, last=%s", mode)
 	}
 }
 
@@ -240,7 +297,7 @@ func TestDoSuppressArgusError(t *testing.T) {
 	repo := &fakeRepo{reviews: map[uint]*argusingest.Review{1: sampleReview()}, states: map[string]string{}}
 	h := &Handler{repo: repo, argus: argusclient.New(argus.URL, "tok")}
 
-	if _, err := doSuppress(context.Background(), h, 1, "fp-1"); err == nil {
+	if _, err := doSuppress(context.Background(), h, 1, "fp-1", "", ""); err == nil {
 		t.Fatal("argus 500 应上抛")
 	}
 	if len(repo.states) != 0 {

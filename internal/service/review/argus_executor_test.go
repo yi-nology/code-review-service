@@ -2,13 +2,16 @@ package review
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/yi-nology/code-review-service/internal/argusclient"
+	"github.com/yi-nology/code-review-service/internal/domain/argusingest"
 	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
@@ -25,7 +28,7 @@ func (f *fakePolicyRepo) GetByProviderRepo(_ context.Context, _, _ string) (*pro
 	return f.policy, nil
 }
 
-// fakeReviewRepoForArgus 只覆盖 argus 执行器/轮询器用到的三个方法。
+// fakeReviewRepoForArgus 只覆盖 argus 执行器/轮询器用到的四个方法。
 type fakeReviewRepoForArgus struct {
 	repository.ReviewRepository
 	saved map[string]*domain.Record
@@ -46,6 +49,39 @@ func (f *fakeReviewRepoForArgus) List(_ context.Context, opts domain.ListOptions
 		items = append(items, *rec)
 	}
 	return &ekitGorm.PageResponse[domain.Record]{Items: items}, nil
+}
+
+func (f *fakeReviewRepoForArgus) GetByReviewID(_ context.Context, reviewID string) (*domain.Record, error) {
+	if rec, ok := f.saved[reviewID]; ok {
+		return rec, nil
+	}
+	return nil, repoerr.ErrNotFound
+}
+
+// GetActiveByProviderRepo 返回第一条 running 记录（轮询器恢复路径的匹配语义在
+// 单测场景下足够：同仓同时只有一条 active）。
+func (f *fakeReviewRepoForArgus) GetActiveByProviderRepo(_ context.Context, _, _, _, _ string) (*domain.Record, error) {
+	for _, rec := range f.saved {
+		if rec.Status == statusRunning {
+			return rec, nil
+		}
+	}
+	return nil, repoerr.ErrNotFound
+}
+
+// fakeArgusReviewRepo 承接表 fake：记录 upsert 的上报实体。
+type fakeArgusReviewRepo struct {
+	repository.ArgusReviewRepository
+	upserts []*argusingest.Review
+	fail    bool
+}
+
+func (f *fakeArgusReviewRepo) UpsertReview(_ context.Context, rev *argusingest.Review) (uint, error) {
+	if f.fail {
+		return 0, fmt.Errorf("upsert fail")
+	}
+	f.upserts = append(f.upserts, rev)
+	return 7, nil
 }
 
 func TestResolveEngine(t *testing.T) {
@@ -73,7 +109,7 @@ func TestResolveEngine(t *testing.T) {
 	})
 	t.Run("项目策略 argus 生效", func(t *testing.T) {
 		s := mk("Argus", true)
-		req := domain.Request{}
+		req := domain.Request{Provider: "gitea"}
 		if err := s.resolveEngine(ctx, &req); err != nil || req.Engine != domain.EngineArgus {
 			t.Fatalf("engine=%q err=%v", req.Engine, err)
 		}
@@ -90,6 +126,20 @@ func TestResolveEngine(t *testing.T) {
 		req := domain.Request{Engine: domain.EngineArgus}
 		if err := s.resolveEngine(ctx, &req); err == nil {
 			t.Fatal("应拒绝")
+		}
+	})
+	t.Run("argus 平台不支持 fail-fast（gerrit）", func(t *testing.T) {
+		s := mk("argus", true)
+		req := domain.Request{Provider: "gerrit", Repo: "proj/demo"}
+		if err := s.resolveEngine(ctx, &req); err == nil {
+			t.Fatal("gerrit + argus 策略应创建期拒绝")
+		}
+	})
+	t.Run("argus 支持平台放行", func(t *testing.T) {
+		s := mk("argus", true)
+		req := domain.Request{Provider: "gitea", Repo: "o/demo"}
+		if err := s.resolveEngine(ctx, &req); err != nil || req.Engine != domain.EngineArgus {
+			t.Fatalf("err=%v engine=%q", err, req.Engine)
 		}
 	})
 }
@@ -113,6 +163,29 @@ func TestValidateEngine(t *testing.T) {
 			t.Fatalf("不应拒绝: %v", err)
 		}
 	})
+	t.Run("task_kind 仅 argus 支持", func(t *testing.T) {
+		req := domain.Request{Provider: "gitea", Repo: "o/r", PullRequestID: "7",
+			Engine: domain.EngineOCR, TaskKind: domain.TaskKindRequirementCompliance}
+		if err := validate(req); err == nil {
+			t.Fatal("OCR 请求携带 task_kind 应拒绝")
+		}
+	})
+	t.Run("非法 task_kind 拒绝", func(t *testing.T) {
+		req := domain.Request{Provider: "gitea", Repo: "o/r", PullRequestID: "7",
+			Engine: domain.EngineArgus, TaskKind: "banana"}
+		if err := validate(req); err == nil {
+			t.Fatal("应拒绝非法 task_kind")
+		}
+	})
+	t.Run("合法 task_kind 放行", func(t *testing.T) {
+		for _, kind := range []string{domain.TaskKindCodeReview, domain.TaskKindRequirementCompliance, domain.TaskKindVisualCheck} {
+			req := domain.Request{Provider: "gitea", Repo: "o/r", PullRequestID: "7",
+				Engine: domain.EngineArgus, TaskKind: kind}
+			if err := validate(req); err != nil {
+				t.Fatalf("task_kind=%s 不应拒绝: %v", kind, err)
+			}
+		}
+	})
 }
 
 // 触发成功：Record 置 running + dispatch 事件；触发失败：Record 置 failed。
@@ -127,7 +200,7 @@ func TestArgusExecutorDispatch(t *testing.T) {
 		}))
 		t.Cleanup(argus.Close)
 		repo := &fakeReviewRepoForArgus{saved: map[string]*domain.Record{}}
-		exec := NewArgusExecutor(argusclient.New(argus.URL, "tok"), repo)
+		exec := NewArgusExecutor(argusclient.New(argus.URL, "tok"), repo, nil)
 
 		resp, err := exec.Execute(context.Background(), "rev-1", newReq(), nil, nil)
 		if err != nil {
@@ -155,7 +228,7 @@ func TestArgusExecutorDispatch(t *testing.T) {
 		}))
 		t.Cleanup(argus.Close)
 		repo := &fakeReviewRepoForArgus{saved: map[string]*domain.Record{}}
-		exec := NewArgusExecutor(argusclient.New(argus.URL, "tok"), repo)
+		exec := NewArgusExecutor(argusclient.New(argus.URL, "tok"), repo, nil)
 
 		if _, err := exec.Execute(context.Background(), "rev-2", newReq(), nil, nil); err == nil {
 			t.Fatal("触发失败应返回错误")
@@ -168,7 +241,7 @@ func TestArgusExecutorDispatch(t *testing.T) {
 
 	t.Run("repo 非 owner/repo 形式拒绝", func(t *testing.T) {
 		repo := &fakeReviewRepoForArgus{saved: map[string]*domain.Record{}}
-		exec := NewArgusExecutor(argusclient.New("http://x", "tok"), repo)
+		exec := NewArgusExecutor(argusclient.New("http://x", "tok"), repo, nil)
 		req := newReq()
 		req.Repo = "demo"
 		if _, err := exec.Execute(context.Background(), "rev-3", req, nil, nil); err == nil {

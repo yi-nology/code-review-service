@@ -18,6 +18,27 @@
       </button>
     </div>
 
+    <!-- 任务类型：仅 Argus（代码评审 / 需求复核 R1-R5 / 视觉检查） -->
+    <div v-if="engine === 'argus'" class="option-label with-gap">任务类型</div>
+    <el-radio-group
+      v-if="engine === 'argus'"
+      :model-value="taskKind"
+      @update:model-value="$emit('update:taskKind', $event as any)"
+    >
+      <el-radio value="code_review">
+        代码评审
+        <span class="radio-hint">多专家插件评审 + 真值表裁决</span>
+      </el-radio>
+      <el-radio value="requirement_compliance">
+        需求复核
+        <span class="radio-hint">R1-R5 需求完成度判定（可在高级选项填验收清单）</span>
+      </el-radio>
+      <el-radio value="visual_check">
+        视觉检查
+        <span class="radio-hint">需 argus 侧启用 visual-check 插件</span>
+      </el-radio>
+    </el-radio-group>
+
     <!-- 提交方式：Argus 为异步回报引擎，无同步语义，整行隐藏而不是禁用 -->
     <div v-if="engine !== 'argus'" class="option-label with-gap">提交方式</div>
     <el-radio-group
@@ -44,7 +65,7 @@
         <template #title>
           <span class="advanced-title">高级选项</span>
           <el-tag
-            v-if="engine !== 'argus' && (requirements.trim() || ephemeralReviewers.length)"
+            v-if="requirements.trim() || ephemeralReviewers.length"
             size="small"
             type="success"
             class="adv-badge"
@@ -102,6 +123,19 @@
             </div>
           </el-form-item>
         </template>
+        <template v-else>
+          <!-- Argus：需求清单经 artifacts 注入，需求复核任务将其作为验收标准 -->
+          <el-form-item label="需求清单">
+            <el-input
+              :model-value="requirements"
+              type="textarea"
+              :rows="3"
+              placeholder="逐行填写验收标准 / 需求项（可选），例如：&#10;支持分页查询&#10;所有错误需返回统一格式"
+              @update:model-value="$emit('update:requirements', $event)"
+            />
+            <span class="field-hint">每行一条；需求复核任务据此逐项判定完成度，代码评审任务作为补充关注点</span>
+          </el-form-item>
+        </template>
         <el-form-item label="幂等键">
           <el-input
             :model-value="idempotencyKey"
@@ -139,7 +173,9 @@ const props = defineProps<{
   callbackMode: string
   requirements: string
   ephemeralReviewers: EphemeralReviewer[]
-  /** 当前模式下 Argus 不可用（分支对比无 PR 号）时禁用 Argus 卡片 */
+  /** engine=argus 时的任务类型 */
+  taskKind?: string
+  /** 当前模式下 Argus 不可用（分支对比无 PR 号/平台不支持）时禁用 Argus 卡片 */
   argusBlocked?: boolean
   argusBlockReason?: string
 }>()
@@ -152,6 +188,7 @@ const emit = defineEmits<{
   (e: 'update:callbackMode', v: string): void
   (e: 'update:requirements', v: string): void
   (e: 'update:ephemeralReviewers', v: EphemeralReviewer[]): void
+  (e: 'update:taskKind', v: string): void
   (e: 'addReviewer'): void
   (e: 'removeReviewer', idx: number): void
 }>()

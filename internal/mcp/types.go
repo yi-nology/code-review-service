@@ -86,6 +86,15 @@ func reviewRequestSchema() []mcp.ToolOption {
 	}
 }
 
+// argusEngineSchema argus 专属入参（仅 create_review 挂载；preview/scan 是 OCR
+// 专属操作不共用，避免 LLM 误传）。
+func argusEngineSchema() []mcp.ToolOption {
+	return []mcp.ToolOption{
+		WithStringParam("engine", false, "审查引擎：ocr（默认，多智能体子进程）| argus（外部 Argus Bot，仅 gitea/github/gitlab，异步回报）；留空按项目策略"),
+		WithStringParam("task_kind", false, "engine=argus 时的任务类型：code_review（默认）| requirement_compliance（需求复核 R1-R5）| visual_check（视觉检查）"),
+	}
+}
+
 // TextResult 是最常见的成功返回：纯文本内容。
 // 用法：return mcp.TextResult("review queued: " + id)
 func TextResult(text string) *mcp.CallToolResult {

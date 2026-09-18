@@ -61,8 +61,8 @@ func Register(r *server.Hertz) {
 					_provider0.POST("/:installation", append(_handlewebhookMw(), review_service.HandleWebhook)...)
 				}
 			}
-			// Argus 承接（镜像 idl/api.thrift reviewService 四条注解；实现
-			// biz/handler/argus_service，模型 biz/model/review.Argus*）。
+			// Argus 承接与治理面（镜像 idl/api.thrift reviewService 的 argus 注解；
+			// 实现 biz/handler/argus_service，模型 biz/model/review.Argus*）。
 			{
 				_argus := _v1.Group("/argus", _argusMw()...)
 				_argus.GET("/reviews", append(_listargusreviewsMw(), argusHandler.ListArgusReviews)...)
@@ -72,7 +72,12 @@ func Register(r *server.Hertz) {
 				{
 					_reviews2 := _reviews1.Group("/:id", _reviews2Mw()...)
 					_reviews2.POST("/findings/suppress", append(_suppressargusfindingMw(), argusHandler.SuppressArgusFinding)...)
+					_reviews2.GET("/report", append(_getargusreviewreportMw(), argusHandler.GetArgusReviewReport)...)
 				}
+				_argus.GET("/tasks", append(_listargustasksMw(), argusHandler.ListArgusTasks)...)
+				_argus.GET("/usage", append(_getargususageMw(), argusHandler.GetArgusUsage)...)
+				_argus.GET("/health", append(_getargushealthMw(), argusHandler.GetArgusHealth)...)
+				_argus.POST("/ask", append(_askargusMw(), argusHandler.AskArgus)...)
 			}
 		}
 	}

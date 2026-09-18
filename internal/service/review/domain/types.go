@@ -42,6 +42,29 @@ type Request struct {
 	// （外部 Argus Bot，触发后异步执行、经 /api/v1/argus/reviews 回报）。
 	// 未显式指定时按项目策略 review_engine 解析，仍空则 OCR。
 	Engine string `json:"engine,omitempty"`
+	// TaskKind engine=argus 时的 argus 任务类型：''（即 TaskKindCodeReview）|
+	// TaskKindCodeReview | TaskKindRequirementCompliance | TaskKindVisualCheck。
+	// OCR 引擎不支持任务类型（校验期拒绝）。
+	TaskKind string `json:"task_kind,omitempty"`
+}
+
+// argus 任务类型词表（与 argusclient TaskKind 枚举一一对应；存储用小写字符串，
+// 触发时映射为整数）。
+const (
+	TaskKindCodeReview            = "code_review"
+	TaskKindRequirementCompliance = "requirement_compliance"
+	TaskKindVisualCheck           = "visual_check"
+	TaskKindDefault               = TaskKindCodeReview
+)
+
+// NormalizeTaskKind 归一任务类型：空 → code_review（argus 缺省即代码评审）；
+// 未知值原样返回（校验期报错）。
+func NormalizeTaskKind(kind string) string {
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	if kind == "" {
+		return TaskKindDefault
+	}
+	return kind
 }
 
 // 审查引擎词表。

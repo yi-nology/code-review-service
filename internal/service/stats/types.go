@@ -3,17 +3,17 @@ package stats
 import "time"
 
 type ContributorSummary struct {
-	Author        string    `json:"author"`
-	AuthorName    string    `json:"author_name"`
-	AuthorAvatar  string    `json:"author_avatar"`
-	ReviewCount   int       `json:"review_count"`
-	AvgScore      float64   `json:"avg_score"`
-	PassRate      float64   `json:"pass_rate"`
-	TotalFindings int       `json:"total_findings"`
-	CriticalCount int       `json:"critical_count"`
-	MajorCount    int       `json:"major_count"`
-	MinorCount    int       `json:"minor_count"`
-	InfoCount     int       `json:"info_count"`
+	Author        string     `json:"author"`
+	AuthorName    string     `json:"author_name"`
+	AuthorAvatar  string     `json:"author_avatar"`
+	ReviewCount   int        `json:"review_count"`
+	AvgScore      float64    `json:"avg_score"`
+	PassRate      float64    `json:"pass_rate"`
+	TotalFindings int        `json:"total_findings"`
+	CriticalCount int        `json:"critical_count"`
+	MajorCount    int        `json:"major_count"`
+	MinorCount    int        `json:"minor_count"`
+	InfoCount     int        `json:"info_count"`
 	LastReviewAt  *time.Time `json:"last_review_at"`
 }
 
@@ -46,16 +46,16 @@ type ContributorListResult struct {
 }
 
 type ProjectSummary struct {
-	Provider      string    `json:"provider"`
-	Repo          string    `json:"repo"`
-	ReviewCount   int       `json:"review_count"`
-	AvgScore      float64   `json:"avg_score"`
-	PassRate      float64   `json:"pass_rate"`
-	TotalFindings int       `json:"total_findings"`
-	CriticalCount int       `json:"critical_count"`
-	MajorCount    int       `json:"major_count"`
-	MinorCount    int       `json:"minor_count"`
-	InfoCount     int       `json:"info_count"`
+	Provider      string     `json:"provider"`
+	Repo          string     `json:"repo"`
+	ReviewCount   int        `json:"review_count"`
+	AvgScore      float64    `json:"avg_score"`
+	PassRate      float64    `json:"pass_rate"`
+	TotalFindings int        `json:"total_findings"`
+	CriticalCount int        `json:"critical_count"`
+	MajorCount    int        `json:"major_count"`
+	MinorCount    int        `json:"minor_count"`
+	InfoCount     int        `json:"info_count"`
 	LastReviewAt  *time.Time `json:"last_review_at"`
 }
 

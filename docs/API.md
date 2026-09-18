@@ -45,11 +45,15 @@ Content-Type: application/json
 
 `engine` 审查引擎（可选）：
 - `ocr`（默认）——本服务多智能体 OCR 子进程工作流，全输入形态（PR/分支对比/单 commit）；
-- `argus`——派发外部 Argus Bot（`POST {argus.bot_url}/tasks`，kind=CODE_REVIEW），**仅支持
-  PR/MR 维度**（需 `pull_request_id`/`merge_request_iid`，repo 须为 `owner/repo`，不支持
-  `commit_sha` 与同步 `wait`）；异步回报：Argus 完成后 push 到 `/api/v1/argus/reviews`，
-  服务端自动把对应 active 评审收敛到终态（verdict→门禁：request_changes→failed，
-  error→failed+error_message，其余 passed）。
+- `argus`——派发外部 Argus Bot（`POST {argus.bot_url}/tasks`），**仅支持 PR/MR 维度**（需
+  `pull_request_id`/`merge_request_iid`，repo 须为 `owner/repo`，不支持 `commit_sha` 与同步
+  `wait`），**仅支持 gitea/github/gitlab 平台**（其余平台创建即被拒，400）；异步回报：Argus
+  完成后 push 到 `/api/v1/argus/reviews`，服务端自动把对应 active 评审收敛到终态并向 PR head
+  写门禁 commit status（verdict→门禁：request_changes→failed，error→failed+error_message，
+  其余 passed）；Argus 任务失败不回推，由 30s 兜底轮询收敛，回推丢失时自动拉取全量结果恢复。
+- `task_kind`（可选，仅 `engine=argus`）：`code_review`（默认，多专家代码评审）|
+  `requirement_compliance`（需求复核 R1-R5，`requirements` 作为验收清单注入）|
+  `visual_check`（视觉检查，需 argus 侧启用对应插件）。
 - 留空时按项目策略 `review_engine` 解析（项目策略页/设置 API 可配），仍空则 `ocr`。
 - `argus` 需配置 `argus.bot_url`，否则创建即被拒（400）。
 
@@ -819,6 +823,10 @@ Content-Type: application/json
 {"fp": "argus 规范指纹"}
 ```
 
+`fp` 与 `file+comment` 二选一（fp 优先）：fp 为 argus 规范指纹；无 fp 的旧数据或指纹
+未命中（措辞漂移）时可用 `{"file": "path/to.go", "comment": "意见原文"}` 兜底，fp 模式
+未命中且请求带 file+comment 时服务端也会自动降级尝试。
+
 服务端代理调用 argus `POST /findings/suppress`（凭证只在服务端），命中后本地落
 `suppress_state=suppressed`。响应：
 
@@ -827,3 +835,55 @@ Content-Type: application/json
 
 前置：配置 `argus.bot_url` + `argus.bot_token`（或环境变量 `ARGUS_BOT_URL`/`ARGUS_BOT_TOKEN`，
 token 即 argus 侧 `ARGUS_APITOKEN`）；未配置时返回 400。
+
+### Get Argus Review Report (报告全文)
+
+```http
+GET /argus/reviews/:id/report
+```
+
+懒拉取代理：按承接记录的 `argus_task_id` 调 argus `GET /tasks/:taskId` 返回报告全文
+（markdown），本站不落库。响应：`{"argus_task_id": "...", "status": "done", "verdict":
+"comment", "report": "# ...", "findings_count": 3}`。记录无任务 ID（纯上报/旧数据）返回 400。
+
+### List Argus Tasks (任务对账)
+
+```http
+GET /argus/tasks?status=running&limit=50
+```
+
+argus 侧真实任务队列代理（`status` 空=全部，`limit` 上限 100）。响应：
+`{"tasks": [{"task_id", "status", "kind", "platform", "owner", "repo", "number",
+"head_sha", "verdict", "created_at"}]}`。
+
+### Get Argus Usage (本月用量)
+
+```http
+GET /argus/usage
+```
+
+argus 本月各仓库 token 用量代理。响应：`{"month": "2026-09", "total": 1234, "budget":
+5000, "repos": [{"platform", "owner", "repo", "tokens", "tasks"}]}`（budget=0 表示 argus
+侧未设预算）。
+
+### Get Argus Health (审查健康)
+
+```http
+GET /argus/health
+```
+
+argus 审查健康报告（学习环飞轮：噪声处置/指南建议/计数）代理。响应为
+`{"payload": "<argus 侧原始 JSON 字符串>"}`，结构由 argus 侧定义（含
+`generated_at`/`repos[]`/`empty`），前端解析渲染。
+
+### Ask Argus (问答)
+
+```http
+POST /argus/ask
+Content-Type: application/json
+
+{"platform": "gitea", "owner": "o", "repo": "r", "number": "7", "question": "为什么这条是 high？"}
+```
+
+argus MCP `ask_argus` 工具的服务端代理（streamable http，凭证只在服务端）。
+`question` 为空返回该 PR 最近审查结论摘要。响应：`{"answer": "..."}`；代理超时 90s。

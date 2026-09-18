@@ -1,9 +1,11 @@
 // argus 失败兜底轮询：argus 侧任务**失败终态不回推**（仅成功终态走 sink push），
 // engine=argus 的评审在 argus 任务失败后会停在 running。本轮询器定期把
 // running 且带 ArgusTaskID 的记录拿去查 argus（GET /tasks/:id）：
-//   - task failed/stale → 记录落 failed 终态（带 argus 失败原因）；
-//   - task done 但记录仍 running → sink 回推已丢失（argus 重试耗尽等），
-//     落 failed 并提示查看 Argus 审查页（意见已在该页可见）；
+//   - task failed/stale → 记录落 failed 终态（带 argus 失败原因）+ PR error status；
+//   - task done 但记录仍 running → sink 回推丢失：拉全量任务详情（verdict+findings
+//     +report）落 Argus 承接表并复用 CompleteFromArgusReport 收敛（意见不再丢，
+//     降级点：pull 通道无 fp/suggested_fix，恢复的意见不参与抑制回流）；
+//     恢复失败才落 failed 提示去 Argus 审查页；
 //   - task pending/running / 查询失败 → 下个周期再看。
 //
 // 已被 CompleteFromArgusReport 收敛到终态的记录自然不再满足 running 条件。
@@ -12,12 +14,15 @@ package review
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/argusclient"
+	"github.com/yi-nology/code-review-service/internal/domain/argusingest"
 	notifdomain "github.com/yi-nology/code-review-service/internal/domain/notification"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/service/statuscheck"
 
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
@@ -26,19 +31,27 @@ import (
 // ArgusPoller argus 任务状态兜底轮询器。
 type ArgusPoller struct {
 	reviewRepo repository.ReviewRepository
-	client     *argusclient.Client
-	// notifier 强制收敛（任务失败/回推丢失）后的应用内通知出口；nil 安全。
+	// argusRepo 承接表：恢复路径把拉回的 verdict/findings 先落库（与 push 同一幂等键）。
+	argusRepo repository.ArgusReviewRepository
+	client    *argusclient.Client
+	// notifier 强制收敛/恢复后的应用内通知出口；nil 安全。
 	notifier domain.Notifier
-	interval time.Duration
+	// statusPoster 收敛后向 PR head 写门禁 status；nil 安全。
+	statusPoster domain.StatusPoster
+	interval     time.Duration
 }
 
 // NewArgusPoller 构造；client 未启用时 Run 直接退出（argus 引擎不可用）。
-func NewArgusPoller(reviewRepo repository.ReviewRepository, client *argusclient.Client,
-	notifier domain.Notifier, interval time.Duration) *ArgusPoller {
+func NewArgusPoller(reviewRepo repository.ReviewRepository, argusRepo repository.ArgusReviewRepository,
+	client *argusclient.Client, notifier domain.Notifier, statusPoster domain.StatusPoster,
+	interval time.Duration) *ArgusPoller {
 	if interval <= 0 {
 		interval = 30 * time.Second
 	}
-	return &ArgusPoller{reviewRepo: reviewRepo, client: client, notifier: notifier, interval: interval}
+	return &ArgusPoller{
+		reviewRepo: reviewRepo, argusRepo: argusRepo, client: client,
+		notifier: notifier, statusPoster: statusPoster, interval: interval,
+	}
 }
 
 // Run 阻塞轮询直到 ctx 取消（fx lifecycle OnStart 里 async.GoSafe）。
@@ -95,13 +108,38 @@ func (p *ArgusPoller) checkRecord(ctx context.Context, rec *domain.Record) {
 	case "failed", "stale":
 		p.markFailed(ctx, rec, task)
 	case "done":
-		// argus 审查完成但 sink 回推丢失（push 有重试，仅极端情况）：
-		// 意见已落 Argus 审查承接表（argus push 前半段成功才会 done），
-		// 这里只把评审记录收敛到终态，避免永久 running。
-		p.markReportLost(ctx, rec, task)
+		p.recoverReport(ctx, rec, task)
 	default:
 		// pending/running：继续等。
 	}
+}
+
+// recoverReport sink 回推丢失的恢复：拉全量任务详情 → 落承接表 → 复用
+// CompleteFromArgusReport 收敛（findings/通知/commit status 一条龙）。
+// 恢复链路任一步失败，或记录因 SHA 漂移未被收敛，降级为 markReportLost。
+func (p *ArgusPoller) recoverReport(ctx context.Context, rec *domain.Record, task *argusclient.TaskState) {
+	detail, err := p.client.GetTaskDetail(ctx, rec.Response.ArgusTaskID)
+	if err != nil {
+		logx.CtxWarnf(ctx, "argus poller: fetch detail of task %s failed: %v", task.TaskID, err)
+		p.markReportLost(ctx, rec, task)
+		return
+	}
+	rep := buildRecoveredReview(rec, detail)
+	id, err := p.argusRepo.UpsertReview(ctx, rep)
+	if err != nil {
+		logx.CtxWarnf(ctx, "argus poller: persist recovered report for review %s failed: %v", rec.ID, err)
+		p.markReportLost(ctx, rec, task)
+		return
+	}
+	CompleteFromArgusReport(ctx, p.reviewRepo, p.notifier, p.statusPoster, rep, id)
+	// SHA 漂移（PR 已前移）等场景 CompleteFromArgusReport 是 no-op：记录仍 running，
+	// 回退到「报告丢失」终态，避免永久 running。
+	if latest, err := p.reviewRepo.GetByReviewID(ctx, rec.ID); err == nil && latest.Status == statusRunning {
+		p.markReportLost(ctx, rec, task)
+		return
+	}
+	logx.Warnf("argus poller: review=%s task=%s done but sink report lost → recovered via pull (verdict=%s findings=%d)",
+		rec.ID, task.TaskID, rep.Verdict, rep.FindingsTotal)
 }
 
 func (p *ArgusPoller) markFailed(ctx context.Context, rec *domain.Record, task *argusclient.TaskState) {
@@ -136,11 +174,13 @@ func (p *ArgusPoller) markFailed(ctx context.Context, rec *domain.Record, task *
 		return // 已被并发收敛，不重复通知
 	}
 	logx.Warnf("argus poller: review=%s task=%s %s → failed", rec.ID, task.TaskID, task.Status)
+	domain.PostStatus(p.statusPoster, ctx, rec.Request.Provider, rec.Request.Repo, rec.HeadSHA,
+		statuscheck.StateError, msg, rec.ID)
 	p.notify(ctx, rec, msg)
 }
 
 func (p *ArgusPoller) markReportLost(ctx context.Context, rec *domain.Record, task *argusclient.TaskState) {
-	msg := "argus 审查已完成但结果回推未达（详见「Argus 审查」页的意见明细）"
+	msg := "argus 审查已完成但结果回推未达且拉取失败（详见「Argus 审查」页的意见明细）"
 	applied := false
 	err := p.reviewRepo.UpdateInTransaction(ctx, rec.ID, func(r *domain.Record) error {
 		if r.Status != statusRunning {
@@ -166,8 +206,86 @@ func (p *ArgusPoller) markReportLost(ctx context.Context, rec *domain.Record, ta
 	if !applied {
 		return // 已被并发收敛，不重复通知
 	}
-	logx.Warnf("argus poller: review=%s task=%s done but sink report lost → failed", rec.ID, task.TaskID)
+	logx.Warnf("argus poller: review=%s task=%s done but sink report lost and pull failed → failed", rec.ID, task.TaskID)
+	domain.PostStatus(p.statusPoster, ctx, rec.Request.Provider, rec.Request.Repo, rec.HeadSHA,
+		statuscheck.StateError, msg, rec.ID)
 	p.notify(ctx, rec, msg)
+}
+
+// buildRecoveredReview 把 pull 通道的任务详情还原为上报实体（与 sink push 同一
+// 幂等键落承接表）。降级点：pull 通道无 fp/suggested_fix，恢复的意见 fp 为空、
+// 不参与抑制回流；title 打恢复标记便于溯源。
+func buildRecoveredReview(rec *domain.Record, d *argusclient.TaskDetail) *argusingest.Review {
+	platform := strings.ToLower(rec.Request.Provider)
+	owner, repo, _ := splitOwnerRepo(rec.Request.Repo)
+	number := rec.Request.PullRequestID
+	if number == "" {
+		number = rec.Request.MergeRequestIID
+	}
+	rep := &argusingest.Review{
+		ArgusTaskID: firstNonEmpty(d.TaskID, rec.Response.ArgusTaskID),
+		Platform:    platform, Owner: owner, Repo: repo, Number: number,
+		Title:      "（回推丢失，Argus Poller 拉取恢复）",
+		HeadSHA:    rec.HeadSHA,
+		Verdict:    recoveredVerdict(d),
+		OccurredAt: time.Now(),
+	}
+	if rep.Verdict == argusingest.VerdictError {
+		rep.ErrorMessage = d.FailReason
+	}
+	pluginSeen := make(map[string]struct{})
+	for _, f := range d.Findings {
+		severity := f.Severity
+		switch severity {
+		case argusingest.SeverityHigh, argusingest.SeverityMedium, argusingest.SeverityLow:
+		default:
+			severity = argusingest.SeverityLow // 与 argus 侧越界归 low 同语义
+		}
+		by := strings.TrimSpace(f.By)
+		if by != "" {
+			if _, dup := pluginSeen[by]; !dup {
+				pluginSeen[by] = struct{}{}
+				rep.Plugins = append(rep.Plugins, by)
+			}
+		}
+		rep.Findings = append(rep.Findings, argusingest.Finding{
+			File: f.File, Line: f.Line, Severity: severity,
+			Comment: f.Comment, By: by,
+		})
+		switch severity {
+		case argusingest.SeverityHigh:
+			rep.FindingsHigh++
+		case argusingest.SeverityMedium:
+			rep.FindingsMedium++
+		default:
+			rep.FindingsLow++
+		}
+	}
+	rep.FindingsTotal = len(rep.Findings)
+	return rep
+}
+
+// recoveredVerdict done 任务的裁决归一：failed 走 error（带原因）；verdict 缺失
+// 按 comment（中性）收敛，保证记录不因上游数据缺口永久悬挂。
+func recoveredVerdict(d *argusclient.TaskDetail) string {
+	if d.Status == "failed" || d.Status == "stale" {
+		return argusingest.VerdictError
+	}
+	switch d.Verdict {
+	case argusingest.VerdictApprove, argusingest.VerdictComment, argusingest.VerdictRequestChanges:
+		return d.Verdict
+	default:
+		return argusingest.VerdictComment
+	}
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // notify 强制收敛后发应用内通知：argus 任务失败/回推丢失时记录停在 running，

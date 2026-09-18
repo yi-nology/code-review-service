@@ -23,6 +23,12 @@ service reviewService {
     review.ArgusListReviewsResp ListArgusReviews(1: review.ArgusListReviewsReq req) (api.get="/api/v1/argus/reviews")
     review.ArgusGetReviewResp GetArgusReview(1: review.ArgusGetReviewReq req) (api.get="/api/v1/argus/reviews/:id")
     review.ArgusSuppressResp SuppressArgusFinding(1: review.ArgusSuppressReq req) (api.post="/api/v1/argus/reviews/:id/findings/suppress")
+    review.ArgusReviewReportResp GetArgusReviewReport(1: review.ArgusReviewReportReq req) (api.get="/api/v1/argus/reviews/:id/report")
+
+    review.ArgusListTasksResp ListArgusTasks(1: review.ArgusListTasksReq req) (api.get="/api/v1/argus/tasks")
+    review.ArgusUsageResp GetArgusUsage(1: review.ArgusUsageReq req) (api.get="/api/v1/argus/usage")
+    review.ArgusHealthResp GetArgusHealth(1: review.ArgusHealthReq req) (api.get="/api/v1/argus/health")
+    review.ArgusAskResp AskArgus(1: review.ArgusAskReq req) (api.post="/api/v1/argus/ask")
 
     webhook.HandleWebhookResp HandleWebhook(1: webhook.HandleWebhookReq req) (api.post="/api/v1/webhooks/:provider/:installation")
 

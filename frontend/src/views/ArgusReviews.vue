@@ -13,6 +13,28 @@
         </template>
       </PageHeader>
 
+      <el-card class="argus-gov-card">
+        <div class="argus-gov" v-loading="govLoading">
+          <div class="argus-gov-item">
+            <span class="argus-gov-label">本月 token 用量</span>
+            <span class="argus-gov-value">{{ usage ? formatTokens(usage.total) : '—' }}</span>
+            <span v-if="usage?.budget" class="argus-gov-sub">预算 {{ formatTokens(usage.budget) }}</span>
+          </div>
+          <div class="argus-gov-item">
+            <span class="argus-gov-label">本月活跃仓库</span>
+            <span class="argus-gov-value">{{ usage ? String(usage.repos?.length ?? 0) : '—' }}</span>
+            <span class="argus-gov-sub">{{ usage?.month || '' }}</span>
+          </div>
+          <div class="argus-gov-item">
+            <span class="argus-gov-label">审查健康（学习环）</span>
+            <span class="argus-gov-value">{{ healthLabel }}</span>
+          </div>
+          <div class="argus-gov-actions">
+            <el-button plain size="small" @click="openTasks">任务对账</el-button>
+          </div>
+        </div>
+      </el-card>
+
       <el-card>
         <div class="argus-filter-bar">
           <el-input
@@ -97,20 +119,55 @@
           />
         </div>
       </el-card>
+
+      <el-dialog v-model="tasksVisible" title="Argus 侧任务对账" width="72%" top="6vh">
+        <div class="argus-tasks-toolbar">
+          <el-select v-model="tasksStatus" placeholder="全部状态" clearable size="small" @change="loadTasks">
+            <el-option label="pending" value="pending" />
+            <el-option label="running" value="running" />
+            <el-option label="done" value="done" />
+            <el-option label="failed" value="failed" />
+            <el-option label="stale" value="stale" />
+          </el-select>
+          <span class="argus-gov-sub">argus 侧真实任务队列，用于与承接表对账</span>
+        </div>
+        <el-table :data="tasks" v-loading="tasksLoading" size="small" max-height="56vh">
+          <el-table-column label="任务" min-width="180">
+            <template #default="{ row }"><span class="argus-mono">{{ row.task_id }}</span></template>
+          </el-table-column>
+          <el-table-column label="类型" width="190">
+            <template #default="{ row }">{{ taskKindLabel(row.kind) }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="taskStatusTagType(row.status)" size="small">{{ row.status }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="项目" min-width="200">
+            <template #default="{ row }">{{ row.owner }}/{{ row.repo }} #{{ row.number }}（{{ row.platform }}）</template>
+          </el-table-column>
+          <el-table-column label="裁决" width="110">
+            <template #default="{ row }">{{ row.verdict || '—' }}</template>
+          </el-table-column>
+          <el-table-column label="创建时间" width="160">
+            <template #default="{ row }">{{ formatTs(row.created_at) }}</template>
+          </el-table-column>
+        </el-table>
+      </el-dialog>
     </PageShell>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import PageShell from '@/components/common/PageShell.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
-import { getArgusReviews } from '@/api/argus'
+import { getArgusHealth, getArgusReviews, getArgusTasks, getArgusUsage } from '@/api/argus'
 import { formatDateShort, formatClock } from '@/utils/format'
-import type { ArgusReview } from '@/types/argus'
+import type { ArgusHealthReport, ArgusReview, ArgusTaskSummary, ArgusUsage } from '@/types/argus'
 
 const router = useRouter()
 const items = ref<ArgusReview[]>([])
@@ -118,6 +175,15 @@ const total = ref(0)
 const loading = ref(false)
 const page = ref(1)
 const pageSize = ref(20)
+
+// 治理卡：用量 / 健康 / argus 侧任务对账（代理端点，argus 未配置时静默降级为 —）
+const govLoading = ref(false)
+const usage = ref<ArgusUsage | null>(null)
+const health = ref<ArgusHealthReport | null>(null)
+const tasksVisible = ref(false)
+const tasksLoading = ref(false)
+const tasks = ref<ArgusTaskSummary[]>([])
+const tasksStatus = ref('')
 const filters = ref<{
   repo: string
   platform: string
@@ -177,12 +243,79 @@ function openDetail(row: ArgusReview) {
   router.push(`/argus/${row.id}`)
 }
 
+function formatTokens(n?: number): string {
+  if (!n && n !== 0) return '—'
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
+  return String(n)
+}
+
+const healthLabel = computed(() => {
+  if (!health.value || health.value.empty) return '暂无数据'
+  const n = health.value.repos?.length ?? 0
+  return n ? `${n} 个仓库有学习环数据` : '暂无数据'
+})
+
+async function loadGov() {
+  govLoading.value = true
+  try {
+    const [u, h] = await Promise.allSettled([getArgusUsage(), getArgusHealth()])
+    if (u.status === 'fulfilled') usage.value = u.value
+    if (h.status === 'fulfilled') health.value = h.value
+  } finally {
+    govLoading.value = false
+  }
+}
+
+function openTasks() {
+  tasksVisible.value = true
+  loadTasks()
+}
+
+async function loadTasks() {
+  tasksLoading.value = true
+  try {
+    tasks.value = await getArgusTasks(tasksStatus.value || undefined, 100)
+  } catch {
+    tasks.value = []
+  } finally {
+    tasksLoading.value = false
+  }
+}
+
+function taskKindLabel(k: string): string {
+  switch (k) {
+    case 'code_review': return '代码评审'
+    case 'requirement_compliance': return '需求复核'
+    case 'visual_check': return '视觉检查'
+    default: return k || '—'
+  }
+}
+
+function taskStatusTagType(s: string): 'success' | 'warning' | 'danger' | 'info' {
+  switch (s) {
+    case 'done': return 'success'
+    case 'pending':
+    case 'running': return 'warning'
+    case 'failed':
+    case 'stale': return 'danger'
+    default: return 'info'
+  }
+}
+
+function formatTs(sec?: number): string {
+  if (!sec) return '—'
+  const d = new Date(sec * 1000)
+  return `${formatDateShort(d.toISOString())} ${formatClock(d.toISOString())}`
+}
+
 // Argus 为异步推送，列表页定时刷新（页面隐藏或正在加载时跳过）。
 const pollIntervalMs = 15000
 let pollTimer: number | undefined
 
 onMounted(() => {
   load()
+  loadGov()
   pollTimer = window.setInterval(() => {
     if (!document.hidden && !loading.value) load()
   }, pollIntervalMs)
@@ -194,6 +327,46 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.argus-gov-card {
+  margin-bottom: 16px;
+}
+.argus-gov {
+  display: flex;
+  gap: 40px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.argus-gov-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+}
+.argus-gov-label {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+.argus-gov-value {
+  font-size: 18px;
+  font-weight: 600;
+}
+.argus-gov-sub {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+.argus-gov-actions {
+  margin-left: auto;
+}
+.argus-tasks-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.argus-mono {
+  font-family: var(--el-font-family-mono, monospace);
+  font-size: 12px;
+}
 .argus-filter-bar {
   display: flex;
   gap: 12px;
