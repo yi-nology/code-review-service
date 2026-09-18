@@ -170,9 +170,12 @@ func (a *ArgusExecutor) failRecord(ctx context.Context, id string, req domain.Re
 		logx.CtxErrorf(ctx, "argus dispatch: persist failure record failed: review=%s err=%v", id, err)
 		return
 	}
-	// 触发失败同样在 PR 上留痕（error status），与 OCR 路径失败语义对齐。
-	domain.PostStatus(a.statusPoster, context.Background(), req.Provider, req.Repo, req.HeadSHA,
-		statuscheck.StateError, "Argus 审查触发失败："+cause.Error(), id)
+	// 门禁留痕按 gate_mode：strong 触发失败写 error status（与 OCR 失败语义一致）；
+	// weak（argus 默认）不发——此时尚未发过 pending，PR 保持干净，留痕走记录+通知。
+	if domain.EffectiveGateMode(req.GateMode, domain.EngineArgus) == domain.GateModeStrong {
+		domain.PostStatus(a.statusPoster, context.Background(), req.Provider, req.Repo, req.HeadSHA,
+			statuscheck.StateError, "Argus 审查触发失败："+cause.Error(), id)
+	}
 }
 
 // splitOwnerRepo 拆 "owner/repo"；无 "/" 视为非法（argus 契约 owner/repo 分列出参）。
@@ -188,7 +191,7 @@ func splitOwnerRepo(full string) (string, string, error) {
 // 匹配键：provider=platform（小写）、repo=owner/repo、PR number、（可选）head_sha，
 // 且 Record 引擎为 argus。不匹配（纯 push 场景/engine=ocr/head 不一致）为 no-op。
 // notifier 为收敛完成后的应用内通知出口（nil 安全，与 OCR 路径 notifyCompletion 对齐）；
-// statusPoster 收敛后向 PR head 写质量门禁 commit status（nil 安全）；
+// statusPoster 收敛后按 gate_mode 向 PR head 写门禁 commit status（nil 安全，弱门禁默认）；
 // 由 argus_service.IngestHandler 在 upsert 成功后调用，亦被 ArgusPoller 恢复路径复用。
 func CompleteFromArgusReport(ctx context.Context, reviewRepo repository.ReviewRepository,
 	notifier domain.Notifier, statusPoster domain.StatusPoster, rep *argusingest.Review, argusID uint) {
@@ -267,20 +270,25 @@ func CompleteFromArgusReport(ctx context.Context, reviewRepo repository.ReviewRe
 	}
 	logx.Infof("argus report: review=%s completed by argus push (verdict=%s)", rec.ID, rep.Verdict)
 	postArgusGateStatus(ctx, statusPoster, rec.Request.Provider, rec.Request.Repo,
-		shaOr(rep.HeadSHA, rec.HeadSHA), status, gate, summary, rec.ID)
+		shaOr(rep.HeadSHA, rec.HeadSHA), rec.Request.GateMode, status, gate, summary, rec.ID)
 	notifyArgusCompletion(ctx, notifier, rec, rep, summary, status, gate)
 }
 
-// postArgusGateStatus 按 verdict/gate 结果向 PR head 写门禁 status
-// （success→passed / request_changes→failed / error→error），与 OCR 路径语义对齐。
-func postArgusGateStatus(ctx context.Context, poster domain.StatusPoster, platform, repoPath, sha, status string,
+// postArgusGateStatus 按 gate_mode 向 PR head 写门禁 status。strong 沿用 OCR 语义
+// （passed→success / request_changes→failed / error→error）；weak（argus 默认）任何
+// 终态一律 success 留痕——红色 status 会卡「所有检查通过后合并」类自动合并。
+func postArgusGateStatus(ctx context.Context, poster domain.StatusPoster, platform, repoPath, sha, gateMode, status string,
 	gate domain.Gate, summary, reviewID string) {
 	state := statuscheck.StateSuccess
-	if gate.Status == domain.GateFailed {
-		state = statuscheck.StateFailed
-	}
-	if status == statusFailed {
-		state = statuscheck.StateError
+	if domain.EffectiveGateMode(gateMode, domain.EngineArgus) == domain.GateModeStrong {
+		if gate.Status == domain.GateFailed {
+			state = statuscheck.StateFailed
+		}
+		if status == statusFailed {
+			state = statuscheck.StateError
+		}
+	} else {
+		summary = domain.WeakGateDesc(summary)
 	}
 	domain.PostStatus(poster, ctx, platform, repoPath, sha, state, summary, reviewID)
 }

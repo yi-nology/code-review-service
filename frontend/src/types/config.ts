@@ -65,6 +65,8 @@ export interface ProjectPolicy {
   fail_on: string
   /** 该项目默认审查引擎：''（OCR）| 'ocr' | 'argus'（外部 Bot，webhook 自动路由） */
   review_engine?: 'ocr' | 'argus' | ''
+  /** PR 门禁强弱依赖：''（auto：OCR 强 / argus 弱）| 'strong'（终态失败标红）| 'weak'（仅留痕不阻塞） */
+  gate_mode?: 'strong' | 'weak' | ''
   ignore_paths: string[]
   rules?: ReviewRule[]
   rule_package_ids?: number[]

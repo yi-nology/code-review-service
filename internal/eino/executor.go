@@ -768,10 +768,12 @@ func (e *Executor) recordFailureWithOCR(ctx context.Context, id string, req doma
 	})
 
 	if e.statusPoster != nil && req.HeadSHA != "" {
-		e.statusPoster.Post(context.Background(), req.Provider, req.Repo, req.HeadSHA,
-			statuscheck.StateError,
-			"评审执行失败："+truncateForStatus(stage+": "+runErr.Error()),
-			id)
+		// 弱门禁（gate_mode=weak）执行失败也只 success 留痕，避免红 status 卡自动合并。
+		state, description := statuscheck.StateError, "评审执行失败："+truncateForStatus(stage+": "+runErr.Error())
+		if domain.EffectiveGateMode(req.GateMode, req.Engine) == domain.GateModeWeak {
+			state, description = statuscheck.StateSuccess, domain.WeakGateDesc(description)
+		}
+		e.statusPoster.Post(context.Background(), req.Provider, req.Repo, req.HeadSHA, state, description, id)
 	}
 	bizmetrics.ReviewTotal.WithLabelValues(req.Provider, "failed").Inc()
 }
@@ -783,8 +785,13 @@ func (e *Executor) postCompletionStatus(req domain.Request, resp domain.Response
 	state := statuscheck.StateSuccess
 	description := "代码评审通过"
 	if resp.Gate.Status == domain.GateFailed {
-		state = statuscheck.StateFailed
 		description = "质量门禁未通过：" + truncateForStatus(resp.Gate.Reason)
+		if domain.EffectiveGateMode(req.GateMode, req.Engine) == domain.GateModeWeak {
+			// 弱门禁：门禁未过同样 success 留痕，细节放 description。
+			description = domain.WeakGateDesc(description)
+		} else {
+			state = statuscheck.StateFailed
+		}
 	}
 	sha := workspace.OriginalHeadSHA
 	if sha == "" {

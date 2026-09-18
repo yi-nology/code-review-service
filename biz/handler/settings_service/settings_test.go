@@ -275,6 +275,36 @@ func TestValidateProjectPolicy(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "invalid gate_mode returns error",
+			input: &projectpolicy.ProjectPolicy{
+				Provider: "github",
+				Repo:     "org/repo",
+				FailOn:   "critical",
+				GateMode: "blocking",
+			},
+			wantErr: true,
+		},
+		{
+			name: "weak gate_mode passes",
+			input: &projectpolicy.ProjectPolicy{
+				Provider: "github",
+				Repo:     "org/repo",
+				FailOn:   "critical",
+				GateMode: "weak",
+			},
+			wantErr: false,
+		},
+		{
+			name: "strong gate_mode passes",
+			input: &projectpolicy.ProjectPolicy{
+				Provider: "github",
+				Repo:     "org/repo",
+				FailOn:   "critical",
+				GateMode: "strong",
+			},
+			wantErr: false,
+		},
+		{
 			name: "valid policy passes",
 			input: &projectpolicy.ProjectPolicy{
 				Provider:          "github",

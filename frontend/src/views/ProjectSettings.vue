@@ -161,6 +161,13 @@
                 <small v-if="!argusPlatformSupported" class="engine-hint argus-unsupported-hint">
                   {{ form.provider }} 平台暂不支持 Argus（仅 gitea/github/gitlab），已禁用该选项。
                 </small>
+                <div class="section-title compact-title engine-title"><strong>门禁依赖模式</strong></div>
+                <p class="step-hint">决定 PR 上门禁 check 的红绿：强=终态失败标红（可配分支保护必需检查）；弱=一律留痕，不阻塞「检查通过后合并」的自动合并。</p>
+                <el-radio-group v-model="form.gate_mode">
+                  <el-radio value="">跟随默认（OCR 强 / Argus 弱）</el-radio>
+                  <el-radio value="strong">强依赖</el-radio>
+                  <el-radio value="weak">弱依赖</el-radio>
+                </el-radio-group>
               </section>
 
               <!-- Step 2: 审查范围 -->
@@ -250,6 +257,13 @@
                   <small v-if="!argusPlatformSupported" class="engine-hint argus-unsupported-hint">
                     {{ form.provider }} 平台暂不支持 Argus（仅 gitea/github/gitlab），已禁用该选项；已保存的 argus 策略保存时会回落为空（OCR）。
                   </small>
+                  <div class="section-title compact-title engine-title"><strong>门禁依赖模式</strong></div>
+                  <el-radio-group v-model="form.gate_mode">
+                    <el-radio value="">跟随默认（OCR 强 / Argus 弱）</el-radio>
+                    <el-radio value="strong">强依赖</el-radio>
+                    <el-radio value="weak">弱依赖</el-radio>
+                  </el-radio-group>
+                  <small class="engine-hint">强依赖：评审未过 / 执行失败在 PR 上标红，可配为必需检查；弱依赖：任何结果仅 success 留痕（描述带「【弱门禁】」），不阻塞自动合并。</small>
                 </section>
 
                 <section class="form-section">
@@ -418,6 +432,7 @@ const form = reactive<ProjectPolicyForm>({
   repo: '',
   fail_on: 'major',
   review_engine: '' as any,
+  gate_mode: '' as any,
   ignore_paths: [] as string[],
   rules: [] as ReviewRule[],
   ocr_enabled: null,
@@ -470,6 +485,7 @@ const payloadPreview = computed<ProjectPolicy>(() => ({
   repo: form.repo.trim(),
   fail_on: form.fail_on,
   review_engine: form.review_engine || '',
+  gate_mode: form.gate_mode || '',
   ignore_paths: normalizedIgnorePaths.value,
   rules: normalizedRules.value,
   ocr_enabled: ocrEnabledValue.value,
@@ -646,6 +662,7 @@ function handleEdit(policy: ProjectPolicy) {
   form.repo = policy.repo
   form.fail_on = policy.fail_on || 'major'
   form.review_engine = (policy.review_engine || '') as any
+  form.gate_mode = (policy.gate_mode || '') as any
   form.ignore_paths = policy.ignore_paths || []
   form.rules = policy.rules ? policy.rules.map((rule) => ({ ...rule })) : []
   form.ocr_enabled = policy.ocr_enabled ?? null
@@ -682,6 +699,7 @@ function startCreate() {
   form.repo = ''
   form.fail_on = 'major'
   form.review_engine = '' as any
+  form.gate_mode = '' as any
   form.ignore_paths = []
   form.rules = []
   form.ocr_enabled = null

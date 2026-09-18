@@ -53,9 +53,9 @@ func CreateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	if len(req.Tags) > 0 {
 		agent.Tags = json.RawMessage(mustMarshalJSON(req.Tags))
 	}
-	if len(req.RulePackageIDs) > 0 {
-		ids := make([]uint, 0, len(req.RulePackageIDs))
-		for _, id := range req.RulePackageIDs {
+	if len(req.RulePackageIds) > 0 {
+		ids := make([]uint, 0, len(req.RulePackageIds))
+		for _, id := range req.RulePackageIds {
 			ids = append(ids, uint(id))
 		}
 		agent.RulePackageIDs = json.RawMessage(mustMarshalJSON(ids))
@@ -110,9 +110,9 @@ func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 		existing.Tags = json.RawMessage(mustMarshalJSON(req.Tags))
 	}
 	// RulePackageIDs：optional，nil 表示不修改；非 nil（含空数组）表示覆盖。
-	if req.RulePackageIDs != nil {
-		ids := make([]uint, 0, len(req.RulePackageIDs))
-		for _, id := range req.RulePackageIDs {
+	if req.RulePackageIds != nil {
+		ids := make([]uint, 0, len(req.RulePackageIds))
+		for _, id := range req.RulePackageIds {
 			ids = append(ids, uint(id))
 		}
 		existing.RulePackageIDs = json.RawMessage(mustMarshalJSON(ids))
@@ -155,7 +155,7 @@ func dbReviewerAgentToAPI(a *reviewer.Agent) *modelSettings.ReviewerAgentInfo {
 		Enabled: a.Enabled, Priority: int64(a.Priority), Tags: common.StrPtr(tags),
 		RuleFile: common.StrPtr(a.RuleFile), Redundancy: int64(a.Redundancy),
 		IsDefault:      a.IsDefault,
-		RulePackageIDs: rulePackageIDsToAPI(a.RulePackageIDs),
+		RulePackageIds: rulePackageIDsToAPI(a.RulePackageIDs),
 	}
 }
 

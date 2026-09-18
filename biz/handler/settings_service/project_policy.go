@@ -34,11 +34,16 @@ func PutProjectPolicy(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	dbPolicy := apiProjectPolicyToDB(req.Policy)
-	// review_engine 未随请求上送（旧前端/客户端不感知该字段，nil）时保留库中现值，
-	// 避免在设置页保存其它字段把它清空；显式上送才覆盖（空串 = 重置为跟随默认）。
-	if req.Policy == nil || req.Policy.ReviewEngine == nil {
+	// review_engine / gate_mode 未随请求上送（旧前端/客户端不感知该字段，nil）时保留
+	// 库中现值，避免在设置页保存其它字段把它清空；显式上送才覆盖（空串 = 重置为跟随默认）。
+	if req.Policy == nil || req.Policy.ReviewEngine == nil || req.Policy.GateMode == nil {
 		if prev, err := handlerInst.project.GetByProviderRepo(ctx, dbPolicy.Provider, dbPolicy.Repo); err == nil && prev != nil {
-			dbPolicy.ReviewEngine = prev.ReviewEngine
+			if req.Policy == nil || req.Policy.ReviewEngine == nil {
+				dbPolicy.ReviewEngine = prev.ReviewEngine
+			}
+			if req.Policy == nil || req.Policy.GateMode == nil {
+				dbPolicy.GateMode = prev.GateMode
+			}
 		}
 	}
 	if err := validateProjectPolicy(dbPolicy); err != nil {
@@ -99,6 +104,11 @@ func validateProjectPolicy(p *projectpolicy.ProjectPolicy) error {
 			return fmt.Errorf("项目默认严重级别仅支持 critical、major、minor、info")
 		}
 	}
+	switch strings.TrimSpace(p.GateMode) {
+	case "", projectpolicy.GateModeStrong, projectpolicy.GateModeWeak:
+	default:
+		return fmt.Errorf("门禁强弱依赖模式仅支持 strong、weak，留空表示 auto（OCR 强 / argus 弱）")
+	}
 	return nil
 }
 
@@ -127,8 +137,9 @@ func dbProjectPolicyToAPI(p *projectpolicy.ProjectPolicy) *modelSettings.Project
 		OcrTelemetryExporter:       common.StrPtr(p.OCRTelemetryExporter),
 		OcrTelemetryOtlpEndpoint:   common.StrPtr(p.OCRTelemetryOTLPEndpoint),
 		OcrTelemetryContentLogging: ptrx.Of(p.OCRTelemetryContentLogging),
-		RulePackageIDs:             rulePackageIDsToAPI(p.RulePackageIDs),
+		RulePackageIds:             rulePackageIDsToAPI(p.RulePackageIDs),
 		ReviewEngine:               common.StrPtr(p.ReviewEngine),
+		GateMode:                   common.StrPtr(p.GateMode),
 	}
 }
 
@@ -143,6 +154,10 @@ func apiProjectPolicyToDB(p *modelSettings.ProjectPolicy) *projectpolicy.Project
 	db.ReviewEngine = strings.ToLower(strings.TrimSpace(ptrx.Deref(p.ReviewEngine, "")))
 	if db.ReviewEngine != "" && db.ReviewEngine != "ocr" && db.ReviewEngine != "argus" {
 		db.ReviewEngine = ""
+	}
+	db.GateMode = strings.ToLower(strings.TrimSpace(ptrx.Deref(p.GateMode, "")))
+	if db.GateMode != "" && db.GateMode != projectpolicy.GateModeStrong && db.GateMode != projectpolicy.GateModeWeak {
+		db.GateMode = "" // 非法值回退 auto（OCR 强 / argus 弱）
 	}
 	db.OCREnabled = p.OcrEnabled
 	db.OCRConcurrency = int(ptrx.Deref(p.OcrConcurrency, 0))
@@ -172,9 +187,9 @@ func apiProjectPolicyToDB(p *modelSettings.ProjectPolicy) *projectpolicy.Project
 	if p.IsSetRules() && p.Rules != nil && *p.Rules != "" {
 		db.Rules = json.RawMessage(*p.Rules)
 	}
-	if len(p.RulePackageIDs) > 0 {
-		ids := make([]uint, 0, len(p.RulePackageIDs))
-		for _, id := range p.RulePackageIDs {
+	if len(p.RulePackageIds) > 0 {
+		ids := make([]uint, 0, len(p.RulePackageIds))
+		for _, id := range p.RulePackageIds {
 			ids = append(ids, uint(id))
 		}
 		db.RulePackageIDs = json.RawMessage(mustMarshalJSON(ids))

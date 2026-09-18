@@ -49,8 +49,8 @@ Content-Type: application/json
   `pull_request_id`/`merge_request_iid`，repo 须为 `owner/repo`，不支持 `commit_sha` 与同步
   `wait`），**仅支持 gitea/github/gitlab 平台**（其余平台创建即被拒，400）；异步回报：Argus
   完成后 push 到 `/api/v1/argus/reviews`，服务端自动把对应 active 评审收敛到终态并向 PR head
-  写门禁 commit status（verdict→门禁：request_changes→failed，error→failed+error_message，
-  其余 passed）；Argus 任务失败不回推，由 30s 兜底轮询收敛，回推丢失时自动拉取全量结果恢复。
+  写门禁 commit status，红绿按项目策略 `gate_mode` 分流（见下）；触发失败仅 strong 模式写
+  error status。Argus 任务失败不回推，由 30s 兜底轮询收敛，回推丢失时自动拉取全量结果恢复。
 - `task_kind`（可选，仅 `engine=argus`）：`code_review`（默认，多专家代码评审）|
   `requirement_compliance`（需求复核 R1-R5，`requirements` 作为验收清单注入）|
   `visual_check`（视觉检查，需 argus 侧启用对应插件）。
@@ -363,6 +363,7 @@ Content-Type: application/json
     "provider": "github",
     "repo": "owner/repo",
     "fail_on": "critical",
+    "gate_mode": "weak",
     "ignore_paths": ["vendor/**", "**/*.pb.go"],
     "rules": [
       {
@@ -373,6 +374,15 @@ Content-Type: application/json
   }
 }
 ```
+
+`gate_mode` PR 门禁强弱依赖模式（可选，缺省 auto）：
+- `""`（auto）——按引擎默认：OCR 强门禁、argus 弱门禁；
+- `strong`——强依赖（事实门禁）：评审未过写 `failed`、执行失败写 `error`，可在分支保护里
+  配为必需检查；
+- `weak`——弱依赖：任何终态一律 `success` 留痕（裁决/失败细节放 description，带
+  「【弱门禁】」前缀），不产出红 status，不会卡「所有检查通过后合并」类自动合并；
+  argus 触发失败不发 status（仅评审记录与应用内通知）。
+门禁红绿只影响 PR 上的 commit status；评审记录内的门禁裁决与应用内通知不受影响。
 
 #### Delete Project Policy
 ```http

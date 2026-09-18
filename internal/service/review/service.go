@@ -293,14 +293,19 @@ func (s *Service) findActiveReview(ctx context.Context, req domain.Request) *dom
 	return &resp
 }
 
-// resolveEngine 解析生效审查引擎：请求显式指定 > 项目策略 review_engine > 默认 OCR。
-// 结果写回 req.Engine（随 Request 持久化，worker/执行器据此分流）；
-// engine=argus 但未配置 argus 对接时 fail-fast 拒绝。
+// resolveEngine 解析生效审查引擎与门禁模式：请求显式指定 > 项目策略 > 默认
+// （引擎 OCR、门禁 auto）。结果写回 req.Engine / req.GateMode（随 Request 持久化，
+// worker/执行器/回报收敛据此分流与决定 PR 门禁红绿）；engine=argus 但未配置
+// argus 对接时 fail-fast 拒绝。
 func (s *Service) resolveEngine(ctx context.Context, req *domain.Request) error {
 	req.Engine = strings.ToLower(strings.TrimSpace(req.Engine))
-	if req.Engine == "" && s.projectRepo != nil {
+	// gate_mode 不随请求上送，一律从项目策略解析（旧记录无该字段时保持 auto）。
+	if s.projectRepo != nil {
 		if p, err := s.projectRepo.GetByProviderRepo(ctx, req.Provider, req.Repo); err == nil && p != nil {
-			req.Engine = strings.ToLower(strings.TrimSpace(p.ReviewEngine))
+			if req.Engine == "" {
+				req.Engine = strings.ToLower(strings.TrimSpace(p.ReviewEngine))
+			}
+			req.GateMode = strings.ToLower(strings.TrimSpace(p.GateMode))
 		}
 	}
 	if req.Engine == "" {

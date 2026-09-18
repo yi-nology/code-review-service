@@ -46,6 +46,9 @@ type Request struct {
 	// TaskKindCodeReview | TaskKindRequirementCompliance | TaskKindVisualCheck。
 	// OCR 引擎不支持任务类型（校验期拒绝）。
 	TaskKind string `json:"task_kind,omitempty"`
+	// GateMode PR 门禁强弱依赖：''（auto：OCR 强 / argus 弱）| 'strong' | 'weak'。
+	// 创建评审时从项目策略解析落盘，PR 状态回写按 EffectiveGateMode 决定红绿。
+	GateMode string `json:"gate_mode,omitempty"`
 }
 
 // argus 任务类型词表（与 argusclient TaskKind 枚举一一对应；存储用小写字符串，

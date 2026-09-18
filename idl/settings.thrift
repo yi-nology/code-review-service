@@ -231,6 +231,10 @@ struct ProjectPolicy {
     28: optional string ocr_background_file (api.body="ocr_background_file")
     // review_engine 该项目的默认审查引擎：''（OCR）| 'ocr' | 'argus'（外部 Bot）。
     29: optional string review_engine (api.body="review_engine")
+    // gate_mode PR 门禁强弱依赖模式：''（auto：OCR 强门禁 / argus 弱门禁）|
+    // 'strong'（终态失败写 failed/error，可配为必需检查）| 'weak'（任何终态一律
+    // success 留痕，不阻塞「所有检查通过后合并」类自动合并）。
+    30: optional string gate_mode (api.body="gate_mode")
 }
 
 struct ListProjectPoliciesResp {
