@@ -96,13 +96,6 @@ func argusEngineSchema() []mcp.ToolOption {
 }
 
 // TextResult 是最常见的成功返回：纯文本内容。
-// 用法：return mcp.TextResult("review queued: " + id)
-func TextResult(text string) *mcp.CallToolResult {
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{mcp.NewTextContent(text)},
-	}
-}
-
 // JSONResult 把任意结构化数据作为 tool 返回值。
 //
 // 客户端（minicode / Claude Desktop）通常用两路解析：

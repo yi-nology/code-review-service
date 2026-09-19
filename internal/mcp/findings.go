@@ -202,7 +202,7 @@ func previewChangeFilesHandler(svc app.ReviewReader) func(ctx context.Context, r
 		}
 
 		domainReq := domain.Request{
-			Provider:        strings.ToLower(strings.TrimSpace(provider)),
+			Provider:        normalizeProvider(provider),
 			Repo:            strings.TrimSpace(repo),
 			ProjectID:       optionalString(args, "project_id"),
 			PullRequestID:   optionalString(args, "pull_request_id"),
@@ -252,7 +252,7 @@ func scanRepositoryHandler(svc app.ReviewReader) func(ctx context.Context, req m
 		}
 
 		scanReq := domain.ScanRequest{
-			Provider:   strings.ToLower(strings.TrimSpace(provider)),
+			Provider:   normalizeProvider(provider),
 			Repo:       strings.TrimSpace(repo),
 			ProjectID:  optionalString(args, "project_id"),
 			HeadSHA:    headSHA,
@@ -262,20 +262,8 @@ func scanRepositoryHandler(svc app.ReviewReader) func(ctx context.Context, req m
 		if v, ok := args["preview"].(bool); ok {
 			scanReq.Preview = v
 		}
-		if raw, ok := args["paths"].([]any); ok {
-			for _, p := range raw {
-				if s, ok := p.(string); ok && strings.TrimSpace(s) != "" {
-					scanReq.Paths = append(scanReq.Paths, s)
-				}
-			}
-		}
-		if raw, ok := args["exclude"].([]any); ok {
-			for _, p := range raw {
-				if s, ok := p.(string); ok && strings.TrimSpace(s) != "" {
-					scanReq.Exclude = append(scanReq.Exclude, s)
-				}
-			}
-		}
+		scanReq.Paths = stringArray(args, "paths")
+		scanReq.Exclude = stringArray(args, "exclude")
 
 		result, err := svc.Scan(ctx, scanReq)
 		if err != nil {

@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/domain/stats"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/pkg/mathx"
 	"github.com/oekit/pkg/slicex"
 
@@ -150,94 +149,4 @@ func projectRowToSummary(row projectRow) stats.ProjectSummary {
 
 func projectRowsToSummaries(rows []projectRow) []stats.ProjectSummary {
 	return slicex.Map(rows, projectRowToSummary)
-}
-
-func filterClause(opts stats.ContributorStatsOptions) string {
-	clauses := ""
-	if opts.Provider != "" {
-		clauses += " AND provider = ?"
-	}
-	if opts.Repo != "" {
-		clauses += " AND repo ILIKE ?"
-	}
-	if !opts.From.IsZero() {
-		clauses += " AND created_at >= ?"
-	}
-	if !opts.To.IsZero() {
-		clauses += " AND created_at <= ?"
-	}
-	return clauses
-}
-
-func filterArgs(opts stats.ContributorStatsOptions) []interface{} {
-	var args []interface{}
-	if opts.Provider != "" {
-		args = append(args, opts.Provider)
-	}
-	if opts.Repo != "" {
-		args = append(args, "%"+opts.Repo+"%")
-	}
-	if !opts.From.IsZero() {
-		args = append(args, opts.From)
-	}
-	if !opts.To.IsZero() {
-		args = append(args, opts.To)
-	}
-	return args
-}
-
-func projectFilterClause(opts domain.ProjectStatsOptions) string {
-	clauses := ""
-	if opts.Provider != "" {
-		clauses += " AND provider = ?"
-	}
-	if opts.Repo != "" {
-		clauses += " AND repo ILIKE ?"
-	}
-	if !opts.From.IsZero() {
-		clauses += " AND created_at >= ?"
-	}
-	if !opts.To.IsZero() {
-		clauses += " AND created_at <= ?"
-	}
-	return clauses
-}
-
-func projectFilterArgs(opts domain.ProjectStatsOptions) []interface{} {
-	var args []interface{}
-	if opts.Provider != "" {
-		args = append(args, opts.Provider)
-	}
-	if opts.Repo != "" {
-		args = append(args, "%"+opts.Repo+"%")
-	}
-	if !opts.From.IsZero() {
-		args = append(args, opts.From)
-	}
-	if !opts.To.IsZero() {
-		args = append(args, opts.To)
-	}
-	return args
-}
-
-func projectFilterClauseWithoutProject(opts domain.ProjectStatsOptions) string {
-	clauses := ""
-	if !opts.From.IsZero() {
-		clauses += " AND created_at >= ?"
-	}
-	if !opts.To.IsZero() {
-		clauses += " AND created_at <= ?"
-	}
-	return clauses
-}
-
-func projectFilterArgsWithoutProject(opts domain.ProjectStatsOptions) []interface{} {
-	var args []interface{}
-	if !opts.From.IsZero() {
-		args = append(args, opts.From)
-	}
-	if !opts.To.IsZero() {
-		args = append(args, opts.To)
-	}
-	return args
 }

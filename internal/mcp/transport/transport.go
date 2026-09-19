@@ -10,6 +10,7 @@
 package transport
 
 import (
+	"strings"
 	"context"
 	"crypto/subtle"
 	"fmt"
@@ -121,28 +122,9 @@ func bearerAuth(next http.Handler, token string) http.Handler {
 
 func bearerFromRequest(r *http.Request) string {
 	auth := r.Header.Get("Authorization")
-	if len(auth) < 7 || !equalFold(auth[:7], "Bearer ") {
+	if len(auth) < 7 || !strings.EqualFold(auth[:7], "Bearer ") {
 		return ""
 	}
 	return auth[7:]
 }
 
-// equalFold 是不依赖 strings.EqualFold 的内联实现（包级函数避免 import）。
-func equalFold(a, b string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		ca, cb := a[i], b[i]
-		if 'A' <= ca && ca <= 'Z' {
-			ca += 'a' - 'A'
-		}
-		if 'A' <= cb && cb <= 'Z' {
-			cb += 'a' - 'A'
-		}
-		if ca != cb {
-			return false
-		}
-	}
-	return true
-}

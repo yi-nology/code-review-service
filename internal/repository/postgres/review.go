@@ -556,23 +556,6 @@ func (r *ReviewRepo) ProjectOCRTrend(ctx context.Context, opts domain.ProjectSta
 }
 
 func reviewMetricsFilterClause(opts domain.ProjectStatsOptions) (string, []any) {
-	var clause string
-	var args []any
-	if opts.Provider != "" {
-		clause += " AND provider = ?"
-		args = append(args, opts.Provider)
-	}
-	if opts.Repo != "" {
-		clause += " AND repo ILIKE ?"
-		args = append(args, "%"+opts.Repo+"%")
-	}
-	if !opts.From.IsZero() {
-		clause += " AND created_at >= ?"
-		args = append(args, opts.From)
-	}
-	if !opts.To.IsZero() {
-		clause += " AND created_at <= ?"
-		args = append(args, opts.To)
-	}
-	return clause, args
+	parts := projectFilterParts(opts, true)
+	return parts.clause, parts.args
 }

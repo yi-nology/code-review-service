@@ -74,24 +74,11 @@ func listReviewsHandler(svc app.ReviewReader) func(ctx context.Context, req mcp.
 		opts := review.ListOptions{
 			Status:     strings.TrimSpace(optionalString(args, "status")),
 			GateStatus: strings.TrimSpace(optionalString(args, "gate_status")),
-			Provider:   "", // ListOptions 没 Provider 字段 (用 Status 隐式),但 List 有 — 看下
+			Provider:   strings.TrimSpace(optionalString(args, "provider")),
 			Repo:       strings.TrimSpace(optionalString(args, "repo")),
 		}
 		// page / page_size 转换：HTTP 用 page (1-based) + page_size,这里语义一致。
-		page := 1
-		if v, ok := args["page"].(float64); ok && v > 0 {
-			page = int(v)
-		}
-		pageSize := 20
-		if v, ok := args["page_size"].(float64); ok && v > 0 {
-			pageSize = int(v)
-			if pageSize > 100 {
-				pageSize = 100
-			}
-			if pageSize < 1 {
-				pageSize = 1
-			}
-		}
+		page, pageSize := pageArgs(args, 20, 100)
 		opts.Limit = pageSize
 		opts.Offset = (page - 1) * pageSize
 

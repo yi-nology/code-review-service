@@ -23,9 +23,6 @@ import (
 
 // 平台参数规整：跟 create_review 一样 lowercase + trim。
 // 抽出来 4 个 tool 共用。
-func normalizeProvider(p string) string {
-	return strings.ToLower(strings.TrimSpace(p))
-}
 
 // list_provider_repos：列某 platform 下的 repos（onboarding 阶段用）。
 func RegisterListProviderRepos(s *Server, git app.PlatformReader) {
@@ -45,17 +42,7 @@ func listProviderReposHandler(git app.PlatformReader) func(ctx context.Context, 
 				"platform %q 未配置", provider), nil
 		}
 
-		page := 1
-		if v, ok := args["page"].(float64); ok && v > 0 {
-			page = int(v)
-		}
-		perPage := 30
-		if v, ok := args["per_page"].(float64); ok && v > 0 {
-			perPage = int(v)
-			if perPage > 100 {
-				perPage = 100
-			}
-		}
+		page, perPage := pageArgs(args, 30, 100)
 
 		repos, err := git.ListRepos(ctx, normalizeProvider(provider), provider_sdk.ListRepoOptions{
 			Page:    page,
@@ -94,17 +81,7 @@ func listPullRequestsHandler(git app.GitProviderManager) func(ctx context.Contex
 			return NewToolErrorf(ErrCategoryInvalidParam, "missing_repo", "传 repo", "%v", err), nil
 		}
 
-		page := 1
-		if v, ok := args["page"].(float64); ok && v > 0 {
-			page = int(v)
-		}
-		perPage := 20
-		if v, ok := args["per_page"].(float64); ok && v > 0 {
-			perPage = int(v)
-			if perPage > 100 {
-				perPage = 100
-			}
-		}
+		page, perPage := pageArgs(args, 20, 100)
 		state := strings.ToLower(strings.TrimSpace(optionalString(args, "state")))
 		if state == "" {
 			state = "open"

@@ -61,7 +61,7 @@ func createReviewHandler(svc app.ReviewCreator) func(ctx context.Context, req mc
 
 		// 把 git SDK 接受的 provider 名大小写归一化（"GitHub" -> "github"），
 		// 避免 LLM 给大写导致 service 层 ErrUnsupportedProvider。
-		provider = strings.ToLower(strings.TrimSpace(provider))
+		provider = normalizeProvider(provider)
 
 		domainReq := domain.Request{
 			Provider:        provider,
@@ -78,13 +78,7 @@ func createReviewHandler(svc app.ReviewCreator) func(ctx context.Context, req mc
 			TaskKind:        optionalString(args, "task_kind"),
 		}
 
-		if reqs, ok := args["requirements"].([]any); ok {
-			for _, r := range reqs {
-				if str, ok := r.(string); ok && strings.TrimSpace(str) != "" {
-					domainReq.Requirements = append(domainReq.Requirements, str)
-				}
-			}
-		}
+		domainReq.Requirements = stringArray(args, "requirements")
 
 		// wait / timeout 处理：默认 180s, 范围 [10, 600]。
 		wait := true

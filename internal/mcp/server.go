@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"strings"
 	"fmt"
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
@@ -64,6 +65,49 @@ func requireString(args map[string]any, key string) (string, error) {
 	}
 	return s, nil
 }
+
+// pageArgs 解析分页参数：page 从 1 起，size 夹在 [1, maxSize]，缺省 (1, defSize)。
+// 此前同一模式在 get_review/platform 各手写一份且上限不一（20/30），现统一。
+func pageArgs(args map[string]any, defSize, maxSize int) (page, size int) {
+	page, size = 1, defSize
+	if v, ok := args["page"].(float64); ok && v > 0 {
+		page = int(v)
+	}
+	if v, ok := args["page_size"].(float64); ok && v > 0 {
+		size = int(v)
+	}
+	if v, ok := args["per_page"].(float64); ok && v > 0 {
+		size = int(v)
+	}
+	if size > maxSize {
+		size = maxSize
+	}
+	if size < 1 {
+		size = 1
+	}
+	return page, size
+}
+
+// stringArray 拿可选 string 数组字段（去空白、丢空项）。
+func stringArray(args map[string]any, key string) []string {
+	raw, ok := args[key].([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		if s, ok := item.(string); ok {
+			if s = strings.TrimSpace(s); s != "" {
+				out = append(out, s)
+			}
+		}
+	}
+	return out
+}
+
+
+// normalizeProvider 规整平台名（lowercase + trim）——此前 3 处内联同样实现。
+func normalizeProvider(v string) string { return strings.ToLower(strings.TrimSpace(v)) }
 
 // optionalString 拿可选 string 字段，缺省返 zero value。
 func optionalString(args map[string]any, key string) string {

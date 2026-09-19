@@ -26,6 +26,7 @@ func getReviewTool() mcp.Tool {
 func listReviewsTool() mcp.Tool {
 	return mcp.NewTool("list_reviews",
 		mcp.WithDescription("按条件列出历史评审记录。"),
+		WithStringParam("provider", false, "按平台过滤 (github/gitlab/gitea/gitcode/tencent_code)"),
 		WithStringParam("repo", false, "按 owner/repo 过滤"),
 		WithStringParam("status", false, "按状态过滤 (queued/running/success/failed/cancelled)"),
 		WithStringParam("gate_status", false, "按 gate 状态过滤 (pending/passed/failed/error)"),
