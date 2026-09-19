@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { getSeverityType } from '@/utils/status'
 import { ref, computed } from 'vue'
 import type { Finding } from '@/types/review'
 
@@ -41,12 +42,6 @@ const groupedFindings = computed(() => {
     .sort((a, b) => b.items.length - a.items.length)
 })
 
-function severityType(severity?: string) {
-  if (severity === 'critical') return 'danger'
-  if (severity === 'major') return 'warning'
-  if (severity === 'minor') return 'info'
-  return 'success'
-}
 </script>
 
 <template>
@@ -93,7 +88,7 @@ function severityType(severity?: string) {
           <div class="finding-cards">
             <article v-for="(finding, idx) in group.items" :key="idx" class="finding-card">
               <div class="finding-head">
-                <el-tag :type="severityType(finding.severity)" size="small">{{ finding.severity }}</el-tag>
+                <el-tag :type="getSeverityType(finding.severity)" size="small">{{ finding.severity }}</el-tag>
                 <strong>{{ finding.title }}</strong>
                 <span v-if="finding.start_line" class="finding-line">L{{ finding.start_line }}</span>
               </div>
@@ -132,7 +127,7 @@ function severityType(severity?: string) {
       </el-table-column>
       <el-table-column width="100" label="级别">
         <template #default="{ row }">
-          <el-tag :type="severityType(row.severity)" size="small">{{ row.severity }}</el-tag>
+          <el-tag :type="getSeverityType(row.severity)" size="small">{{ row.severity }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="标题" min-width="200" show-overflow-tooltip>

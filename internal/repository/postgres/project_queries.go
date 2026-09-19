@@ -2,10 +2,10 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/yi-nology/code-review-service/internal/domain/stats"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-	"github.com/oekit/logx"
 	"github.com/oekit/pkg/mathx"
 )
 
@@ -72,16 +72,16 @@ func (r *ContributorStatsRepo) GetProject(ctx context.Context, opts domain.Proje
 	var medianScore, avgFindings, avgChangedLines float64
 	if err := r.db.WithContext(ctx).Raw(`
 		SELECT
-			COALESCE(MAX(NULLIF(response->'report'->'score'->>'value','')::int), 0),
-			COALESCE(MIN(NULLIF(response->'report'->'score'->>'value','')::int), 0),
-			COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY NULLIF(response->'report'->'score'->>'value','')::int), 0),
+			COALESCE(MAX(CASE WHEN response->'report'->'score'->>'value' ~ '^[0-9]+$' THEN (response->'report'->'score'->>'value')::int END), 0),
+			COALESCE(MIN(CASE WHEN response->'report'->'score'->>'value' ~ '^[0-9]+$' THEN (response->'report'->'score'->>'value')::int END), 0),
+			COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY CASE WHEN response->'report'->'score'->>'value' ~ '^[0-9]+$' THEN (response->'report'->'score'->>'value')::int END), 0),
 			COALESCE(AVG(jsonb_array_length(response->'findings')), 0),
-			COALESCE(AVG(NULLIF(response->'report'->'score'->>'changed_lines','')::int), 0)
+			COALESCE(AVG(CASE WHEN response->'report'->'score'->>'changed_lines' ~ '^[0-9]+$' THEN (response->'report'->'score'->>'changed_lines')::int END), 0)
 		FROM reviews
 		WHERE provider = ? AND repo = ? AND `+baseReviewWhere+`
 			`+projectFilterClauseWithoutProject(opts)+`
 	`, append([]interface{}{opts.Provider, opts.Repo}, projectFilterArgsWithoutProject(opts)...)...).Row().Scan(&maxScore, &minScore, &medianScore, &avgFindings, &avgChangedLines); err != nil {
-		logx.Warnf("failed to scan project stats: %v", err)
+		return nil, fmt.Errorf("query project detail stats: %w", err)
 	}
 
 	gradeDist := r.getGradeDistribution(ctx,
@@ -104,7 +104,7 @@ func (r *ContributorStatsRepo) GetProjectTrend(ctx context.Context, opts domain.
 	}
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT TO_CHAR(date_trunc('week', created_at), 'YYYY-MM-DD') AS period,
-			COALESCE(AVG(NULLIF(response->'report'->'score'->>'value','')::int), 0) AS avg_score,
+			COALESCE(AVG(CASE WHEN response->'report'->'score'->>'value' ~ '^[0-9]+$' THEN (response->'report'->'score'->>'value')::int END), 0) AS avg_score,
 			COUNT(*) AS review_count,
 			COALESCE(SUM(jsonb_array_length(response->'findings')), 0) AS total_findings
 		FROM reviews

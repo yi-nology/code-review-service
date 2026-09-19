@@ -173,10 +173,11 @@ func reviewSortClause(by, order string) string {
 	if strings.EqualFold(order, "asc") {
 		dir = "ASC"
 	}
+	// 追加 id 作 tiebreaker：同键行在分页间保持稳定顺序。
 	if col, ok := columns[strings.ToLower(strings.TrimSpace(by))]; ok {
-		return col + " " + dir
+		return col + " " + dir + ", id " + dir
 	}
-	return "updated_at DESC"
+	return "updated_at DESC, id DESC"
 }
 
 func (r *ReviewRepo) ClaimQueued(ctx context.Context, limit int) ([]domain.Record, error) {
@@ -322,11 +323,11 @@ func (r *ReviewRepo) AggregateStats(ctx context.Context, opts domain.ListOptions
 	var tokens tokenSums
 	if err := applyFilters(r.db.WithContext(ctx).Model(&models.Review{})).
 		Where("status = ?", "success").
-		Select(`COALESCE(SUM((response->'report'->'ocr'->>'total_tokens')::bigint), 0) AS total,
-			COALESCE(SUM((response->'report'->'ocr'->>'input_tokens')::bigint), 0) AS input,
-			COALESCE(SUM((response->'report'->'ocr'->>'output_tokens')::bigint), 0) AS output,
-			COALESCE(SUM((response->'report'->'ocr'->>'cache_read_tokens')::bigint), 0) AS cache_read,
-			COALESCE(SUM((response->'report'->'ocr'->>'cache_write_tokens')::bigint), 0) AS cache_write`).
+		Select(`COALESCE(SUM(CASE WHEN response #>> '{{report,ocr,total_tokens}}' ~ '^[0-9]+$' THEN (response #>> '{{report,ocr,total_tokens}}')::bigint ELSE 0 END), 0) AS total,
+			COALESCE(SUM(CASE WHEN response #>> '{{report,ocr,input_tokens}}' ~ '^[0-9]+$' THEN (response #>> '{{report,ocr,input_tokens}}')::bigint ELSE 0 END), 0) AS input,
+			COALESCE(SUM(CASE WHEN response #>> '{{report,ocr,output_tokens}}' ~ '^[0-9]+$' THEN (response #>> '{{report,ocr,output_tokens}}')::bigint ELSE 0 END), 0) AS output,
+			COALESCE(SUM(CASE WHEN response #>> '{{report,ocr,cache_read_tokens}}' ~ '^[0-9]+$' THEN (response #>> '{{report,ocr,cache_read_tokens}}')::bigint ELSE 0 END), 0) AS cache_read,
+			COALESCE(SUM(CASE WHEN response #>> '{{report,ocr,cache_write_tokens}}' ~ '^[0-9]+$' THEN (response #>> '{{report,ocr,cache_write_tokens}}')::bigint ELSE 0 END), 0) AS cache_write`).
 		Scan(&tokens).Error; err != nil {
 		return nil, err
 	}
@@ -463,10 +464,10 @@ func (r *ReviewRepo) MonthlyTokenUsage(ctx context.Context) ([]ModelTokenUsage, 
 	// 按当前自然月聚合，按 model 分组（model 从 response.report.ocr.model 取）。
 	query := `SELECT
 			COALESCE(NULLIF(response #>> '{report,ocr,model}',''),'unknown') AS model,
-			COALESCE((response #>> '{report,ocr,input_tokens}')::bigint, 0) AS input_tokens,
-			COALESCE((response #>> '{report,ocr,output_tokens}')::bigint, 0) AS output_tokens,
-			COALESCE((response #>> '{report,ocr,cache_read_tokens}')::bigint, 0) AS cache_read,
-			COALESCE((response #>> '{report,ocr,cache_write_tokens}')::bigint, 0) AS cache_write
+			COALESCE(CASE WHEN response #>> '{report,ocr,input_tokens}' ~ '^[0-9]+$' THEN (response #>> '{report,ocr,input_tokens}')::bigint ELSE 0 END, 0) AS input_tokens,
+			COALESCE(CASE WHEN response #>> '{report,ocr,output_tokens}' ~ '^[0-9]+$' THEN (response #>> '{report,ocr,output_tokens}')::bigint ELSE 0 END, 0) AS output_tokens,
+			COALESCE(CASE WHEN response #>> '{report,ocr,cache_read_tokens}' ~ '^[0-9]+$' THEN (response #>> '{report,ocr,cache_read_tokens}')::bigint ELSE 0 END, 0) AS cache_read,
+			COALESCE(CASE WHEN response #>> '{report,ocr,cache_write_tokens}' ~ '^[0-9]+$' THEN (response #>> '{report,ocr,cache_write_tokens}')::bigint ELSE 0 END, 0) AS cache_write
 		FROM reviews
 		WHERE status = 'success'
 			AND deleted_at IS NULL

@@ -45,6 +45,7 @@ func rerunReviewTool() mcp.Tool {
 	return mcp.NewTool("rerun_review",
 		mcp.WithDescription("重新跑一次评审（基于原始 request 字段，新生成 review_id 写入 DB）。"),
 		WithStringParam("review_id", true, "原 review ID（用其 request 字段重建评审）"),
+		WithStringParam("idempotency_key", false, "幂等键：同一目标的重复 rerun 传同值可去重"),
 		WithBoolParam("wait", false, "是否同步等待", true),
 		WithIntParam("timeout_seconds", false, "wait=true 超时（秒）", 180),
 	)

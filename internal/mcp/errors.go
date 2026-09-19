@@ -16,6 +16,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
+	"github.com/yi-nology/code-review-service/internal/service/review"
+
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -99,6 +102,12 @@ func ClassifyError(err error) *mcp.CallToolResult {
 		return NewToolError(ErrCategoryInternal, "ctx_canceled",
 			"请求被取消: "+msg,
 			"如需继续请重新调用", false)
+	case errors.Is(err, repoerr.ErrNotFound):
+		return NewToolError(ErrCategoryNotFound, "not_found", msg,
+			"用 list_reviews 找类似 (provider, repo) 的历史 review", false)
+	case errors.Is(err, review.ErrInvalidState):
+		return NewToolError(ErrCategoryConflict, "invalid_state", msg,
+			"检查对象当前状态是否符合操作前置条件", false)
 	}
 	return NewToolError(ErrCategoryInternal, "internal_error",
 		"内部错误: "+msg,

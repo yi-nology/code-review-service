@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 
@@ -56,10 +57,13 @@ func syncGitPlatforms(ctx context.Context, repos *repository.RepoContainer, svc 
 	}
 }
 
-func NewGitProviderProviders(svc *gitProvider.GitProviderService, repos *repository.RepoContainer) *gitProvider.GitProviderProviders {
-	// 默认值由 provider.DefaultMaxDiffBytes 提供（单一真源）；DB 配置覆盖。
+func NewGitProviderProviders(cfg *config.Config, svc *gitProvider.GitProviderService, repos *repository.RepoContainer) *gitProvider.GitProviderProviders {
+	// 优先级：DB OCR settings > yaml review.max_diff_bytes > 代码默认值。
+	// 此前 yaml 键被解析但从未接线，prod 配 10MiB 实际跑 5MiB 默认值。
 	maxDiffBytes := gitProvider.DefaultMaxDiffBytes
-
+	if cfg != nil && cfg.Review.MaxDiffBytes > 0 {
+		maxDiffBytes = int64(cfg.Review.MaxDiffBytes)
+	}
 	if repos != nil && repos.OCRSettings != nil {
 		if s, err := repos.OCRSettings.Get(context.Background()); err == nil && s != nil && s.MaxDiffBytes > 0 {
 			maxDiffBytes = s.MaxDiffBytes

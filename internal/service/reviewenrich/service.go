@@ -30,6 +30,10 @@ type Service struct {
 // New 收具体管理器类型（fx 组合根）；内部仅依赖 CRSource 窄接口。
 // *GitProviderService 结构化满足 CRSource。
 func New(mgr *gitProvider.GitProviderService) *Service {
+	return newService(mgr)
+}
+
+func newService(mgr CRSource) *Service {
 	return &Service{mgr: mgr}
 }
 

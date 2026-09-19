@@ -2,11 +2,9 @@ package mcp
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/app"
-	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -29,7 +27,6 @@ func getReviewHandler(svc app.ReviewReader) func(ctx context.Context, req mcp.Ca
 		if err != nil {
 			return NewToolErrorf(ErrCategoryInvalidParam, "missing_review_id", "传 review_id", "%v", err), nil
 		}
-
 		record, ok, err := svc.Get(ctx, reviewID)
 		if err != nil {
 			return ClassifyError(err), nil
@@ -125,19 +122,9 @@ func cancelReviewHandler(svc app.ReviewLifecycle) func(ctx context.Context, req 
 		if err != nil {
 			return NewToolErrorf(ErrCategoryInvalidParam, "missing_review_id", "传 review_id", "%v", err), nil
 		}
-
 		resp, err := svc.Cancel(ctx, reviewID)
 		if err != nil {
-			// Cancel 返回 ErrNotFound 时是 not_found,ErrInvalidState 时是 conflict
-			// （已完成 review 不能取消）。
-			switch {
-			case errors.Is(err, repoerr.ErrNotFound):
-				return NewToolError(ErrCategoryNotFound, "review_not_found", err.Error(),
-					"用 list_reviews 找在跑的 review_id", false), nil
-			case errors.Is(err, review.ErrInvalidState):
-				return NewToolError(ErrCategoryConflict, "invalid_state", err.Error(),
-					"只能取消 queued/running 状态的 review", false), nil
-			}
+			// ErrNotFound→not_found / ErrInvalidState→conflict 由 ClassifyError 统一判定。
 			return ClassifyError(err), nil
 		}
 		return JSONResult(map[string]any{
@@ -167,6 +154,8 @@ func rerunReviewHandler(svc app.ReviewService) func(ctx context.Context, req mcp
 		if err != nil {
 			return NewToolErrorf(ErrCategoryInvalidParam, "missing_review_id", "传 review_id", "%v", err), nil
 		}
+		// 幂等键：客户端对同一目标的重复 rerun 传同值可去重（双击/重试场景）。
+		idempotencyKey, _ := args["idempotency_key"].(string)
 
 		// 拿原 review 的 Request 字段重建。
 		record, ok, err := svc.Get(ctx, reviewID)
@@ -196,7 +185,7 @@ func rerunReviewHandler(svc app.ReviewService) func(ctx context.Context, req mcp
 
 		if !wait {
 			domainReq.Wait = false
-			resp, err := svc.Create(ctx, domainReq, "")
+			resp, err := svc.Create(ctx, domainReq, idempotencyKey)
 			if err != nil {
 				return classifyCreateError(err), nil
 			}
@@ -212,7 +201,7 @@ func rerunReviewHandler(svc app.ReviewService) func(ctx context.Context, req mcp
 		domainReq.Wait = true
 		newCtx, cancel := context.WithTimeout(ctx, parseTimeoutSec(timeoutSec))
 		defer cancel()
-		resp, err := svc.Create(newCtx, domainReq, "")
+		resp, err := svc.Create(newCtx, domainReq, idempotencyKey)
 		if err != nil {
 			return classifyCreateError(err), nil
 		}

@@ -77,6 +77,7 @@
 </template>
 
 <script setup lang="ts">
+import { getScoreColor } from '@/utils/colors'
 import { computed } from 'vue'
 
 interface RequirementCoverage {
@@ -119,11 +120,6 @@ function getStatusLabel(status: string): string {
   }
 }
 
-function getScoreColor(score: number): string {
-  if (score >= 80) return '#67c23a'
-  if (score >= 60) return '#e6a23c'
-  return '#f56c6c'
-}
 </script>
 
 <style scoped>

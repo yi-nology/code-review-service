@@ -89,24 +89,11 @@ type WebhookConfig struct {
 	BotUsername string `yaml:"bot_username"`
 }
 
+// AgentsConfig 仅暴露实际被消费的键（workflow 开关与轮次）；
+// agent 并发/超时在 internal/service/agent/manager.go 的 ManagerConfig 管理。
 type AgentsConfig struct {
-	Enabled        bool               `yaml:"enabled"`
-	MaxConcurrency int                `yaml:"max_concurrency"`
-	AgentTimeout   string             `yaml:"agent_timeout"`
-	TotalTimeout   string             `yaml:"total_timeout"`
-	DefaultTeam    []AgentTeamMember  `yaml:"default_team"`
-	Discussion     DiscussionConfig   `yaml:"discussion"`
-	Requirements   RequirementsConfig `yaml:"requirements"`
-}
-
-type AgentTeamMember struct {
-	Name       string   `yaml:"name"`
-	Count      int      `yaml:"count"`
-	Focus      []string `yaml:"focus"`
-	Enabled    bool     `yaml:"enabled"`
-	Priority   int      `yaml:"priority"`
-	AutoDetect bool     `yaml:"auto_detect,omitempty"`
-	Triggers   []string `yaml:"triggers,omitempty"`
+	Discussion   DiscussionConfig   `yaml:"discussion"`
+	Requirements RequirementsConfig `yaml:"requirements"`
 }
 
 type DiscussionConfig struct {

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/yi-nology/code-review-service/internal/domain/stats"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
@@ -69,14 +70,14 @@ func (r *ContributorStatsRepo) GetContributor(ctx context.Context, opts stats.Co
 	var medianScore, avgFindings, avgChangedLines float64
 	if err := r.db.WithContext(ctx).Raw(`
 		SELECT
-			COALESCE(MAX(NULLIF(response->'report'->'score'->>'value','')::int), 0),
-			COALESCE(MIN(NULLIF(response->'report'->'score'->>'value','')::int), 0),
-			COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY NULLIF(response->'report'->'score'->>'value','')::int), 0),
+			COALESCE(MAX(CASE WHEN response->'report'->'score'->>'value' ~ '^[0-9]+$' THEN (response->'report'->'score'->>'value')::int END), 0),
+			COALESCE(MIN(CASE WHEN response->'report'->'score'->>'value' ~ '^[0-9]+$' THEN (response->'report'->'score'->>'value')::int END), 0),
+			COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY CASE WHEN response->'report'->'score'->>'value' ~ '^[0-9]+$' THEN (response->'report'->'score'->>'value')::int END), 0),
 			COALESCE(AVG(jsonb_array_length(response->'findings')), 0),
-			COALESCE(AVG(NULLIF(response->'report'->'score'->>'changed_lines','')::int), 0)
+			COALESCE(AVG(CASE WHEN response->'report'->'score'->>'changed_lines' ~ '^[0-9]+$' THEN (response->'report'->'score'->>'changed_lines')::int END), 0)
 		FROM reviews WHERE author = ? AND `+baseReviewWhere+`
 	`, opts.Author).Row().Scan(&maxScore, &minScore, &medianScore, &avgFindings, &avgChangedLines); err != nil {
-		logx.Warnf("failed to scan contributor stats: %v", err)
+		return nil, fmt.Errorf("query contributor detail stats: %w", err)
 	}
 
 	gradeDist := r.getGradeDistribution(ctx, "author = ?", opts.Author)
@@ -96,7 +97,7 @@ func (r *ContributorStatsRepo) GetContributorTrend(ctx context.Context, opts sta
 	}
 	err := r.db.WithContext(ctx).Raw(`
 		SELECT TO_CHAR(date_trunc('week', created_at), 'YYYY-MM-DD') AS period,
-			COALESCE(AVG(NULLIF(response->'report'->'score'->>'value','')::int), 0) AS avg_score,
+			COALESCE(AVG(CASE WHEN response->'report'->'score'->>'value' ~ '^[0-9]+$' THEN (response->'report'->'score'->>'value')::int END), 0) AS avg_score,
 			COUNT(*) AS review_count
 		FROM reviews
 		WHERE author = ? AND `+baseReviewWhere+` `+filterClause(opts)+`
