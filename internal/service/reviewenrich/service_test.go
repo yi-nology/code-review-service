@@ -10,10 +10,10 @@ import (
 )
 
 type fakeCRSource struct {
-	platforms  map[string]bool
-	cr         *provider.ChangeRequest
-	getErr     error
-	getCalled  int
+	platforms map[string]bool
+	cr        *provider.ChangeRequest
+	getErr    error
+	getCalled int
 }
 
 func (f *fakeCRSource) HasProvider(platform string) bool { return f.platforms[platform] }
@@ -49,11 +49,11 @@ func TestFillAuthor(t *testing.T) {
 			domain.Request{Provider: "github", Repo: "o/r", PullRequestID: "7"}, false, domain.Request{}},
 		{"命中补全", newService(&fakeCRSource{platforms: map[string]bool{"github": true}, cr: &provider.ChangeRequest{Author: author}}),
 			domain.Request{Provider: "github", Repo: "o/r", PullRequestID: "7"}, true, domain.Request{
-			Author: "octocat", AuthorName: "Octo Cat", AuthorAvatar: "https://avatar/octocat"}},
+				Author: "octocat", AuthorName: "Octo Cat", AuthorAvatar: "https://avatar/octocat"}},
 		{"Name 缺失回退 Username", newService(&fakeCRSource{platforms: map[string]bool{"github": true},
 			cr: &provider.ChangeRequest{Author: &provider.CRUser{Username: "octocat"}}}),
 			domain.Request{Provider: "github", Repo: "o/r", MergeRequestIID: "!9"}, true, domain.Request{
-			Author: "octocat", AuthorName: "octocat"}},
+				Author: "octocat", AuthorName: "octocat"}},
 	}
 
 	for _, tt := range tests {

@@ -1,3 +1,5 @@
+# 本地全量构建（docker hub 直连）。
+# 同步约束：OCR_VERSION 与 MCP npm 包清单须与另两个 Dockerfile 保持一致。
 FROM golang:1.26-alpine AS build
 
 ENV GOPROXY=https://goproxy.cn,direct \

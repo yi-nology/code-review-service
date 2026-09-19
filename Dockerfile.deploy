@@ -1,3 +1,5 @@
+# 增量部署镜像（FROM alpine + COPY 现成二进制，当前 215 生产流程）。
+# 同步约束：OCR_VERSION 与 MCP npm 包清单须与另两个 Dockerfile 保持一致。
 FROM alpine:3.21
 
 RUN apk add --no-cache ca-certificates git wget curl \

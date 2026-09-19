@@ -1,3 +1,5 @@
+# 全量构建（CI/harbor）：源码 → 二进制。本地产物镜像用 Dockerfile.deploy（增量），
+# 本地构建用 Dockerfile.local。三者的 OCR_VERSION 与 MCP npm 包清单必须保持一致。
 FROM docker.io/library/golang:1.26-alpine AS build
 
 ENV GOPROXY=https://goproxy.cn,direct \
@@ -24,9 +26,8 @@ FROM docker.io/library/alpine:3.21
 RUN apk add --no-cache ca-certificates git wget curl \
     && adduser -D review
 
-# Node.js（MCP server 运行时）
-RUN apk add --no-cache nodejs npm \
-    && npm install -g npx
+# Node.js（MCP server 运行时；apk nodejs 自带 npm/npx）
+RUN apk add --no-cache nodejs npm
 
 # OCR binary
 ARG OCR_VERSION=v1.12.1

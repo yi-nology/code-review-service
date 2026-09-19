@@ -10,11 +10,11 @@
 package transport
 
 import (
-	"strings"
 	"context"
 	"crypto/subtle"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/oekit/concurrency/async"
@@ -127,4 +127,3 @@ func bearerFromRequest(r *http.Request) string {
 	}
 	return auth[7:]
 }
-

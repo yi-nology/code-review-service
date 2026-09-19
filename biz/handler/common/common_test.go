@@ -8,9 +8,9 @@ import (
 
 func TestPageParams(t *testing.T) {
 	tests := []struct {
-		name             string
-		page, size       string
-		wantPage         int
+		name               string
+		page, size         string
+		wantPage           int
 		wantSizeOrFallback bool // size 由上游决定 fallback，这里只验证 clamp
 	}{
 		{"normal", "3", "50", 3, true},

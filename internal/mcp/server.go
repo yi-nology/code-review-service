@@ -1,8 +1,8 @@
 package mcp
 
 import (
-	"strings"
 	"fmt"
+	"strings"
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
 )
@@ -104,7 +104,6 @@ func stringArray(args map[string]any, key string) []string {
 	}
 	return out
 }
-
 
 // normalizeProvider 规整平台名（lowercase + trim）——此前 3 处内联同样实现。
 func normalizeProvider(v string) string { return strings.ToLower(strings.TrimSpace(v)) }
