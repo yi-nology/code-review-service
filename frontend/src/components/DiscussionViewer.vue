@@ -23,7 +23,7 @@
             </span>
           </div>
           <span class="entry-time">
-            {{ formatTime(entry.created_at) }}
+            {{ formatClockSeconds(entry.created_at) }}
           </span>
         </div>
         <div class="entry-content">
@@ -52,6 +52,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatClockSeconds } from '@/utils/format'
 import { computed } from 'vue'
 
 interface DiscussionEntry {
@@ -85,14 +86,6 @@ function getResponseTypeLabel(response: string): string {
   }
 }
 
-function formatTime(dateStr: string): string {
-  const date = new Date(dateStr)
-  return date.toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-}
 </script>
 
 <style scoped>

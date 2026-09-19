@@ -75,3 +75,47 @@ export function createPhaseStatuses(currentPhase?: string, currentProgress?: num
     return { ...phase, status, progress }
   })
 }
+
+/** 全仓库扫描的进度阶段（RepositoryScan 页）。 */
+export const SCAN_PHASES: PhaseDefinition[] = [
+  {
+    name: 'context',
+    title: '准备工作区',
+    description: '加载配置并检出目标仓库',
+  },
+  {
+    name: 'change_context',
+    title: '扫描范围',
+    description: '解析路径、规则和文件过滤',
+  },
+  {
+    name: 'analysis',
+    title: '代码扫描',
+    description: '运行 OCR 全量扫描并收集发现',
+  },
+  {
+    name: 'reviews',
+    title: '深度审查',
+    description: '分析扫描发现并补充上下文',
+  },
+  {
+    name: 'aggregation',
+    title: '结果聚合',
+    description: '合并并去重扫描发现',
+  },
+  {
+    name: 'discourse',
+    title: '风险确认',
+    description: '校验关键风险和误报',
+  },
+  {
+    name: 'synthesis',
+    title: '生成报告',
+    description: '整理评分、摘要和最终报告',
+  },
+  {
+    name: 'complete',
+    title: '完成',
+    description: '扫描完成',
+  },
+]

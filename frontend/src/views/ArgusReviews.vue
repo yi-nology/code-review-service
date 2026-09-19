@@ -166,7 +166,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import PageShell from '@/components/common/PageShell.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { getArgusHealth, getArgusReviews, getArgusTasks, getArgusUsage } from '@/api/argus'
-import { formatDateShort, formatClock } from '@/utils/format'
+import {formatDateShort, formatClock, formatTokens } from '@/utils/format'
 import type { ArgusHealthReport, ArgusReview, ArgusTaskSummary, ArgusUsage } from '@/types/argus'
 
 const router = useRouter()
@@ -243,12 +243,6 @@ function openDetail(row: ArgusReview) {
   router.push(`/argus/${row.id}`)
 }
 
-function formatTokens(n?: number): string {
-  if (!n && n !== 0) return '—'
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
-  return String(n)
-}
 
 const healthLabel = computed(() => {
   if (!health.value || health.value.empty) return '暂无数据'

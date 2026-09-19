@@ -24,7 +24,7 @@
               v-if="phase.startTime"
               class="timeline-time"
             >
-              {{ formatTime(phase.startTime) }}
+              {{ formatClockSeconds(phase.startTime) }}
             </span>
           </div>
           <p>{{ phase.description }}</p>
@@ -50,6 +50,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatClockSeconds, formatDuration } from '@/utils/format'
 import { computed } from 'vue'
 import { CircleCheckFilled, Loading, Clock } from '@element-plus/icons-vue'
 import { REVIEW_PHASES } from '@/constants/phases'
@@ -99,19 +100,6 @@ const phases = computed(() => {
   return allPhases
 })
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
-  return `${(ms / 60000).toFixed(1)}min`
-}
 </script>
 
 <style scoped>

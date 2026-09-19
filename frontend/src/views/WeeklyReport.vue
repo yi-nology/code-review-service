@@ -170,6 +170,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatTokens } from '@/utils/format'
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import {
@@ -255,12 +256,6 @@ const passRateText = computed(() => {
   return `通过率 ${pct}%`
 })
 
-function formatTokens(n: number) {
-  if (!n) return '0'
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
-  return String(n)
-}
 
 // 提交人无头像时取首字母占位。
 function initialOf(ct: { author_name?: string; author: string }): string {

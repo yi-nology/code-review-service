@@ -258,7 +258,7 @@
               :review-status="scanState === 'queued' ? 'queued' : 'running'"
               :sessions="sessions"
               :history="reviewDetail?.history"
-              :phase-definitions="scanPhaseDefinitions"
+              :phase-definitions="SCAN_PHASES"
             />
             <el-alert
               v-if="scanWarning"
@@ -449,6 +449,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatNumber } from '@/utils/format'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
@@ -471,9 +472,11 @@ import type { ReviewDetail } from '@/types/review'
 import ScanFindingsPanel from '@/components/scan/ScanFindingsPanel.vue'
 import ScanPreviewPanel from '@/components/scan/ScanPreviewPanel.vue'
 import RepoSelect from '@/components/common/RepoSelect.vue'
-import type { PhaseDefinition } from '@/constants/phases'
+import { SCAN_PHASES, type PhaseDefinition } from '@/constants/phases'
 import { exportReport, type ReviewReport } from '@/utils/export'
 import { splitRepo } from '@/utils/repo'
+import { normalizePreviewOutput, splitLines } from '@/utils/scan-preview'
+import { clearScanFormState, clearScanSessionCache, loadScanFormState, readScanSessionCache, saveScanFormState, saveScanSessionCache } from '@/composables/useScanCache'
 
 const router = useRouter()
 const formRef = ref<FormInstance>()
@@ -514,51 +517,7 @@ const confirmVisible = ref(false)
 // 标记本次表单是否从 localStorage 恢复过（用于展示"已恢复上次配置"提示）
 const restoredFromCache = ref(false)
 
-const STORAGE_KEY = 'scan-form-state'
-const SCAN_SESSION_KEY = 'scan-session'
 
-const scanPhaseDefinitions: PhaseDefinition[] = [
-  {
-    name: 'context',
-    title: '准备工作区',
-    description: '加载配置并检出目标仓库',
-  },
-  {
-    name: 'change_context',
-    title: '扫描范围',
-    description: '解析路径、规则和文件过滤',
-  },
-  {
-    name: 'analysis',
-    title: '代码扫描',
-    description: '运行 OCR 全量扫描并收集发现',
-  },
-  {
-    name: 'reviews',
-    title: '深度审查',
-    description: '分析扫描发现并补充上下文',
-  },
-  {
-    name: 'aggregation',
-    title: '结果聚合',
-    description: '合并并去重扫描发现',
-  },
-  {
-    name: 'discourse',
-    title: '风险确认',
-    description: '校验关键风险和误报',
-  },
-  {
-    name: 'synthesis',
-    title: '生成报告',
-    description: '整理评分、摘要和最终报告',
-  },
-  {
-    name: 'complete',
-    title: '完成',
-    description: '扫描完成',
-  },
-]
 
 const form = reactive({
   provider: '',
@@ -595,7 +554,7 @@ const statusLabel = computed(() => {
 
 // 预计范围：基于扫描路径条数或"全仓库"
 const scopeLabel = computed(() => {
-  const count = lines(pathsText.value).length
+  const count = splitLines(pathsText.value).length
   if (count > 0) return `${count} 个路径`
   return '整个仓库'
 })
@@ -628,7 +587,7 @@ const metrics = computed(() => {
       tone: findingCount > 0 ? 'tone-warning' : 'tone-success',
     },
     { label: '扫描文件', value: ocr?.files_reviewed ?? 0, tone: '' },
-    { label: 'Tokens', value: formatNumber(ocr?.total_tokens), tone: '' },
+    { label: 'Tokens', value: formatNumber(ocr?.total_tokens, '-'), tone: '' },
     {
       label: '质量评分',
       value: scoreValue ?? '-',
@@ -658,138 +617,64 @@ const severityBreakdown = computed(() => {
   return { total, segments }
 })
 
-function lines(value: string) {
-  return value.split('\n').map((l) => l.trim()).filter(Boolean)
-}
-
-function formatNumber(value?: number) {
-  return value ? value.toLocaleString() : '-'
-}
-
-function stripAnsi(value: string) {
-  const escapeChar = String.fromCharCode(27)
-  return value.replace(new RegExp(`${escapeChar}\\[[0-9;?]*[ -/]*[@-~]`, 'g'), '')
-}
-
-function parsePreviewLine(line: string) {
-  let value = stripAnsi(line).trim()
-  if (!value) return ''
-  if (value.startsWith('[')) {
-    const end = value.indexOf(']')
-    if (end >= 0) value = value.slice(end + 1).trim()
-  }
-  value = value.replace(/\s+\((unsupported_ext|excluded|ignored|binary|too_large|generated)[^)]+\)\s*$/i, '').trim()
-  value = value.replace(/\s+[+-]\d+.*$/, '').trim()
-  return value
-}
-
-function normalizePreviewOutput(values: string[]) {
-  const reviewable: string[] = []
-  const excluded: string[] = []
-  let totalChanged = 0
-  let section: 'reviewable' | 'excluded' | '' = ''
-
-  for (const raw of values) {
-    const line = stripAnsi(raw).trim()
-    if (!line) continue
-    const summary = line.match(/^Preview:\s*(\d+)\s+file/i)
-    if (summary) {
-      totalChanged = Number(summary[1]) || totalChanged
-      continue
-    }
-    if (/^Will review/i.test(line)) {
-      section = 'reviewable'
-      continue
-    }
-    if (/^Excluded from review/i.test(line)) {
-      section = 'excluded'
-      continue
-    }
-    const file = parsePreviewLine(line)
-    if (!file) continue
-    if (section === 'excluded' || /\((unsupported_ext|excluded|ignored|binary|too_large|generated)/i.test(line)) {
-      excluded.push(file)
-    } else if (section === 'reviewable' || !/^Preview:/i.test(file)) {
-      reviewable.push(file)
-    }
-  }
-
-  return {
-    totalChanged,
-    reviewable: Array.from(new Set(reviewable)),
-    excluded: Array.from(new Set(excluded)),
-  }
-}
 
 // ===== Storage =====
 
 function saveFormState() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      provider: form.provider,
-      repo: form.repo,
-      branch: branch.value,
-      head_sha: form.head_sha,
-      pathsText: pathsText.value,
-      excludeText: excludeText.value,
-      background: form.background,
-      max_tokens_budget: form.max_tokens_budget,
-      batch: form.batch,
-      no_plan: form.no_plan,
-      no_dedup: form.no_dedup,
-      no_summary: form.no_summary,
-      timeout_minutes: form.timeout_minutes,
-    }))
-  } catch { /* ignore */ }
+  saveScanFormState({
+    provider: form.provider,
+    repo: form.repo,
+    branch: branch.value,
+    head_sha: form.head_sha,
+    pathsText: pathsText.value,
+    excludeText: excludeText.value,
+    background: form.background,
+    max_tokens_budget: form.max_tokens_budget,
+    batch: form.batch,
+    no_plan: form.no_plan,
+    no_dedup: form.no_dedup,
+    no_summary: form.no_summary,
+    timeout_minutes: form.timeout_minutes,
+  })
 }
 
 function restoreFormState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return
-    const saved = JSON.parse(raw)
-    // 只有恢复出有效字段（platform/repo/branch 之一）才提示
-    const hasAny = saved.provider || saved.repo || saved.branch
-    restoredFromCache.value = Boolean(hasAny)
-    form.provider = saved.provider || ''
-    form.repo = saved.repo || ''
-    branch.value = saved.branch || ''
-    form.head_sha = saved.head_sha || ''
-    pathsText.value = saved.pathsText || ''
-    excludeText.value = saved.excludeText || ''
-    form.background = saved.background || ''
-    form.max_tokens_budget = saved.max_tokens_budget ?? 0
-    form.batch = saved.batch ?? ''
-    form.no_plan = saved.no_plan ?? false
-    form.no_dedup = saved.no_dedup ?? false
-    form.no_summary = saved.no_summary ?? false
-    form.timeout_minutes = saved.timeout_minutes ?? 60
-  } catch { /* ignore */ }
+  const saved = loadScanFormState()
+  if (!saved) return
+  // 只有恢复出有效字段（platform/repo/branch 之一）才提示
+  const hasAny = saved.provider || saved.repo || saved.branch
+  restoredFromCache.value = Boolean(hasAny)
+  form.provider = saved.provider || ''
+  form.repo = saved.repo || ''
+  branch.value = saved.branch || ''
+  form.head_sha = saved.head_sha || ''
+  pathsText.value = saved.pathsText || ''
+  excludeText.value = saved.excludeText || ''
+  form.background = saved.background || ''
+  form.max_tokens_budget = saved.max_tokens_budget ?? 0
+  form.batch = (saved.batch ?? '') as typeof form.batch
+  form.no_plan = saved.no_plan ?? false
+  form.no_dedup = saved.no_dedup ?? false
+  form.no_summary = saved.no_summary ?? false
+  form.timeout_minutes = saved.timeout_minutes ?? 60
 }
 
 function saveScanSession() {
   if (activeReviewId.value && scanRunning.value) {
-    try {
-      localStorage.setItem(SCAN_SESSION_KEY, JSON.stringify({
-        review_id: activeReviewId.value,
-        start_time: scanStartTime.value,
-      }))
-    } catch { /* ignore */ }
+    saveScanSessionCache({ review_id: activeReviewId.value, start_time: scanStartTime.value })
   } else {
-    try { localStorage.removeItem(SCAN_SESSION_KEY) } catch { /* ignore */ }
+    clearScanSessionCache()
   }
 }
 
 function clearScanSession() {
-  try { localStorage.removeItem(SCAN_SESSION_KEY) } catch { /* ignore */ }
+  clearScanSessionCache()
 }
 
 async function resumeScanSession() {
   try {
-    const raw = localStorage.getItem(SCAN_SESSION_KEY)
-    if (!raw) return
-    const session = JSON.parse(raw)
-    if (!session.review_id) return
+    const session = readScanSessionCache()
+    if (!session || !session.review_id) return
     // 恢复前先校验 review 确实存在且仍在运行/排队，避免恢复一个已失效的 session
     // 后陷入 404 无限重试。校验失败直接清掉残留 session。
     const detail = await getReview(session.review_id)
@@ -902,8 +787,8 @@ async function runScan(preview: boolean) {
     try {
       const data = await scanRepository({
         ...form,
-        paths: lines(pathsText.value),
-        exclude: lines(excludeText.value),
+        paths: splitLines(pathsText.value),
+        exclude: splitLines(excludeText.value),
         preview: true,
       })
       previewFiles.value = data.preview_files || []
@@ -922,8 +807,8 @@ async function runScan(preview: boolean) {
   try {
     const data = await scanRepository({
       ...form,
-      paths: lines(pathsText.value),
-      exclude: lines(excludeText.value),
+      paths: splitLines(pathsText.value),
+      exclude: splitLines(excludeText.value),
       preview: false,
     })
     if (data.review_id) {
@@ -1111,7 +996,7 @@ function clearForm() {
   excludeText.value = ''
   branches.value = []
   restoredFromCache.value = false
-  try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
+  clearScanFormState()
 }
 
 // 复制失败错误信息，便于反馈/排查

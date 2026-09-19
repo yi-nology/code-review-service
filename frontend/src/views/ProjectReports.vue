@@ -225,7 +225,7 @@ import TrendChart from '@/components/common/TrendChart.vue'
 import type { TrendPoint } from '@/types/stats'
 import { getProjectOCRMetrics, getProjectOCRTrend, getProjects } from '@/api/stats'
 import type { ProjectOCRMetrics, ProjectOCRTrendPoint, ProjectSummary } from '@/types/stats'
-import { formatDateRelative, getProviderInitial } from '@/utils/format'
+import {formatDateRelative, getProviderInitial, formatNumber } from '@/utils/format'
 import { getScoreColor } from '@/utils/colors'
 import { PROVIDER_OPTIONS } from '@/utils/url-parser'
 
@@ -386,9 +386,6 @@ function providerLabel(provider: string) {
   return labels[provider] || provider
 }
 
-function formatNumber(value?: number) {
-  return value ? value.toLocaleString() : '0'
-}
 
 onMounted(fetchProjects)
 </script>

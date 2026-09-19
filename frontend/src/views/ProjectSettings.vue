@@ -394,6 +394,7 @@ import RuleEditor from '@/components/RuleEditor.vue'
 import RulePackagePicker from '@/components/RulePackagePicker.vue'
 import OCREngineOverride from '@/components/project-settings/OCREngineOverride.vue'
 import RepoSelect from '@/components/common/RepoSelect.vue'
+import { normalizeRules, policyKey, uniqueLines, validatePolicyDraft } from '@/utils/policy-form'
 import { getProjectPolicies, putProjectPolicy, deleteProjectPolicy, getGitPlatforms } from '@/api/config'
 import type { ProjectPolicy, ReviewRule, GitPlatform } from '@/types/config'
 
@@ -462,23 +463,14 @@ const form = reactive<ProjectPolicyForm>({
 
 const ignorePathsText = ref('')
 
-const normalizedIgnorePaths = computed(() => {
-  return uniqueLines(ignorePathsText.value)
-})
+const normalizedIgnorePaths = computed(() => uniqueLines(ignorePathsText.value))
 
 // argus 平台支持面（与后端 argusclient.SupportsPlatform 同源）：不支持时
 // 前端禁用 argus 选项，后端 resolveEngine 亦会 fail-fast 兜底。
 const ARGUS_PLATFORMS = ['gitea', 'github', 'gitlab']
 const argusPlatformSupported = computed(() => ARGUS_PLATFORMS.includes(form.provider))
 
-const normalizedRules = computed(() => {
-  return form.rules
-    .map((rule) => ({
-      path: normalizePath(rule.path),
-      rule: rule.rule.trim(),
-    }))
-    .filter((rule) => rule.path || rule.rule)
-})
+const normalizedRules = computed(() => normalizeRules(form.rules))
 
 const payloadPreview = computed<ProjectPolicy>(() => ({
   provider: form.provider.trim(),
@@ -559,56 +551,18 @@ const filteredPolicies = computed(() => {
   })
 })
 
-const validationIssues = computed(() => {
-  const issues: string[] = []
-  if (!form.provider.trim()) issues.push('请选择代码平台')
-  if (!form.repo.trim()) issues.push('请选择或输入仓库')
-  if (!failOnOptions.some((option) => option.value === form.fail_on)) issues.push('门禁级别无效')
-  if (form.ocr_default_severity && !failOnOptions.some((option) => option.value === form.ocr_default_severity)) {
-    issues.push('OCR 默认严重级别无效')
-  }
-
-  const seenIgnorePaths = new Set<string>()
-  normalizedIgnorePaths.value.forEach((path) => {
-    if (seenIgnorePaths.has(path)) issues.push(`忽略路径重复：${path}`)
-    seenIgnorePaths.add(path)
-  })
-
-  const seenRules = new Set<string>()
-  form.rules.forEach((rule, index) => {
-    const path = normalizePath(rule.path)
-    const text = rule.rule.trim()
-    if (!path && !text) return
-    if (!path) issues.push(`第 ${index + 1} 条项目规则缺少适用文件`)
-    if (!text) issues.push(`第 ${index + 1} 条项目规则缺少审查要求`)
-    const key = `${path}::${text}`
-    if (path && text) {
-      if (seenRules.has(key)) issues.push(`第 ${index + 1} 条项目规则重复`)
-      seenRules.add(key)
-    }
-  })
-  return issues
-})
-
+const validationIssues = computed(() => validatePolicyDraft({
+  provider: form.provider,
+  repo: form.repo,
+  fail_on: form.fail_on,
+  ocr_default_severity: form.ocr_default_severity,
+  failOnOptions,
+  ignorePaths: normalizedIgnorePaths.value,
+  rules: form.rules,
+}))
 const projectRuleIssues = computed(() => validationIssues.value.filter((issue) => issue.includes('项目规则')))
 const hasBlockingIssues = computed(() => validationIssues.value.length > 0)
 
-function uniqueLines(text: string) {
-  const values = text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-  return Array.from(new Set(values))
-}
-
-function normalizePath(path: string) {
-  const value = path.trim()
-  return value || '**/*'
-}
-
-function policyKey(policy: ProjectPolicy) {
-  return `${policy.provider}:${policy.repo}`
-}
 
 async function fetchPlatforms() {
   try {

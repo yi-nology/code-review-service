@@ -5,7 +5,7 @@
       <el-timeline-item
         v-for="(event, index) in history"
         :key="index"
-        :timestamp="formatTime(event.created_at)"
+        :timestamp="formatDateTime(event.created_at)"
         :type="getEventType(event.status)"
       >
         <h4>{{ event.message }}</h4>
@@ -30,10 +30,6 @@ function getEventType(status: string) {
     failed: 'danger',
   }
   return map[status] || 'info'
-}
-
-function formatTime(time: string) {
-  return formatDateTime(time)
 }
 
 function formatDetails(details: Record<string, unknown>) {

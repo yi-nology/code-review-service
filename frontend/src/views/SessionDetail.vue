@@ -106,13 +106,13 @@
                   />
                 </el-descriptions-item>
                 <el-descriptions-item label="创建时间">
-                  {{ formatTime(session.created_at) }}
+                  {{ formatDateTime(session.created_at) }}
                 </el-descriptions-item>
                 <el-descriptions-item
                   v-if="session.completed_at"
                   label="完成时间"
                 >
-                  {{ formatTime(session.completed_at) }}
+                  {{ formatDateTime(session.completed_at) }}
                 </el-descriptions-item>
               </el-descriptions>
             </el-card>
@@ -282,10 +282,6 @@ function updateViewportWidth() {
 
 function goBack() {
   router.back()
-}
-
-function formatTime(dateStr: string): string {
-  return formatDateTime(dateStr)
 }
 
 async function fetchSession() {

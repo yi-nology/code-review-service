@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatRelativeTime } from '@/utils/format'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { Bell } from '@element-plus/icons-vue'
@@ -89,15 +90,6 @@ function kindColor(kind: string): string {
   return '#67c23a'
 }
 
-function formatTime(iso: string): string {
-  const d = new Date(iso)
-  const now = new Date()
-  const diff = now.getTime() - d.getTime()
-  if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`
-  return d.toLocaleDateString('zh-CN')
-}
 
 onMounted(() => {
   refreshUnread()
@@ -155,7 +147,7 @@ onBeforeUnmount(() => {
             <div class="notify-item-body">{{ item.body }}</div>
             <div class="notify-item-meta">
               <span class="notify-kind" :style="{ color: kindColor(item.kind) }">{{ kindLabel(item.kind) }}</span>
-              <span class="notify-time">{{ formatTime(item.created_at) }}</span>
+              <span class="notify-time">{{ formatRelativeTime(item.created_at) }}</span>
             </div>
           </div>
         </div>
