@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/platform"
 	"github.com/yi-nology/code-review-service/internal/domain/revision"
 	domainWebhook "github.com/yi-nology/code-review-service/internal/domain/webhook"
 	"github.com/yi-nology/code-review-service/internal/repository"
@@ -25,14 +26,18 @@ type ServiceConfig struct {
 	Normalizers        map[string]Normalizer
 	DeliveryRepo       repository.WebhookDeliveryRepository
 	ChangeRevisionRepo repository.ChangeRevisionRepository
-	MaxPayloadBytes    int64
-	BotUsername        string
+	// PlatformRepo 安装（provider+installationID → webhook secret）查询，供
+	// ResolveInstallation 使用；nil 时 ResolveInstallation 一直报 not found。
+	PlatformRepo    repository.GitPlatformRepository
+	MaxPayloadBytes int64
+	BotUsername     string
 }
 
 type Service struct {
 	normalizers        map[string]Normalizer
 	deliveryRepo       repository.WebhookDeliveryRepository
 	changeRevisionRepo repository.ChangeRevisionRepository
+	platformRepo       repository.GitPlatformRepository
 	maxPayloadBytes    int64
 	botUsername        string
 }
@@ -50,9 +55,27 @@ func NewService(cfg ServiceConfig) (*Service, error) {
 		normalizers:        cfg.Normalizers,
 		deliveryRepo:       cfg.DeliveryRepo,
 		changeRevisionRepo: cfg.ChangeRevisionRepo,
+		platformRepo:       cfg.PlatformRepo,
 		maxPayloadBytes:    cfg.MaxPayloadBytes,
 		botUsername:        cfg.BotUsername,
 	}, nil
+}
+
+// ResolveInstallation 查找 provider+installationID 对应的安装配置（含 webhook secret）。
+// 未找到返回 repoerr.ErrNotFound（handler 映射 404）。安装查找属 webhook 业务规则，
+// 收口在 service 层，handler 不再直接持有 platform 仓储。
+func (s *Service) ResolveInstallation(ctx context.Context, provider, installationID string) (*platform.Platform, error) {
+	if s.platformRepo == nil {
+		return nil, repoerr.ErrNotFound
+	}
+	p, err := s.platformRepo.Get(ctx, provider, installationID)
+	if err != nil {
+		return nil, err
+	}
+	if p == nil {
+		return nil, repoerr.ErrNotFound
+	}
+	return p, nil
 }
 
 type HandleResult struct {

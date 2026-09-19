@@ -16,6 +16,7 @@ import (
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 	svcReview "github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/service/reviewenrich"
 	"github.com/yi-nology/code-review-service/internal/service/statuscheck"
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
@@ -27,6 +28,8 @@ var ReviewModule = fx.Options(
 	fx.Provide(NewProgressManager),
 	fx.Provide(NewPolicyEngine),
 	fx.Provide(NewJudge),
+	fx.Provide(NewFailureReporter),
+	fx.Provide(reviewenrich.New),
 	fx.Provide(NewExecutorService),
 	fx.Provide(NewReviewService),
 )
@@ -42,26 +45,30 @@ func NewProgressManager(lc fx.Lifecycle) *progress.ProgressManager {
 	return pm
 }
 
+// NewPolicyEngine 构造门禁引擎：启动时以 DB 当前值兜底，并挂执行期动态源——
+// 每次评审评估门禁时重新读 OCRSettings（web console 改 policy 配置无需重启生效，
+// 与「业务配置存 DB 热更新」原则一致）。读取失败回落启动配置，门禁始终可用。
 func NewPolicyEngine(repos *repository.RepoContainer) *policy.Engine {
-	// 默认值由 policy.DefaultConfig() 提供（单一真源）；DB 配置按字段覆盖。
-	cfg := policy.DefaultConfig()
-
-	if repos != nil && repos.OCRSettings != nil {
-		if s, err := repos.OCRSettings.Get(context.Background()); err == nil && s != nil {
-			if s.PolicyFailOn != "" {
-				cfg.FailOn = s.PolicyFailOn
-			}
-			if s.PolicyMaxComments > 0 {
-				cfg.MaxComments = s.PolicyMaxComments
-			}
-			cfg.SummaryOnly = s.PolicySummaryOnly
-			if len(s.PolicyIgnorePaths) > 0 {
-				cfg.IgnorePaths = s.PolicyIgnorePaths
+	buildCfg := func() policy.Config {
+		cfg := policy.DefaultConfig()
+		if repos != nil && repos.OCRSettings != nil {
+			if s, err := repos.OCRSettings.Get(context.Background()); err == nil && s != nil {
+				if s.PolicyFailOn != "" {
+					cfg.FailOn = s.PolicyFailOn
+				}
+				if s.PolicyMaxComments > 0 {
+					cfg.MaxComments = s.PolicyMaxComments
+				}
+				cfg.SummaryOnly = s.PolicySummaryOnly
+				if len(s.PolicyIgnorePaths) > 0 {
+					cfg.IgnorePaths = s.PolicyIgnorePaths
+				}
 			}
 		}
+		return cfg
 	}
 
-	return policy.NewEngine(cfg)
+	return policy.NewEngine(buildCfg()).WithSource(buildCfg)
 }
 
 type ExecutorDeps struct {
@@ -77,6 +84,7 @@ type ExecutorDeps struct {
 	AgentManager    *agent.AgentManager
 	LLMMetrics      *ocr.Metrics
 	Notifier        domain.Notifier
+	FailureReporter *svcReview.FailureReporter
 	GitProviderSvc  *gitProvider.GitProviderService
 	BudgetChecker   *cost.BudgetChecker
 	CostCalc        *cost.Calculator
@@ -87,6 +95,12 @@ type ExecutorDeps struct {
 // 使用 ocr.Provider（LLM）对 OCR 产出的 findings 做二次分析。
 func NewJudge(llmProvider ocr.Provider) *judge.Judge {
 	return judge.NewJudge(llmProvider)
+}
+
+// NewFailureReporter 构造统一失败上报器（eino 执行器与 review worker 共用同一实例，
+// 保证执行前失败与执行中失败的副作用集一致：历史/落库/通知/commit status/指标）。
+func NewFailureReporter(repos *repository.RepoContainer, notifier domain.Notifier, gitSvc *gitProvider.GitProviderService) *svcReview.FailureReporter {
+	return svcReview.NewFailureReporter(repos.Review, notifier, statuscheck.NewPoster(gitSvc))
 }
 
 func NewExecutorService(deps ExecutorDeps) *eino.Executor {
@@ -101,6 +115,7 @@ func NewExecutorService(deps ExecutorDeps) *eino.Executor {
 		Writeback:       deps.WritebackPub,
 		Notifier:        deps.Notifier,
 		StatusPoster:    statuscheck.NewPoster(deps.GitProviderSvc),
+		FailureReporter: deps.FailureReporter,
 		BudgetChecker:   deps.BudgetChecker,
 		CostCalc:        deps.CostCalc,
 		ModelNameFunc: func() string {
@@ -131,6 +146,7 @@ type ReviewServiceDeps struct {
 	ProgressManager *progress.ProgressManager
 	PolicyEngine    *policy.Engine
 	ExecutorSvc     *eino.Executor
+	FailureReporter *svcReview.FailureReporter
 	ArgusClient     *argusclient.Client
 }
 
@@ -149,7 +165,6 @@ func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 		RulePackageRepo: deps.Repos.OCRRulePackage,
 		AgentRepo:       deps.Repos.ReviewerAgent,
 		SessionRepo:     deps.SessionRepo,
-		GitProviderSvc:  deps.GitProviderSvc,
 		Policy:          deps.PolicyEngine,
 		Providers:       deps.GitProviders,
 		Runner:          deps.OcrRunner,
@@ -158,6 +173,7 @@ func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 		Delegator:       deps.OcrRunner, // *ocr.Runner 同时实现 domain.Delegator（OCR v1.7.11+）
 		ProgressManager: deps.ProgressManager,
 		Executor:        svcReview.NewEngineExecutor(deps.ExecutorSvc, argusExecutor),
+		FailureReporter: deps.FailureReporter,
 		Concurrency:     deps.Config.Review.WorkerConcurrency,
 		ArgusEnabled:    deps.ArgusClient.Enabled(),
 	})

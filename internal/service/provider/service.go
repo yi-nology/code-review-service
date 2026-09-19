@@ -8,6 +8,7 @@ import (
 	"time"
 
 	domainplatform "github.com/yi-nology/code-review-service/internal/domain/platform"
+	"github.com/yi-nology/code-review-service/internal/vcs"
 	"github.com/oekit/logx"
 
 	"github.com/yi-nology/git-platform-sdk/provider"
@@ -179,26 +180,9 @@ func (s *GitProviderService) TestConnection(ctx context.Context, platform string
 	return p.TestConnection(ctx)
 }
 
-func ParseRepoPath(repoPath string) (string, string, error) {
-	repoPath = strings.TrimSpace(repoPath)
-	if repoPath == "" {
-		return "", "", fmt.Errorf("repo path is empty")
-	}
-
-	repoPath = strings.TrimSuffix(repoPath, ".git")
-	repoPath = strings.TrimPrefix(repoPath, "/")
-
-	parts := strings.Split(repoPath, "/")
-	if len(parts) < 2 {
-		// Gerrit 等平台使用单层 project 命名空间（如 "my-project"），
-		// 此时 owner 为空，repo 为完整 project name。
-		return "", repoPath, nil
-	}
-
-	owner := strings.Join(parts[:len(parts)-1], "/")
-	repo := parts[len(parts)-1]
-	return owner, repo, nil
-}
+// ParseRepoPath 实现已下沉到 internal/vcs（中立包，供 writeback/statuscheck 等共用）；
+// 保留导出包装以维持既有调用点兼容。
+func ParseRepoPath(repoPath string) (string, string, error) { return vcs.ParseRepoPath(repoPath) }
 
 func (s *GitProviderService) HasProvider(platform string) bool {
 	s.mu.RLock()

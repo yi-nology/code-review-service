@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-	"github.com/yi-nology/code-review-service/internal/service/types"
 )
 
 type ValidatedComment struct {

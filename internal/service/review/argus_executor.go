@@ -279,17 +279,14 @@ func CompleteFromArgusReport(ctx context.Context, reviewRepo repository.ReviewRe
 // 终态一律 success 留痕——红色 status 会卡「所有检查通过后合并」类自动合并。
 func postArgusGateStatus(ctx context.Context, poster domain.StatusPoster, platform, repoPath, sha, gateMode, status string,
 	gate domain.Gate, summary, reviewID string) {
-	state := statuscheck.StateSuccess
-	if domain.EffectiveGateMode(gateMode, domain.EngineArgus) == domain.GateModeStrong {
-		if gate.Status == domain.GateFailed {
-			state = statuscheck.StateFailed
-		}
-		if status == statusFailed {
-			state = statuscheck.StateError
-		}
-	} else {
-		summary = domain.WeakGateDesc(summary)
+	strongState := statuscheck.StateSuccess
+	if gate.Status == domain.GateFailed {
+		strongState = statuscheck.StateFailed
 	}
+	if status == statusFailed {
+		strongState = statuscheck.StateError
+	}
+	state, summary := domain.ApplyWeakGate(gateMode, domain.EngineArgus, strongState, summary)
 	domain.PostStatus(poster, ctx, platform, repoPath, sha, state, summary, reviewID)
 }
 

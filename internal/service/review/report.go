@@ -1,8 +1,9 @@
 package review
 
 import (
+	"github.com/yi-nology/code-review-service/internal/domain/scoring"
+	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-	"github.com/yi-nology/code-review-service/internal/service/scoring"
 )
 
 // 评分逻辑已提取到 scoring 包（高内聚），此处保留常量/函数为向后兼容别名。
@@ -61,3 +62,13 @@ func BuildReport(result *domain.Result) domain.Report {
 // CountDiffLines / CountDiffFiles 向后兼容别名，供 executor 等已 import review 的包使用。
 func CountDiffLines(diff string) int { return scoring.CountDiffLines(diff) }
 func CountDiffFiles(diff string) int { return scoring.CountDiffFiles(diff) }
+
+// PolicyFindings 把 domain findings 转为门禁引擎输入。
+// scan 路径与 eino 执行器共用（此前两处各持一份相同的转换）。
+func PolicyFindings(findings []domain.Finding) []policy.Finding {
+	out := make([]policy.Finding, 0, len(findings))
+	for _, finding := range findings {
+		out = append(out, policy.Finding{Severity: finding.Severity, Path: finding.Path})
+	}
+	return out
+}

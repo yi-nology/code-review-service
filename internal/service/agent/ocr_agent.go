@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/service/types"
+	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 )
 
 // reviewRunner defines the interface for running reviews

@@ -6,9 +6,10 @@ import (
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/app"
+	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/suggestion"
-	"github.com/yi-nology/code-review-service/internal/service/types"
+	"github.com/yi-nology/code-review-service/internal/strutil"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -21,11 +22,11 @@ import (
 //   - 路径 glob 过滤用 filepath.Match，规则跟 .gitignore 风格一致（** 不支持，
 //     用 filepath.Match 的单 * 通配，够覆盖 90% 场景）。
 //   - 大 review (>50 findings) 默认截 30 条 + truncated 提示。
-func RegisterGetReviewFindings(s *Server, svc app.ReviewService) {
+func RegisterGetReviewFindings(s *Server, svc app.ReviewReader) {
 	s.AddTool(getReviewFindingsTool(), getReviewFindingsHandler(svc))
 }
 
-func getReviewFindingsHandler(svc app.ReviewService) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func getReviewFindingsHandler(svc app.ReviewReader) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := req.GetArguments()
 		reviewID, err := requireString(args, "review_id")
@@ -105,16 +106,9 @@ func trimFindingForLLM(f types.Finding) map[string]any {
 		"end_line":   f.EndLine,
 		"title":      f.Title,
 		"body":       body,
-		"suggestion": truncateString(f.Suggestion, 300),
+		"suggestion": strutil.Truncate(f.Suggestion, 300),
 		"agents":     f.Agents,
 	}
-}
-
-func truncateString(s string, max int) string {
-	if len(s) <= max {
-		return s
-	}
-	return s[:max] + "..."
 }
 
 // get_suggestion_patch 返 unified-diff patch（可直接 git apply）。
@@ -125,11 +119,11 @@ func truncateString(s string, max int) string {
 //
 // 不实现 apply — apply 涉及 git push + 创 PR,有副作用,不暴露给 LLM
 // (LLM 误调一次会污染仓库)。要走 apply 走 web console 人工确认。
-func RegisterGetSuggestionPatch(s *Server, svc app.ReviewService) {
+func RegisterGetSuggestionPatch(s *Server, svc app.ReviewReader) {
 	s.AddTool(getSuggestionPatchTool(), getSuggestionPatchHandler(svc))
 }
 
-func getSuggestionPatchHandler(svc app.ReviewService) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func getSuggestionPatchHandler(svc app.ReviewReader) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := req.GetArguments()
 		reviewID, err := requireString(args, "review_id")
@@ -185,11 +179,11 @@ func getSuggestionPatchHandler(svc app.ReviewService) func(ctx context.Context, 
 //
 // 用途:评审前先看 scope,避免 LLM 给超大 PR 触发 review 把 OCR 跑爆。
 // 行为是秒级（clone + listChanged,不调 LLM）。
-func RegisterPreviewChangeFiles(s *Server, svc app.ReviewService) {
+func RegisterPreviewChangeFiles(s *Server, svc app.ReviewReader) {
 	s.AddTool(previewChangeFilesTool(), previewChangeFilesHandler(svc))
 }
 
-func previewChangeFilesHandler(svc app.ReviewService) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func previewChangeFilesHandler(svc app.ReviewReader) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := req.GetArguments()
 
@@ -237,11 +231,11 @@ func previewChangeFilesHandler(svc app.ReviewService) func(ctx context.Context, 
 //   - preview=true 走轻量预览（秒级,只列文件）
 //   - preview=false 走异步扫描（OCR scan 模式,几十秒到几分钟），返 review_id
 //     客户端用 get_review 轮询
-func RegisterScanRepository(s *Server, svc app.ReviewService) {
+func RegisterScanRepository(s *Server, svc app.ReviewReader) {
 	s.AddTool(scanRepositoryTool(), scanRepositoryHandler(svc))
 }
 
-func scanRepositoryHandler(svc app.ReviewService) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func scanRepositoryHandler(svc app.ReviewReader) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := req.GetArguments()
 		provider, err := requireString(args, "provider")

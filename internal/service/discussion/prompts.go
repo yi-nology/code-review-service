@@ -92,15 +92,3 @@ func normalizeConfidence(c float64) float64 {
 	}
 	return c
 }
-
-// truncate 截断字符串到 maxLen 字符（按 rune），超出加省略号。
-func truncate(s string, maxLen int) string {
-	if maxLen <= 0 {
-		return s
-	}
-	r := []rune(s)
-	if len(r) <= maxLen {
-		return s
-	}
-	return string(r[:maxLen]) + "..."
-}

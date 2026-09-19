@@ -97,17 +97,7 @@ func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval,
 // WorkerModule 必须在 DatabaseModule 之后注册（见 init.go），以保证本方法
 // 的 OnStop 先于 DB 的 OnStop 执行。
 func (s *Service) Shutdown(ctx context.Context) error {
-	done := make(chan struct{})
-	async.GoSafe(func() {
-		s.inFlight.Wait()
-		close(done)
-	})
-	select {
-	case <-done:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	return s.runtime.WaitIdle(ctx)
 }
 
 func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Duration) {
@@ -122,10 +112,10 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 		}
 
 		// 获取并发槽（阻塞直到有可用容量或 ctx 取消），限制同时进行的 review 数。
-		if !s.acquireConcurrency(ctx) {
+		if !s.runtime.acquire(ctx) {
 			return
 		}
-		release := s.releaseConcurrency
+		release := s.runtime.release
 
 		reviews, err := s.reviewRepo.ClaimQueued(ctx, 1)
 		if err != nil {
@@ -146,7 +136,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 		req := review.Request
 		if req.Provider == "" && req.Repo == "" {
 			logx.Error("failed to decode review request", "review_id", review.ID, "error", "empty request")
-			s.recordFailure(ctx, review.ID, req, fmt.Errorf("decode request: empty"))
+			s.failureReporter.Report(ctx, review.ID, req, "worker", fmt.Errorf("decode request: empty"), domain.OCRMetadata{})
 			release()
 			timer.Reset(0)
 			continue
@@ -154,7 +144,7 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 
 		if req.CallbackMode == "scan" {
 			logx.Warnf("worker: orphaned scan review from server restart, marking as failed: %s", review.ID)
-			s.recordFailure(ctx, review.ID, req, fmt.Errorf("scan was interrupted by server restart"))
+			s.failureReporter.Report(ctx, review.ID, req, "worker", fmt.Errorf("scan was interrupted by server restart"), domain.OCRMetadata{})
 			release()
 			timer.Reset(0)
 			continue
@@ -164,14 +154,14 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 		if !ok {
 			err := fmt.Errorf("%w: %q", domain.ErrUnsupportedProvider, req.Provider)
 			logx.Errorf("worker: provider not found: requested=%q review_id=%s", req.Provider, review.ID)
-			s.recordFailure(ctx, review.ID, req, err)
+			s.failureReporter.Report(ctx, review.ID, req, "worker", err, domain.OCRMetadata{})
 			release()
 			timer.Reset(0)
 			continue
 		}
-		s.inFlight.Add(1)
+		s.runtime.inFlight.Add(1)
 		async.GoSafe(func() {
-			defer s.inFlight.Done()
+			defer s.runtime.inFlight.Done()
 			defer release()
 
 			// Create progress tracker for this review

@@ -28,8 +28,8 @@ func InitHandler(reviewRepo repository.ReviewRepository, contributorRepo reposit
 // GenerateWeeklyReport 生成项目维度周报（Markdown 格式）。
 // 复用 stats 的 AggregateStats + ProjectOCRMetrics 聚合查询。
 // GET /api/v1/reports/weekly?provider=x&repo=y
-func GenerateWeeklyReport(ctx context.Context, c *app.RequestContext) {
-	if handlerInst == nil {
+func (h *Handler) generateWeeklyReport(ctx context.Context, c *app.RequestContext) {
+	if h == nil {
 		common.Fail(ctx, c, common.BizErr(500, "report handler not initialized"))
 		return
 	}
@@ -50,7 +50,7 @@ func GenerateWeeklyReport(ctx context.Context, c *app.RequestContext) {
 		From:     weekAgo,
 		To:       now,
 	}
-	agg, err := handlerInst.reviewRepo.AggregateStats(ctx, listOpts)
+	agg, err := h.reviewRepo.AggregateStats(ctx, listOpts)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -58,8 +58,8 @@ func GenerateWeeklyReport(ctx context.Context, c *app.RequestContext) {
 
 	// 按提交人聚合（复用开发者质量页的查询，带相同时间窗口），取 Top 10。
 	var contributors []stats.ContributorSummary
-	if handlerInst.contributorRepo != nil {
-		contributors, err = handlerInst.contributorRepo.GetProjectContributors(ctx, domain.ProjectStatsOptions{
+	if h.contributorRepo != nil {
+		contributors, err = h.contributorRepo.GetProjectContributors(ctx, domain.ProjectStatsOptions{
 			Provider: provider,
 			Repo:     repo,
 			From:     weekAgo,
@@ -79,6 +79,11 @@ func GenerateWeeklyReport(ctx context.Context, c *app.RequestContext) {
 		"stats":        agg,
 		"contributors": contributors,
 	})
+}
+
+// GenerateWeeklyReport 包级入口（biz/router 生成代码引用）；一行委托到方法，便于测试直接构造 Handler。
+func GenerateWeeklyReport(ctx context.Context, c *app.RequestContext) {
+	handlerInst.generateWeeklyReport(ctx, c)
 }
 
 // buildWeeklyMarkdown 把聚合统计渲染成 Markdown 周报。

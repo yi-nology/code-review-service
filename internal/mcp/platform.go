@@ -28,11 +28,11 @@ func normalizeProvider(p string) string {
 }
 
 // list_provider_repos：列某 platform 下的 repos（onboarding 阶段用）。
-func RegisterListProviderRepos(s *Server, git app.GitProviderManager) {
+func RegisterListProviderRepos(s *Server, git app.PlatformReader) {
 	s.AddTool(listProviderReposTool(), listProviderReposHandler(git))
 }
 
-func listProviderReposHandler(git app.GitProviderManager) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func listProviderReposHandler(git app.PlatformReader) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := req.GetArguments()
 		provider, err := requireString(args, "provider")

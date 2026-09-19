@@ -176,10 +176,7 @@ func (p *ArgusPoller) markFailed(ctx context.Context, rec *domain.Record, task *
 	logx.Warnf("argus poller: review=%s task=%s %s → failed", rec.ID, task.TaskID, task.Status)
 	// 门禁留痕按 gate_mode（语义同 postArgusGateStatus）：pending 已在派发时发出，终态
 	// 必达——weak（argus 默认）一律 success 留痕清掉琥珀色；strong 任务失败写 error。
-	state, desc := statuscheck.StateSuccess, domain.WeakGateDesc(msg)
-	if domain.EffectiveGateMode(rec.Request.GateMode, domain.EngineArgus) == domain.GateModeStrong {
-		state, desc = statuscheck.StateError, msg
-	}
+	state, desc := domain.ApplyWeakGate(rec.Request.GateMode, domain.EngineArgus, statuscheck.StateError, msg)
 	domain.PostStatus(p.statusPoster, ctx, rec.Request.Provider, rec.Request.Repo, rec.HeadSHA, state, desc, rec.ID)
 	p.notify(ctx, rec, msg)
 }
@@ -213,10 +210,7 @@ func (p *ArgusPoller) markReportLost(ctx context.Context, rec *domain.Record, ta
 	}
 	logx.Warnf("argus poller: review=%s task=%s done but sink report lost and pull failed → failed", rec.ID, task.TaskID)
 	// 门禁留痕按 gate_mode（语义同 markFailed）：weak 终态 success 留痕，细节放 description。
-	state, desc := statuscheck.StateSuccess, domain.WeakGateDesc(msg)
-	if domain.EffectiveGateMode(rec.Request.GateMode, domain.EngineArgus) == domain.GateModeStrong {
-		state, desc = statuscheck.StateError, msg
-	}
+	state, desc := domain.ApplyWeakGate(rec.Request.GateMode, domain.EngineArgus, statuscheck.StateError, msg)
 	domain.PostStatus(p.statusPoster, ctx, rec.Request.Provider, rec.Request.Repo, rec.HeadSHA, state, desc, rec.ID)
 	p.notify(ctx, rec, msg)
 }

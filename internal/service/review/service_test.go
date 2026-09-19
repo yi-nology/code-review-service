@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/page"
+
 	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
@@ -17,7 +19,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-	ekitGorm "github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/datatypes"
@@ -107,8 +108,8 @@ func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, provider, re
 	return nil, repoerr.ErrNotFound
 }
 
-func (m *mockReviewRepo) List(_ context.Context, opts domain.ListOptions) (*ekitGorm.PageResponse[domain.Record], error) {
-	return &ekitGorm.PageResponse[domain.Record]{Items: nil, Total: 0}, nil
+func (m *mockReviewRepo) List(_ context.Context, opts domain.ListOptions) (*page.Page[domain.Record], error) {
+	return &page.Page[domain.Record]{Items: nil, Total: 0}, nil
 }
 
 func (m *mockReviewRepo) AggregateStats(_ context.Context, _ domain.ListOptions) (*domain.AggregateStats, error) {

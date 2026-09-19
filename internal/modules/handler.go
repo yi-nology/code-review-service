@@ -25,6 +25,7 @@ import (
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 	svcReview "github.com/yi-nology/code-review-service/internal/service/review"
 	reviewdomain "github.com/yi-nology/code-review-service/internal/service/review/domain"
+	reviewenrich "github.com/yi-nology/code-review-service/internal/service/reviewenrich"
 	"github.com/yi-nology/code-review-service/internal/service/session"
 	statsSvc "github.com/yi-nology/code-review-service/internal/service/stats"
 	"github.com/yi-nology/code-review-service/internal/service/statuscheck"
@@ -55,8 +56,9 @@ var HandlerModule = fx.Options(
 	fx.Invoke(InitReportHandler),
 )
 
-func InitReviewHandler(reviewSvc *svcReview.Service, gitMgr *gitProvider.GitProviderService, suggestionSvc *suggestion.Service) {
-	review_service.InitHandler(reviewSvc, gitMgr, suggestionSvc)
+func InitReviewHandler(reviewSvc *svcReview.Service, gitMgr *gitProvider.GitProviderService, enrich *reviewenrich.Service, suggestionSvc *suggestion.Service) {
+	// 角色窄接口：同一 *GitProviderService 结构化满足 PlatformReader/PlatformCRWriter。
+	review_service.InitHandler(reviewSvc, gitMgr, gitMgr, enrich, suggestionSvc)
 }
 
 // NewSuggestionService 构造评审建议补丁服务（#8 拆分：从 review.Service 抽离）。
@@ -66,8 +68,8 @@ func NewSuggestionService(reviewSvc *svcReview.Service, providers *gitProvider.G
 	return suggestion.NewService(reviewSvc, providers, gitMgr)
 }
 
-func InitWebhookHandler(webhookSvc *webhook.Service, reviewSvc *svcReview.Service, repos *repository.RepoContainer) {
-	review_service.InitWebhookHandler(webhookSvc, reviewSvc, repos.GitPlatform)
+func InitWebhookHandler(webhookSvc *webhook.Service, reviewSvc *svcReview.Service) {
+	review_service.InitWebhookHandler(webhookSvc, reviewSvc)
 }
 
 // InitSettingsHandler 收口为 3 个参数：repos + gitMgr + *ocr.Registry。

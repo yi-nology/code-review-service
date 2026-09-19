@@ -80,7 +80,7 @@ func (s *Service) Requeue(ctx context.Context, reviewID string) (domain.Response
 //   - 同步触发 scanCancels[reviewID] 的 cancel func，scan goroutine 收到 ctx.Done() 后退出
 //   - DB 状态置为 failed / Summary = "review cancelled by user"
 func (s *Service) Cancel(ctx context.Context, reviewID string) (domain.Response, error) {
-	if cancelFn, ok := s.scanCancels.LoadAndDelete(reviewID); ok {
+	if cancelFn, ok := s.runtime.scanCancels.LoadAndDelete(reviewID); ok {
 		if fn, ok := cancelFn.(context.CancelFunc); ok {
 			fn()
 		}

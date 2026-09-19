@@ -8,7 +8,6 @@ import (
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelWebhook "github.com/yi-nology/code-review-service/biz/model/webhook"
-	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/webhook"
@@ -18,9 +17,8 @@ import (
 )
 
 type WebhookHandler struct {
-	webhookSvc   *webhook.Service
-	reviewSvc    ReviewCreator
-	platformRepo repository.GitPlatformRepository
+	webhookSvc *webhook.Service
+	reviewSvc  ReviewCreator
 }
 
 type ReviewCreator interface {
@@ -28,11 +26,10 @@ type ReviewCreator interface {
 }
 
 // InitWebhookHandler creates and initializes the WebhookHandler with the given dependencies.
-func InitWebhookHandler(webhookSvc *webhook.Service, reviewSvc ReviewCreator, platformRepo repository.GitPlatformRepository) {
+func InitWebhookHandler(webhookSvc *webhook.Service, reviewSvc ReviewCreator) {
 	webhookInst = &WebhookHandler{
-		webhookSvc:   webhookSvc,
-		reviewSvc:    reviewSvc,
-		platformRepo: platformRepo,
+		webhookSvc: webhookSvc,
+		reviewSvc:  reviewSvc,
 	}
 }
 
@@ -58,7 +55,7 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 		return
 	}
 
-	platform, err := h.platformRepo.Get(ctx, req.Provider, req.Installation)
+	platform, err := h.webhookSvc.ResolveInstallation(ctx, req.Provider, req.Installation)
 	if err != nil {
 		if errors.Is(err, repoerr.ErrNotFound) {
 			common.Fail(ctx, c, common.NotFound("installation not found"))
@@ -66,10 +63,6 @@ func (h *WebhookHandler) HandleWebhook(ctx context.Context, c *app.RequestContex
 		}
 		logx.Error("lookup installation failed", "provider", req.Provider, "installation", req.Installation, "error", err)
 		common.Fail(ctx, c, common.BizErr(500, "internal error"))
-		return
-	}
-	if platform == nil {
-		common.Fail(ctx, c, common.NotFound("installation not found"))
 		return
 	}
 

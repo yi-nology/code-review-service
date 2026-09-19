@@ -192,3 +192,46 @@ func TestEvaluateMultipleFindingsStopsOnFirst(t *testing.T) {
 		t.Fatal("expected fail with critical finding in list")
 	}
 }
+
+func TestEngineDynamicSource(t *testing.T) {
+	cur := "major"
+	e := policy.NewEngine(policy.Config{FailOn: "major"}).WithSource(func() policy.Config {
+		return policy.Config{FailOn: cur}
+	})
+
+	findings := []policy.Finding{{Severity: "major", Path: "a.go"}}
+	if d := e.Evaluate(findings); d.Passed {
+		t.Fatal("major>=major 应不通过")
+	}
+
+	// 配置热更新：调宽阈值后同一批 findings 通过，无需重建引擎。
+	cur = "critical"
+	if d := e.Evaluate(findings); !d.Passed {
+		t.Fatalf("热更新后应通过: %+v", d)
+	}
+
+	// source 返回零值（读取失败）回落启动配置。
+	e2 := policy.NewEngine(policy.Config{FailOn: "critical"}).WithSource(func() policy.Config { return policy.Config{} })
+	if d := e2.Evaluate(findings); !d.Passed {
+		t.Fatalf("零值 source 应回落启动配置: %+v", d)
+	}
+}
+
+func TestEngineWithFailOnOverrideKeepsDefaults(t *testing.T) {
+	// 回归锚点：项目 fail_on 覆盖曾用裸 Config 新建引擎，把全局 IgnorePaths 丢掉。
+	e := policy.NewEngine(policy.Config{FailOn: "minor", IgnorePaths: []string{"vendor/**"}}).
+		WithFailOnOverride("critical")
+
+	d := e.Evaluate([]policy.Finding{{Severity: "major", Path: "a.go"}})
+	if !d.Passed {
+		t.Fatalf("major < critical 应通过: %+v", d)
+	}
+	d = e.Evaluate([]policy.Finding{{Severity: "major", Path: "vendor/x.go"}})
+	if !d.Passed {
+		t.Fatalf("覆盖后仍应保留 IgnorePaths: %+v", d)
+	}
+	d = e.Evaluate([]policy.Finding{{Severity: "critical", Path: "a.go"}})
+	if d.Passed {
+		t.Fatal("critical >= critical 应不通过")
+	}
+}

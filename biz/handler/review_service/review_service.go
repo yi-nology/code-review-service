@@ -13,9 +13,9 @@ import (
 	modelReview "github.com/yi-nology/code-review-service/biz/model/review"
 	svcApp "github.com/yi-nology/code-review-service/internal/app"
 	"github.com/yi-nology/code-review-service/internal/ocr"
-	"github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	reviewenrich "github.com/yi-nology/code-review-service/internal/service/reviewenrich"
 	"github.com/yi-nology/code-review-service/internal/service/suggestion"
 
 	"github.com/oekit/pkg/convert"
@@ -24,7 +24,6 @@ import (
 	"github.com/oekit/pkg/slicex"
 	"github.com/oekit/pkg/stringx"
 
-	"github.com/oekit/logx"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 	provider_sdk "github.com/yi-nology/git-platform-sdk/provider"
@@ -35,31 +34,35 @@ var webhookInst *WebhookHandler
 
 type ReviewHandler struct {
 	reviewSvc     svcApp.ReviewService
-	gitMgr        svcApp.GitProviderManager
+	platform      svcApp.PlatformReader
+	crWriter      svcApp.PlatformCRWriter
+	enrich        *reviewenrich.Service
 	suggestionSvc *suggestion.Service
 }
 
-func InitHandler(svc svcApp.ReviewService, gitMgr svcApp.GitProviderManager, suggestionSvc *suggestion.Service) {
+func InitHandler(svc svcApp.ReviewService, platform svcApp.PlatformReader, crWriter svcApp.PlatformCRWriter, enrich *reviewenrich.Service, suggestionSvc *suggestion.Service) {
 	handlerInst = &ReviewHandler{
 		reviewSvc:     svc,
-		gitMgr:        gitMgr,
+		platform:      platform,
+		crWriter:      crWriter,
+		enrich:        enrich,
 		suggestionSvc: suggestionSvc,
 	}
 }
 
 // ==================== Review ====================
 
-func CreateReview(ctx context.Context, c *app.RequestContext) {
+func (h *ReviewHandler) createReview(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelReview.CreateReviewReq](c)
 	if !ok {
 		return
 	}
 
 	svcReq := toServiceRequest(req)
-	fillAuthorInfo(ctx, &svcReq)
+	h.enrich.FillAuthor(ctx, &svcReq)
 
 	idempotencyKey := string(c.GetHeader("Idempotency-Key"))
-	resp, err := handlerInst.reviewSvc.Create(ctx, svcReq, idempotencyKey)
+	resp, err := h.reviewSvc.Create(ctx, svcReq, idempotencyKey)
 	if err != nil {
 		common.Fail(ctx, c, mapReviewError(err))
 		return
@@ -75,7 +78,10 @@ func CreateReview(ctx context.Context, c *app.RequestContext) {
 	c.JSON(status, apiResp)
 }
 
-func GetReview(ctx context.Context, c *app.RequestContext) {
+// CreateReview 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func CreateReview(ctx context.Context, c *app.RequestContext) { handlerInst.createReview(ctx, c) }
+
+func (h *ReviewHandler) getReview(ctx context.Context, c *app.RequestContext) {
 	// 手动提取 :id URL 参数（thrift 生成的 struct 无法自动绑定 URL 参数）
 	reviewID := c.Param("id")
 	if reviewID == "" {
@@ -83,7 +89,7 @@ func GetReview(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	record, ok, err := handlerInst.reviewSvc.Get(ctx, reviewID)
+	record, ok, err := h.reviewSvc.Get(ctx, reviewID)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -97,7 +103,10 @@ func GetReview(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelReview.GetReviewResp{Review: &detail})
 }
 
-func ListReviews(ctx context.Context, c *app.RequestContext) {
+// GetReview 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func GetReview(ctx context.Context, c *app.RequestContext) { handlerInst.getReview(ctx, c) }
+
+func (h *ReviewHandler) listReviews(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelReview.ListReviewsReq](c)
 	if !ok {
 		return
@@ -115,7 +124,7 @@ func ListReviews(ctx context.Context, c *app.RequestContext) {
 	}
 	page, pageSize := common.PageParams(pageStr, pageSizeStr)
 
-	result, err := handlerInst.reviewSvc.List(ctx, review.ListOptions{
+	result, err := h.reviewSvc.List(ctx, review.ListOptions{
 		Status:     strings.TrimSpace(ptrx.Deref(req.Status, "")),
 		GateStatus: strings.TrimSpace(string(c.Query("gate_status"))),
 		Provider:   strings.TrimSpace(ptrx.Deref(req.Provider, "")),
@@ -167,7 +176,10 @@ func ListReviews(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func PreviewReview(ctx context.Context, c *app.RequestContext) {
+// ListReviews 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func ListReviews(ctx context.Context, c *app.RequestContext) { handlerInst.listReviews(ctx, c) }
+
+func (h *ReviewHandler) previewReview(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelReview.PreviewReq](c)
 	if !ok {
 		return
@@ -183,7 +195,7 @@ func PreviewReview(ctx context.Context, c *app.RequestContext) {
 		HeadSHA:         ptrx.Deref(req.HeadSha, ""),
 	}
 
-	files, err := handlerInst.reviewSvc.Preview(ctx, svcReq)
+	files, err := h.reviewSvc.Preview(ctx, svcReq)
 	if err != nil {
 		common.Fail(ctx, c, mapReviewError(err))
 		return
@@ -191,6 +203,9 @@ func PreviewReview(ctx context.Context, c *app.RequestContext) {
 
 	common.Success(c, &modelReview.PreviewResp{Files: files})
 }
+
+// PreviewReview 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func PreviewReview(ctx context.Context, c *app.RequestContext) { handlerInst.previewReview(ctx, c) }
 
 type scanRepositoryReq struct {
 	Provider        string   `json:"provider"`
@@ -210,7 +225,7 @@ type scanRepositoryReq struct {
 	ResumeSessionID string   `json:"resume_session_id,omitempty"`
 }
 
-func ScanRepository(ctx context.Context, c *app.RequestContext) {
+func (h *ReviewHandler) scanRepository(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[scanRepositoryReq](c)
 	if !ok {
 		return
@@ -235,7 +250,7 @@ func ScanRepository(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	result, err := handlerInst.reviewSvc.Scan(ctx, domain.ScanRequest{
+	result, err := h.reviewSvc.Scan(ctx, domain.ScanRequest{
 		Provider:        strings.TrimSpace(req.Provider),
 		Repo:            strings.TrimSpace(req.Repo),
 		ProjectID:       strings.TrimSpace(req.ProjectID),
@@ -264,6 +279,9 @@ func ScanRepository(ctx context.Context, c *app.RequestContext) {
 	c.JSON(status, result)
 }
 
+// ScanRepository 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func ScanRepository(ctx context.Context, c *app.RequestContext) { handlerInst.scanRepository(ctx, c) }
+
 func cleanStringSlice(values []string) []string {
 	out := make([]string, 0, len(values))
 	for _, value := range values {
@@ -275,13 +293,13 @@ func cleanStringSlice(values []string) []string {
 	return out
 }
 
-func RerunReview(ctx context.Context, c *app.RequestContext) {
+func (h *ReviewHandler) rerunReview(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelReview.ReviewActionReq](c)
 	if !ok {
 		return
 	}
 
-	resp, err := handlerInst.reviewSvc.Requeue(ctx, req.ID)
+	resp, err := h.reviewSvc.Requeue(ctx, req.ID)
 	if err != nil {
 		if errors.Is(err, review.ErrNotFound) {
 			common.Fail(ctx, c, common.NotFound("review not found"))
@@ -299,13 +317,16 @@ func RerunReview(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelReview.CreateReviewResp{Review: &converted})
 }
 
-func CancelReview(ctx context.Context, c *app.RequestContext) {
+// RerunReview 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func RerunReview(ctx context.Context, c *app.RequestContext) { handlerInst.rerunReview(ctx, c) }
+
+func (h *ReviewHandler) cancelReview(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelReview.ReviewActionReq](c)
 	if !ok {
 		return
 	}
 
-	resp, err := handlerInst.reviewSvc.Cancel(ctx, req.ID)
+	resp, err := h.reviewSvc.Cancel(ctx, req.ID)
 	if err != nil {
 		if errors.Is(err, review.ErrNotFound) {
 			common.Fail(ctx, c, common.NotFound("review not found"))
@@ -322,10 +343,13 @@ func CancelReview(ctx context.Context, c *app.RequestContext) {
 	converted := convertResponse(resp)
 	common.Success(c, &modelReview.CreateReviewResp{Review: &converted})
 }
+
+// CancelReview 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func CancelReview(ctx context.Context, c *app.RequestContext) { handlerInst.cancelReview(ctx, c) }
 
 // ==================== Webhook ====================
 
-func HandleWebhook(ctx context.Context, c *app.RequestContext) {
+func (h *ReviewHandler) handleWebhook(ctx context.Context, c *app.RequestContext) {
 	if webhookInst == nil {
 		common.Fail(ctx, c, common.BizErr(500, "webhook handler not initialized"))
 		return
@@ -333,14 +357,17 @@ func HandleWebhook(ctx context.Context, c *app.RequestContext) {
 	webhookInst.HandleWebhook(ctx, c)
 }
 
+// HandleWebhook 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func HandleWebhook(ctx context.Context, c *app.RequestContext) { handlerInst.handleWebhook(ctx, c) }
+
 // ==================== Platform ====================
 
-func ListProviderRepos(ctx context.Context, c *app.RequestContext) {
+func (h *ReviewHandler) listProviderRepos(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelPlatform.ListProviderReposReq](c)
 	if !ok {
 		return
 	}
-	if handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
+	if h.platform == nil || !h.platform.HasProvider(req.Provider) {
 		common.Fail(ctx, c, common.BadRequest(fmt.Sprintf("未配置的代码平台: %s", req.Provider)))
 		return
 	}
@@ -352,7 +379,7 @@ func ListProviderRepos(ctx context.Context, c *app.RequestContext) {
 	pageReq.Normalize()
 	page, perPage := pageReq.Page, pageReq.PageSize
 
-	repos, err := handlerInst.gitMgr.ListRepos(ctx, req.Provider, provider_sdk.ListRepoOptions{Page: page, PerPage: perPage})
+	repos, err := h.platform.ListRepos(ctx, req.Provider, provider_sdk.ListRepoOptions{Page: page, PerPage: perPage})
 	if err != nil {
 		common.Fail(ctx, c, common.BizErr(500, fmt.Sprintf("获取仓库列表失败: %v", err)))
 		return
@@ -367,17 +394,22 @@ func ListProviderRepos(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelPlatform.ListProviderReposResp{Items: items})
 }
 
-func ListProviderBranches(ctx context.Context, c *app.RequestContext) {
+// ListProviderRepos 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func ListProviderRepos(ctx context.Context, c *app.RequestContext) {
+	handlerInst.listProviderRepos(ctx, c)
+}
+
+func (h *ReviewHandler) listProviderBranches(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelPlatform.ListProviderBranchesReq](c)
 	if !ok {
 		return
 	}
-	if handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
+	if h.platform == nil || !h.platform.HasProvider(req.Provider) {
 		common.Fail(ctx, c, common.BadRequest(fmt.Sprintf("未配置的代码平台: %s", req.Provider)))
 		return
 	}
 
-	branches, err := handlerInst.gitMgr.ListBranches(ctx, req.Provider, req.Owner, req.Repo)
+	branches, err := h.platform.ListBranches(ctx, req.Provider, req.Owner, req.Repo)
 	if err != nil {
 		common.Fail(ctx, c, common.BizErr(500, fmt.Sprintf("获取分支列表失败: %v", err)))
 		return
@@ -389,12 +421,17 @@ func ListProviderBranches(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelPlatform.ListProviderBranchesResp{Items: items})
 }
 
-func ListProviderPulls(ctx context.Context, c *app.RequestContext) {
+// ListProviderBranches 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func ListProviderBranches(ctx context.Context, c *app.RequestContext) {
+	handlerInst.listProviderBranches(ctx, c)
+}
+
+func (h *ReviewHandler) listProviderPulls(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelPlatform.ListProviderPullsReq](c)
 	if !ok {
 		return
 	}
-	if handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
+	if h.platform == nil || !h.platform.HasProvider(req.Provider) {
 		common.Fail(ctx, c, common.BadRequest(fmt.Sprintf("未配置的代码平台: %s", req.Provider)))
 		return
 	}
@@ -407,7 +444,7 @@ func ListProviderPulls(ctx context.Context, c *app.RequestContext) {
 	page, perPage := pageReq.Page, pageReq.PageSize
 	state := stringx.TakeOne(ptrx.Deref(req.State, ""), "opened")
 
-	crs, _, err := handlerInst.gitMgr.ListCRs(ctx, req.Provider, provider_sdk.ListCROptions{
+	crs, _, err := h.platform.ListCRs(ctx, req.Provider, provider_sdk.ListCROptions{
 		Owner: req.Owner, Repo: req.Repo, State: provider_sdk.CRState(state), Page: page, PerPage: perPage,
 	})
 	if err != nil {
@@ -432,23 +469,31 @@ func ListProviderPulls(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelPlatform.ListProviderPullsResp{Items: items})
 }
 
-func GetBranchSHA(ctx context.Context, c *app.RequestContext) {
+// ListProviderPulls 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func ListProviderPulls(ctx context.Context, c *app.RequestContext) {
+	handlerInst.listProviderPulls(ctx, c)
+}
+
+func (h *ReviewHandler) getBranchSHA(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelPlatform.GetBranchSHAReq](c)
 	if !ok {
 		return
 	}
-	if handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
+	if h.platform == nil || !h.platform.HasProvider(req.Provider) {
 		common.Fail(ctx, c, common.BadRequest(fmt.Sprintf("未配置的代码平台: %s", req.Provider)))
 		return
 	}
 
-	sha, err := handlerInst.gitMgr.GetBranchSHA(ctx, req.Provider, req.Owner, req.Repo, req.Branch)
+	sha, err := h.platform.GetBranchSHA(ctx, req.Provider, req.Owner, req.Repo, req.Branch)
 	if err != nil {
 		common.Fail(ctx, c, common.BizErr(500, fmt.Sprintf("获取分支 SHA 失败: %v", err)))
 		return
 	}
 	common.Success(c, &modelPlatform.GetBranchSHAResp{Sha: sha})
 }
+
+// GetBranchSHA 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func GetBranchSHA(ctx context.Context, c *app.RequestContext) { handlerInst.getBranchSHA(ctx, c) }
 
 // ==================== Converters ====================
 
@@ -467,31 +512,6 @@ func mapReviewError(err error) error {
 	default:
 		return err
 	}
-}
-
-func fillAuthorInfo(ctx context.Context, req *domain.Request) {
-	if req.Author != "" {
-		return
-	}
-	prID := stringx.TakeOne(req.PullRequestID, req.MergeRequestIID)
-	if prID == "" || handlerInst.gitMgr == nil || !handlerInst.gitMgr.HasProvider(req.Provider) {
-		return
-	}
-	owner, repo, err := provider.ParseRepoPath(req.Repo)
-	if err != nil {
-		return
-	}
-	cr, err := handlerInst.gitMgr.GetCR(ctx, req.Provider, owner, repo, prID)
-	if err != nil {
-		logx.CtxWarnf(ctx, "fillAuthorInfo: failed to get CR for %s/%s #%s: %v", owner, repo, prID, err)
-		return
-	}
-	if cr == nil || cr.Author == nil {
-		return
-	}
-	req.Author = cr.Author.Username
-	req.AuthorName = stringx.TakeOne(cr.Author.Name, cr.Author.Username)
-	req.AuthorAvatar = cr.Author.AvatarURL
 }
 
 func toServiceRequest(req *modelReview.CreateReviewReq) domain.Request {

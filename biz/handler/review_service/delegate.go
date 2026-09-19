@@ -52,7 +52,7 @@ type DelegateRuleReq struct {
 //   - provider 不存在 → reviewError 映射
 //   - OCR < v1.7.11 或 Delegator 未注入 → 503-like 错误
 //   - clone 失败 / OCR 子进程失败 → 原始错误
-func DelegatePreviewHandler(ctx context.Context, c *app.RequestContext) {
+func (h *ReviewHandler) delegatePreviewHandler(ctx context.Context, c *app.RequestContext) {
 	var req DelegatePreviewReq
 	if err := c.BindAndValidate(&req); err != nil {
 		common.Fail(ctx, c, common.BadRequest(fmt.Sprintf("invalid request: %v", err)))
@@ -73,7 +73,7 @@ func DelegatePreviewHandler(ctx context.Context, c *app.RequestContext) {
 		exclude = strings.Split(e, ",")
 	}
 
-	result, err := handlerInst.reviewSvc.DelegatePreview(ctx, svcReq, exclude)
+	result, err := h.reviewSvc.DelegatePreview(ctx, svcReq, exclude)
 	if err != nil {
 		common.Fail(ctx, c, mapReviewError(err))
 		return
@@ -81,10 +81,15 @@ func DelegatePreviewHandler(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, result)
 }
 
+// DelegatePreviewHandler 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func DelegatePreviewHandler(ctx context.Context, c *app.RequestContext) {
+	handlerInst.delegatePreviewHandler(ctx, c)
+}
+
 // DelegateRuleHandler 处理 POST /api/v1/delegate/rule。
 //
 // 调用 OCR v1.7.11+ `ocr delegate rule <paths...>`，返回按内容分组的解析规则 markdown。
-func DelegateRuleHandler(ctx context.Context, c *app.RequestContext) {
+func (h *ReviewHandler) delegateRuleHandler(ctx context.Context, c *app.RequestContext) {
 	var req DelegateRuleReq
 	if err := c.BindAndValidate(&req); err != nil {
 		common.Fail(ctx, c, common.BadRequest(fmt.Sprintf("invalid request: %v", err)))
@@ -101,10 +106,15 @@ func DelegateRuleHandler(ctx context.Context, c *app.RequestContext) {
 		HeadSHA:         ptrx.Deref(req.HeadSHA, ""),
 	}
 
-	result, err := handlerInst.reviewSvc.DelegateRule(ctx, svcReq, req.Paths)
+	result, err := h.reviewSvc.DelegateRule(ctx, svcReq, req.Paths)
 	if err != nil {
 		common.Fail(ctx, c, mapReviewError(err))
 		return
 	}
 	common.Success(c, result)
+}
+
+// DelegateRuleHandler 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func DelegateRuleHandler(ctx context.Context, c *app.RequestContext) {
+	handlerInst.delegateRuleHandler(ctx, c)
 }

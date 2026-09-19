@@ -33,35 +33,35 @@ func TestPostArgusGateStatusModes(t *testing.T) {
 		wantPrefix bool
 	}{
 		{
-			name: "weak (auto default) request_changes stays success with prefix",
+			name:      "weak (auto default) request_changes stays success with prefix",
 			gateMode:  "",
 			status:    statusSuccess,
 			gate:      requestChangesGate,
 			wantState: statuscheck.StateSuccess, wantPrefix: true,
 		},
 		{
-			name: "weak execution error stays success with prefix",
+			name:      "weak execution error stays success with prefix",
 			gateMode:  domain.GateModeWeak,
 			status:    statusFailed,
 			gate:      errorGate,
 			wantState: statuscheck.StateSuccess, wantPrefix: true,
 		},
 		{
-			name: "strong request_changes fails the gate",
+			name:      "strong request_changes fails the gate",
 			gateMode:  domain.GateModeStrong,
 			status:    statusSuccess,
 			gate:      requestChangesGate,
 			wantState: statuscheck.StateFailed, wantPrefix: false,
 		},
 		{
-			name: "strong execution error posts error state",
+			name:      "strong execution error posts error state",
 			gateMode:  domain.GateModeStrong,
 			status:    statusFailed,
 			gate:      errorGate,
 			wantState: statuscheck.StateError, wantPrefix: false,
 		},
 		{
-			name: "strong passed stays success without prefix",
+			name:      "strong passed stays success without prefix",
 			gateMode:  domain.GateModeStrong,
 			status:    statusSuccess,
 			gate:      passedGate,

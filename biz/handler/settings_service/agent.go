@@ -14,8 +14,8 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
-func ListReviewerAgents(ctx context.Context, c *app.RequestContext) {
-	agents, err := handlerInst.agentRepo.List(ctx)
+func (h *SettingsHandler) listReviewerAgents(ctx context.Context, c *app.RequestContext) {
+	agents, err := h.agentRepo.List(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -26,7 +26,12 @@ func ListReviewerAgents(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelSettings.ListReviewerAgentsResp{Agents: items})
 }
 
-func CreateReviewerAgent(ctx context.Context, c *app.RequestContext) {
+// ListReviewerAgents 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func ListReviewerAgents(ctx context.Context, c *app.RequestContext) {
+	handlerInst.listReviewerAgents(ctx, c)
+}
+
+func (h *SettingsHandler) createReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.CreateReviewerAgentReq](c)
 	if !ok {
 		return
@@ -60,14 +65,19 @@ func CreateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 		}
 		agent.RulePackageIDs = json.RawMessage(mustMarshalJSON(ids))
 	}
-	if err := handlerInst.agentRepo.Create(ctx, agent); err != nil {
+	if err := h.agentRepo.Create(ctx, agent); err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, &modelSettings.CreateReviewerAgentResp{Agent: dbReviewerAgentToAPI(agent)})
 }
 
-func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
+// CreateReviewerAgent 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func CreateReviewerAgent(ctx context.Context, c *app.RequestContext) {
+	handlerInst.createReviewerAgent(ctx, c)
+}
+
+func (h *SettingsHandler) updateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.UpdateReviewerAgentReq](c)
 	if !ok {
 		return
@@ -77,7 +87,7 @@ func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 		common.Fail(ctx, c, common.BadRequest("invalid agent id"))
 		return
 	}
-	existing, err := handlerInst.agentRepo.GetByID(ctx, id)
+	existing, err := h.agentRepo.GetByID(ctx, id)
 	if err != nil {
 		common.Fail(ctx, c, common.NotFound("agent not found"))
 		return
@@ -117,14 +127,19 @@ func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 		}
 		existing.RulePackageIDs = json.RawMessage(mustMarshalJSON(ids))
 	}
-	if err := handlerInst.agentRepo.Update(ctx, existing); err != nil {
+	if err := h.agentRepo.Update(ctx, existing); err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, &modelSettings.UpdateReviewerAgentResp{Agent: dbReviewerAgentToAPI(existing)})
 }
 
-func DeleteReviewerAgent(ctx context.Context, c *app.RequestContext) {
+// UpdateReviewerAgent 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
+	handlerInst.updateReviewerAgent(ctx, c)
+}
+
+func (h *SettingsHandler) deleteReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.DeleteReviewerAgentReq](c)
 	if !ok {
 		return
@@ -134,11 +149,16 @@ func DeleteReviewerAgent(ctx context.Context, c *app.RequestContext) {
 		common.Fail(ctx, c, common.BadRequest("invalid agent id"))
 		return
 	}
-	if err := handlerInst.agentRepo.Delete(ctx, id); err != nil {
+	if err := h.agentRepo.Delete(ctx, id); err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, &modelSettings.DeleteReviewerAgentResp{})
+}
+
+// DeleteReviewerAgent 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func DeleteReviewerAgent(ctx context.Context, c *app.RequestContext) {
+	handlerInst.deleteReviewerAgent(ctx, c)
 }
 
 func dbReviewerAgentToAPI(a *reviewer.Agent) *modelSettings.ReviewerAgentInfo {

@@ -41,8 +41,8 @@ type createTokenReq struct {
 
 // CreateToken 创建一个具名 API Token，返回明文 token（仅此一次）。
 // 明文 token 格式：rs_<32 hex>，DB 只存 SHA256 哈希。
-func CreateToken(ctx context.Context, c *app.RequestContext) {
-	if handlerInst == nil {
+func (h *Handler) createToken(ctx context.Context, c *app.RequestContext) {
+	if h == nil {
 		common.Fail(ctx, c, common.BizErr(500, "auth handler not initialized"))
 		return
 	}
@@ -71,7 +71,7 @@ func CreateToken(ctx context.Context, c *app.RequestContext) {
 		Scopes:    req.Scopes,
 		CreatedBy: req.CreatedBy,
 	}
-	if err := handlerInst.repo.CreateToken(ctx, t); err != nil {
+	if err := h.repo.CreateToken(ctx, t); err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
@@ -86,12 +86,15 @@ func CreateToken(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func ListTokens(ctx context.Context, c *app.RequestContext) {
-	if handlerInst == nil {
+// CreateToken 包级入口（biz/router 生成代码引用）；一行委托到方法，便于测试直接构造 Handler。
+func CreateToken(ctx context.Context, c *app.RequestContext) { handlerInst.createToken(ctx, c) }
+
+func (h *Handler) listTokens(ctx context.Context, c *app.RequestContext) {
+	if h == nil {
 		common.Fail(ctx, c, common.BizErr(500, "auth handler not initialized"))
 		return
 	}
-	tokens, err := handlerInst.repo.ListTokens(ctx)
+	tokens, err := h.repo.ListTokens(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -100,8 +103,11 @@ func ListTokens(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, map[string]any{"items": tokens})
 }
 
-func DeleteToken(ctx context.Context, c *app.RequestContext) {
-	if handlerInst == nil {
+// ListTokens 包级入口（biz/router 生成代码引用）；一行委托到方法，便于测试直接构造 Handler。
+func ListTokens(ctx context.Context, c *app.RequestContext) { handlerInst.listTokens(ctx, c) }
+
+func (h *Handler) deleteToken(ctx context.Context, c *app.RequestContext) {
+	if h == nil {
 		common.Fail(ctx, c, common.BizErr(500, "auth handler not initialized"))
 		return
 	}
@@ -111,27 +117,33 @@ func DeleteToken(ctx context.Context, c *app.RequestContext) {
 		common.Fail(ctx, c, common.BadRequest("invalid token id"))
 		return
 	}
-	if err := handlerInst.repo.DeleteToken(ctx, uint(id)); err != nil {
+	if err := h.repo.DeleteToken(ctx, uint(id)); err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"ok": true})
 }
 
-func ListAudit(ctx context.Context, c *app.RequestContext) {
-	if handlerInst == nil {
+// DeleteToken 包级入口（biz/router 生成代码引用）；一行委托到方法，便于测试直接构造 Handler。
+func DeleteToken(ctx context.Context, c *app.RequestContext) { handlerInst.deleteToken(ctx, c) }
+
+func (h *Handler) listAudit(ctx context.Context, c *app.RequestContext) {
+	if h == nil {
 		common.Fail(ctx, c, common.BizErr(500, "auth handler not initialized"))
 		return
 	}
 	limit := convert.Str2Int(string(c.QueryArgs().Peek("limit")), 0)
 	offset := convert.Str2Int(string(c.QueryArgs().Peek("offset")), 0)
-	entries, total, err := handlerInst.repo.ListAudit(ctx, limit, offset)
+	entries, total, err := h.repo.ListAudit(ctx, limit, offset)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"items": entries, "total": total})
 }
+
+// ListAudit 包级入口（biz/router 生成代码引用）；一行委托到方法，便于测试直接构造 Handler。
+func ListAudit(ctx context.Context, c *app.RequestContext) { handlerInst.listAudit(ctx, c) }
 
 func hashToken(token string) string {
 	h := sha256.Sum256([]byte(token))

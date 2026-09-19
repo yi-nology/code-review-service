@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	wbitem "github.com/yi-nology/code-review-service/internal/domain/writeback"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-	"github.com/yi-nology/code-review-service/internal/service/types"
 
 	"github.com/oekit/logx"
 )

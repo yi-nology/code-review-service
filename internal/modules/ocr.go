@@ -11,13 +11,13 @@ import (
 )
 
 // OCRModule 提供所有 open-code-review 能力。
-//
-// 阶段 A15：完全改用 ocrcore.*（替代 svocr.* + runner.OpenCodeReviewConfig）。
 var OCRModule = fx.Options(
 	// 单一入口
 	fx.Provide(NewOCRRegistry),
 
-	// 旧 7 个 fx.Provide 阶段 A15 末尾删除
+	// 各 manager 由 fx 各构造一次，NewOCRRegistry 通过参数注入同一批实例——
+	// 不要在 NewOCRRegistry 里再调用这些构造函数，否则会出现两份实例
+	//（曾导致 RegisterViewerShutdown 停掉的 Viewer 不是 HTTP 代理在用的那个）。
 	fx.Provide(NewConfigResolver),
 	fx.Provide(NewOCRTester),
 	fx.Provide(NewOCRProviderLister),
@@ -25,6 +25,7 @@ var OCRModule = fx.Options(
 	fx.Provide(NewOCRVersioner),
 	fx.Provide(NewOCRViewerManager),
 	fx.Provide(NewOCRUpgrader),
+	fx.Provide(NewOCRSessionLister),
 
 	// 服务关闭时回收 viewer 子进程，避免孤儿进程残留。
 	fx.Invoke(RegisterViewerShutdown),
@@ -33,29 +34,34 @@ var OCRModule = fx.Options(
 )
 
 // NewOCRRegistry 构造 *ocrcore.Registry 单一入口。
+//
+// Runner 的 resolver 注入由 NewOpenCodeReviewRunner 负责（那里已调 WithResolver），
+// 这里不要重复调用——每次 WithResolver 都会新起刷新 goroutine 并立即读一次 DB。
 func NewOCRRegistry(
 	repos *repository.RepoContainer,
 	llmProvider *ocrcore.MetricsProvider,
 	ocrRunner *ocrcore.Runner,
 	resolver *ocrcore.ConfigResolver,
+	tester *ocrcore.Tester,
+	lister *ocrcore.ProviderLister,
+	checker *ocrcore.RulesChecker,
 	versioner *ocrcore.Versioner,
+	viewer *ocrcore.Viewer,
+	upgrader *ocrcore.Upgrader,
+	sessions *ocrcore.SessionLister,
 ) *ocrcore.Registry {
-	// 让 Runner 能在每次执行时从 DB 动态解析最新配置（binary/language/concurrency 等），
-	// 而非使用启动时的固定 fallback config。
-	ocrRunner.WithResolver(resolver)
-
 	fallbackConfig := ocrcore.Defaults().ToConfig()
 	return ocrcore.New(
 		repos,
 		fallbackConfig,
 		resolver,
-		NewOCRTester(repos, resolver),
-		NewOCRProviderLister(repos, resolver),
-		NewOCRRulesChecker(repos, resolver),
+		tester,
+		lister,
+		checker,
 		versioner,
-		NewOCRViewerManager(repos, resolver),
-		NewOCRUpgrader(repos, resolver, versioner),
-		NewOCRSessionLister(repos, resolver),
+		viewer,
+		upgrader,
+		sessions,
 		llmProvider,
 	).WithRunner(ocrRunner, ocrRunner, ocrRunner)
 }

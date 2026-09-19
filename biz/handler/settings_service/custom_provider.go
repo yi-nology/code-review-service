@@ -14,11 +14,11 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
-func ListCustomProviders(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.customProvider, "自定义 Provider") {
+func (h *SettingsHandler) listCustomProviders(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, h.customProvider, "自定义 Provider") {
 		return
 	}
-	providers, err := handlerInst.customProvider.List(ctx)
+	providers, err := h.customProvider.List(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -30,7 +30,12 @@ func ListCustomProviders(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelSettings.ListCustomProvidersResp{Items: items})
 }
 
-func CreateCustomProvider(ctx context.Context, c *app.RequestContext) {
+// ListCustomProviders 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func ListCustomProviders(ctx context.Context, c *app.RequestContext) {
+	handlerInst.listCustomProviders(ctx, c)
+}
+
+func (h *SettingsHandler) createCustomProvider(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.CreateCustomProviderReq](c)
 	if !ok {
 		return
@@ -52,19 +57,24 @@ func CreateCustomProvider(ctx context.Context, c *app.RequestContext) {
 	if req.ExtraBody != nil && *req.ExtraBody != "" {
 		p.ExtraBody = json.RawMessage(*req.ExtraBody)
 	}
-	if err := handlerInst.customProvider.Create(ctx, p); err != nil {
+	if err := h.customProvider.Create(ctx, p); err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, &modelSettings.CreateCustomProviderResp{Provider: dbCustomProviderToAPI(p)})
 }
 
-func UpdateCustomProvider(ctx context.Context, c *app.RequestContext) {
+// CreateCustomProvider 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func CreateCustomProvider(ctx context.Context, c *app.RequestContext) {
+	handlerInst.createCustomProvider(ctx, c)
+}
+
+func (h *SettingsHandler) updateCustomProvider(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.UpdateCustomProviderReq](c)
 	if !ok {
 		return
 	}
-	existing, err := handlerInst.customProvider.GetByID(ctx, common.SafeUint(req.ID))
+	existing, err := h.customProvider.GetByID(ctx, common.SafeUint(req.ID))
 	if err != nil || existing == nil {
 		common.Fail(ctx, c, common.BadRequest("Provider 不存在"))
 		return
@@ -93,23 +103,33 @@ func UpdateCustomProvider(ctx context.Context, c *app.RequestContext) {
 	if req.Enabled != nil {
 		existing.Enabled = *req.Enabled
 	}
-	if err := handlerInst.customProvider.Update(ctx, existing); err != nil {
+	if err := h.customProvider.Update(ctx, existing); err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, &modelSettings.UpdateCustomProviderResp{Provider: dbCustomProviderToAPI(existing)})
 }
 
-func DeleteCustomProvider(ctx context.Context, c *app.RequestContext) {
+// UpdateCustomProvider 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func UpdateCustomProvider(ctx context.Context, c *app.RequestContext) {
+	handlerInst.updateCustomProvider(ctx, c)
+}
+
+func (h *SettingsHandler) deleteCustomProvider(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.DeleteCustomProviderReq](c)
 	if !ok {
 		return
 	}
-	if err := handlerInst.customProvider.Delete(ctx, common.SafeUint(req.ID)); err != nil {
+	if err := h.customProvider.Delete(ctx, common.SafeUint(req.ID)); err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, &modelSettings.DeleteCustomProviderResp{})
+}
+
+// DeleteCustomProvider 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func DeleteCustomProvider(ctx context.Context, c *app.RequestContext) {
+	handlerInst.deleteCustomProvider(ctx, c)
 }
 
 func dbCustomProviderToAPI(p *llmprovider.Custom) *modelSettings.CustomProvider {

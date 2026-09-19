@@ -3,8 +3,9 @@ package repository
 import (
 	"context"
 
+	"github.com/yi-nology/code-review-service/internal/domain/page"
+
 	"github.com/yi-nology/code-review-service/internal/domain/session"
-	ekitGorm "github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 )
 
 // SessionRepository 定义了 session 仓储的所有操作（#6：已迁移为 domain 类型）。
@@ -38,7 +39,7 @@ type SessionWriter interface {
 
 // SessionQuery 定义了查询操作
 type SessionQuery interface {
-	List(ctx context.Context, page, pageSize int) (*ekitGorm.PageResponse[session.Session], error)
+	List(ctx context.Context, page, pageSize int) (*page.Page[session.Session], error)
 }
 
 // SessionCanceller 定义了取消操作（最小接口）

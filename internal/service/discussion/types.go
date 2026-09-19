@@ -3,7 +3,7 @@ package discussion
 import (
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/service/types"
+	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 )
 
 type responseType string

@@ -15,18 +15,42 @@ import (
 // OCRRunnerFactory 阶段 A15 part 5：完全迁入 ocr 包。
 // 原 agent.OCRRunnerFactory 的 baseConfig 类型从 runner.OpenCodeReviewConfig
 // 改为 ocr.Config。
+//
+// baseConfig 与 resolver 二选一：
+//   - NewOCRRunnerFactory：固定 Config（启动快照，测试/最小装配用）；
+//   - NewResolvingOCRRunnerFactory：每次 CreateRunner 时经 ConfigResolver 从 DB
+//     解析最新配置——与主 Runner 的热更新行为一致。此前 modules/agent.go 手工
+//     拼了一份启动快照，DB 配置变更后 agent runner 永远看不到。
 type OCRRunnerFactory struct {
 	baseConfig ocr.Config
+	resolver   *ocr.ConfigResolver
 }
 
 func NewOCRRunnerFactory(baseConfig ocr.Config) *OCRRunnerFactory {
 	return &OCRRunnerFactory{baseConfig: baseConfig}
 }
 
+// NewResolvingOCRRunnerFactory 构造走 ConfigResolver 热更新配置的工厂。
+func NewResolvingOCRRunnerFactory(resolver *ocr.ConfigResolver) *OCRRunnerFactory {
+	return &OCRRunnerFactory{resolver: resolver}
+}
+
+// currentBaseConfig 返回本次建 runner 应用的基础配置。
+func (f *OCRRunnerFactory) currentBaseConfig() ocr.Config {
+	if f.resolver != nil {
+		if cfg, err := f.resolver.Resolve(context.Background(), ocr.OCROverrides{}); err == nil && cfg.Binary != "" {
+			return cfg
+		}
+		// Resolve 失败时退回上次成功配置或零值（OCR 会因 Binary 为空快速失败并进入重试），
+		// 与主 Runner refreshNow 的容错语义一致。
+	}
+	return f.baseConfig
+}
+
 // CreateRunner 按 persona 的 background 与 rule 内容创建独立 runner。
 // ruleContent 为 rule JSON 内容（按 glob 文件模式），将落盘后透传给 OCR 的 --rule。
 func (f *OCRRunnerFactory) CreateRunner(background, ruleContent string) reviewRunner {
-	config := f.baseConfig
+	config := f.currentBaseConfig()
 	config.Background = background
 	if strings.TrimSpace(ruleContent) != "" {
 		if path, err := writeRuleFile(ruleContent); err == nil {

@@ -18,7 +18,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
-func RulesCheck(ctx context.Context, c *app.RequestContext) {
+func (h *SettingsHandler) rulesCheck(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.RulesCheckReq](c)
 	if !ok {
 		return
@@ -27,10 +27,10 @@ func RulesCheck(ctx context.Context, c *app.RequestContext) {
 		common.Fail(ctx, c, common.BadRequest("文件路径不能为空"))
 		return
 	}
-	if !common.FeatureGuard(c, handlerInst.ocr.Checker(), "规则检查") {
+	if !common.FeatureGuard(c, h.ocr.Checker(), "规则检查") {
 		return
 	}
-	result, err := handlerInst.ocr.Checker().RulesCheck(ctx, req.Path)
+	result, err := h.ocr.Checker().RulesCheck(ctx, req.Path)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -45,11 +45,14 @@ func RulesCheck(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelSettings.RulesCheckResp{Result: resp})
 }
 
-func OCRVersion(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.ocr.Versioner(), "OCR 版本查询") {
+// RulesCheck 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func RulesCheck(ctx context.Context, c *app.RequestContext) { handlerInst.rulesCheck(ctx, c) }
+
+func (h *SettingsHandler) oCRVersion(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, h.ocr.Versioner(), "OCR 版本查询") {
 		return
 	}
-	result, err := handlerInst.ocr.Versioner().OCRVersion(ctx)
+	result, err := h.ocr.Versioner().OCRVersion(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -67,11 +70,14 @@ func OCRVersion(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, resp)
 }
 
-func ViewerStatus(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.ocr.Viewer(), "Viewer") {
+// OCRVersion 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func OCRVersion(ctx context.Context, c *app.RequestContext) { handlerInst.oCRVersion(ctx, c) }
+
+func (h *SettingsHandler) viewerStatus(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, h.ocr.Viewer(), "Viewer") {
 		return
 	}
-	result, err := handlerInst.ocr.Viewer().ViewerStatus(ctx)
+	result, err := h.ocr.Viewer().ViewerStatus(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -86,16 +92,19 @@ func ViewerStatus(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, resp)
 }
 
-func StartViewer(ctx context.Context, c *app.RequestContext) {
+// ViewerStatus 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func ViewerStatus(ctx context.Context, c *app.RequestContext) { handlerInst.viewerStatus(ctx, c) }
+
+func (h *SettingsHandler) startViewer(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.StartViewerReq](c)
 	if !ok {
 		return
 	}
-	if !common.FeatureGuard(c, handlerInst.ocr.Viewer(), "Viewer") {
+	if !common.FeatureGuard(c, h.ocr.Viewer(), "Viewer") {
 		return
 	}
 	addr := ptrx.Deref(req.Addr, "")
-	result, err := handlerInst.ocr.Viewer().StartViewer(ctx, addr)
+	result, err := h.ocr.Viewer().StartViewer(ctx, addr)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -110,11 +119,14 @@ func StartViewer(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, resp)
 }
 
-func StopViewer(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.ocr.Viewer(), "Viewer") {
+// StartViewer 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func StartViewer(ctx context.Context, c *app.RequestContext) { handlerInst.startViewer(ctx, c) }
+
+func (h *SettingsHandler) stopViewer(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, h.ocr.Viewer(), "Viewer") {
 		return
 	}
-	result, err := handlerInst.ocr.Viewer().StopViewer(ctx)
+	result, err := h.ocr.Viewer().StopViewer(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -129,7 +141,10 @@ func StopViewer(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, resp)
 }
 
-func LocateViewerSession(ctx context.Context, c *app.RequestContext) {
+// StopViewer 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func StopViewer(ctx context.Context, c *app.RequestContext) { handlerInst.stopViewer(ctx, c) }
+
+func (h *SettingsHandler) locateViewerSession(ctx context.Context, c *app.RequestContext) {
 	var req struct {
 		WorkspaceDir string `json:"workspace_dir"`
 		StartedAt    string `json:"started_at"`
@@ -153,11 +168,16 @@ func LocateViewerSession(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, location)
 }
 
-func ListLLMProviders(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.ocr.Lister(), "LLM Provider 列表") {
+// LocateViewerSession 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func LocateViewerSession(ctx context.Context, c *app.RequestContext) {
+	handlerInst.locateViewerSession(ctx, c)
+}
+
+func (h *SettingsHandler) listLLMProviders(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, h.ocr.Lister(), "LLM Provider 列表") {
 		return
 	}
-	providers, err := handlerInst.ocr.Lister().ListLLMProviders(ctx)
+	providers, err := h.ocr.Lister().ListLLMProviders(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -176,18 +196,26 @@ func ListLLMProviders(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelSettings.ListLLMProvidersResp{BuiltIn: items})
 }
 
+// ListLLMProviders 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func ListLLMProviders(ctx context.Context, c *app.RequestContext) {
+	handlerInst.listLLMProviders(ctx, c)
+}
+
 // ListOCRSessions 返回 OCR review session 历史列表。
-func ListOCRSessions(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.ocr.SessionLister(), "OCR Session 列表") {
+func (h *SettingsHandler) listOCRSessions(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, h.ocr.SessionLister(), "OCR Session 列表") {
 		return
 	}
-	result, err := handlerInst.ocr.SessionLister().ListOCRSessions(ctx)
+	result, err := h.ocr.SessionLister().ListOCRSessions(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, result)
 }
+
+// ListOCRSessions 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func ListOCRSessions(ctx context.Context, c *app.RequestContext) { handlerInst.listOCRSessions(ctx, c) }
 
 type viewerSessionLocation struct {
 	RepoSlug  string `json:"repo_slug"`

@@ -11,11 +11,11 @@ import (
 )
 
 // CheckOCRUpdate 检查 ocr 二进制是否有新版本。
-func CheckOCRUpdate(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.ocr.Upgrader(), "OCR 升级") {
+func (h *SettingsHandler) checkOCRUpdate(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, h.ocr.Upgrader(), "OCR 升级") {
 		return
 	}
-	info, err := handlerInst.ocr.Upgrader().CheckUpdate(ctx)
+	info, err := h.ocr.Upgrader().CheckUpdate(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -34,9 +34,12 @@ func CheckOCRUpdate(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, resp)
 }
 
+// CheckOCRUpdate 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func CheckOCRUpdate(ctx context.Context, c *app.RequestContext) { handlerInst.checkOCRUpdate(ctx, c) }
+
 // StartOCRUpgrade 触发 ocr 二进制在线升级（异步）。
-func StartOCRUpgrade(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.ocr.Upgrader(), "OCR 升级") {
+func (h *SettingsHandler) startOCRUpgrade(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, h.ocr.Upgrader(), "OCR 升级") {
 		return
 	}
 	req, ok := common.Bind[modelSettings.StartOCRUpgradeReq](c)
@@ -47,7 +50,7 @@ func StartOCRUpgrade(ctx context.Context, c *app.RequestContext) {
 	if req.Version != nil {
 		version = *req.Version
 	}
-	status, err := handlerInst.ocr.Upgrader().Upgrade(ctx, version)
+	status, err := h.ocr.Upgrader().Upgrade(ctx, version)
 	if err != nil {
 		if status != nil {
 			common.Fail(ctx, c, common.BizErr(409, err.Error()))
@@ -59,17 +62,25 @@ func StartOCRUpgrade(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, upgradeStatusToResp(status))
 }
 
+// StartOCRUpgrade 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func StartOCRUpgrade(ctx context.Context, c *app.RequestContext) { handlerInst.startOCRUpgrade(ctx, c) }
+
 // OCRUpgradeStatus 查询当前升级任务的状态。
-func OCRUpgradeStatus(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.ocr.Upgrader(), "OCR 升级") {
+func (h *SettingsHandler) oCRUpgradeStatus(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, h.ocr.Upgrader(), "OCR 升级") {
 		return
 	}
-	status, err := handlerInst.ocr.Upgrader().UpgradeStatus(ctx)
+	status, err := h.ocr.Upgrader().UpgradeStatus(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, upgradeStatusToResp(status))
+}
+
+// OCRUpgradeStatus 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func OCRUpgradeStatus(ctx context.Context, c *app.RequestContext) {
+	handlerInst.oCRUpgradeStatus(ctx, c)
 }
 
 func upgradeStatusToResp(s *domain.OCRUpgradeStatus) *modelSettings.OCRUpgradeStatusResp {

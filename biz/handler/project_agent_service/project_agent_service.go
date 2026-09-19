@@ -30,20 +30,20 @@ func InitHandler(
 	}
 }
 
-func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
+func (h *ProjectAgentHandler) getProjectAgents(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelProjectAgent.GetProjectAgentsReq](c)
 	if !ok {
 		return
 	}
 
-	projectAgents, err := handlerInst.projectAgentRepo.GetByProject(ctx, req.Provider, req.Repo)
+	projectAgents, err := h.projectAgentRepo.GetByProject(ctx, req.Provider, req.Repo)
 	if err != nil {
 		logx.Errorf("get project agents failed: %v", err)
 		common.Fail(ctx, c, err)
 		return
 	}
 
-	allAgents, err := handlerInst.reviewerAgentRepo.List(ctx)
+	allAgents, err := h.reviewerAgentRepo.List(ctx)
 	if err != nil {
 		logx.Errorf("get all agents failed: %v", err)
 		common.Fail(ctx, c, err)
@@ -82,13 +82,18 @@ func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
+// GetProjectAgents 包级入口（biz/router 生成代码引用）；一行委托到方法，便于测试直接构造 Handler。
+func GetProjectAgents(ctx context.Context, c *app.RequestContext) {
+	handlerInst.getProjectAgents(ctx, c)
+}
+
+func (h *ProjectAgentHandler) updateProjectAgent(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelProjectAgent.UpdateProjectAgentReq](c)
 	if !ok {
 		return
 	}
 
-	_, err := handlerInst.reviewerAgentRepo.GetByID(ctx, common.SafeUint(req.AgentID))
+	_, err := h.reviewerAgentRepo.GetByID(ctx, common.SafeUint(req.AgentID))
 	if err != nil {
 		common.Fail(ctx, c, common.NotFound("agent not found"))
 		return
@@ -102,7 +107,7 @@ func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
 		Priority: int(req.Priority),
 	}
 
-	if err := handlerInst.projectAgentRepo.Upsert(ctx, pa); err != nil {
+	if err := h.projectAgentRepo.Upsert(ctx, pa); err != nil {
 		logx.Errorf("upsert project agent failed: %v", err)
 		common.Fail(ctx, c, err)
 		return
@@ -113,13 +118,18 @@ func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
+// UpdateProjectAgent 包级入口（biz/router 生成代码引用）；一行委托到方法，便于测试直接构造 Handler。
+func UpdateProjectAgent(ctx context.Context, c *app.RequestContext) {
+	handlerInst.updateProjectAgent(ctx, c)
+}
+
+func (h *ProjectAgentHandler) batchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelProjectAgent.BatchUpdateProjectAgentsReq](c)
 	if !ok {
 		return
 	}
 
-	if err := handlerInst.projectAgentRepo.DeleteByProject(ctx, req.Provider, req.Repo); err != nil {
+	if err := h.projectAgentRepo.DeleteByProject(ctx, req.Provider, req.Repo); err != nil {
 		logx.Errorf("delete project agents failed: %v", err)
 		common.Fail(ctx, c, err)
 		return
@@ -133,7 +143,7 @@ func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
 			Enabled:  agentReq.Enabled,
 			Priority: int(agentReq.Priority),
 		}
-		if err := handlerInst.projectAgentRepo.Upsert(ctx, pa); err != nil {
+		if err := h.projectAgentRepo.Upsert(ctx, pa); err != nil {
 			logx.Errorf("upsert project agent failed: %v", err)
 		}
 	}
@@ -144,13 +154,18 @@ func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
+// BatchUpdateProjectAgents 包级入口（biz/router 生成代码引用）；一行委托到方法，便于测试直接构造 Handler。
+func BatchUpdateProjectAgents(ctx context.Context, c *app.RequestContext) {
+	handlerInst.batchUpdateProjectAgents(ctx, c)
+}
+
+func (h *ProjectAgentHandler) deleteProjectAgent(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelProjectAgent.DeleteProjectAgentReq](c)
 	if !ok {
 		return
 	}
 
-	if err := handlerInst.projectAgentRepo.Delete(ctx, req.Provider, req.Repo, common.SafeUint(req.AgentID)); err != nil {
+	if err := h.projectAgentRepo.Delete(ctx, req.Provider, req.Repo, common.SafeUint(req.AgentID)); err != nil {
 		logx.Errorf("delete project agent failed: %v", err)
 		common.Fail(ctx, c, err)
 		return
@@ -159,4 +174,9 @@ func DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelProjectAgent.DeleteProjectAgentResp{
 		Message: "project agent deleted",
 	})
+}
+
+// DeleteProjectAgent 包级入口（biz/router 生成代码引用）；一行委托到方法，便于测试直接构造 Handler。
+func DeleteProjectAgent(ctx context.Context, c *app.RequestContext) {
+	handlerInst.deleteProjectAgent(ctx, c)
 }

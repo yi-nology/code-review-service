@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/service/types"
+	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 )
 
 // reviewAgent defines the interface for review agents (internal only)

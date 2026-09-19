@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/page"
+
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelSession "github.com/yi-nology/code-review-service/biz/model/session"
 	dsession "github.com/yi-nology/code-review-service/internal/domain/session"
 
-	"github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 	"github.com/oekit/pkg/convert"
 	"github.com/oekit/pkg/ptrx"
 
@@ -33,7 +34,7 @@ type SessionService interface {
 	CompleteSession(ctx context.Context, sessionID string, finalReport dsession.FinalReportData) error
 	FailSession(ctx context.Context, sessionID string, reason string) error
 	CancelSession(ctx context.Context, sessionID string) error
-	ListSessions(ctx context.Context, page, pageSize int) (*gormx.PageResponse[dsession.Session], error)
+	ListSessions(ctx context.Context, pageNum, pageSize int) (*page.Page[dsession.Session], error)
 }
 
 type SessionHandler struct {
@@ -87,7 +88,7 @@ func toSessionInfo(s dsession.Session) sessionInfo {
 	return info
 }
 
-func ListSessions(ctx context.Context, c *app.RequestContext) {
+func (h *SessionHandler) listSessions(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSession.ListSessionsReq](c)
 	if !ok {
 		return
@@ -98,7 +99,7 @@ func ListSessions(ctx context.Context, c *app.RequestContext) {
 		convert.Int64ToStr(ptrx.Deref(req.PageSize, 0)),
 	)
 
-	result, err := handlerInst.sessionService.ListSessions(ctx, page, pageSize)
+	result, err := h.sessionService.ListSessions(ctx, page, pageSize)
 	if err != nil {
 		logx.Errorf("list sessions failed: %v", err)
 		common.Fail(ctx, c, err)
@@ -118,13 +119,16 @@ func ListSessions(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func GetSessions(ctx context.Context, c *app.RequestContext) {
+// ListSessions 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 SessionHandler。
+func ListSessions(ctx context.Context, c *app.RequestContext) { handlerInst.listSessions(ctx, c) }
+
+func (h *SessionHandler) getSessions(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSession.GetSessionsReq](c)
 	if !ok {
 		return
 	}
 
-	rawSessions, err := handlerInst.sessionService.GetSessionsByReview(ctx, req.ID)
+	rawSessions, err := h.sessionService.GetSessionsByReview(ctx, req.ID)
 	if err != nil {
 		logx.Errorf("get sessions failed: %v", err)
 		common.Fail(ctx, c, err)
@@ -139,20 +143,23 @@ func GetSessions(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func CreateSession(ctx context.Context, c *app.RequestContext) {
+// GetSessions 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 SessionHandler。
+func GetSessions(ctx context.Context, c *app.RequestContext) { handlerInst.getSessions(ctx, c) }
+
+func (h *SessionHandler) createSession(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSession.CreateSessionReq](c)
 	if !ok {
 		return
 	}
 
-	round, err := handlerInst.sessionService.GetNextRound(ctx, req.ID)
+	round, err := h.sessionService.GetNextRound(ctx, req.ID)
 	if err != nil {
 		logx.Errorf("get next round failed: %v", err)
 		common.Fail(ctx, c, err)
 		return
 	}
 
-	session, err := handlerInst.sessionService.CreateSession(ctx, req.ID, round)
+	session, err := h.sessionService.CreateSession(ctx, req.ID, round)
 	if err != nil {
 		logx.Errorf("create session failed: %v", err)
 		common.Fail(ctx, c, err)
@@ -162,13 +169,16 @@ func CreateSession(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, session)
 }
 
-func GetActiveSession(ctx context.Context, c *app.RequestContext) {
+// CreateSession 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 SessionHandler。
+func CreateSession(ctx context.Context, c *app.RequestContext) { handlerInst.createSession(ctx, c) }
+
+func (h *SessionHandler) getActiveSession(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSession.GetActiveSessionReq](c)
 	if !ok {
 		return
 	}
 
-	session, err := handlerInst.sessionService.GetActiveSession(ctx, req.ID)
+	session, err := h.sessionService.GetActiveSession(ctx, req.ID)
 	if err != nil {
 		logx.Errorf("get active session failed: %v", err)
 		common.Fail(ctx, c, err)
@@ -183,13 +193,18 @@ func GetActiveSession(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, session)
 }
 
-func GetSession(ctx context.Context, c *app.RequestContext) {
+// GetActiveSession 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 SessionHandler。
+func GetActiveSession(ctx context.Context, c *app.RequestContext) {
+	handlerInst.getActiveSession(ctx, c)
+}
+
+func (h *SessionHandler) getSession(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSession.GetSessionReq](c)
 	if !ok {
 		return
 	}
 
-	session, err := handlerInst.sessionService.GetSession(ctx, req.SessionID)
+	session, err := h.sessionService.GetSession(ctx, req.SessionID)
 	if err != nil {
 		logx.Errorf("get session failed: %v", err)
 		common.Fail(ctx, c, err)
@@ -199,14 +214,17 @@ func GetSession(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, session)
 }
 
-func UpdateSessionPhase(ctx context.Context, c *app.RequestContext) {
+// GetSession 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 SessionHandler。
+func GetSession(ctx context.Context, c *app.RequestContext) { handlerInst.getSession(ctx, c) }
+
+func (h *SessionHandler) updateSessionPhase(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSession.UpdateSessionPhaseReq](c)
 	if !ok {
 		return
 	}
 
 	progress := ptrx.Deref(req.Progress, 0)
-	if err := handlerInst.sessionService.UpdatePhase(ctx, req.SessionID, req.Phase, progress); err != nil {
+	if err := h.sessionService.UpdatePhase(ctx, req.SessionID, req.Phase, progress); err != nil {
 		logx.Errorf("update session phase failed: %v", err)
 		common.Fail(ctx, c, err)
 		return
@@ -217,13 +235,18 @@ func UpdateSessionPhase(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func UpdateSessionStatus(ctx context.Context, c *app.RequestContext) {
+// UpdateSessionPhase 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 SessionHandler。
+func UpdateSessionPhase(ctx context.Context, c *app.RequestContext) {
+	handlerInst.updateSessionPhase(ctx, c)
+}
+
+func (h *SessionHandler) updateSessionStatus(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSession.UpdateSessionStatusReq](c)
 	if !ok {
 		return
 	}
 
-	if err := handlerInst.sessionService.UpdateStatus(ctx, req.SessionID, req.Status); err != nil {
+	if err := h.sessionService.UpdateStatus(ctx, req.SessionID, req.Status); err != nil {
 		logx.Errorf("update session status failed: %v", err)
 		common.Fail(ctx, c, err)
 		return
@@ -234,7 +257,12 @@ func UpdateSessionStatus(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func UpdateSessionAgentResults(ctx context.Context, c *app.RequestContext) {
+// UpdateSessionStatus 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 SessionHandler。
+func UpdateSessionStatus(ctx context.Context, c *app.RequestContext) {
+	handlerInst.updateSessionStatus(ctx, c)
+}
+
+func (h *SessionHandler) updateSessionAgentResults(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSession.UpdateSessionAgentResultsReq](c)
 	if !ok {
 		return
@@ -246,7 +274,7 @@ func UpdateSessionAgentResults(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	if err := handlerInst.sessionService.UpdateAgentResults(ctx, req.SessionID, agentResults); err != nil {
+	if err := h.sessionService.UpdateAgentResults(ctx, req.SessionID, agentResults); err != nil {
 		logx.Errorf("update session agent results failed: %v", err)
 		common.Fail(ctx, c, err)
 		return
@@ -257,7 +285,12 @@ func UpdateSessionAgentResults(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func UpdateSessionDiscussion(ctx context.Context, c *app.RequestContext) {
+// UpdateSessionAgentResults 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 SessionHandler。
+func UpdateSessionAgentResults(ctx context.Context, c *app.RequestContext) {
+	handlerInst.updateSessionAgentResults(ctx, c)
+}
+
+func (h *SessionHandler) updateSessionDiscussion(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSession.UpdateSessionDiscussionReq](c)
 	if !ok {
 		return
@@ -269,7 +302,7 @@ func UpdateSessionDiscussion(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	if err := handlerInst.sessionService.UpdateDiscussion(ctx, req.SessionID, discussion); err != nil {
+	if err := h.sessionService.UpdateDiscussion(ctx, req.SessionID, discussion); err != nil {
 		logx.Errorf("update session discussion failed: %v", err)
 		common.Fail(ctx, c, err)
 		return
@@ -280,7 +313,12 @@ func UpdateSessionDiscussion(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func UpdateSessionFinalReport(ctx context.Context, c *app.RequestContext) {
+// UpdateSessionDiscussion 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 SessionHandler。
+func UpdateSessionDiscussion(ctx context.Context, c *app.RequestContext) {
+	handlerInst.updateSessionDiscussion(ctx, c)
+}
+
+func (h *SessionHandler) updateSessionFinalReport(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSession.UpdateSessionFinalReportReq](c)
 	if !ok {
 		return
@@ -292,7 +330,7 @@ func UpdateSessionFinalReport(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	if err := handlerInst.sessionService.UpdateFinalReport(ctx, req.SessionID, finalReport); err != nil {
+	if err := h.sessionService.UpdateFinalReport(ctx, req.SessionID, finalReport); err != nil {
 		logx.Errorf("update session final report failed: %v", err)
 		common.Fail(ctx, c, err)
 		return
@@ -303,7 +341,12 @@ func UpdateSessionFinalReport(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func CompleteSession(ctx context.Context, c *app.RequestContext) {
+// UpdateSessionFinalReport 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 SessionHandler。
+func UpdateSessionFinalReport(ctx context.Context, c *app.RequestContext) {
+	handlerInst.updateSessionFinalReport(ctx, c)
+}
+
+func (h *SessionHandler) completeSession(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSession.CompleteSessionReq](c)
 	if !ok {
 		return
@@ -315,7 +358,7 @@ func CompleteSession(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	if err := handlerInst.sessionService.CompleteSession(ctx, req.SessionID, finalReport); err != nil {
+	if err := h.sessionService.CompleteSession(ctx, req.SessionID, finalReport); err != nil {
 		logx.Errorf("complete session failed: %v", err)
 		common.Fail(ctx, c, err)
 		return
@@ -326,13 +369,16 @@ func CompleteSession(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func FailSession(ctx context.Context, c *app.RequestContext) {
+// CompleteSession 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 SessionHandler。
+func CompleteSession(ctx context.Context, c *app.RequestContext) { handlerInst.completeSession(ctx, c) }
+
+func (h *SessionHandler) failSession(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSession.FailSessionReq](c)
 	if !ok {
 		return
 	}
 
-	if err := handlerInst.sessionService.FailSession(ctx, req.SessionID, req.Reason); err != nil {
+	if err := h.sessionService.FailSession(ctx, req.SessionID, req.Reason); err != nil {
 		logx.Errorf("fail session failed: %v", err)
 		common.Fail(ctx, c, err)
 		return
@@ -343,13 +389,16 @@ func FailSession(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func CancelSession(ctx context.Context, c *app.RequestContext) {
+// FailSession 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 SessionHandler。
+func FailSession(ctx context.Context, c *app.RequestContext) { handlerInst.failSession(ctx, c) }
+
+func (h *SessionHandler) cancelSession(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSession.CancelSessionReq](c)
 	if !ok {
 		return
 	}
 
-	if err := handlerInst.sessionService.CancelSession(ctx, req.SessionID); err != nil {
+	if err := h.sessionService.CancelSession(ctx, req.SessionID); err != nil {
 		logx.Errorf("cancel session failed: %v", err)
 		common.Fail(ctx, c, err)
 		return
@@ -359,3 +408,6 @@ func CancelSession(ctx context.Context, c *app.RequestContext) {
 		Message: "session cancelled",
 	})
 }
+
+// CancelSession 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 SessionHandler。
+func CancelSession(ctx context.Context, c *app.RequestContext) { handlerInst.cancelSession(ctx, c) }

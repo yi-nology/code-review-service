@@ -9,18 +9,8 @@
 package ocr
 
 import (
-	"github.com/oklog/ulid/v2"
-
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
-
-// newID 生成 review 唯一 ID（ULID 格式，26 字符 Base32，80 bit 熵）。
-//
-// 阶段 A 完整化后此函数应改为接受 time.Time 参数，由调用方传入；
-// 当前为了简化直接使用 ulid.Make()。
-func newID() string {
-	return ulid.Make().String()
-}
 
 // 重新导出 domain 类型，方便 internal/ocr 包内部使用。
 type (

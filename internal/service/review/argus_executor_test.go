@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/yi-nology/code-review-service/internal/domain/page"
+
 	"github.com/yi-nology/code-review-service/internal/argusclient"
 	"github.com/yi-nology/code-review-service/internal/domain/argusingest"
 	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
@@ -14,8 +16,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-
-	ekitGorm "github.com/oekit/gormx"
 )
 
 // fakePolicyRepo 按需覆盖 GetByProviderRepo；其余方法嵌入接口零值（不会被走到）。
@@ -43,12 +43,12 @@ func (f *fakeReviewRepoForArgus) UpdateInTransaction(_ context.Context, reviewID
 	return fn(rec)
 }
 
-func (f *fakeReviewRepoForArgus) List(_ context.Context, opts domain.ListOptions) (*ekitGorm.PageResponse[domain.Record], error) {
+func (f *fakeReviewRepoForArgus) List(_ context.Context, opts domain.ListOptions) (*page.Page[domain.Record], error) {
 	items := make([]domain.Record, 0, len(f.saved))
 	for _, rec := range f.saved {
 		items = append(items, *rec)
 	}
-	return &ekitGorm.PageResponse[domain.Record]{Items: items}, nil
+	return &page.Page[domain.Record]{Items: items}, nil
 }
 
 func (f *fakeReviewRepoForArgus) GetByReviewID(_ context.Context, reviewID string) (*domain.Record, error) {

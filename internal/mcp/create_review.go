@@ -37,11 +37,11 @@ func createReviewTool() mcp.Tool {
 	return mcp.NewTool("create_review", opts...)
 }
 
-func RegisterCreateReview(s *Server, svc app.ReviewService) {
+func RegisterCreateReview(s *Server, svc app.ReviewCreator) {
 	s.AddTool(createReviewTool(), createReviewHandler(svc))
 }
 
-func createReviewHandler(svc app.ReviewService) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func createReviewHandler(svc app.ReviewCreator) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := req.GetArguments()
 

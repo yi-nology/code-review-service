@@ -52,15 +52,15 @@ type assetVersionDTO struct {
 	Snapshot  any       `json:"snapshot"`
 }
 
-func ListRulePackages(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.rulePackages, "规则包") {
+func (h *SettingsHandler) listRulePackages(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, h.rulePackages, "规则包") {
 		return
 	}
 	if err := ensureDefaultRulePackages(ctx); err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
-	items, err := handlerInst.rulePackages.List(ctx)
+	items, err := h.rulePackages.List(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -72,12 +72,27 @@ func ListRulePackages(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, map[string]any{"items": resp})
 }
 
-func UpsertRulePackage(ctx context.Context, c *app.RequestContext) {
+// ListRulePackages 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func ListRulePackages(ctx context.Context, c *app.RequestContext) {
+	handlerInst.listRulePackages(ctx, c)
+}
+
+func (h *SettingsHandler) upsertRulePackage(ctx context.Context, c *app.RequestContext) {
 	upsertRulePackage(ctx, c)
 }
 
-func UpdateRulePackage(ctx context.Context, c *app.RequestContext) {
+// UpsertRulePackage 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func UpsertRulePackage(ctx context.Context, c *app.RequestContext) {
+	handlerInst.upsertRulePackage(ctx, c)
+}
+
+func (h *SettingsHandler) updateRulePackage(ctx context.Context, c *app.RequestContext) {
 	upsertRulePackage(ctx, c)
+}
+
+// UpdateRulePackage 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func UpdateRulePackage(ctx context.Context, c *app.RequestContext) {
+	handlerInst.updateRulePackage(ctx, c)
 }
 
 func upsertRulePackage(ctx context.Context, c *app.RequestContext) {
@@ -106,13 +121,13 @@ func upsertRulePackage(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, map[string]any{"item": dbRulePackageToDTO(pkg)})
 }
 
-func DeleteRulePackage(ctx context.Context, c *app.RequestContext) {
+func (h *SettingsHandler) deleteRulePackage(ctx context.Context, c *app.RequestContext) {
 	id, err := common.ParseUintID(c.Param("id"))
 	if err != nil {
 		common.Fail(ctx, c, common.BadRequest("规则包 ID 无效"))
 		return
 	}
-	existing, err := handlerInst.rulePackages.GetByID(ctx, id)
+	existing, err := h.rulePackages.GetByID(ctx, id)
 	if err != nil {
 		common.Fail(ctx, c, common.BadRequest("规则包不存在"))
 		return
@@ -121,15 +136,20 @@ func DeleteRulePackage(ctx context.Context, c *app.RequestContext) {
 		common.Fail(ctx, c, common.BadRequest("内置规则包不能删除"))
 		return
 	}
-	if err := handlerInst.rulePackages.Delete(ctx, id); err != nil {
+	if err := h.rulePackages.Delete(ctx, id); err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{})
 }
 
-func ListRulePackageVersions(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.rulePackages, "规则包") {
+// DeleteRulePackage 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func DeleteRulePackage(ctx context.Context, c *app.RequestContext) {
+	handlerInst.deleteRulePackage(ctx, c)
+}
+
+func (h *SettingsHandler) listRulePackageVersions(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, h.rulePackages, "规则包") {
 		return
 	}
 	id, err := common.ParseUintID(c.Param("id"))
@@ -137,7 +157,7 @@ func ListRulePackageVersions(ctx context.Context, c *app.RequestContext) {
 		common.Fail(ctx, c, common.BadRequest("规则包 ID 无效"))
 		return
 	}
-	items, err := handlerInst.rulePackages.ListVersions(ctx, id)
+	items, err := h.rulePackages.ListVersions(ctx, id)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -151,8 +171,13 @@ func ListRulePackageVersions(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, map[string]any{"items": resp})
 }
 
-func RestoreRulePackageVersion(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.rulePackages, "规则包") {
+// ListRulePackageVersions 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func ListRulePackageVersions(ctx context.Context, c *app.RequestContext) {
+	handlerInst.listRulePackageVersions(ctx, c)
+}
+
+func (h *SettingsHandler) restoreRulePackageVersion(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, h.rulePackages, "规则包") {
 		return
 	}
 	id, err := common.ParseUintID(c.Param("id"))
@@ -165,7 +190,7 @@ func RestoreRulePackageVersion(ctx context.Context, c *app.RequestContext) {
 		common.Fail(ctx, c, common.BadRequest("版本号无效"))
 		return
 	}
-	pkg, err := handlerInst.rulePackages.RestoreVersion(ctx, id, version)
+	pkg, err := h.rulePackages.RestoreVersion(ctx, id, version)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -173,15 +198,20 @@ func RestoreRulePackageVersion(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, map[string]any{"item": dbRulePackageToDTO(pkg)})
 }
 
-func ListToolPackages(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.toolPackages, "工具包") {
+// RestoreRulePackageVersion 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func RestoreRulePackageVersion(ctx context.Context, c *app.RequestContext) {
+	handlerInst.restoreRulePackageVersion(ctx, c)
+}
+
+func (h *SettingsHandler) listToolPackages(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, h.toolPackages, "工具包") {
 		return
 	}
 	if err := ensureDefaultToolPackages(ctx); err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
-	items, err := handlerInst.toolPackages.List(ctx)
+	items, err := h.toolPackages.List(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -193,12 +223,27 @@ func ListToolPackages(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, map[string]any{"items": resp})
 }
 
-func UpsertToolPackage(ctx context.Context, c *app.RequestContext) {
+// ListToolPackages 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func ListToolPackages(ctx context.Context, c *app.RequestContext) {
+	handlerInst.listToolPackages(ctx, c)
+}
+
+func (h *SettingsHandler) upsertToolPackage(ctx context.Context, c *app.RequestContext) {
 	upsertToolPackage(ctx, c)
 }
 
-func UpdateToolPackage(ctx context.Context, c *app.RequestContext) {
+// UpsertToolPackage 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func UpsertToolPackage(ctx context.Context, c *app.RequestContext) {
+	handlerInst.upsertToolPackage(ctx, c)
+}
+
+func (h *SettingsHandler) updateToolPackage(ctx context.Context, c *app.RequestContext) {
 	upsertToolPackage(ctx, c)
+}
+
+// UpdateToolPackage 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func UpdateToolPackage(ctx context.Context, c *app.RequestContext) {
+	handlerInst.updateToolPackage(ctx, c)
 }
 
 func upsertToolPackage(ctx context.Context, c *app.RequestContext) {
@@ -227,13 +272,13 @@ func upsertToolPackage(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, map[string]any{"item": dbToolPackageToDTO(pkg)})
 }
 
-func DeleteToolPackage(ctx context.Context, c *app.RequestContext) {
+func (h *SettingsHandler) deleteToolPackage(ctx context.Context, c *app.RequestContext) {
 	id, err := common.ParseUintID(c.Param("id"))
 	if err != nil {
 		common.Fail(ctx, c, common.BadRequest("工具包 ID 无效"))
 		return
 	}
-	existing, err := handlerInst.toolPackages.GetByID(ctx, id)
+	existing, err := h.toolPackages.GetByID(ctx, id)
 	if err != nil {
 		common.Fail(ctx, c, common.BadRequest("工具包不存在"))
 		return
@@ -242,15 +287,20 @@ func DeleteToolPackage(ctx context.Context, c *app.RequestContext) {
 		common.Fail(ctx, c, common.BadRequest("内置工具包不能删除"))
 		return
 	}
-	if err := handlerInst.toolPackages.Delete(ctx, id); err != nil {
+	if err := h.toolPackages.Delete(ctx, id); err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{})
 }
 
-func ListToolPackageVersions(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.toolPackages, "工具包") {
+// DeleteToolPackage 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func DeleteToolPackage(ctx context.Context, c *app.RequestContext) {
+	handlerInst.deleteToolPackage(ctx, c)
+}
+
+func (h *SettingsHandler) listToolPackageVersions(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, h.toolPackages, "工具包") {
 		return
 	}
 	id, err := common.ParseUintID(c.Param("id"))
@@ -258,7 +308,7 @@ func ListToolPackageVersions(ctx context.Context, c *app.RequestContext) {
 		common.Fail(ctx, c, common.BadRequest("工具包 ID 无效"))
 		return
 	}
-	items, err := handlerInst.toolPackages.ListVersions(ctx, id)
+	items, err := h.toolPackages.ListVersions(ctx, id)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -272,8 +322,13 @@ func ListToolPackageVersions(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, map[string]any{"items": resp})
 }
 
-func RestoreToolPackageVersion(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.toolPackages, "工具包") {
+// ListToolPackageVersions 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func ListToolPackageVersions(ctx context.Context, c *app.RequestContext) {
+	handlerInst.listToolPackageVersions(ctx, c)
+}
+
+func (h *SettingsHandler) restoreToolPackageVersion(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, h.toolPackages, "工具包") {
 		return
 	}
 	id, err := common.ParseUintID(c.Param("id"))
@@ -286,7 +341,7 @@ func RestoreToolPackageVersion(ctx context.Context, c *app.RequestContext) {
 		common.Fail(ctx, c, common.BadRequest("版本号无效"))
 		return
 	}
-	pkg, err := handlerInst.toolPackages.RestoreVersion(ctx, id, version)
+	pkg, err := h.toolPackages.RestoreVersion(ctx, id, version)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -294,7 +349,12 @@ func RestoreToolPackageVersion(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, map[string]any{"item": dbToolPackageToDTO(pkg)})
 }
 
-func ValidateToolPackage(ctx context.Context, c *app.RequestContext) {
+// RestoreToolPackageVersion 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func RestoreToolPackageVersion(ctx context.Context, c *app.RequestContext) {
+	handlerInst.restoreToolPackageVersion(ctx, c)
+}
+
+func (h *SettingsHandler) validateToolPackage(ctx context.Context, c *app.RequestContext) {
 	var req struct {
 		Config json.RawMessage `json:"config"`
 		DryRun bool            `json:"dry_run"`
@@ -319,6 +379,11 @@ func ValidateToolPackage(ctx context.Context, c *app.RequestContext) {
 		resp["output"] = output
 	}
 	common.Success(c, resp)
+}
+
+// ValidateToolPackage 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func ValidateToolPackage(ctx context.Context, c *app.RequestContext) {
+	handlerInst.validateToolPackage(ctx, c)
 }
 
 func dtoToRulePackage(req rulePackageDTO) (*ocrasset.RulePackage, error) {

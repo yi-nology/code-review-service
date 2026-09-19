@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/strutil"
 )
 
 const systemPrompt = `你是一位资深代码审查专家。你的任务是对 OCR（Open Code Review）工具产出的代码审查结果进行二次综合判断。
@@ -39,25 +40,21 @@ func buildAnalysisPrompt(input AnalyzeInput, ocrResult domain.Result) string {
 		for i, f := range ocrResult.Findings {
 			b.WriteString(fmt.Sprintf("%d. **[%s]** `%s:%d` — %s\n", i+1, f.Severity, f.Path, f.Line, f.Title))
 			if f.Body != "" {
-				body := f.Body
-				if len(body) > 300 {
-					body = body[:300] + "..."
-				}
-				b.WriteString(fmt.Sprintf("   详情: %s\n", body))
+				b.WriteString(fmt.Sprintf("   详情: %s\n", strutil.Truncate(f.Body, 300)))
 			}
 			if f.ExistingCode != "" {
-				b.WriteString(fmt.Sprintf("   现有代码: `%s`\n", truncate(f.ExistingCode, 100)))
+				b.WriteString(fmt.Sprintf("   现有代码: `%s`\n", strutil.Truncate(f.ExistingCode, 100)))
 			}
 			if f.SuggestionCode != "" {
-				b.WriteString(fmt.Sprintf("   建议代码: `%s`\n", truncate(f.SuggestionCode, 100)))
+				b.WriteString(fmt.Sprintf("   建议代码: `%s`\n", strutil.Truncate(f.SuggestionCode, 100)))
 			}
 		}
 	}
 
 	b.WriteString("\n## 代码 Diff（前 3000 字符）\n\n")
 	diff := input.Diff
-	if len(diff) > 3000 {
-		diff = diff[:3000] + "\n... (diff 已截断)"
+	if r := []rune(diff); len(r) > 3000 {
+		diff = string(r[:3000]) + "\n... (diff 已截断)"
 	}
 	b.WriteString("```\n")
 	b.WriteString(diff)
@@ -84,13 +81,6 @@ func buildAnalysisPrompt(input AnalyzeInput, ocrResult domain.Result) string {
 }`)
 
 	return b.String()
-}
-
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
 }
 
 // FindingsToInput 从 domain.Result 和 workspace 构造 AnalyzeInput。

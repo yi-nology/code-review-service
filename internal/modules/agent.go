@@ -18,8 +18,18 @@ var AgentModule = fx.Options(
 	fx.Invoke(InitAgentManager),
 )
 
-func NewAgentManager() *agent.AgentManager {
-	return agent.NewAgentManager(agent.DefaultManagerConfig(), agent.NewDefaultAggregator(agent.DefaultAggregatorConfig()))
+// NewAgentManager 构造装配完整的 manager：runner 工厂（ConfigResolver 热更新）与
+// 项目解析器在 DI 期注入；仅「agent 名册加载 + 超时同步」仍由 InitAgentManager
+// 在后台完成（PR-21：不能阻塞 fx 启动）。
+func NewAgentManager(repos *repository.RepoContainer, resolver *ocr.ConfigResolver) *agent.AgentManager {
+	return agent.NewWiredAgentManager(
+		agent.DefaultManagerConfig(),
+		agent.NewDefaultAggregator(agent.DefaultAggregatorConfig()),
+		agent.ManagerDeps{
+			Factory:         agent.NewResolvingOCRRunnerFactory(resolver),
+			ProjectResolver: &projectAgentResolverAdapter{repo: repos.ProjectAgent},
+		},
+	)
 }
 
 // projectAgentResolverAdapter 把 ProjectAgentRepository 适配成 agent.ProjectAgentResolver。
@@ -47,7 +57,7 @@ func (a *projectAgentResolverAdapter) ResolveProjectAgents(ctx context.Context, 
 	return m, nil
 }
 
-func InitAgentManager(lc fx.Lifecycle, repos *repository.RepoContainer, agentMgr *agent.AgentManager) {
+func InitAgentManager(lc fx.Lifecycle, repos *repository.RepoContainer, resolver *ocr.ConfigResolver, agentMgr *agent.AgentManager) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			// PR-21 修复：原 OnStart 同步执行 OCRSettings.Get + ReviewerAgent.ListEnabled，
@@ -66,77 +76,31 @@ func InitAgentManager(lc fx.Lifecycle, repos *repository.RepoContainer, agentMgr
 	})
 }
 
-// syncAgentManager 是从原 OnStart 拆出的同步加载逻辑，被 async.GoSafe 调用。
+// syncAgentManager 后台完成启动期才需要的收尾：超时同步与 agent 名册加载。
 // 失败只 logx.Warn，不影响启动。
 func syncAgentManager(ctx context.Context, repos *repository.RepoContainer, agentMgr *agent.AgentManager) {
-	var reasoningExtraBody string
-	ocrTimeoutMinutes := 30
-	ocrConcurrency := 2
-	ocrMaxGitProcs := 4
-	ocrDefaultSeverity := "major"
-	ocrBinary := "ocr"
-	llmURL, llmModel, llmAuthToken, llmAuthHeader, llmLanguage := "", "", "", "", ""
-	if ocrSettings, err := repos.OCRSettings.Get(ctx); err == nil && ocrSettings != nil {
-		mode := ocrSettings.ReasoningMode
-		if mode == "" {
-			mode = "light"
-		}
-		reasoningExtraBody = ocr.ResolveExtraBody(string(ocrSettings.ExtraBody), mode, ocrSettings.ReasoningBudget, ocrSettings.Provider)
-		if ocrSettings.TimeoutMinutes > 0 {
-			ocrTimeoutMinutes = ocrSettings.TimeoutMinutes
-		}
-		if ocrSettings.Concurrency > 0 {
-			ocrConcurrency = ocrSettings.Concurrency
-		}
-		if ocrSettings.MaxGitProcs > 0 {
-			ocrMaxGitProcs = ocrSettings.MaxGitProcs
-		}
-		if ocrSettings.DefaultSeverity != "" {
-			ocrDefaultSeverity = ocrSettings.DefaultSeverity
-		}
-		if ocrSettings.Binary != "" {
-			ocrBinary = ocrSettings.Binary
-		}
-		llmURL = ocrSettings.URL
-		llmModel = ocrSettings.ModelName
-		llmAuthToken = ocrSettings.AuthToken
-		llmAuthHeader = ocrSettings.AuthHeader
-		llmLanguage = ocrSettings.Language
+	// 超时推导需要当前的 TimeoutMinutes；agent/总超时是 manager 状态，
+	// 无需跟 runner 配置一起热更新（评审执行中不变），启动读一次即可。
+	if ocrSettings, err := repos.OCRSettings.Get(ctx); err == nil && ocrSettings != nil && ocrSettings.TimeoutMinutes > 0 {
+		agentMgr.UpdateTimeouts(time.Duration(ocrSettings.TimeoutMinutes) * time.Minute)
+		logx.Infof("agent manager 超时已同步: OCR=%dm, agent=%dm, total=%dm",
+			ocrSettings.TimeoutMinutes, ocrSettings.TimeoutMinutes+5, ocrSettings.TimeoutMinutes+10)
 	}
-
-	runnerFactory := agent.NewOCRRunnerFactory(ocr.Config{
-		Binary:          ocrBinary,
-		DefaultSeverity: ocrDefaultSeverity,
-		Concurrency:     ocrConcurrency,
-		MaxGitProcs:     ocrMaxGitProcs,
-		TimeoutMinutes:  ocrTimeoutMinutes,
-		ExtraBody:       reasoningExtraBody,
-		URL:             llmURL,
-		Model:           llmModel,
-		AuthToken:       llmAuthToken,
-		AuthHeader:      llmAuthHeader,
-		Language:        llmLanguage,
-	})
-	agentMgr.SetFactory(runnerFactory)
-	agentMgr.SetProjectResolver(&projectAgentResolverAdapter{repo: repos.ProjectAgent})
-	agentMgr.UpdateTimeouts(time.Duration(ocrTimeoutMinutes) * time.Minute)
-	logx.Infof("agent manager 超时已同步: OCR=%dm, agent=%dm, total=%dm", ocrTimeoutMinutes, ocrTimeoutMinutes+5, ocrTimeoutMinutes+10)
-	agentLoader := agent.NewAgentLoader(agentMgr, runnerFactory, 10*time.Minute)
 
 	enabledAgents, err := repos.ReviewerAgent.ListEnabled(ctx)
 	switch {
 	case err != nil:
 		logx.Warnf("failed to load agents from database: %v", err)
 	case len(enabledAgents) > 0:
-		if err := agentLoader.LoadFromDB(ctx, enabledAgents); err != nil {
+		if err := agentMgr.LoadAgents(ctx, enabledAgents); err != nil {
 			logx.Warnf("failed to load agents: %v", err)
 		}
 	default:
 		ocrSettings, err := repos.OCRSettings.Get(ctx)
 		if err == nil && ocrSettings != nil && ocrSettings.Background != "" {
-			agentLoader.LoadDefaultAgent(ocrSettings.Background)
+			agentMgr.LoadDefaultAgent(ocrSettings.Background)
 		} else {
-			agentLoader.LoadDefaultAgent("")
+			agentMgr.LoadDefaultAgent("")
 		}
 	}
 }

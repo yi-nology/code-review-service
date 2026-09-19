@@ -1,4 +1,4 @@
-package types
+package finding
 
 import (
 	"github.com/oekit/pkg/stringx"

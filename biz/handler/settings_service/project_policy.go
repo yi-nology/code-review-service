@@ -16,8 +16,8 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
-func ListProjectPolicies(ctx context.Context, c *app.RequestContext) {
-	items, err := handlerInst.project.List(ctx)
+func (h *SettingsHandler) listProjectPolicies(ctx context.Context, c *app.RequestContext) {
+	items, err := h.project.List(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -28,7 +28,12 @@ func ListProjectPolicies(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelSettings.ListProjectPoliciesResp{Items: policies})
 }
 
-func PutProjectPolicy(ctx context.Context, c *app.RequestContext) {
+// ListProjectPolicies 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func ListProjectPolicies(ctx context.Context, c *app.RequestContext) {
+	handlerInst.listProjectPolicies(ctx, c)
+}
+
+func (h *SettingsHandler) putProjectPolicy(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.PutProjectPolicyReq](c)
 	if !ok {
 		return
@@ -37,7 +42,7 @@ func PutProjectPolicy(ctx context.Context, c *app.RequestContext) {
 	// review_engine / gate_mode 未随请求上送（旧前端/客户端不感知该字段，nil）时保留
 	// 库中现值，避免在设置页保存其它字段把它清空；显式上送才覆盖（空串 = 重置为跟随默认）。
 	if req.Policy == nil || req.Policy.ReviewEngine == nil || req.Policy.GateMode == nil {
-		if prev, err := handlerInst.project.GetByProviderRepo(ctx, dbPolicy.Provider, dbPolicy.Repo); err == nil && prev != nil {
+		if prev, err := h.project.GetByProviderRepo(ctx, dbPolicy.Provider, dbPolicy.Repo); err == nil && prev != nil {
 			if req.Policy == nil || req.Policy.ReviewEngine == nil {
 				dbPolicy.ReviewEngine = prev.ReviewEngine
 			}
@@ -50,14 +55,19 @@ func PutProjectPolicy(ctx context.Context, c *app.RequestContext) {
 		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
 	}
-	if err := handlerInst.project.Save(ctx, dbPolicy); err != nil {
+	if err := h.project.Save(ctx, dbPolicy); err != nil {
 		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
 	}
 	common.Success(c, &modelSettings.PutProjectPolicyResp{Policy: dbProjectPolicyToAPI(dbPolicy)})
 }
 
-func DeleteProjectPolicy(ctx context.Context, c *app.RequestContext) {
+// PutProjectPolicy 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func PutProjectPolicy(ctx context.Context, c *app.RequestContext) {
+	handlerInst.putProjectPolicy(ctx, c)
+}
+
+func (h *SettingsHandler) deleteProjectPolicy(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.DeleteProjectPolicyReq](c)
 	if !ok {
 		return
@@ -66,11 +76,16 @@ func DeleteProjectPolicy(ctx context.Context, c *app.RequestContext) {
 		common.Fail(ctx, c, common.BadRequest("代码平台和仓库不能为空"))
 		return
 	}
-	if err := handlerInst.project.Delete(ctx, req.Provider, req.Repo); err != nil {
+	if err := h.project.Delete(ctx, req.Provider, req.Repo); err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, &modelSettings.DeleteProjectPolicyResp{})
+}
+
+// DeleteProjectPolicy 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func DeleteProjectPolicy(ctx context.Context, c *app.RequestContext) {
+	handlerInst.deleteProjectPolicy(ctx, c)
 }
 
 func validateProjectPolicy(p *projectpolicy.ProjectPolicy) error {

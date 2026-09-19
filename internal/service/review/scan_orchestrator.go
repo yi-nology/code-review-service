@@ -2,33 +2,69 @@ package review
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
+	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-	"github.com/yi-nology/code-review-service/internal/service/types"
 
-	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
 )
 
-// ScanOrchestrator handles all scan-related operations, extracted from Service
-// to reduce complexity and improve separation of concerns.
+// updateReviewFields 事务内按 reviewID 修改评审记录（与 Service.updateReviewFields 同一仓储路径）。
+func (o *ScanOrchestrator) updateReviewFields(ctx context.Context, reviewID string, fn func(review *domain.Record)) error {
+	return o.store.UpdateInTransaction(ctx, reviewID, func(review *domain.Record) error {
+		fn(review)
+		return nil
+	})
+}
+
+// ScanOrchestrator 负责所有 scan 相关操作（preview/异步执行/结果落库）。
+// 通过共享 runtime 使用并发/取消设施，其余依赖在构造期显式注入——
+// 不再持有整只 *Service。
 type ScanOrchestrator struct {
-	s *Service
+	s          *Service
+	store      ReviewStateStore
+	providers  domain.Providers
+	scanRunner domain.ScanRunner
+	policy     *policy.Engine
+	progress   *progress.ProgressManager
+	runtime    *scanRuntime
+	// 规则/OCR 配置解析所需的仓储（构造期从 Service 快照，只读使用）
+	projectRepo     repository.ProjectPolicyRepository
+	globalRulesRepo repository.GlobalRulesRepository
+	rulePackageRepo repository.OCRRulePackageRepository
+	agentRepo       repository.ReviewerAgentRepository
+	ocrSettingsRepo repository.OCRSettingsRepository
+	// previewFn 由 Service 注入（previewCore 与 Service 内部共享状态）
+	previewFn func(ctx context.Context, req domain.Request, paths, exclude []string, includeAgentRules bool) ([]string, error)
 }
 
 // NewScanOrchestrator creates a new ScanOrchestrator
 func NewScanOrchestrator(s *Service) *ScanOrchestrator {
-	return &ScanOrchestrator{s: s}
+	return &ScanOrchestrator{
+		s:               s,
+		store:           s.reviewRepo,
+		providers:       s.Providers,
+		scanRunner:      s.ScanRunner,
+		policy:          s.policy,
+		progress:        s.progressManager,
+		runtime:         s.runtime,
+		projectRepo:     s.projectRepo,
+		globalRulesRepo: s.globalRulesRepo,
+		rulePackageRepo: s.rulePackageRepo,
+		agentRepo:       s.agentRepo,
+		ocrSettingsRepo: s.ocrSettingsRepo,
+		previewFn:       s.previewCore,
+	}
 }
 
 // Scan executes a repository scan with preview support
@@ -45,7 +81,7 @@ func (o *ScanOrchestrator) Scan(ctx context.Context, req domain.ScanRequest) (*d
 	if head == "" {
 		return nil, fmt.Errorf("head_sha is required")
 	}
-	if o.s.ScanRunner == nil {
+	if o.scanRunner == nil {
 		return nil, fmt.Errorf("scan feature not configured")
 	}
 
@@ -72,7 +108,7 @@ func (o *ScanOrchestrator) scanPreview(ctx context.Context, req domain.ScanReque
 	}
 	// Scan doesn't call LLM, skip agent rule package collection to avoid one ListEnabled query
 	// and prevent polluting ocr scan --preview input.
-	files, err := o.s.previewCore(ctx, domainReq, req.Paths, req.Exclude, false)
+	files, err := o.previewFn(ctx, domainReq, req.Paths, req.Exclude, false)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +121,7 @@ func (o *ScanOrchestrator) scanAsync(ctx context.Context, req domain.ScanRequest
 	repo := strings.TrimSpace(req.Repo)
 	head := strings.TrimSpace(req.HeadSHA)
 
-	id := newReviewID(time.Now().UTC())
+	id := NewReviewID(time.Now().UTC())
 	scanReq := domain.Request{
 		Provider:     providerName,
 		Repo:         repo,
@@ -124,42 +160,22 @@ func (o *ScanOrchestrator) scanAsync(ctx context.Context, req domain.ScanRequest
 		Request:            scanReq,
 		Response:           queuedResp,
 	}
-	if err := o.s.reviewRepo.Create(ctx, reviewRow); err != nil {
+	if err := o.store.Create(ctx, reviewRow); err != nil {
 		return nil, err
 	}
 
 	var reporter progress.ProgressReporter
-	if o.s.progressManager != nil {
-		tracker := o.s.progressManager.CreateTracker(id, id, 1)
+	if o.progress != nil {
+		tracker := o.progress.CreateTracker(id, id, 1)
 		reporter = tracker
 	}
 
-	o.s.inFlight.Add(1)
-	async.GoSafe(func() {
-		defer o.s.inFlight.Done()
-		defer func() {
-			if o.s.progressManager != nil {
-				o.s.progressManager.RemoveTracker(id)
-			}
-		}()
-
-		// Get concurrency slot: can be cancelled by ctx to avoid blocking during shutdown.
-		if !o.s.acquireConcurrency(ctx) {
-			logx.Warnf("scan %s cancelled while waiting for concurrency slot", id)
-			return
+	// 后台执行：占用并发槽、登记 in-flight、注册可取消扫描，
+	// 生命周期设施统一走共享 scanRuntime（与 worker 同一套）。
+	o.runtime.runDetached(ctx, id, func(scanCtx context.Context) {
+		if o.progress != nil {
+			defer o.progress.RemoveTracker(id)
 		}
-		defer o.s.releaseConcurrency()
-
-		// PR-03 fix: derive from ctx so scan goroutine receives signal when HTTP request is cancelled.
-		// Old context.WithCancel(context.Background()) was completely disconnected from request lifecycle,
-		// could only rely on external Cancel() explicit call.
-		scanCtx, cancel := context.WithCancel(ctx)
-		o.s.scanCancels.Store(id, cancel)
-		defer func() {
-			cancel()
-			o.s.scanCancels.Delete(id)
-		}()
-
 		o.runScanBackground(scanCtx, id, req, reporter)
 	})
 
@@ -173,7 +189,7 @@ func (o *ScanOrchestrator) runScanBackground(scanCtx context.Context, reviewID s
 		reporter.UpdatePhase(progress.PhaseContext, "active", 3, "准备仓库工作区...")
 	}
 
-	if err := o.s.updateReviewFields(scanCtx, reviewID, func(review *domain.Record) {
+	if err := o.updateReviewFields(scanCtx, reviewID, func(review *domain.Record) {
 		resp := review.Response
 		if resp.ReviewID == "" {
 			resp = domain.Response{ReviewID: reviewID}
@@ -226,7 +242,7 @@ func (o *ScanOrchestrator) scanExecuteWithPolicy(ctx context.Context, reviewID s
 
 	reporter := progress.ProgressReporterFromContext(ctx)
 
-	p, ok := o.s.Providers.Get(providerName)
+	p, ok := o.providers.Get(providerName)
 	if !ok {
 		logx.Errorf("Scan: provider not found: requested=%q", providerName)
 		return nil, projectpolicy.ProjectPolicy{}, fmt.Errorf("%w: %s", domain.ErrUnsupportedProvider, providerName)
@@ -249,8 +265,8 @@ func (o *ScanOrchestrator) scanExecuteWithPolicy(ctx context.Context, reviewID s
 	}
 
 	projectPolicy := projectpolicy.NewDefault(providerName, repo)
-	if o.s.projectRepo != nil {
-		if policyRecord, err := o.s.projectRepo.GetOrCreateDefault(ctx, providerName, repo); err == nil {
+	if o.projectRepo != nil {
+		if policyRecord, err := o.projectRepo.GetOrCreateDefault(ctx, providerName, repo); err == nil {
 			projectPolicy = policyRecord
 		} else if !errors.Is(err, repoerr.ErrNotFound) {
 			logx.Warn("failed to get/create project policy, using default", "error", err)
@@ -261,8 +277,8 @@ func (o *ScanOrchestrator) scanExecuteWithPolicy(ctx context.Context, reviewID s
 		workspace.OCR.Background = req.Background
 	}
 
-	if o.s.globalRulesRepo != nil {
-		rulePath, cleanup, ruleErr := ResolveRuleFileForAgents(ctx, projectPolicy, o.s.rulePackageRepo, o.s.globalRulesRepo, AgentRulePackageRefs(ctx, o.s.agentRepo)...)
+	if o.globalRulesRepo != nil {
+		rulePath, cleanup, ruleErr := ResolveRuleFileForAgents(ctx, projectPolicy, o.rulePackageRepo, o.globalRulesRepo, AgentRulePackageRefs(ctx, o.agentRepo)...)
 		if ruleErr != nil {
 			logx.Warn("failed to resolve rule file", "error", ruleErr)
 		} else if rulePath != "" {
@@ -279,7 +295,7 @@ func (o *ScanOrchestrator) scanExecuteWithPolicy(ctx context.Context, reviewID s
 
 	if reviewID != "" && workspace.Dir != "" {
 		ocrInput := domain.OCRInput{
-			Binary: ResolveOCRBinary(ctx, o.s.ocrSettingsRepo),
+			Binary: ResolveOCRBinary(ctx, o.ocrSettingsRepo),
 			Workspace: domain.WorkspaceInfo{
 				Provider: providerName,
 				Repo:     repo,
@@ -290,15 +306,12 @@ func (o *ScanOrchestrator) scanExecuteWithPolicy(ctx context.Context, reviewID s
 			RulePath:  workspace.RulePath,
 			StartedAt: time.Now().UTC(),
 		}
-		if err := o.s.updateReviewFields(ctx, reviewID, func(review *domain.Record) {
-			rawOCRInputJSON, _ := json.Marshal(ocrInput)
-			review.RawOCRInput = rawOCRInputJSON
-		}); err != nil {
+		if err := WriteOCRInput(ctx, o.store, reviewID, ocrInput); err != nil {
 			logx.Warn("failed to persist scan ocr input", "review_id", reviewID, "error", err)
 		}
 	}
 
-	scanResult, err := o.s.ScanRunner.Scan(ctx, workspace, req)
+	scanResult, err := o.scanRunner.Scan(ctx, workspace, req)
 	if err != nil {
 		return nil, projectpolicy.ProjectPolicy{}, err
 	}
@@ -319,7 +332,7 @@ func (o *ScanOrchestrator) scanExecuteWithPolicy(ctx context.Context, reviewID s
 
 // recordScanFailure records scan failure in database
 func (o *ScanOrchestrator) recordScanFailure(ctx context.Context, reviewID string, scanErr error) {
-	err := o.s.updateReviewFields(ctx, reviewID, func(review *domain.Record) {
+	err := o.updateReviewFields(ctx, reviewID, func(review *domain.Record) {
 		resp := review.Response
 		if resp.ReviewID == "" {
 			resp = domain.Response{ReviewID: reviewID}
@@ -360,14 +373,13 @@ func (o *ScanOrchestrator) persistScanResultUpdate(ctx context.Context, reviewID
 		analysis = *scanResult.Analysis
 	}
 
-	gateEngine := o.s.policy
+	gateEngine := o.policy
 	if gateEngine == nil {
-		gateEngine = policy.NewEngine(policy.Config{})
+		gateEngine = policy.NewEngine(policy.DefaultConfig())
 	}
-	if projectPolicy.FailOn != "" {
-		gateEngine = policy.NewEngine(policy.Config{FailOn: projectPolicy.FailOn})
-	}
-	gate := gateEngine.Evaluate(scanPolicyFindings(result.Findings))
+	// 项目 fail_on 覆盖全局默认值（合并语义，保留 IgnorePaths 等）。
+	gateEngine = gateEngine.WithFailOnOverride(projectPolicy.FailOn)
+	gate := gateEngine.Evaluate(PolicyFindings(result.Findings))
 
 	resp := domain.Response{
 		ReviewID: reviewID,
@@ -399,7 +411,7 @@ func (o *ScanOrchestrator) persistScanResultUpdate(ctx context.Context, reviewID
 		},
 	}
 
-	return o.s.updateReviewFields(ctx, reviewID, func(review *domain.Record) {
+	return o.updateReviewFields(ctx, reviewID, func(review *domain.Record) {
 		review.Status = resp.Status
 		review.Score = report.Score.Value
 		review.Grade = report.Score.Grade
@@ -410,13 +422,4 @@ func (o *ScanOrchestrator) persistScanResultUpdate(ctx context.Context, reviewID
 		}
 		review.UpdatedAt = time.Now().UTC()
 	})
-}
-
-// scanPolicyFindings converts domain findings to policy findings
-func scanPolicyFindings(findings []domain.Finding) []policy.Finding {
-	out := make([]policy.Finding, 0, len(findings))
-	for _, finding := range findings {
-		out = append(out, policy.Finding{Severity: finding.Severity, Path: finding.Path})
-	}
-	return out
 }

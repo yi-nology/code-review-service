@@ -10,27 +10,39 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/yi-nology/code-review-service/internal/service/provider"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/strutil"
+	"github.com/yi-nology/code-review-service/internal/vcs"
 	"github.com/oekit/logx"
 
 	sdk "github.com/yi-nology/git-platform-sdk/provider"
 )
 
 // Poster 向 Git 平台写 commit status。
+//
+// 依赖按消费方收窄为 StatusWriter 窄接口（*provider.GitProviderService 结构化
+// 满足），statuscheck 不再依赖 internal/service/provider 具体类型。
 type Poster struct {
-	gitSvc *provider.GitProviderService
+	gitSvc StatusWriter
 }
 
-func NewPoster(gitSvc *provider.GitProviderService) *Poster {
+// StatusWriter 只声明写 commit status 所需的方法。
+type StatusWriter interface {
+	CreateCommitStatus(ctx context.Context, platform, owner, repo, sha string, opts sdk.CommitStatusOptions) error
+}
+
+func NewPoster(gitSvc StatusWriter) *Poster {
 	return &Poster{gitSvc: gitSvc}
 }
 
-// 状态常量（SDK 约定：success / failed / pending / error）。
+// 状态常量（git 平台约定：success / failed / pending / error）。
+// 真源在 review/domain（ApplyWeakGate 等门禁决策逻辑所在）；
+// 此处保留包内别名，既有调用点（eino/argus 路径）不改。
 const (
-	StateSuccess = "success"
-	StateFailed  = "failed"
-	StatePending = "pending"
-	StateError   = "error"
+	StateSuccess = domain.StateSuccess
+	StateFailed  = domain.StateFailed
+	StatePending = domain.StatePending
+	StateError   = domain.StateError
 )
 
 // ContextName 是 PR 上显示的 check 名称，固定值便于在分支保护规则里勾选为必需 check。
@@ -42,7 +54,7 @@ func (p *Poster) Post(ctx context.Context, platform, repoPath, sha, state, descr
 	if p == nil || p.gitSvc == nil || sha == "" || repoPath == "" {
 		return
 	}
-	owner, repoName, err := provider.ParseRepoPath(repoPath)
+	owner, repoName, err := vcs.ParseRepoPath(repoPath)
 	if err != nil {
 		logx.CtxWarnf(ctx, "[status-check] parse repo path %q failed: %v", repoPath, err)
 		return
@@ -50,7 +62,7 @@ func (p *Poster) Post(ctx context.Context, platform, repoPath, sha, state, descr
 	opts := sdk.CommitStatusOptions{
 		State:       state,
 		Context:     ContextName,
-		Description: truncate(description, 140), // GitHub description 上限 140 字符
+		Description: strutil.Truncate(description, 140), // GitHub description 上限 140 字符
 	}
 	// TargetURL 指向 review 详情页（前端路由 /reviews/:id），便于从 PR check 跳转。
 	// 完整 URL 需要服务外部地址，这里先放相对路径；若配置了 ExternalURL 可拼接。
@@ -67,11 +79,4 @@ func (p *Poster) Post(ctx context.Context, platform, repoPath, sha, state, descr
 		logx.CtxWarnf(ctx, "[status-check] post %s status to %s/%s@%s failed: %v",
 			state, owner, repoName, sha[:min(7, len(sha))], err)
 	}
-}
-
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n-1] + "…"
 }

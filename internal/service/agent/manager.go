@@ -84,6 +84,28 @@ func NewAgentManager(config ManagerConfig, aggregator ResultAggregator) *AgentMa
 	}
 }
 
+// ManagerDeps 是构造即完整的装配参数：工厂/项目解析器/超时在构造期一次性注入，
+// manager 从构造返回即可用（此前依赖 SetFactory/SetProjectResolver/UpdateTimeouts
+// 三个 setter 在后台 goroutine 里补注，早到的评审会静默走 no-agent 路径）。
+type ManagerDeps struct {
+	Factory         reviewRunnerFactory
+	ProjectResolver ProjectAgentResolver
+	// OCRTimeout 用于推导 AgentTimeout/TotalTimeout；<=0 时保留 config 里的默认值。
+	OCRTimeout time.Duration
+}
+
+// NewWiredAgentManager 构造装配完整的 AgentManager。
+func NewWiredAgentManager(config ManagerConfig, aggregator ResultAggregator, deps ManagerDeps) *AgentManager {
+	m := NewAgentManager(config, aggregator)
+	if deps.OCRTimeout > 0 {
+		m.config.AgentTimeout = deps.OCRTimeout + 5*time.Minute
+		m.config.TotalTimeout = deps.OCRTimeout + 10*time.Minute
+	}
+	m.factory = deps.Factory
+	m.projectResolver = deps.ProjectResolver
+	return m
+}
+
 // RegisterAgent registers a review agent
 func (m *AgentManager) RegisterAgent(agent reviewAgent) {
 	m.mu.Lock()

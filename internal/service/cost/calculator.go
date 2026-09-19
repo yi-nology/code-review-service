@@ -107,8 +107,9 @@ func (c *Calculator) Refresh() {
 }
 
 // SetPricing 写入/更新一条单价记录。
-func (c *Calculator) SetPricing(ctx context.Context, p models.LLMModelPricing) error {
-	if err := c.db.WithContext(ctx).Save(&p).Error; err != nil {
+func (c *Calculator) SetPricing(ctx context.Context, p Pricing) error {
+	m := p.toModel()
+	if err := c.db.WithContext(ctx).Save(&m).Error; err != nil {
 		return err
 	}
 	c.Refresh()
@@ -116,12 +117,16 @@ func (c *Calculator) SetPricing(ctx context.Context, p models.LLMModelPricing) e
 }
 
 // ListPricing 列出所有单价记录。
-func (c *Calculator) ListPricing(ctx context.Context) ([]models.LLMModelPricing, error) {
+func (c *Calculator) ListPricing(ctx context.Context) ([]Pricing, error) {
 	var rows []models.LLMModelPricing
 	if err := c.db.WithContext(ctx).Order("provider, model").Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	return rows, nil
+	out := make([]Pricing, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, pricingFromModel(r))
+	}
+	return out, nil
 }
 
 // DeletePricing 删除一条单价记录。

@@ -7,9 +7,9 @@ import (
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelPublisher "github.com/yi-nology/code-review-service/biz/model/publisher"
+	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	"github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
 
 	"github.com/oekit/logx"
@@ -38,7 +38,7 @@ func InitHandler(writeback *writeback.Orchestrator, reviewSvc reviewGetter, prov
 	}
 }
 
-func PublishReview(ctx context.Context, c *app.RequestContext) {
+func (h *PublisherHandler) publishReview(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelPublisher.PublishReviewReq](c)
 	if !ok {
 		return
@@ -56,13 +56,16 @@ func PublishReview(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func PublishStatus(ctx context.Context, c *app.RequestContext) {
+// PublishReview 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 PublisherHandler。
+func PublishReview(ctx context.Context, c *app.RequestContext) { handlerInst.publishReview(ctx, c) }
+
+func (h *PublisherHandler) publishStatus(ctx context.Context, c *app.RequestContext) {
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {
 		common.Fail(ctx, c, common.BadRequest("review id 不能为空"))
 		return
 	}
-	status, err := handlerInst.writeback.Status(ctx, id)
+	status, err := h.writeback.Status(ctx, id)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -70,13 +73,16 @@ func PublishStatus(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, status)
 }
 
-func RetryPublish(ctx context.Context, c *app.RequestContext) {
+// PublishStatus 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 PublisherHandler。
+func PublishStatus(ctx context.Context, c *app.RequestContext) { handlerInst.publishStatus(ctx, c) }
+
+func (h *PublisherHandler) retryPublish(ctx context.Context, c *app.RequestContext) {
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {
 		common.Fail(ctx, c, common.BadRequest("review id 不能为空"))
 		return
 	}
-	status, err := handlerInst.writeback.Status(ctx, id)
+	status, err := h.writeback.Status(ctx, id)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -92,6 +98,9 @@ func RetryPublish(ctx context.Context, c *app.RequestContext) {
 	}
 	common.Success(c, map[string]any{"message": publishMessage(wbResult, "retry published"), "review_id": id})
 }
+
+// RetryPublish 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 PublisherHandler。
+func RetryPublish(ctx context.Context, c *app.RequestContext) { handlerInst.retryPublish(ctx, c) }
 
 func publishReview(ctx context.Context, id string, summaryOnly bool, force bool) (*domain.WritebackResult, error) {
 	record, found, err := handlerInst.reviewSvc.Get(ctx, id)
@@ -137,13 +146,13 @@ func publishMessage(wbResult *domain.WritebackResult, def string) string {
 	return def
 }
 
-func PreviewComment(ctx context.Context, c *app.RequestContext) {
+func (h *PublisherHandler) previewComment(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelPublisher.PreviewCommentReq](c)
 	if !ok {
 		return
 	}
 
-	record, found, err := handlerInst.reviewSvc.Get(ctx, req.ID)
+	record, found, err := h.reviewSvc.Get(ctx, req.ID)
 	if err != nil || !found {
 		common.Fail(ctx, c, common.NotFound("review not found"))
 		return
@@ -160,7 +169,10 @@ func PreviewComment(ctx context.Context, c *app.RequestContext) {
 	})
 }
 
-func UpdatePublishedComment(ctx context.Context, c *app.RequestContext) {
+// PreviewComment 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 PublisherHandler。
+func PreviewComment(ctx context.Context, c *app.RequestContext) { handlerInst.previewComment(ctx, c) }
+
+func (h *PublisherHandler) updatePublishedComment(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelPublisher.UpdatePublishedCommentReq](c)
 	if !ok {
 		return
@@ -176,6 +188,11 @@ func UpdatePublishedComment(ctx context.Context, c *app.RequestContext) {
 		Message:  publishMessage(wbResult, "published comment refreshed successfully"),
 		ReviewID: req.ID,
 	})
+}
+
+// UpdatePublishedComment 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 PublisherHandler。
+func UpdatePublishedComment(ctx context.Context, c *app.RequestContext) {
+	handlerInst.updatePublishedComment(ctx, c)
 }
 
 // formatFindingsPreview 把 findings 摘要为可读字符串供预览。

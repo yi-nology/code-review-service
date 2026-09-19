@@ -7,8 +7,9 @@ import (
 	"sync"
 	"time"
 
+	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	"github.com/yi-nology/code-review-service/internal/ocr"
-	"github.com/yi-nology/code-review-service/internal/service/types"
+	"github.com/yi-nology/code-review-service/internal/strutil"
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/slicex"
@@ -138,7 +139,7 @@ func (o *Orchestrator) discourseForAgent(ctx context.Context, findings []Finding
 				ID:         types.GenerateID(),
 				Severity:   "major",
 				Category:   "discussion_surface",
-				Title:      truncate(item.Content, 120),
+				Title:      strutil.Truncate(item.Content, 120),
 				Body:       body,
 				Confidence: normalizeConfidence(item.Confidence),
 				Agents:     []string{agentName},

@@ -18,8 +18,8 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
-func GetOCRSettings(ctx context.Context, c *app.RequestContext) {
-	settings, err := handlerInst.ocrRepo.Get(ctx)
+func (h *SettingsHandler) getOCRSettings(ctx context.Context, c *app.RequestContext) {
+	settings, err := h.ocrRepo.Get(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -31,7 +31,10 @@ func GetOCRSettings(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelSettings.GetOCRSettingsResp{Settings: resp})
 }
 
-func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
+// GetOCRSettings 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func GetOCRSettings(ctx context.Context, c *app.RequestContext) { handlerInst.getOCRSettings(ctx, c) }
+
+func (h *SettingsHandler) updateOCRSettings(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.UpdateOCRSettingsReq](c)
 	if !ok {
 		return
@@ -42,7 +45,7 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if dbSettings.AuthToken == "" || dbSettings.AuthToken == "***" {
-		existing, err := handlerInst.ocrRepo.Get(ctx)
+		existing, err := h.ocrRepo.Get(ctx)
 		if err == nil && existing != nil {
 			dbSettings.AuthToken = existing.AuthToken
 		}
@@ -51,7 +54,7 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 	// 前端已有独立 test-llm 按钮供主动验证，/health 的 llm-endpoint checker 持续监控，
 	// 强制拒绝会让用户无法保存还在迭代调试的配置（用户反馈"不让保存"）。预检结果仅记日志。
 	if dbSettings.Enabled {
-		if tester, ok := handlerInst.ocr.Tester().(*ocrcore.Tester); ok {
+		if tester, ok := h.ocr.Tester().(*ocrcore.Tester); ok {
 			testCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 			// 阶段 A15 part 6：TestLLMWithSettings 现需 ocr.SettingsData 参数；
 			// 完整的 models.OCRSettings -> SettingsData 映射在 ocr.SettingsAdapter 中。
@@ -65,12 +68,12 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 			}
 		}
 	}
-	if err := handlerInst.ocrRepo.Save(ctx, dbSettings); err != nil {
+	if err := h.ocrRepo.Save(ctx, dbSettings); err != nil {
 		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
 	}
 	// 通知 Runner 立即重载 DB 配置（binary/language/concurrency 等），不必等 30s 定时刷新。
-	handlerInst.ocr.NotifyConfigChange()
+	h.ocr.NotifyConfigChange()
 	resp := dbOCRSettingsToAPI(dbSettings)
 	if ptrx.Deref(resp.AuthToken, "") != "" {
 		resp.AuthToken = common.StrPtr("***")
@@ -78,11 +81,16 @@ func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, &modelSettings.UpdateOCRSettingsResp{Settings: resp})
 }
 
-func TestLLM(ctx context.Context, c *app.RequestContext) {
-	if !common.FeatureGuard(c, handlerInst.ocr.Tester(), "LLM 测试") {
+// UpdateOCRSettings 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
+	handlerInst.updateOCRSettings(ctx, c)
+}
+
+func (h *SettingsHandler) testLLM(ctx context.Context, c *app.RequestContext) {
+	if !common.FeatureGuard(c, h.ocr.Tester(), "LLM 测试") {
 		return
 	}
-	result, err := handlerInst.ocr.Tester().TestLLM(ctx)
+	result, err := h.ocr.Tester().TestLLM(ctx)
 	if err != nil {
 		common.Success(c, &modelSettings.TestLLMResp{
 			Result: &modelSettings.TestLLMResult{Success: false, Message: common.StrPtr(err.Error())},
@@ -93,6 +101,9 @@ func TestLLM(ctx context.Context, c *app.RequestContext) {
 		Result: &modelSettings.TestLLMResult{Success: result.Success, Message: common.StrPtr(result.Message)},
 	})
 }
+
+// TestLLM 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
+func TestLLM(ctx context.Context, c *app.RequestContext) { handlerInst.testLLM(ctx, c) }
 
 func validateOCRSettings(s *ocrsettings.Settings) error {
 	if s == nil {

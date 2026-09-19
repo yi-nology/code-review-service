@@ -25,6 +25,7 @@ func NewWebhookService(cfg *config.Config, repos *repository.RepoContainer, gps 
 		},
 		DeliveryRepo:       repos.WebhookDelivery,
 		ChangeRevisionRepo: repos.ChangeRevision,
+		PlatformRepo:       repos.GitPlatform,
 		MaxPayloadBytes:    1 << 20,
 		BotUsername:        cfg.Webhook.BotUsername,
 	})

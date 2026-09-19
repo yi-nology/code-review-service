@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	"github.com/yi-nology/code-review-service/internal/domain/stats"
-	"github.com/yi-nology/code-review-service/internal/service/types"
 	"github.com/oekit/pkg/ptrx"
 	"github.com/oekit/pkg/stringx"
 )

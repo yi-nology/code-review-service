@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/page"
+
 	"github.com/yi-nology/code-review-service/internal/domain/session"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	ekitGorm "github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
@@ -192,10 +194,10 @@ func (r *PostgresSessionRepository) CancelActiveByReviewID(ctx context.Context, 
 }
 
 // List returns sessions with pagination
-func (r *PostgresSessionRepository) List(ctx context.Context, page, pageSize int) (*ekitGorm.PageResponse[session.Session], error) {
+func (r *PostgresSessionRepository) List(ctx context.Context, pageNum, pageSize int) (*page.Page[session.Session], error) {
 	resp, err := ekitGorm.Paginate[models.ReviewSession](
 		r.db.WithContext(ctx).Model(&models.ReviewSession{}),
-		pagination.NewPageRequest(page, pageSize),
+		pagination.NewPageRequest(pageNum, pageSize),
 		func(db *gormLib.DB) *gormLib.DB {
 			return db.Order("created_at DESC")
 		},
@@ -203,7 +205,7 @@ func (r *PostgresSessionRepository) List(ctx context.Context, page, pageSize int
 	if err != nil {
 		return nil, err
 	}
-	out := &ekitGorm.PageResponse[session.Session]{
+	out := &page.Page[session.Session]{
 		Items: make([]session.Session, len(resp.Items)),
 		Total: resp.Total,
 	}

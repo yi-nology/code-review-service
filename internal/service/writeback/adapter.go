@@ -5,11 +5,18 @@ import (
 	"errors"
 	"fmt"
 
-	gitprovider "github.com/yi-nology/code-review-service/internal/service/provider"
+	"github.com/yi-nology/code-review-service/internal/vcs"
 
 	"github.com/oekit/logx"
 	sdk "github.com/yi-nology/git-platform-sdk/provider"
 )
+
+// ProviderSource 是写回所需的平台提供者窄接口：按平台名取 SDK Provider
+// （GetCR/CreateNote 等由 SDK 接口承载）。*provider.GitProviderService 结构化
+// 满足本接口；writeback 因此只依赖 SDK 抽象，不再依赖 internal/service/provider。
+type ProviderSource interface {
+	GetProvider(platform string) (sdk.Provider, error)
+}
 
 // platformAdapter 是各平台写回适配器的通用实现。各平台（github/gitlab/
 // gitea/forgejo/gitcode/tencent_code）的 Publish 流程一致：stale 检查 →
@@ -21,7 +28,7 @@ import (
 //
 // 行内评论的行号映射按平台保留历史行为，见 buildComments。
 type platformAdapter struct {
-	svc  *gitprovider.GitProviderService
+	svc  ProviderSource
 	opts AdapterOptions
 }
 
@@ -33,7 +40,7 @@ type AdapterOptions struct {
 }
 
 // NewPlatformAdapter 构造通用平台写回适配器。
-func NewPlatformAdapter(svc *gitprovider.GitProviderService, opts AdapterOptions) Adapter {
+func NewPlatformAdapter(svc ProviderSource, opts AdapterOptions) Adapter {
 	return &platformAdapter{svc: svc, opts: opts}
 }
 
@@ -47,7 +54,7 @@ func (a *platformAdapter) Capabilities(ctx context.Context, cr ChangeRequest) (C
 }
 
 func (a *platformAdapter) Publish(ctx context.Context, rev Review) (Result, error) {
-	owner, repo, err := gitprovider.ParseRepoPath(rev.ChangeRequest.Repository)
+	owner, repo, err := vcs.ParseRepoPath(rev.ChangeRequest.Repository)
 	if err != nil {
 		return Result{}, fmt.Errorf("parse repo path: %w", err)
 	}

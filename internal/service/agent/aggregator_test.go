@@ -3,7 +3,7 @@ package agent
 import (
 	"testing"
 
-	"github.com/yi-nology/code-review-service/internal/service/types"
+	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 )
 
 // TestComputeRedundancyStatus 验证冗余状态标记（路径 A4）。

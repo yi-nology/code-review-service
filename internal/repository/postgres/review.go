@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/page"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
@@ -124,7 +125,7 @@ func (r *ReviewRepo) GetActiveByProviderRepo(ctx context.Context, provider, repo
 	return &d, nil
 }
 
-func (r *ReviewRepo) List(ctx context.Context, opts domain.ListOptions) (*ekitGorm.PageResponse[domain.Record], error) {
+func (r *ReviewRepo) List(ctx context.Context, opts domain.ListOptions) (*page.Page[domain.Record], error) {
 	req := pagination.NewPageRequest(opts.Page, opts.PageSize)
 
 	resp, err := ekitGorm.Paginate[models.Review](r.db.WithContext(ctx).Model(&models.Review{}), req, func(db *gormLib.DB) *gormLib.DB {
@@ -145,7 +146,7 @@ func (r *ReviewRepo) List(ctx context.Context, opts domain.ListOptions) (*ekitGo
 	if err != nil {
 		return nil, err
 	}
-	out := &ekitGorm.PageResponse[domain.Record]{
+	out := &page.Page[domain.Record]{
 		Items:    make([]domain.Record, len(resp.Items)),
 		Total:    resp.Total,
 		Page:     resp.Page,

@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/page"
+
 	dsession "github.com/yi-nology/code-review-service/internal/domain/session"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
-	"github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 )
 
 // mockSessionRepo 实现 repository.SessionRepository，用于单元测试
@@ -126,7 +127,7 @@ func (m *mockSessionRepo) CancelActiveByReviewID(_ context.Context, _ string) er
 	return nil
 }
 
-func (m *mockSessionRepo) List(_ context.Context, _, _ int) (*gormx.PageResponse[dsession.Session], error) {
+func (m *mockSessionRepo) List(_ context.Context, _, _ int) (*page.Page[dsession.Session], error) {
 	return nil, nil
 }
 

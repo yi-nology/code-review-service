@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/service/scoring"
+	"github.com/yi-nology/code-review-service/internal/domain/scoring"
 )
 
 // Score / SeverityCounts / ScoreDeduction 通过类型别名委托给 scoring 包，

@@ -18,11 +18,11 @@ import (
 //   - 默认不返 raw_ocr（OCR 原始输出可能有 100k+ tokens，喂给 LLM 浪费 context）。
 //   - 客户端如果要看 OCR 原文，用 review_id 走 web console 或调单独的 get_raw_ocr tool
 //     （未来 PR 补，本期先保证 detail 不爆 LLM context window）。
-func RegisterGetReview(s *Server, svc app.ReviewService) {
+func RegisterGetReview(s *Server, svc app.ReviewReader) {
 	s.AddTool(getReviewTool(), getReviewHandler(svc))
 }
 
-func getReviewHandler(svc app.ReviewService) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func getReviewHandler(svc app.ReviewReader) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := req.GetArguments()
 		reviewID, err := requireString(args, "review_id")
@@ -66,11 +66,11 @@ func getReviewHandler(svc app.ReviewService) func(ctx context.Context, req mcp.C
 //
 // 返回结构跟 HTTP API 的 /api/v1/reviews 保持一致（item/stats 字段名一致），
 // 客户端既可以用 mcp tool 查，也可以从 web console 切到 HTTP 路径拿同样的数据。
-func RegisterListReviews(s *Server, svc app.ReviewService) {
+func RegisterListReviews(s *Server, svc app.ReviewReader) {
 	s.AddTool(listReviewsTool(), listReviewsHandler(svc))
 }
 
-func listReviewsHandler(svc app.ReviewService) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func listReviewsHandler(svc app.ReviewReader) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := req.GetArguments()
 
@@ -114,11 +114,11 @@ func listReviewsHandler(svc app.ReviewService) func(ctx context.Context, req mcp
 }
 
 // cancel_review 把 queued/running review 置为 cancelled。已完成的 review 拒绝。
-func RegisterCancelReview(s *Server, svc app.ReviewService) {
+func RegisterCancelReview(s *Server, svc app.ReviewLifecycle) {
 	s.AddTool(cancelReviewTool(), cancelReviewHandler(svc))
 }
 
-func cancelReviewHandler(svc app.ReviewService) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func cancelReviewHandler(svc app.ReviewLifecycle) func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		args := req.GetArguments()
 		reviewID, err := requireString(args, "review_id")

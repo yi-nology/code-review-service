@@ -14,8 +14,3 @@ import (
 func NewReviewID(_ time.Time) string {
 	return ulid.Make().String()
 }
-
-// newReviewID 是 NewReviewID 的私有别名，保留以避免在 service.go 内部大量改调用点。
-func newReviewID(_ time.Time) string {
-	return ulid.Make().String()
-}

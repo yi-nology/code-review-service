@@ -38,7 +38,7 @@ func InitHandler(statsSvc StatsService) {
 	handlerInst = &StatsHandler{statsSvc: statsSvc}
 }
 
-func ListContributors(ctx context.Context, c *hertzApp.RequestContext) {
+func (h *StatsHandler) listContributors(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[modelStats.ListContributorsReq](c)
 	if !ok {
 		return
@@ -49,7 +49,7 @@ func ListContributors(ctx context.Context, c *hertzApp.RequestContext) {
 		convert.Int64ToStr(ptrx.Deref(req.PageSize, 0)),
 	)
 
-	result, err := handlerInst.statsSvc.ListContributors(
+	result, err := h.statsSvc.ListContributors(
 		ctx,
 		ptrx.Deref(req.Provider, ""),
 		ptrx.Deref(req.Repo, ""),
@@ -68,13 +68,17 @@ func ListContributors(ctx context.Context, c *hertzApp.RequestContext) {
 	common.Success(c, result)
 }
 
-func GetContributor(ctx context.Context, c *hertzApp.RequestContext) {
+func ListContributors(ctx context.Context, c *hertzApp.RequestContext) {
+	handlerInst.listContributors(ctx, c)
+}
+
+func (h *StatsHandler) getContributor(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[modelStats.GetContributorReq](c)
 	if !ok {
 		return
 	}
 
-	detail, err := handlerInst.statsSvc.GetContributor(
+	detail, err := h.statsSvc.GetContributor(
 		ctx,
 		req.Author,
 		ptrx.Deref(req.Provider, ""),
@@ -94,13 +98,17 @@ func GetContributor(ctx context.Context, c *hertzApp.RequestContext) {
 	common.Success(c, detail)
 }
 
-func GetContributorTrend(ctx context.Context, c *hertzApp.RequestContext) {
+func GetContributor(ctx context.Context, c *hertzApp.RequestContext) {
+	handlerInst.getContributor(ctx, c)
+}
+
+func (h *StatsHandler) getContributorTrend(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[modelStats.GetContributorTrendReq](c)
 	if !ok {
 		return
 	}
 
-	trend, err := handlerInst.statsSvc.GetContributorTrend(
+	trend, err := h.statsSvc.GetContributorTrend(
 		ctx,
 		req.Author,
 		ptrx.Deref(req.Provider, ""),
@@ -116,13 +124,17 @@ func GetContributorTrend(ctx context.Context, c *hertzApp.RequestContext) {
 	common.Success(c, map[string]any{"trend": trend})
 }
 
-func GetContributorCategories(ctx context.Context, c *hertzApp.RequestContext) {
+func GetContributorTrend(ctx context.Context, c *hertzApp.RequestContext) {
+	handlerInst.getContributorTrend(ctx, c)
+}
+
+func (h *StatsHandler) getContributorCategories(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[modelStats.GetContributorCategoriesReq](c)
 	if !ok {
 		return
 	}
 
-	categories, err := handlerInst.statsSvc.GetContributorCategories(
+	categories, err := h.statsSvc.GetContributorCategories(
 		ctx,
 		req.Author,
 		ptrx.Deref(req.Provider, ""),
@@ -138,7 +150,11 @@ func GetContributorCategories(ctx context.Context, c *hertzApp.RequestContext) {
 	common.Success(c, map[string]any{"categories": categories})
 }
 
-func ListProjects(ctx context.Context, c *hertzApp.RequestContext) {
+func GetContributorCategories(ctx context.Context, c *hertzApp.RequestContext) {
+	handlerInst.getContributorCategories(ctx, c)
+}
+
+func (h *StatsHandler) listProjects(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[modelStats.ListProjectsReq](c)
 	if !ok {
 		return
@@ -148,7 +164,7 @@ func ListProjects(ctx context.Context, c *hertzApp.RequestContext) {
 		convert.Int64ToStr(ptrx.Deref(req.Page, 0)),
 		convert.Int64ToStr(ptrx.Deref(req.PageSize, 0)),
 	)
-	result, err := handlerInst.statsSvc.ListProjects(
+	result, err := h.statsSvc.ListProjects(
 		ctx,
 		ptrx.Deref(req.Provider, ""),
 		ptrx.Deref(req.Repo, ""),
@@ -167,13 +183,15 @@ func ListProjects(ctx context.Context, c *hertzApp.RequestContext) {
 	common.Success(c, result)
 }
 
-func GetProject(ctx context.Context, c *hertzApp.RequestContext) {
+func ListProjects(ctx context.Context, c *hertzApp.RequestContext) { handlerInst.listProjects(ctx, c) }
+
+func (h *StatsHandler) getProject(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[modelStats.GetProjectReq](c)
 	if !ok {
 		return
 	}
 
-	detail, err := handlerInst.statsSvc.GetProject(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
+	detail, err := h.statsSvc.GetProject(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -186,13 +204,15 @@ func GetProject(ctx context.Context, c *hertzApp.RequestContext) {
 	common.Success(c, detail)
 }
 
-func GetProjectTrend(ctx context.Context, c *hertzApp.RequestContext) {
+func GetProject(ctx context.Context, c *hertzApp.RequestContext) { handlerInst.getProject(ctx, c) }
+
+func (h *StatsHandler) getProjectTrend(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[modelStats.GetProjectReq](c)
 	if !ok {
 		return
 	}
 
-	trend, err := handlerInst.statsSvc.GetProjectTrend(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
+	trend, err := h.statsSvc.GetProjectTrend(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -201,12 +221,16 @@ func GetProjectTrend(ctx context.Context, c *hertzApp.RequestContext) {
 	common.Success(c, map[string]any{"trend": trend})
 }
 
-func GetProjectOCRMetrics(ctx context.Context, c *hertzApp.RequestContext) {
+func GetProjectTrend(ctx context.Context, c *hertzApp.RequestContext) {
+	handlerInst.getProjectTrend(ctx, c)
+}
+
+func (h *StatsHandler) getProjectOCRMetrics(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[modelStats.GetProjectReq](c)
 	if !ok {
 		return
 	}
-	metrics, err := handlerInst.statsSvc.GetProjectOCRMetrics(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
+	metrics, err := h.statsSvc.GetProjectOCRMetrics(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -214,12 +238,16 @@ func GetProjectOCRMetrics(ctx context.Context, c *hertzApp.RequestContext) {
 	common.Success(c, map[string]any{"metrics": metrics})
 }
 
-func GetProjectOCRTrend(ctx context.Context, c *hertzApp.RequestContext) {
+func GetProjectOCRMetrics(ctx context.Context, c *hertzApp.RequestContext) {
+	handlerInst.getProjectOCRMetrics(ctx, c)
+}
+
+func (h *StatsHandler) getProjectOCRTrend(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[modelStats.GetProjectReq](c)
 	if !ok {
 		return
 	}
-	trend, err := handlerInst.statsSvc.GetProjectOCRTrend(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
+	trend, err := h.statsSvc.GetProjectOCRTrend(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -227,13 +255,17 @@ func GetProjectOCRTrend(ctx context.Context, c *hertzApp.RequestContext) {
 	common.Success(c, map[string]any{"trend": trend})
 }
 
-func GetProjectCategories(ctx context.Context, c *hertzApp.RequestContext) {
+func GetProjectOCRTrend(ctx context.Context, c *hertzApp.RequestContext) {
+	handlerInst.getProjectOCRTrend(ctx, c)
+}
+
+func (h *StatsHandler) getProjectCategories(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[modelStats.GetProjectReq](c)
 	if !ok {
 		return
 	}
 
-	categories, err := handlerInst.statsSvc.GetProjectCategories(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
+	categories, err := h.statsSvc.GetProjectCategories(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -242,13 +274,17 @@ func GetProjectCategories(ctx context.Context, c *hertzApp.RequestContext) {
 	common.Success(c, map[string]any{"categories": categories})
 }
 
-func GetProjectFiles(ctx context.Context, c *hertzApp.RequestContext) {
+func GetProjectCategories(ctx context.Context, c *hertzApp.RequestContext) {
+	handlerInst.getProjectCategories(ctx, c)
+}
+
+func (h *StatsHandler) getProjectFiles(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[modelStats.GetProjectReq](c)
 	if !ok {
 		return
 	}
 
-	files, err := handlerInst.statsSvc.GetProjectFiles(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
+	files, err := h.statsSvc.GetProjectFiles(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""))
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -257,7 +293,11 @@ func GetProjectFiles(ctx context.Context, c *hertzApp.RequestContext) {
 	common.Success(c, map[string]any{"files": files})
 }
 
-func GetProjectContributors(ctx context.Context, c *hertzApp.RequestContext) {
+func GetProjectFiles(ctx context.Context, c *hertzApp.RequestContext) {
+	handlerInst.getProjectFiles(ctx, c)
+}
+
+func (h *StatsHandler) getProjectContributors(ctx context.Context, c *hertzApp.RequestContext) {
 	req, ok := common.Bind[modelStats.GetProjectContributorsReq](c)
 	if !ok {
 		return
@@ -267,11 +307,15 @@ func GetProjectContributors(ctx context.Context, c *hertzApp.RequestContext) {
 	if limit <= 0 {
 		limit = 10
 	}
-	contributors, err := handlerInst.statsSvc.GetProjectContributors(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""), limit)
+	contributors, err := h.statsSvc.GetProjectContributors(ctx, req.Provider, req.Repo, ptrx.Deref(req.From, ""), ptrx.Deref(req.To, ""), limit)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
 
 	common.Success(c, map[string]any{"contributors": contributors})
+}
+
+func GetProjectContributors(ctx context.Context, c *hertzApp.RequestContext) {
+	handlerInst.getProjectContributors(ctx, c)
 }

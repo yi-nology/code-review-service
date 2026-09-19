@@ -28,13 +28,13 @@ type upsertFeedbackReq struct {
 	Fingerprint string `json:"fingerprint"`
 }
 
-func ListFeedback(ctx context.Context, c *app.RequestContext) {
-	if handlerInst == nil || handlerInst.repo == nil {
+func (h *Handler) listFeedback(ctx context.Context, c *app.RequestContext) {
+	if h == nil || h.repo == nil {
 		common.Fail(ctx, c, common.BizErr(500, "feedback handler not initialized"))
 		return
 	}
 	reviewID := c.Param("id")
-	items, err := handlerInst.repo.ListByReview(ctx, reviewID)
+	items, err := h.repo.ListByReview(ctx, reviewID)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
@@ -42,8 +42,11 @@ func ListFeedback(ctx context.Context, c *app.RequestContext) {
 	common.Success(c, map[string]any{"items": items})
 }
 
-func UpsertFeedback(ctx context.Context, c *app.RequestContext) {
-	if handlerInst == nil || handlerInst.repo == nil {
+// ListFeedback 包级入口（biz/router 生成代码引用）；一行委托到方法，便于测试直接构造 Handler。
+func ListFeedback(ctx context.Context, c *app.RequestContext) { handlerInst.listFeedback(ctx, c) }
+
+func (h *Handler) upsertFeedback(ctx context.Context, c *app.RequestContext) {
+	if h == nil || h.repo == nil {
 		common.Fail(ctx, c, common.BizErr(500, "feedback handler not initialized"))
 		return
 	}
@@ -71,12 +74,15 @@ func UpsertFeedback(ctx context.Context, c *app.RequestContext) {
 		Note:         strings.TrimSpace(req.Note),
 		UpdatedAt:    time.Now().UTC(),
 	}
-	if err := handlerInst.repo.Upsert(ctx, item); err != nil {
+	if err := h.repo.Upsert(ctx, item); err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, item)
 }
+
+// UpsertFeedback 包级入口（biz/router 生成代码引用）；一行委托到方法，便于测试直接构造 Handler。
+func UpsertFeedback(ctx context.Context, c *app.RequestContext) { handlerInst.upsertFeedback(ctx, c) }
 
 type lookupFeedbackReq struct {
 	Fingerprints []string `json:"fingerprints"`
@@ -85,8 +91,8 @@ type lookupFeedbackReq struct {
 // ListFeedbackByFingerprints 按指纹集合批量查询历史反馈，用于跨 review 误报抑制。
 // 前端可据此标注"该问题曾被标记为误报"，评审引擎也可据此自动降级。
 // POST /api/v1/findings/feedback/lookup  body: {"fingerprints": ["abc","def"]}
-func ListFeedbackByFingerprints(ctx context.Context, c *app.RequestContext) {
-	if handlerInst == nil || handlerInst.repo == nil {
+func (h *Handler) listFeedbackByFingerprints(ctx context.Context, c *app.RequestContext) {
+	if h == nil || h.repo == nil {
 		common.Fail(ctx, c, common.BizErr(500, "feedback handler not initialized"))
 		return
 	}
@@ -94,10 +100,15 @@ func ListFeedbackByFingerprints(ctx context.Context, c *app.RequestContext) {
 	if !ok {
 		return
 	}
-	items, err := handlerInst.repo.ListByFingerprints(ctx, req.Fingerprints)
+	items, err := h.repo.ListByFingerprints(ctx, req.Fingerprints)
 	if err != nil {
 		common.Fail(ctx, c, err)
 		return
 	}
 	common.Success(c, map[string]any{"items": items})
+}
+
+// ListFeedbackByFingerprints 包级入口（biz/router 生成代码引用）；一行委托到方法，便于测试直接构造 Handler。
+func ListFeedbackByFingerprints(ctx context.Context, c *app.RequestContext) {
+	handlerInst.listFeedbackByFingerprints(ctx, c)
 }

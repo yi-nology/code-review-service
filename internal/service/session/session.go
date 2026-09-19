@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/page"
+
+	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	dsession "github.com/yi-nology/code-review-service/internal/domain/session"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
-	"github.com/yi-nology/code-review-service/internal/service/types"
-	"github.com/oekit/gormx" //lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 	"github.com/oekit/logx"
 )
 
@@ -192,6 +193,6 @@ func (s *SessionService) GetNextRound(ctx context.Context, reviewID string) (int
 	return maxRound + 1, nil
 }
 
-func (s *SessionService) ListSessions(ctx context.Context, page, pageSize int) (*gormx.PageResponse[dsession.Session], error) {
-	return s.repo.List(ctx, page, pageSize)
+func (s *SessionService) ListSessions(ctx context.Context, pageNum, pageSize int) (*page.Page[dsession.Session], error) {
+	return s.repo.List(ctx, pageNum, pageSize)
 }

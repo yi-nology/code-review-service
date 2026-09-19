@@ -2,76 +2,24 @@ package review
 
 import (
 	"context"
-	"errors"
-	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // updateWithRawOCR 更新评审的 Response/RawOCR（#6 keystone：domain.Record 强类型，
-// 不再做 JSONB marshal/unmarshal 往返）。
+// 不再做 JSONB marshal/unmarshal 往返）。实现统一收敛到 state.go 的 WriteReviewState
+// （此前本包与 internal/eino 各持一份且语义分叉）。
 func (s *Service) updateWithRawOCR(ctx context.Context, id string, req domain.Request, response domain.Response, rawOCR []byte) error {
-	review, err := s.reviewRepo.GetByReviewID(ctx, id)
-	if err != nil && !errors.Is(err, repoerr.ErrNotFound) {
-		return err
-	}
-	if review == nil {
-		review = &domain.Record{
-			ID:       id,
-			Provider: req.Provider,
-			Repo:     req.Repo,
-			Request:  req,
-			Status:   response.Status,
-		}
-	}
-
-	previousResponse := review.Response
-	previousStatus := previousResponse.Status
-	previousHistory := append([]domain.Event(nil), previousResponse.History...)
-
-	if len(response.History) == 0 {
-		response.History = previousHistory
-	}
-	if response.Status != "" && response.Status != previousStatus {
-		response.History = append(response.History, domain.Event{
-			Stage:     response.Status,
-			Status:    StatusEventState(response.Status),
-			Message:   StatusEventMessage(response.Status),
-			CreatedAt: time.Now().UTC(),
-		})
-	}
-
-	review.Status = response.Status
-	review.Response = response
-	if len(rawOCR) > 0 {
-		review.RawOCR = rawOCR
-	}
-	review.UpdatedAt = time.Now().UTC()
-	return s.reviewRepo.Save(ctx, review)
+	return WriteReviewState(ctx, s.reviewRepo, id, req, response, rawOCR)
 }
 
 // StatusEventState maps a review status to a progress event state.
+// 真源在 domain（供 eino/worker/收敛路径共用）；此处保留别名以减少存量调用点改动。
 func StatusEventState(status string) string {
-	if status == "failed" {
-		return "failed"
-	}
-	if status == "running" {
-		return "running"
-	}
-	return "completed"
+	return domain.StatusEventState(status)
 }
 
 // StatusEventMessage maps a review status to a human-readable progress event message.
 func StatusEventMessage(status string) string {
-	switch status {
-	case "running":
-		return "worker claimed the task and started execution"
-	case "success":
-		return "review report and quality gate generated"
-	case "failed":
-		return "review execution failed"
-	default:
-		return status
-	}
+	return domain.StatusEventMessage(status)
 }

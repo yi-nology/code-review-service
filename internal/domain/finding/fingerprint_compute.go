@@ -1,4 +1,4 @@
-package types
+package finding
 
 // ComputeFingerprints 为一组 findings 批量计算并填充 Fingerprint 字段。
 //

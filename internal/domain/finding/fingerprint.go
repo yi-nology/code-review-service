@@ -1,4 +1,4 @@
-package types
+package finding
 
 import (
 	"crypto/sha256"

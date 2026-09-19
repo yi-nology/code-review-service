@@ -27,8 +27,8 @@ type snapshotReq struct {
 	Status   string `query:"status"`
 }
 
-func Snapshot(ctx context.Context, c *app.RequestContext) {
-	if handlerInst == nil || handlerInst.svc == nil {
+func (h *Handler) snapshot(ctx context.Context, c *app.RequestContext) {
+	if h == nil || h.svc == nil {
 		common.Fail(ctx, c, common.BizErr(500, "diagnostics handler not initialized"))
 		return
 	}
@@ -36,7 +36,7 @@ func Snapshot(ctx context.Context, c *app.RequestContext) {
 	if !ok {
 		return
 	}
-	snapshot, err := handlerInst.svc.Snapshot(ctx, diagnostics.SnapshotOptions{
+	snapshot, err := h.svc.Snapshot(ctx, diagnostics.SnapshotOptions{
 		Hours:    req.Hours,
 		Limit:    req.Limit,
 		Provider: strings.TrimSpace(req.Provider),
@@ -48,3 +48,6 @@ func Snapshot(ctx context.Context, c *app.RequestContext) {
 	}
 	common.Success(c, snapshot)
 }
+
+// Snapshot 包级入口（biz/router 生成代码引用）；一行委托到方法，便于测试直接构造 Handler。
+func Snapshot(ctx context.Context, c *app.RequestContext) { handlerInst.snapshot(ctx, c) }

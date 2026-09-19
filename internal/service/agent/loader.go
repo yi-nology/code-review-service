@@ -128,3 +128,17 @@ func extractTags(tags interface{}) []string {
 
 	return defaultTags
 }
+
+// defaultAgentLoadTimeout 是名册装配时单个 agent runner 的默认超时。
+const defaultAgentLoadTimeout = 10 * time.Minute
+
+// LoadAgents 用构造期注入的 runner 工厂从 DB 名册装配审查员。
+// 供 modules 在 OnStart 后台调用，无需再自行持有工厂实例。
+func (m *AgentManager) LoadAgents(ctx context.Context, agents []reviewer.Agent) error {
+	return NewAgentLoader(m, m.factory, defaultAgentLoadTimeout).LoadFromDB(ctx, agents)
+}
+
+// LoadDefaultAgent 装配单个缺省审查员（名册为空时的兜底路径）。
+func (m *AgentManager) LoadDefaultAgent(background string) {
+	NewAgentLoader(m, m.factory, defaultAgentLoadTimeout).LoadDefaultAgent(background)
+}
