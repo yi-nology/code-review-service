@@ -9,7 +9,8 @@
     "lint": "eslint . --quiet",
     "lint:strict": "eslint . --max-warnings=0",
     "build": "npm run typecheck && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "visual": "node visual/screenshot.mjs"
   },
   "dependencies": {
     "axios": "^1.17.0",
@@ -25,6 +26,7 @@
     "@vue/tsconfig": "^0.9.1",
     "eslint": "^10.5.0",
     "eslint-plugin-vue": "^10.9.2",
+    "playwright-core": "^1.63.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.61.1",
     "vite": "^6.3.5",

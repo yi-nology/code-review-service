@@ -2,6 +2,19 @@ import js from '@eslint/js'
 import pluginVue from 'eslint-plugin-vue'
 import tseslint from 'typescript-eslint'
 
+// Node 环境全局（visual/ 下的截图脚本用）。
+const nodeGlobals = {
+  URL: 'readonly',
+  fetch: 'readonly',
+  setTimeout: 'readonly',
+  clearTimeout: 'readonly',
+  setInterval: 'readonly',
+  clearInterval: 'readonly',
+  localStorage: 'readonly',
+  console: 'readonly',
+  process: 'readonly',
+}
+
 const browserGlobals = {
   Blob: 'readonly',
   clearInterval: 'readonly',
@@ -55,6 +68,12 @@ export default [
       ],
       'vue/multi-word-component-names': 'off',
       'vue/no-v-html': 'warn',
+    },
+  },
+  {
+    files: ['visual/**/*.mjs'],
+    languageOptions: {
+      globals: nodeGlobals,
     },
   },
 ]

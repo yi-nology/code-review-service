@@ -465,10 +465,7 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import StatStrip from '@/components/common/StatStrip.vue'
 import ProgressTracker from '@/components/ProgressTracker.vue'
 import { getBranchSHA, getGitPlatforms, getProviderBranches } from '@/api/config'
-import { cancelReview, getReview, scanRepository } from '@/api/review'
-import { sessionApi, type ReviewSession } from '@/api/session'
 import type { GitPlatform, PlatformBranch, PlatformRepo } from '@/types/config'
-import type { ReviewDetail } from '@/types/review'
 import ScanFindingsPanel from '@/components/scan/ScanFindingsPanel.vue'
 import ScanPreviewPanel from '@/components/scan/ScanPreviewPanel.vue'
 import RepoSelect from '@/components/common/RepoSelect.vue'
@@ -476,7 +473,8 @@ import { SCAN_PHASES, type PhaseDefinition } from '@/constants/phases'
 import { exportReport, type ReviewReport } from '@/utils/export'
 import { splitRepo } from '@/utils/repo'
 import { normalizePreviewOutput, splitLines } from '@/utils/scan-preview'
-import { clearScanFormState, clearScanSessionCache, loadScanFormState, readScanSessionCache, saveScanFormState, saveScanSessionCache } from '@/composables/useScanCache'
+import { clearScanFormState, loadScanFormState, saveScanFormState } from '@/composables/useScanCache'
+import { useScanRun } from '@/composables/useScanRun'
 
 const router = useRouter()
 const formRef = ref<FormInstance>()
@@ -486,9 +484,6 @@ type ScanState = 'idle' | 'queued' | 'running' | 'success' | 'failed'
 const platforms = ref<GitPlatform[]>([])
 const branches = ref<PlatformBranch[]>([])
 const branchesLoading = ref(false)
-const previewing = ref(false)
-const starting = ref(false)
-const cancelling = ref(false)
 const previewFiles = ref<string[]>([])
 const branch = ref('')
 const branchTouched = ref(false)
@@ -496,24 +491,7 @@ const pathsText = ref('')
 const excludeText = ref('')
 const advancedOpen = ref<string[]>([])
 
-const scanState = ref<ScanState>('idle')
-const activeReviewId = ref('')
-const reviewDetail = ref<ReviewDetail | null>(null)
-const sessions = ref<ReviewSession[]>([])
-const scanError = ref('')
-const scanWarning = ref('')
-const scanStartTime = ref<number | null>(null)
-const elapsedText = ref('')
-let pollTimer: ReturnType<typeof setTimeout> | null = null
-let elapsedTimer: ReturnType<typeof setInterval> | null = null
-// 轮询保护：超过 MAX_POLL_DURATION_MS 仍 running 则放弃（防止卡死的 review 导致页面无限轮询）
-const MAX_POLL_DURATION_MS = 5 * 60 * 1000 // 5 分钟
-// 连续轮询失败（非 404）超过此次数也放弃，避免服务异常时无限重试。
-const MAX_POLL_FAILURES = 10
-let pollStartTime = 0
-let pollFailureCount = 0
 
-const confirmVisible = ref(false)
 // 标记本次表单是否从 localStorage 恢复过（用于展示"已恢复上次配置"提示）
 const restoredFromCache = ref(false)
 
@@ -538,8 +516,18 @@ const formRules: FormRules = {
 }
 
 const canRun = computed(() => Boolean(form.provider && form.repo && form.head_sha))
-const scanRunning = computed(() => scanState.value === 'queued' || scanState.value === 'running')
 const hasPreview = computed(() => previewFiles.value.length > 0)
+
+// 扫描执行生命周期（启动/轮询/取消/恢复）收敛在 useScanRun。
+const {
+  scanState, activeReviewId, reviewDetail, sessions,
+  scanError, scanWarning, elapsedText,
+  confirmVisible, starting, cancelling, previewing, scanRunning,
+  runScan, cancelScan, resetScan, resumeScanSession,
+  onVisibilityChange, dispose,
+} = useScanRun({
+  canRun, form, pathsText, excludeText, previewFiles, saveFormState,
+})
 
 const statusLabel = computed(() => {
   switch (scanState.value) {
@@ -659,43 +647,6 @@ function restoreFormState() {
   form.timeout_minutes = saved.timeout_minutes ?? 60
 }
 
-function saveScanSession() {
-  if (activeReviewId.value && scanRunning.value) {
-    saveScanSessionCache({ review_id: activeReviewId.value, start_time: scanStartTime.value })
-  } else {
-    clearScanSessionCache()
-  }
-}
-
-function clearScanSession() {
-  clearScanSessionCache()
-}
-
-async function resumeScanSession() {
-  try {
-    const session = readScanSessionCache()
-    if (!session || !session.review_id) return
-    // 恢复前先校验 review 确实存在且仍在运行/排队，避免恢复一个已失效的 session
-    // 后陷入 404 无限重试。校验失败直接清掉残留 session。
-    const detail = await getReview(session.review_id)
-    if (!['queued', 'running'].includes(detail.status)) {
-      clearScanSession()
-      return
-    }
-    activeReviewId.value = session.review_id
-    scanStartTime.value = session.start_time ?? null
-    scanState.value = detail.status as ScanState
-    reviewDetail.value = detail
-    pollStartTime = Date.now()
-    pollFailureCount = 0
-    startPolling()
-    startElapsedTimer()
-    await fetchSessions()
-  } catch {
-    // review 不存在或查询失败：清掉残留 session，不进入卡死的轮询。
-    clearScanSession()
-  }
-}
 
 // ===== Data Loading =====
 
@@ -778,201 +729,6 @@ function confirmScan() {
   })
 }
 
-async function runScan(preview: boolean) {
-  if (!canRun.value) return
-  if (!preview) confirmVisible.value = false
-
-  if (preview) {
-    previewing.value = true
-    try {
-      const data = await scanRepository({
-        ...form,
-        paths: splitLines(pathsText.value),
-        exclude: splitLines(excludeText.value),
-        preview: true,
-      })
-      previewFiles.value = data.preview_files || []
-      const info = normalizePreviewOutput(previewFiles.value)
-      ElMessage.success(`预览完成：将审查 ${info.reviewable.length} 个文件`)
-    } catch (e: any) {
-      ElMessage.error(e.message || '预览失败')
-    } finally {
-      previewing.value = false
-    }
-    return
-  }
-
-  starting.value = true
-  saveFormState()
-  try {
-    const data = await scanRepository({
-      ...form,
-      paths: splitLines(pathsText.value),
-      exclude: splitLines(excludeText.value),
-      preview: false,
-    })
-    if (data.review_id) {
-      activeReviewId.value = data.review_id
-      scanState.value = 'queued'
-      scanWarning.value = ''
-      pollFailureCount = 0
-      scanStartTime.value = Date.now()
-      saveScanSession()
-      startPolling()
-      startElapsedTimer()
-    }
-  } catch (e: any) {
-    ElMessage.error(e.message || '启动扫描失败')
-    scanState.value = 'failed'
-    scanError.value = e.message || '启动扫描失败'
-  } finally {
-    starting.value = false
-  }
-}
-
-function startPolling() {
-  if (pollTimer) clearTimeout(pollTimer)
-  if (!pollStartTime) pollStartTime = Date.now()
-  pollTimer = setTimeout(async () => {
-    await pollReview()
-    if (scanState.value === 'queued' || scanState.value === 'running') {
-      if (document.visibilityState === 'visible') startPolling()
-      else pollTimer = null
-    }
-  }, 3000)
-}
-
-async function fetchSessions() {
-  if (!activeReviewId.value) return
-  try {
-    const response = await sessionApi.getSessions(activeReviewId.value)
-    sessions.value = response.sessions || []
-  } catch {
-    sessions.value = []
-  }
-}
-
-async function pollReview() {
-  if (!activeReviewId.value) return
-  try {
-    const detail = await getReview(activeReviewId.value)
-    pollFailureCount = 0
-    scanWarning.value = ''
-    reviewDetail.value = detail
-    if (detail.status === 'success' || detail.status === 'completed') {
-      scanState.value = 'success'
-      stopPolling()
-      stopElapsedTimer()
-      clearScanSession()
-      ElMessage.success('扫描完成')
-      try {
-        const final = await getReview(activeReviewId.value)
-        reviewDetail.value = final
-      } catch {
-        // keep the previous detail
-      }
-      await fetchSessions()
-    } else if (detail.status === 'failed') {
-      scanState.value = 'failed'
-      scanError.value = detail.error || '扫描失败'
-      stopPolling()
-      stopElapsedTimer()
-      clearScanSession()
-    } else if (detail.status === 'running') {
-      // 轮询超时保护：超过 MAX_POLL_DURATION_MS 仍 running 则放弃，避免页面卡死。
-      if (pollStartTime && Date.now() - pollStartTime > MAX_POLL_DURATION_MS) {
-        scanState.value = 'failed'
-        scanError.value = '扫描超时：任务运行时间过长，可能已停止响应。请重新发起扫描。'
-        stopPolling()
-        stopElapsedTimer()
-        clearScanSession()
-      } else {
-        scanState.value = 'running'
-      }
-    }
-    await fetchSessions()
-  } catch (e: any) {
-    // 区分"review 不存在"（404）与"网络抖动"：
-    // - 404 说明 review 已被删除或 session 数据损坏，立即放弃，避免无限重试导致页面卡死在"扫描中"。
-    // - 其它错误（超时、5xx、网络断开）按可重试处理，连续失败超过阈值后也放弃。
-    const status = e?.response?.status || e?.statusCode
-    const isNotFound = status === 404 || /not found|404/i.test(e?.message || '')
-    if (isNotFound) {
-      scanState.value = 'failed'
-      scanError.value = '扫描任务不存在或已被删除。可能是之前的扫描记录已清理，请重新发起扫描。'
-      stopPolling()
-      stopElapsedTimer()
-      clearScanSession()
-      return
-    }
-    pollFailureCount += 1
-    if (pollFailureCount >= MAX_POLL_FAILURES) {
-      scanState.value = 'failed'
-      scanError.value = '连续多次无法获取扫描进度，可能服务异常。请稍后重试。'
-      stopPolling()
-      stopElapsedTimer()
-      clearScanSession()
-      return
-    }
-    if (pollFailureCount >= 2) {
-      scanWarning.value = e?.message
-        ? `服务连接异常，正在重试：${e.message}`
-        : '服务连接异常，正在重试。扫描任务可能仍在后端执行。'
-    }
-  }
-}
-
-function stopPolling() {
-  if (pollTimer) { clearTimeout(pollTimer); pollTimer = null }
-  pollStartTime = 0
-}
-
-function startElapsedTimer() {
-  if (elapsedTimer) clearInterval(elapsedTimer)
-  elapsedTimer = setInterval(() => {
-    if (!scanStartTime.value) return
-    const sec = Math.floor((Date.now() - scanStartTime.value) / 1000)
-    if (sec < 60) elapsedText.value = `${sec}s`
-    else elapsedText.value = `${Math.floor(sec / 60)}m ${sec % 60}s`
-  }, 1000)
-}
-
-function stopElapsedTimer() {
-  if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null }
-}
-
-async function cancelScan() {
-  if (!activeReviewId.value) return
-  cancelling.value = true
-  try {
-    await cancelReview(activeReviewId.value)
-    scanState.value = 'failed'
-    scanError.value = '扫描已取消'
-    scanWarning.value = ''
-    pollFailureCount = 0
-    stopPolling()
-    stopElapsedTimer()
-    clearScanSession()
-  } catch (e: any) {
-    ElMessage.error(e.message || '取消失败')
-  } finally {
-    cancelling.value = false
-  }
-}
-
-function resetScan() {
-  scanState.value = 'idle'
-  activeReviewId.value = ''
-  reviewDetail.value = null
-  sessions.value = []
-  scanError.value = ''
-  scanWarning.value = ''
-  pollFailureCount = 0
-  scanStartTime.value = null
-  elapsedText.value = ''
-  previewFiles.value = []
-  clearScanSession()
-}
 
 function clearPreview() {
   previewFiles.value = []
@@ -1050,11 +806,7 @@ function exportScan(format: 'markdown' | 'json') {
 watch(() => form, saveFormState, { deep: true })
 watch([branch, pathsText, excludeText], saveFormState)
 
-function onVisibilityChange() {
-  if (document.visibilityState === 'visible' && scanRunning.value && !pollTimer) {
-    startPolling()
-  }
-}
+
 
 onMounted(async () => {
   restoreFormState()
@@ -1067,8 +819,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  stopPolling()
-  stopElapsedTimer()
+  dispose()
   document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 </script>
