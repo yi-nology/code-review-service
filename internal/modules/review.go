@@ -86,6 +86,7 @@ type ExecutorDeps struct {
 	Notifier        domain.Notifier
 	FailureReporter *svcReview.FailureReporter
 	GitProviderSvc  *gitProvider.GitProviderService
+	Config          *config.Config
 	BudgetChecker   *cost.BudgetChecker
 	CostCalc        *cost.Calculator
 	Judge           *judge.Judge // OCR 结果二次综合判断
@@ -99,8 +100,10 @@ func NewJudge(llmProvider ocr.Provider) *judge.Judge {
 
 // NewFailureReporter 构造统一失败上报器（eino 执行器与 review worker 共用同一实例，
 // 保证执行前失败与执行中失败的副作用集一致：历史/落库/通知/commit status/指标）。
-func NewFailureReporter(repos *repository.RepoContainer, notifier domain.Notifier, gitSvc *gitProvider.GitProviderService) *svcReview.FailureReporter {
-	return svcReview.NewFailureReporter(repos.Review, notifier, statuscheck.NewPoster(gitSvc))
+func NewFailureReporter(repos *repository.RepoContainer, notifier domain.Notifier,
+	gitSvc *gitProvider.GitProviderService, cfg *config.Config) *svcReview.FailureReporter {
+	return svcReview.NewFailureReporter(repos.Review, notifier,
+		statuscheck.NewPoster(gitSvc, cfg.ExternalBaseURL))
 }
 
 func NewExecutorService(deps ExecutorDeps) *eino.Executor {
@@ -114,7 +117,7 @@ func NewExecutorService(deps ExecutorDeps) *eino.Executor {
 		Runner:          deps.OcrRunner,
 		Writeback:       deps.WritebackPub,
 		Notifier:        deps.Notifier,
-		StatusPoster:    statuscheck.NewPoster(deps.GitProviderSvc),
+		StatusPoster:    statuscheck.NewPoster(deps.GitProviderSvc, deps.Config.ExternalBaseURL),
 		FailureReporter: deps.FailureReporter,
 		BudgetChecker:   deps.BudgetChecker,
 		CostCalc:        deps.CostCalc,
@@ -156,7 +159,7 @@ func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 	// argus 未配置时创建期即拒绝 engine=argus（ArgusEnabled=false）。
 	// statusPoster 让 argus 路径与 OCR 一样在 PR 上留门禁 status（pending→终态）。
 	argusExecutor := svcReview.NewArgusExecutor(deps.ArgusClient, deps.Repos.Review,
-		statuscheck.NewPoster(deps.GitProviderSvc))
+		statuscheck.NewPoster(deps.GitProviderSvc, deps.Config.ExternalBaseURL))
 	return svcReview.NewService(svcReview.ServiceConfig{
 		ReviewRepo:      deps.Repos.Review,
 		OCRSettingsRepo: deps.Repos.OCRSettings,

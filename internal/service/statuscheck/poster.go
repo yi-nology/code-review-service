@@ -8,7 +8,7 @@ package statuscheck
 import (
 	"context"
 	"errors"
-	"fmt"
+	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/strutil"
@@ -24,6 +24,9 @@ import (
 // 满足），statuscheck 不再依赖 internal/service/provider 具体类型。
 type Poster struct {
 	gitSvc StatusWriter
+	// externalBaseURL 服务对外基地址（如 http://review.example.com）。非空时把 check
+	// 的 target_url 拼成 <base>/reviews/:id 供点击跳转；为空时不携带 target_url。
+	externalBaseURL string
 }
 
 // StatusWriter 只声明写 commit status 所需的方法。
@@ -31,8 +34,8 @@ type StatusWriter interface {
 	CreateCommitStatus(ctx context.Context, platform, owner, repo, sha string, opts sdk.CommitStatusOptions) error
 }
 
-func NewPoster(gitSvc StatusWriter) *Poster {
-	return &Poster{gitSvc: gitSvc}
+func NewPoster(gitSvc StatusWriter, externalBaseURL string) *Poster {
+	return &Poster{gitSvc: gitSvc, externalBaseURL: externalBaseURL}
 }
 
 // 状态常量（git 平台约定：success / failed / pending / error）。
@@ -64,10 +67,11 @@ func (p *Poster) Post(ctx context.Context, platform, repoPath, sha, state, descr
 		Context:     ContextName,
 		Description: strutil.Truncate(description, 140), // GitHub description 上限 140 字符
 	}
-	// TargetURL 指向 review 详情页（前端路由 /reviews/:id），便于从 PR check 跳转。
-	// 完整 URL 需要服务外部地址，这里先放相对路径；若配置了 ExternalURL 可拼接。
-	if reviewID != "" {
-		opts.TargetURL = fmt.Sprintf("/reviews/%s", reviewID)
+	// TargetURL 指向 review 详情页，便于从 PR check 跳转。GitLab 强制 target_url
+	// 必须是 http(s) 绝对地址（相对路径整条 status 直接 400），未配置对外地址时
+	// 不携带该参数（实测 GitLab 接受空 target_url，Gitea/GitHub 同样兼容）。
+	if p.externalBaseURL != "" && reviewID != "" {
+		opts.TargetURL = strings.TrimRight(p.externalBaseURL, "/") + "/reviews/" + reviewID
 	}
 
 	if err := p.gitSvc.CreateCommitStatus(ctx, platform, owner, repoName, sha, opts); err != nil {

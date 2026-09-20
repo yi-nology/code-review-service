@@ -27,12 +27,12 @@ var WorkerModule = fx.Options(
 // 回推丢失时拉全量任务详情恢复落库），并经 notifier 发应用内通知、
 // statusPoster 在 PR 上留门禁 status。
 func StartArgusPoller(lc fx.Lifecycle, repos *repository.RepoContainer, argus *argusclient.Client,
-	notifier reviewdomain.Notifier, gitSvc *gitProvider.GitProviderService) {
+	notifier reviewdomain.Notifier, gitSvc *gitProvider.GitProviderService, cfg *config.Config) {
 	if !argus.Enabled() {
 		return
 	}
 	poller := svcReview.NewArgusPoller(repos.Review, repos.ArgusReview, argus, notifier,
-		statuscheck.NewPoster(gitSvc), 30*time.Second)
+		statuscheck.NewPoster(gitSvc, cfg.ExternalBaseURL), 30*time.Second)
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			async.GoSafe(func() { poller.Run(ctx) })

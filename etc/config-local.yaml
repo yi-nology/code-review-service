@@ -72,3 +72,5 @@ tracing:
 # argus:
 #   bot_url: "http://argus:8899"
 #   bot_token: "${ARGUS_BOT_TOKEN:}"
+# 对外基地址：PR 门禁 check 跳转评审详情页链接；留空则不携带 target_url
+# external_base_url: http://review.example.com

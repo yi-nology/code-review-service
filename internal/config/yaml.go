@@ -8,18 +8,22 @@ import (
 
 // Config 配置结构
 type Config struct {
-	Port         int                `yaml:"port"`
-	Auth         AuthConfig         `yaml:"auth"`
-	Database     DatabaseConfig     `yaml:"database"`
-	Nacos        nacos.Bootstrap    `yaml:"nacos"`
-	Tracing      tracing.Config     `yaml:"tracing"`
-	Review       ReviewConfig       `yaml:"review"`
-	Agents       AgentsConfig       `yaml:"agents"`
-	RateLimit    RateLimitConfig    `yaml:"rate_limit"`
-	Webhook      WebhookConfig      `yaml:"webhook"`
-	Argus        ArgusConfig        `yaml:"argus"`
-	Notification NotificationConfig `yaml:"notification"`
-	Cost         CostConfig         `yaml:"cost"`
+	Port int `yaml:"port"`
+	// ExternalBaseURL 服务对外基地址（如 http://review.example.com），用于把 PR 门禁
+	// check 的 target_url 拼成可点击的评审详情页链接；留空则不携带 target_url
+	// （GitLab 拒绝相对路径，整条 status 会写入失败）。
+	ExternalBaseURL string             `yaml:"external_base_url"`
+	Auth            AuthConfig         `yaml:"auth"`
+	Database        DatabaseConfig     `yaml:"database"`
+	Nacos           nacos.Bootstrap    `yaml:"nacos"`
+	Tracing         tracing.Config     `yaml:"tracing"`
+	Review          ReviewConfig       `yaml:"review"`
+	Agents          AgentsConfig       `yaml:"agents"`
+	RateLimit       RateLimitConfig    `yaml:"rate_limit"`
+	Webhook         WebhookConfig      `yaml:"webhook"`
+	Argus           ArgusConfig        `yaml:"argus"`
+	Notification    NotificationConfig `yaml:"notification"`
+	Cost            CostConfig         `yaml:"cost"`
 }
 
 // ArgusConfig Argus（PR 自动审查 Bot）对接：反馈回流（误报抑制代理）需要

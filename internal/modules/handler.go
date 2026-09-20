@@ -122,9 +122,9 @@ func NewArgusClient(cfg *config.Config) *argusclient.Client {
 // push 落库后经 CompleteFromArgusReport 关联收敛 engine=argus 的 active 评审，
 // 并发应用内通知（notifier 与 OCR 路径同源）+ PR 门禁 commit status（statusPoster）。
 func InitArgusHandler(repos *repository.RepoContainer, gitSvc *gitProvider.GitProviderService,
-	argus *argusclient.Client, notifier reviewdomain.Notifier) {
+	argus *argusclient.Client, notifier reviewdomain.Notifier, cfg *config.Config) {
 	argus_service.InitHandler(repos.ArgusReview, repos.Review, argus, notifier,
-		statuscheck.NewPoster(gitSvc))
+		statuscheck.NewPoster(gitSvc, cfg.ExternalBaseURL))
 }
 
 func InitNotificationHandler(repos *repository.RepoContainer) {

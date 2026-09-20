@@ -46,6 +46,10 @@ func applyEnvOverrides(cfg *Config) {
 	if v := config.Get("REVIEW_TOKEN"); v != "" {
 		cfg.Auth.Token = v
 	}
+	// 对外基地址：PR 门禁 check 跳转链接的拼接来源（EXTERNAL_BASE_URL 优先于 yaml）。
+	if v := config.Get("EXTERNAL_BASE_URL"); v != "" {
+		cfg.ExternalBaseURL = v
+	}
 	// Argus 对接（反馈回流代理）：ARGUS_BOT_URL 非空启用「误报抑制」回流
 	if v := config.Get("ARGUS_BOT_URL"); v != "" {
 		cfg.Argus.BotURL = v
