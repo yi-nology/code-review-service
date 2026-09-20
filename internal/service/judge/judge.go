@@ -18,9 +18,10 @@ package judge
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/oagentkit/jsonrepair"
 
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
@@ -107,7 +108,7 @@ func (j *Judge) Analyze(ctx context.Context, input AnalyzeInput, ocrResult domai
 
 	// 解析 LLM 输出
 	var judgment Judgment
-	if err := parseJSON(resp.Content, &judgment); err != nil {
+	if err := jsonrepair.Unmarshal(resp.Content, &judgment); err != nil {
 		logx.Warnf("[judge] failed to parse LLM judgment, using default: %v", err)
 		return j.defaultJudgment(ocrResult), nil
 	}
@@ -191,27 +192,4 @@ func buildDefaultSummary(ocrResult domain.Result) string {
 		parts = append(parts, fmt.Sprintf("- 🔵 低: %d", info))
 	}
 	return strings.Join(parts, "\n")
-}
-
-// parseJSON 从可能含 markdown 围栏的 LLM 响应中提取 JSON。
-func parseJSON(content string, out any) error {
-	s := strings.TrimSpace(content)
-	if strings.HasPrefix(s, "```") {
-		s = strings.TrimPrefix(s, "```")
-		if idx := strings.IndexByte(s, '\n'); idx >= 0 {
-			first := strings.TrimSpace(s[:idx])
-			if first == "json" || first == "" {
-				s = s[idx+1:]
-			}
-		}
-		s = strings.TrimSpace(s)
-		s = strings.TrimSuffix(s, "```")
-		s = strings.TrimSpace(s)
-	}
-	start := strings.IndexAny(s, "{[")
-	end := strings.LastIndexAny(s, "}]")
-	if start < 0 || end <= start {
-		return json.Unmarshal([]byte(s), out)
-	}
-	return json.Unmarshal([]byte(s[start:end+1]), out)
 }
