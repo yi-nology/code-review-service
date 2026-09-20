@@ -112,7 +112,7 @@ func (e *Executor) postCompletionStatus(req domain.Request, resp domain.Response
 
 // notifyStart 在评审开始时发 commit status（pending）+ PR 评论。
 // 让 PR 作者立即知道审查已启动，正在分析代码。
-func (e *Executor) notifyStart(ctx context.Context, req domain.Request) {
+func (e *Executor) notifyStart(ctx context.Context, id string, req domain.Request) {
 	// 1. 发 commit status: pending
 	if e.statusPoster != nil && req.HeadSHA != "" {
 		e.statusPoster.Post(ctx, req.Provider, req.Repo, req.HeadSHA,
@@ -143,7 +143,7 @@ func (e *Executor) notifyStart(ctx context.Context, req domain.Request) {
 		}()
 	}
 
-	e.appendHistory(ctx, req.ReviewID, "notify", "started", "review start notification sent", nil)
+	e.appendHistory(ctx, id, "notify", "started", "review start notification sent", nil)
 }
 
 func countTruePositives(j *judge.Judgment) int {

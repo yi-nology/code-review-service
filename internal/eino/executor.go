@@ -177,7 +177,7 @@ func (e *Executor) Execute(ctx context.Context, id string, req domain.Request, p
 	}
 
 	// === 评审开始：发 commit status + PR 评论 ===
-	e.notifyStart(ctx, req)
+	e.notifyStart(ctx, id, req)
 
 	// Budget gate
 	if e.budgetChecker != nil {

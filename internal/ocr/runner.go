@@ -2,14 +2,10 @@ package ocr
 
 import (
 	"bufio"
-	"bytes"
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -23,20 +19,7 @@ import (
 	"github.com/oekit/pkg/convert"
 )
 
-// Runner 是 open-code-review 子进程调用入口（阶段 A12 完整化）。
-//
-// 实现了 domain.Runner / domain.PreviewRunner / domain.ScanRunner 三接口。
-//
-// 行为：
-//   - Run: 调 "ocr review --repo --from --to ..." 子进程，解析 JSON 输出
-//   - Preview: 调 "ocr scan --preview ..." 子进程
-//   - Scan: 调 "ocr scan ..." 子进程，支持 batch / paths / exclude
-//
-// 阶段 A12：完整吸收 runner/runner.go + runner/preview.go + runner/scan.go 业务逻辑。
-// runnerRefreshInterval 是后台刷新 baseCfg 的间隔。
-// OCR 设置变更频率极低（人工操作），30s 足够；PUT handler 会通过 NotifyRefresh 立即触发。
-const runnerRefreshInterval = 30 * time.Second
-
+// runner.go：OCR Runner 核心——配置热载生命周期与执行主流程（Run/runOnce）。
 type Runner struct {
 	// baseCfg 是从 DB 解析的全局默认配置（不含 per-execution overrides）。
 	// 后台 goroutine 定时刷新；执行时通过 effectiveConfig() 读快照 + 叠加 overrides。
@@ -52,14 +35,6 @@ type Runner struct {
 	stopCh   chan struct{}
 	stopOnce sync.Once
 }
-
-// Compile-time assertions
-var (
-	_ domain.Runner        = (*Runner)(nil)
-	_ domain.PreviewRunner = (*Runner)(nil)
-	_ domain.ScanRunner    = (*Runner)(nil)
-	_ domain.Delegator     = (*Runner)(nil)
-)
 
 // NewRunner 从 Config 构造 Runner。
 func NewRunner(cfg Config) *Runner {
@@ -202,16 +177,8 @@ func mergeOverrides(base Config, ov OCROverrides) Config {
 
 // Previewer / Scanner 包装 Runner。
 func (r *Runner) Previewer() domain.PreviewRunner { return r }
-func (r *Runner) Scanner() domain.ScanRunner      { return r }
 
-// defaultOCRMaxRetries 默认重试 1 次。
-// OCR 评审是 LLM 调用，LLM 端点偶发 5xx / 超时很常见，0 重试会让网关服务过于脆弱。
-// 1 次重试 + 指数退避在「多救一次瞬时抖动」与「不显著拉长评审耗时」间取平衡。
-// BinaryMissingError（二进制根本不存在）和 ctx 取消不重试——重试无意义。
-const defaultOCRMaxRetries = 1
-
-// retryBaseBackoff 是首次重试前的指数退避基准。
-const retryBaseBackoff = 2 * time.Second
+func (r *Runner) Scanner() domain.ScanRunner { return r }
 
 // Run 实现 domain.Runner。
 //
@@ -493,23 +460,6 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 	return result, nil
 }
 
-// ---- 工具函数（从 runner 包迁移） ----
-
-// BinaryMissingError 表示 OCR 二进制不存在或不可执行（cmd.Start 失败）。
-type BinaryMissingError struct {
-	Binary string
-	Err    error
-}
-
-func (e *BinaryMissingError) Error() string {
-	if e.Err != nil {
-		return fmt.Sprintf("ocr 二进制 %q 不可用: %v", e.Binary, e.Err)
-	}
-	return fmt.Sprintf("ocr 二进制 %q 不可用", e.Binary)
-}
-
-func (e *BinaryMissingError) Unwrap() error { return e.Err }
-
 // appendToolsArgs 把 tools_path 或 tools_config 加到 args。
 func appendToolsArgs(args []string, cfg Config) ([]string, func(), error) {
 	if strings.TrimSpace(cfg.ToolsPath) != "" {
@@ -531,357 +481,4 @@ func appendToolsArgs(args []string, cfg Config) ([]string, func(), error) {
 		return args, func() { _ = os.Remove(f.Name()) }, nil
 	}
 	return args, nil, nil
-}
-
-// parseOCRProgress 从 stderr 一行文本中解析 OCR 进度并通过 reporter 上报。
-// OCR CLI 输出形如 "progress: 50% phase=context"。
-// 此前该函数是空桩（_ = reporter），导致 WS 进度 UI 拿不到 OCR 子步骤进度。
-func parseOCRProgress(line string, reporter progress.ProgressReporter) {
-	const prefix = "progress:"
-	if !strings.HasPrefix(line, prefix) {
-		return
-	}
-	rest := strings.TrimSpace(line[len(prefix):])
-	fields := strings.Fields(rest)
-
-	var pct float64
-	var phaseName string
-	for _, f := range fields {
-		switch {
-		case strings.HasSuffix(f, "%"):
-			if v, err := strconv.ParseFloat(strings.TrimSuffix(f, "%"), 64); err == nil {
-				pct = v
-			}
-		case strings.HasPrefix(f, "phase="):
-			phaseName = strings.TrimPrefix(f, "phase=")
-		}
-	}
-
-	// 归一化百分比，防止异常输入。
-	if pct < 0 {
-		pct = 0
-	} else if pct > 100 {
-		pct = 100
-	}
-
-	// 已知 phase 名与 progress.Phase 常量一致，直接映射以驱动前端阶段切换。
-	if _, ok := knownOCRPhases[phaseName]; ok {
-		reporter.UpdatePhase(progress.Phase(phaseName), "active", pct, "ocr: "+rest)
-		return
-	}
-	reporter.ReportProgress("ocr: "+rest, pct)
-}
-
-// knownOCRPhases 列出 progress.Phase 体系支持的阶段名（见 progress/types.go）。
-var knownOCRPhases = map[string]struct{}{
-	"context":        {},
-	"change_context": {},
-	"analysis":       {},
-	"reviews":        {},
-	"aggregation":    {},
-	"discourse":      {},
-	"synthesis":      {},
-	"complete":       {},
-}
-
-// maxSubprocessOutput 限制单个 OCR 子进程 stdout/stderr 的内存上限，
-// 防止健谈/失控的二进制把内存撑爆（OOM）。正常 JSON 输出远小于此。
-const maxSubprocessOutput = 64 << 20 // 64 MB
-
-// cappedBuffer 是带容量上限的 bytes.Buffer：超过 cap 后丢弃后续写入并记录一次告警，
-// 作为 exec.Cmd 的 Stdout/Stdout 捕获器，限制输出内存占用。
-type cappedBuffer struct {
-	buf    bytes.Buffer
-	cap    int
-	capped bool
-}
-
-func newCappedBuffer(capBytes int) *cappedBuffer {
-	return &cappedBuffer{cap: capBytes}
-}
-
-func (b *cappedBuffer) Write(p []byte) (int, error) {
-	if b.capped {
-		return len(p), nil
-	}
-	room := b.cap - b.buf.Len()
-	if len(p) >= room {
-		if room > 0 {
-			b.buf.Write(p[:room])
-		}
-		b.capped = true
-		logx.Warnf("ocr subprocess output exceeded %d bytes cap, further output discarded", b.cap)
-		return len(p), nil
-	}
-	return b.buf.Write(p)
-}
-
-func (b *cappedBuffer) Bytes() []byte  { return b.buf.Bytes() }
-func (b *cappedBuffer) String() string { return b.buf.String() }
-
-// classifyExitError 把 cmd.Wait 的失败归类为 TimeoutError、PermanentError 或 ExitError。
-func classifyExitError(ctx context.Context, runErr error, timeout time.Duration, stderr string) error {
-	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return &TimeoutError{Timeout: timeout}
-	}
-	// DNS 解析失败 / 未知主机这类错误不可恢复（ocr 子进程调用 LLM 端点时 DNS 查不到），
-	// 重试只会再多等一个 timeout。识别 stderr 中的特征文本，归类为 PermanentError。
-	combined := stderr
-	if runErr != nil {
-		combined = combined + " " + runErr.Error()
-	}
-	if isPermanentMessage(combined) {
-		return &PermanentError{Stderr: stderr, Err: runErr}
-	}
-	return &ExitError{Stderr: stderr, Err: runErr}
-}
-
-// permanentMessagePatterns 匹配不可恢复（重试无意义）的错误特征。
-// 主要是 DNS 解析失败类：ocr 子进程访问 LLM 端点时域名解析不到，
-// 短时间内不会自愈，重试只会双倍超时。
-var permanentMessagePatterns = []string{
-	"no such host",          // DNS NXDOMAIN（getaddrinfo 标准措辞）
-	"lookup",                // DNS 解析失败前缀（如 "lookup xxx on ..."）
-	"ENOTFOUND",             // Node.js DNS 错误码（ocr 可能用 node）
-	"ECONNREFUSED",          // 连接被拒（端口未开，非瞬时抖动）
-	"nodename nor servname", // macOS DNS 失败措辞
-	"server misbehaving",    // DNS SERVFAIL
-}
-
-// isPermanentMessage 判断错误文本是否属于不可重试类别（大小写不敏感）。
-func isPermanentMessage(s string) bool {
-	lower := strings.ToLower(s)
-	for _, pat := range permanentMessagePatterns {
-		if strings.Contains(lower, pat) {
-			return true
-		}
-	}
-	return false
-}
-
-// TimeoutError 表示 OCR 评审超过 context deadline。
-type TimeoutError struct {
-	Timeout time.Duration
-}
-
-func (e *TimeoutError) Error() string {
-	return fmt.Sprintf("ocr 评审超时（上限 %s）", e.Timeout)
-}
-
-// ExitError 表示 OCR 子进程非零退出，Stderr 含根因。
-type ExitError struct {
-	Stderr string
-	Err    error
-}
-
-func (e *ExitError) Error() string {
-	msg := strings.TrimSpace(e.Stderr)
-	if msg == "" && e.Err != nil {
-		msg = e.Err.Error()
-	}
-	if msg == "" {
-		return "ocr 评审失败"
-	}
-	return fmt.Sprintf("ocr 评审失败: %s", msg)
-}
-
-func (e *ExitError) Unwrap() error { return e.Err }
-
-// PermanentError 表示不可重试的错误（如 DNS 解析失败、认证失败）。
-// 重试只会双倍超时，Run 循环遇到此类错误立即终止。
-type PermanentError struct {
-	Stderr string
-	Err    error
-}
-
-func (e *PermanentError) Error() string {
-	msg := strings.TrimSpace(e.Stderr)
-	if msg == "" && e.Err != nil {
-		msg = e.Err.Error()
-	}
-	if msg == "" {
-		return "ocr 评审遇到不可重试错误"
-	}
-	return fmt.Sprintf("ocr 评审遇到不可重试错误: %s", msg)
-}
-
-func (e *PermanentError) Unwrap() error { return e.Err }
-
-// IsPermanentError 供 errors.As 判断是否为 PermanentError。
-func IsPermanentError(err error) bool {
-	var e *PermanentError
-	return errors.As(err, &e)
-}
-
-// IsBinaryMissing / IsTimeout / IsExit / IsPermanent 供上层用 errors.As 判断。
-func IsBinaryMissing(err error) bool {
-	var e *BinaryMissingError
-	return errors.As(err, &e)
-}
-
-func IsTimeout(err error) bool {
-	var e *TimeoutError
-	return errors.As(err, &e)
-}
-
-func IsExit(err error) bool {
-	var e *ExitError
-	return errors.As(err, &e)
-}
-
-// IsPermanent 判断错误是否不可重试（含 PermanentError 及其包装）。
-func IsPermanent(err error) bool {
-	return IsPermanentError(err)
-}
-
-// parseOpenCodeReviewOutput 解析 `ocr review --format json` 的 JSON 输出。
-//
-// OCR 输出结构：
-//
-//	{
-//	  "status": "success",
-//	  "summary": {
-//	    "files_reviewed": 1, "comments": 3,
-//	    "total_tokens": 23474, "input_tokens": 21694, "output_tokens": 1780,
-//	    "elapsed": "35s"
-//	  },
-//	  "tool_calls": { "total": 5, "by_tool": { "code_search": 1, ... } },
-//	  "comments": [
-//	    { "path", "content", "suggestion_code", "existing_code", "start_line", "end_line" }
-//	  ]
-//	}
-//
-// comments 映射为 domain.Finding；summary 映射为 OCRMetadata。
-// OCR 不输出 severity，统一用 defaultSeverity（上层归一化）。
-func parseOpenCodeReviewOutput(data []byte, defaultSeverity string) domain.Result {
-	if len(data) == 0 {
-		return domain.Result{Summary: "ocr 评审未产生输出"}
-	}
-
-	var payload struct {
-		Status  string `json:"status"`
-		Summary struct {
-			FilesReviewed  int    `json:"files_reviewed"`
-			Comments       int    `json:"comments"`
-			TotalTokens    int64  `json:"total_tokens"`
-			InputTokens    int64  `json:"input_tokens"`
-			OutputTokens   int64  `json:"output_tokens"`
-			Elapsed        string `json:"elapsed"`
-			BudgetExceeded bool   `json:"budget_exceeded"`
-		} `json:"summary"`
-		ToolCalls *domain.ToolCallsMetadata `json:"tool_calls"`
-		// Session 是 OCR v1.7.6+ 引入的 review session 元数据；旧版本无此字段，零值即可。
-		// resume 命中时 reused_files > 0；session_id 可用于 `ocr session show <id>` 排障。
-		Session *struct {
-			SessionID   string `json:"session_id"`
-			ReusedFiles int    `json:"reused_files"`
-		} `json:"session"`
-		Comments []struct {
-			Path           string `json:"path"`
-			Content        string `json:"content"`
-			SuggestionCode string `json:"suggestion_code"`
-			ExistingCode   string `json:"existing_code"`
-			StartLine      int    `json:"start_line"`
-			EndLine        int    `json:"end_line"`
-		} `json:"comments"`
-	}
-
-	if err := json.Unmarshal(data, &payload); err != nil {
-		// 非 JSON 输出（如纯文本错误）：保留原文当 summary，便于排障。
-		return domain.Result{
-			Summary: strings.TrimSpace(string(data)),
-			OCR:     domain.OCRMetadata{Engine: "open-code-review", Status: "parse_error"},
-		}
-	}
-
-	severity := strings.TrimSpace(defaultSeverity)
-	if severity == "" {
-		severity = DefaultSeverity
-	}
-
-	findings := make([]domain.Finding, 0, len(payload.Comments))
-	for _, c := range payload.Comments {
-		line := c.StartLine
-		if line <= 0 {
-			line = c.EndLine
-		}
-		findings = append(findings, domain.Finding{
-			Severity:       severity,
-			Path:           c.Path,
-			Line:           line,
-			StartLine:      c.StartLine,
-			EndLine:        c.EndLine,
-			Title:          findingTitle(c.Content),
-			Body:           c.Content,
-			ExistingCode:   c.ExistingCode,
-			SuggestionCode: c.SuggestionCode,
-			Suggestion:     c.SuggestionCode,
-		})
-	}
-
-	commentCount := payload.Summary.Comments
-	if commentCount == 0 {
-		commentCount = len(findings)
-	}
-	summary := fmt.Sprintf("ocr 评审完成：%d 条评论，%d 个文件", commentCount, payload.Summary.FilesReviewed)
-
-	result := domain.Result{
-		Summary:  summary,
-		Findings: findings,
-		OCR: domain.OCRMetadata{
-			Engine:        "open-code-review",
-			Status:        payload.Status,
-			FilesReviewed: int64(payload.Summary.FilesReviewed),
-			Comments:      int64(commentCount),
-			TotalTokens:   payload.Summary.TotalTokens,
-			InputTokens:   payload.Summary.InputTokens,
-			OutputTokens:  payload.Summary.OutputTokens,
-			Elapsed:       payload.Summary.Elapsed,
-			ToolCalls:     payload.ToolCalls,
-		},
-	}
-	if payload.Session != nil {
-		result.OCR.SessionID = payload.Session.SessionID
-		result.OCR.ReusedFiles = payload.Session.ReusedFiles
-	}
-	result.OCR.BudgetExceeded = payload.Summary.BudgetExceeded
-	return result
-}
-
-// findingTitle 从 OCR comment 的完整内容中提取一个简短标题。
-func findingTitle(content string) string {
-	content = strings.TrimSpace(content)
-	if content == "" {
-		return ""
-	}
-	title := content
-	for _, sep := range []string{"\n", "。", "；", "：", ":", ".", ";", "，"} {
-		if idx := strings.Index(content, sep); idx > 0 {
-			title = strings.TrimSpace(content[:idx])
-			break
-		}
-	}
-	if r := []rune(title); len(r) > 80 {
-		title = string(r[:80]) + "…"
-	}
-	return title
-}
-
-// 注：language 不再写 ~/.opencodereview/config.json。
-// 此前 ensureOCRLanguage 把 language 写入全局共享配置文件，多语言并发评审会互相覆盖
-// （锁只能防文件损坏，「最后写入者胜」仍导致评审用错语言）。
-// 现在 language 通过 OCR_LANGUAGE 环境变量传递（见 Config.AppendEnv），
-// env 是 per-process 的，天然并发安全。
-
-// languagePrompt 根据语言设置生成 background 提示，确保 LLM 用指定语言输出。
-// 支持 "中文"/"Chinese"/"zh"(不区分大小写) 和 "English"/"en"。
-func languagePrompt(lang string) string {
-	switch strings.ToLower(strings.TrimSpace(lang)) {
-	case "中文", "chinese", "zh", "zh-cn":
-		return "请用中文输出所有审查结果，包括问题描述、建议和总结。"
-	case "english", "en":
-		return "Please output all review results in English, including findings, suggestions, and summary."
-	default:
-		return ""
-	}
 }
