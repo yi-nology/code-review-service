@@ -26,7 +26,9 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
 	"github.com/yi-nology/code-review-service/internal/strutil"
 	"github.com/yi-nology/code-review-service/internal/vcs"
+	"github.com/cloudwego/eino/callbacks"
 
+	agentkitllm "github.com/oagentkit/llm"
 	"github.com/oagentkit/obsx"
 	"github.com/oekit/logx"
 )
@@ -149,17 +151,19 @@ func (e *Executor) Execute(ctx context.Context, id string, req domain.Request, p
 	e.running[id] = cancel
 	e.runningMu.Unlock()
 
-	// 启用 eino LLM 调用追踪（结构化日志：stage/model/duration/tokens/慢调用告警）
-	// OnUsage 回调将真实 token 用量注入 llmMetrics（覆盖 ReAct agent 直用 BaseChatModel 的场景）
-	ctx = obsx.InitLLMObservability(ctx, logx.Default(), obsx.Options{
-		SlowThreshold: 30 * time.Second,
-		OnUsage: func(component, model, stage string, prompt, completion int) {
+	// 启用 eino LLM 调用追踪（结构化日志：duration/tokens/慢调用告警）+
+	// token 用量记账（UsageHandler 真实 usage 单源，注入 llmMetrics——覆盖
+	// ReAct agent 直用 BaseChatModel 的场景）。agentkit v0.10.12 起
+	// 记账单源化：原 obsx.Options.OnUsage 已移除，改经 llm.NewUsageHandler。
+	ctx = callbacks.InitCallbacks(ctx, nil,
+		obsx.NewTracingHandler(logx.Default(), obsx.Options{SlowThreshold: 30 * time.Second}),
+		agentkitllm.NewUsageHandler(func(rec agentkitllm.UsageRecord) {
 			if e.llmMetrics != nil {
-				e.llmMetrics.InputTokens.Add(int64(prompt))
-				e.llmMetrics.OutputTokens.Add(int64(completion))
+				e.llmMetrics.InputTokens.Add(int64(rec.PromptTokens))
+				e.llmMetrics.OutputTokens.Add(int64(rec.CompletionTokens))
 			}
-		},
-	})
+		}),
+	)
 
 	// Ensure we clean up when done
 	defer func() {

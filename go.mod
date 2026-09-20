@@ -3,7 +3,7 @@ module github.com/yi-nology/code-review-service
 go 1.26.4
 
 require (
-	github.com/yi-nology/agentkit v0.10.2
+	github.com/yi-nology/agentkit v0.10.14
 	github.com/yi-nology/ekit v0.27.2
 	github.com/andygrunwald/go-gerrit v1.2.0
 	github.com/apache/thrift v0.23.0
@@ -63,7 +63,7 @@ require (
 	github.com/aliyun/credentials-go v1.4.3 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/buger/jsonparser v1.1.1 // indirect
+	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/bytedance/gopkg v0.1.4 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
