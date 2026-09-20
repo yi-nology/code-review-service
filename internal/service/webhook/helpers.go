@@ -5,12 +5,15 @@ import (
 	"strconv"
 )
 
+// gitlab 家族（gitlab/gitcode/tencent_code）同时接受平台原生词（open/reopen/update）
+// 与 SDK v0.62+ 规范化词（opened/reopened/updated）——SDK 升级换了 action 词表，
+// 真实平台 webhook 的原始 action 也可能两者其一，双收最稳。
 var supportedActions = map[string]map[string]bool{
 	"github":       {"opened": true, "reopened": true, "synchronize": true, "ready_for_review": true},
-	"gitlab":       {"open": true, "reopen": true, "update": true},
+	"gitlab":       {"open": true, "reopen": true, "update": true, "opened": true, "reopened": true, "updated": true},
 	"gitea":        {"opened": true, "reopened": true, "synchronized": true},
-	"gitcode":      {"open": true, "reopen": true, "update": true},
-	"tencent_code": {"open": true, "reopen": true, "update": true},
+	"gitcode":      {"open": true, "reopen": true, "update": true, "opened": true, "reopened": true, "updated": true},
+	"tencent_code": {"open": true, "reopen": true, "update": true, "opened": true, "reopened": true, "updated": true},
 }
 
 func IsSupportedAction(provider, action string) bool {

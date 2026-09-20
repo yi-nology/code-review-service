@@ -113,9 +113,11 @@ func buildSDKWebhookRequest(platform, eventType string, rawBody []byte) *http.Re
 // 返回 nil 表示该事件应被忽略（非 push/CR 事件、action 不受支持、GitLab
 // 空更新等）。
 func mapNormalizedEvent(platform string, ne *sdkprovider.NormalizedEvent, raw []byte) *ChangeEvent {
-	// SDK v0.48 的 gitea/github 后端不回填 NormalizedEvent.Action（只把 action
+	// 部分 SDK 后端（如 gitea/github）不回填 NormalizedEvent.Action（只把 action
 	// 编进 Type 的 "cr.<action>" 前缀），空 action 会被 IsSupportedAction 全量
 	// 过滤掉 CR webhook。在构造 ChangeEvent 前从 Type 恢复动作。
+	// （v0.62 起 gitlab 家族后端已正常回填 Action 且词表规范化为 opened/updated，
+	// gitea/github 的兜底逻辑保留——防御不同后端行为差异。）
 	if ne.Action == "" && strings.HasPrefix(ne.Type, "cr.") {
 		ne.Action = strings.TrimPrefix(ne.Type, "cr.")
 	}
@@ -139,7 +141,7 @@ func mapNormalizedEvent(platform string, ne *sdkprovider.NormalizedEvent, raw []
 			return nil
 		}
 		// 保留 GitLab "update" 去重：oldrev==newrev 或 newrev 为空时丢弃。
-		if platform == "gitlab" && ne.Action == "update" && isGitLabNoOpUpdate(raw) {
+		if platform == "gitlab" && (ne.Action == "update" || ne.Action == "updated") && isGitLabNoOpUpdate(raw) {
 			return nil
 		}
 	}

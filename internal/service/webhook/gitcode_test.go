@@ -33,7 +33,7 @@ func TestGitCodeNormalizeMergeRequest(t *testing.T) {
 	if ce == nil {
 		t.Fatal("expected event, got nil")
 	}
-	if ce.Provider != "gitcode" || ce.EventType != "merge_request" || ce.Action != "open" {
+	if ce.Provider != "gitcode" || ce.EventType != "merge_request" || ce.Action != "opened" {
 		t.Errorf("unexpected platform/eventType/action: %s/%s/%s", ce.Provider, ce.EventType, ce.Action)
 	}
 	if ce.Number != "7" {
