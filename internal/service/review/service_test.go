@@ -25,11 +25,14 @@ import (
 )
 
 type mockReviewRepo struct {
-	mu        sync.Mutex
-	reviews   []*domain.Record
-	saveErr   error
-	createErr error
-	claimFn   func(ctx context.Context, limit int) ([]domain.Record, error)
+	mu          sync.Mutex
+	reviews     []*domain.Record
+	saveErr     error
+	createErr   error
+	claimFn     func(ctx context.Context, limit int) ([]domain.Record, error)
+	failStaleFn func(ctx context.Context, before time.Time) ([]domain.Record, error)
+	listFn      func(ctx context.Context, opts domain.ListOptions) (*page.Page[domain.Record], error)
+	touchCalls  int
 }
 
 func (m *mockReviewRepo) Create(_ context.Context, r *domain.Record) error {
@@ -109,6 +112,12 @@ func (m *mockReviewRepo) GetActiveByProviderRepo(_ context.Context, provider, re
 }
 
 func (m *mockReviewRepo) List(_ context.Context, opts domain.ListOptions) (*page.Page[domain.Record], error) {
+	m.mu.Lock()
+	fn := m.listFn
+	m.mu.Unlock()
+	if fn != nil {
+		return fn(context.Background(), opts)
+	}
 	return &page.Page[domain.Record]{Items: nil, Total: 0}, nil
 }
 
@@ -136,6 +145,30 @@ func (m *mockReviewRepo) ClaimQueued(ctx context.Context, limit int) ([]domain.R
 
 func (m *mockReviewRepo) RequeueStale(_ context.Context, _ time.Time) (int64, error) {
 	return 0, nil
+}
+
+func (m *mockReviewRepo) FailStaleRunning(ctx context.Context, before time.Time) ([]domain.Record, error) {
+	m.mu.Lock()
+	fn := m.failStaleFn
+	m.mu.Unlock()
+	if fn != nil {
+		return fn(ctx, before)
+	}
+	return nil, nil
+}
+
+func (m *mockReviewRepo) TouchRunning(_ context.Context, _ string) error {
+	m.mu.Lock()
+	m.touchCalls++
+	m.mu.Unlock()
+	return nil
+}
+
+// touchCallCount 返回 TouchRunning 被调用次数（心跳测试用）。
+func (m *mockReviewRepo) touchCallCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.touchCalls
 }
 
 func (m *mockReviewRepo) QueueDepth(_ context.Context) (int64, error) {

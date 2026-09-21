@@ -2,6 +2,7 @@ package review
 
 import (
 	"context"
+	"time"
 
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
@@ -47,6 +48,10 @@ type ServiceConfig struct {
 	// Concurrency 限制同时进行的 review 数（worker 与 scan 共享）。
 	// <=0 表示不限制。在构造期一次性创建信号量，避免运行期懒初始化导致的数据竞争。
 	Concurrency int
+	// HeartbeatInterval 是执行期心跳间隔：执行中定期刷新 updated_at，
+	// 防止长评审被 stale 重排误判为孤儿而重复执行。<=0 时禁用心跳。
+	// 调用方应保证其小于 worker_stale_after（约定取 stale_after/3）。
+	HeartbeatInterval time.Duration
 	// ArgusEnabled 表示 argus 引擎可用（argus.bot_url 已配置）。
 	// false 时 engine=argus 的创建请求 fail-fast 拒绝，而非入队后在 worker 失败。
 	ArgusEnabled bool
@@ -74,6 +79,9 @@ type Service struct {
 	//（并发信号量、in-flight、扫描取消注册表）。
 	runtime *scanRuntime
 
+	// heartbeatInterval 执行期心跳间隔（<=0 禁用）。
+	heartbeatInterval time.Duration
+
 	// Refactored components
 	scanOrchestrator *ScanOrchestrator
 	failureReporter  *FailureReporter
@@ -81,22 +89,23 @@ type Service struct {
 
 func NewService(cfg ServiceConfig) *Service {
 	s := &Service{
-		reviewRepo:      cfg.ReviewRepo,
-		ocrSettingsRepo: cfg.OCRSettingsRepo,
-		projectRepo:     cfg.ProjectRepo,
-		globalRulesRepo: cfg.GlobalRulesRepo,
-		rulePackageRepo: cfg.RulePackageRepo,
-		agentRepo:       cfg.AgentRepo,
-		sessionRepo:     cfg.SessionRepo,
-		policy:          cfg.Policy,
-		Providers:       cfg.Providers,
-		runner:          cfg.Runner,
-		PreviewRunner:   cfg.PreviewRunner,
-		ScanRunner:      cfg.ScanRunner,
-		Delegator:       cfg.Delegator,
-		progressManager: cfg.ProgressManager,
-		Executor:        cfg.Executor,
-		argusEnabled:    cfg.ArgusEnabled,
+		reviewRepo:        cfg.ReviewRepo,
+		ocrSettingsRepo:   cfg.OCRSettingsRepo,
+		projectRepo:       cfg.ProjectRepo,
+		globalRulesRepo:   cfg.GlobalRulesRepo,
+		rulePackageRepo:   cfg.RulePackageRepo,
+		agentRepo:         cfg.AgentRepo,
+		sessionRepo:       cfg.SessionRepo,
+		policy:            cfg.Policy,
+		Providers:         cfg.Providers,
+		runner:            cfg.Runner,
+		PreviewRunner:     cfg.PreviewRunner,
+		ScanRunner:        cfg.ScanRunner,
+		Delegator:         cfg.Delegator,
+		progressManager:   cfg.ProgressManager,
+		Executor:          cfg.Executor,
+		argusEnabled:      cfg.ArgusEnabled,
+		heartbeatInterval: cfg.HeartbeatInterval,
 	}
 	// 构造期一次性创建共享运行时（含并发信号量），消除运行期懒初始化的数据竞争。
 	// 信号量 nil 表示不限制（Concurrency<=0）。

@@ -240,8 +240,9 @@ func TestReviewRepo_RequeueStale(t *testing.T) {
 	}
 }
 
-// TestReviewRepo_RequeueStale_RetryLimit 验证 RequeueStale 的雪崩防护：
-// retry_count 未达上限的重新入队且计数 +1，达到上限的标记 failed 不再重排。
+// TestReviewRepo_RequeueStale_RetryLimit 验证 stale 收敛的分工：
+// RequeueStale 只重排未达上限的（计数 +1）；达上限的保持 running，
+// 由 FailStaleRunning 淘汰并返回记录供上层补写门禁 status。
 func TestReviewRepo_RequeueStale_RetryLimit(t *testing.T) {
 	resetTables(t)
 	ctx := context.Background()
@@ -258,7 +259,7 @@ func TestReviewRepo_RequeueStale_RetryLimit(t *testing.T) {
 		t.Fatalf("set updated_at: %v", err)
 	}
 
-	// 已达重试上限的孤儿（应标记 failed 不再重排）
+	// 已达重试上限的孤儿（RequeueStale 不动，交给 FailStaleRunning）
 	exhausted := newReview("exhaust-1", "gitea", "acme/other", "running")
 	if err := repo.Create(ctx, exhausted); err != nil {
 		t.Fatalf("Create exhausted: %v", err)
@@ -277,8 +278,8 @@ func TestReviewRepo_RequeueStale_RetryLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RequeueStale: %v", err)
 	}
-	if n != 2 {
-		t.Fatalf("expected 2 affected (1 requeued + 1 failed), got %d", n)
+	if n != 1 {
+		t.Fatalf("expected 1 requeued, got %d", n)
 	}
 
 	// retryable → queued，retry_count 应 +1
@@ -292,10 +293,134 @@ func TestReviewRepo_RequeueStale_RetryLimit(t *testing.T) {
 		t.Fatalf("retryable retry_count = %d, want 1", rc1)
 	}
 
-	// exhausted → failed，不再重排
+	// exhausted 保持 running（淘汰是 FailStaleRunning 的职责）
 	gotExhausted, _ := repo.GetByReviewID(ctx, "exhaust-1")
-	if gotExhausted.Status != "failed" {
-		t.Fatalf("exhausted status = %q, want failed (retry limit reached)", gotExhausted.Status)
+	if gotExhausted.Status != "running" {
+		t.Fatalf("exhausted status = %q, want running (RequeueStale must not touch it)", gotExhausted.Status)
+	}
+}
+
+// TestReviewRepo_FailStaleRunning 验证淘汰路径：stale 且重试达上限的 running 评审
+// 被置 failed 并连同 Request 一起返回（供 FailureReporter 补写门禁 status）；
+// 未达上限或 fresh 的评审不受影响。
+func TestReviewRepo_FailStaleRunning(t *testing.T) {
+	resetTables(t)
+	ctx := context.Background()
+	repo := NewReviewRepo(testDB)
+
+	staleExhausted := newReview("exhaust-1", "gitea", "acme/app", "running")
+	staleExhausted.Request = domain.Request{Provider: "gitea", Repo: "acme/app", HeadSHA: "abc123"}
+	if err := repo.Create(ctx, staleExhausted); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	// 同一 (provider, repo, change) 的 active 唯一索引约束：错开 change。
+	freshExhausted := newReview("exhaust-fresh", "gitea", "acme/app", "running")
+	freshExhausted.PullRequestID = "201"
+	if err := repo.Create(ctx, freshExhausted); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	retryable := newReview("retry-1", "gitea", "acme/app", "running")
+	retryable.PullRequestID = "202"
+	if err := repo.Create(ctx, retryable); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	// exhaust-1: stale + 达上限；exhaust-fresh: fresh + 达上限；retry-1: stale + 未达上限
+	// exhaust-1: stale + 达上限（一次性 Updates，避免 GORM autoUpdateTime 刷掉 stale 时间）；
+	// exhaust-fresh: fresh + 达上限；retry-1: stale + 未达上限。
+	if err := testDB.Model(&models.Review{}).
+		Where("review_id = ?", "exhaust-1").
+		Updates(map[string]interface{}{
+			"retry_count": MaxRequeueRetries,
+			"updated_at":  time.Now().Add(-2 * time.Hour),
+		}).Error; err != nil {
+		t.Fatalf("set exhaust-1: %v", err)
+	}
+	if err := testDB.Model(&models.Review{}).
+		Where("review_id = ?", "exhaust-fresh").
+		Update("retry_count", MaxRequeueRetries).Error; err != nil {
+		t.Fatalf("set exhaust-fresh: %v", err)
+	}
+	if err := testDB.Model(&models.Review{}).
+		Where("review_id = ?", "retry-1").
+		Update("updated_at", time.Now().Add(-2*time.Hour)).Error; err != nil {
+		t.Fatalf("set retry-1: %v", err)
+	}
+
+	failed, err := repo.FailStaleRunning(ctx, time.Now().Add(-1*time.Hour))
+	if err != nil {
+		t.Fatalf("FailStaleRunning: %v", err)
+	}
+	if len(failed) != 1 || failed[0].ID != "exhaust-1" {
+		t.Fatalf("expected exactly [exhaust-1], got %+v", failed)
+	}
+	if failed[0].Request.HeadSHA != "abc123" {
+		t.Fatalf("returned record must carry original Request, got %+v", failed[0].Request)
+	}
+
+	got, _ := repo.GetByReviewID(ctx, "exhaust-1")
+	if got.Status != "failed" {
+		t.Fatalf("exhaust-1 status = %q, want failed", got.Status)
+	}
+	for _, id := range []string{"exhaust-fresh", "retry-1"} {
+		got, _ = repo.GetByReviewID(ctx, id)
+		if got.Status != "running" {
+			t.Fatalf("%s status = %q, want running", id, got.Status)
+		}
+	}
+
+	// 再跑一次：已置 failed 的不再命中（幂等）。
+	again, err := repo.FailStaleRunning(ctx, time.Now().Add(-1*time.Hour))
+	if err != nil {
+		t.Fatalf("FailStaleRunning again: %v", err)
+	}
+	if len(again) != 0 {
+		t.Fatalf("expected 0 on second run, got %+v", again)
+	}
+}
+
+// TestReviewRepo_TouchRunning 验证心跳只刷新 running 评审的 updated_at，
+// 终态评审不受影响。
+func TestReviewRepo_TouchRunning(t *testing.T) {
+	resetTables(t)
+	ctx := context.Background()
+	repo := NewReviewRepo(testDB)
+
+	running := newReview("hb-running", "gitea", "acme/app", "running")
+	if err := repo.Create(ctx, running); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	done := newReview("hb-done", "gitea", "acme/app", "success")
+	if err := repo.Create(ctx, done); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	old := time.Now().Add(-2 * time.Hour)
+	if err := testDB.Model(&models.Review{}).
+		Where("review_id IN ?", []string{"hb-running", "hb-done"}).
+		Update("updated_at", old).Error; err != nil {
+		t.Fatalf("set updated_at: %v", err)
+	}
+
+	if err := repo.TouchRunning(ctx, "hb-running"); err != nil {
+		t.Fatalf("TouchRunning: %v", err)
+	}
+	if err := repo.TouchRunning(ctx, "hb-done"); err != nil {
+		t.Fatalf("TouchRunning (terminal): %v", err)
+	}
+
+	var gotRunning models.Review
+	if err := testDB.Where("review_id = ?", "hb-running").First(&gotRunning).Error; err != nil {
+		t.Fatalf("get hb-running: %v", err)
+	}
+	if gotRunning.UpdatedAt.Before(time.Now().Add(-time.Minute)) {
+		t.Fatalf("hb-running updated_at not refreshed: %v", gotRunning.UpdatedAt)
+	}
+	// 注意用全新变量：复用带主键的 struct 会让 GORM 附加 id=1 条件。
+	var gotDone models.Review
+	if err := testDB.Where("review_id = ?", "hb-done").First(&gotDone).Error; err != nil {
+		t.Fatalf("get hb-done: %v", err)
+	}
+	if !gotDone.UpdatedAt.Before(time.Now().Add(-time.Minute)) {
+		t.Fatalf("hb-done updated_at must stay stale: %v", gotDone.UpdatedAt)
 	}
 }
 

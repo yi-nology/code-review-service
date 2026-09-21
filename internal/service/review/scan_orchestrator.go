@@ -209,6 +209,11 @@ func (o *ScanOrchestrator) runScanBackground(scanCtx context.Context, reviewID s
 		logx.Errorf("failed to update scan status to running: review_id=%s: %v", reviewID, err)
 	}
 
+	// 执行期心跳：扫描同样可能长时间无落库事件，防止被 stale 重排误判为孤儿
+	// （孤儿 scan 会被 worker 认领后直接置 failed，而真实扫描仍在跑）。
+	stopHeartbeat := o.s.startHeartbeat(reviewID, o.s.heartbeatInterval)
+	defer stopHeartbeat()
+
 	scanResult, projectPolicy, err := o.scanExecuteWithPolicy(scanCtx, reviewID, req)
 	if err != nil {
 		logx.Errorf("async scan failed: review_id=%s: %v", reviewID, err)

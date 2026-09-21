@@ -222,36 +222,58 @@ func (r *ReviewRepo) ClaimQueued(ctx context.Context, limit int) ([]domain.Recor
 // 5 次对应约 5 次重启/重排周期，足以覆盖临时故障恢复窗口。
 const MaxRequeueRetries = 5
 
-func (r *ReviewRepo) RequeueStale(ctx context.Context, before time.Time) (int64, error) {
-	var total int64
+// FailStaleRunning 把「stale 且重试次数已达上限」的 running 评审标记为 failed，
+// 并返回这些记录（含原始 Request）。service 层据此经 FailureReporter 补写
+// 终态门禁 status/通知——否则 GitLab 侧的 pending status 永不收敛，MR 被永久卡住。
+func (r *ReviewRepo) FailStaleRunning(ctx context.Context, before time.Time) ([]domain.Record, error) {
+	var ms []models.Review
 	err := ekitGorm.InTransactionContext(ctx, r.db, func(tx *gormLib.DB) error {
-		// 1. 超过重试上限的孤儿任务直接标记 failed，不再重新入队。
-		failed := tx.Model(&models.Review{}).
-			Where("status = 'running' AND updated_at < ? AND retry_count >= ?", before, MaxRequeueRetries).
-			Updates(map[string]interface{}{
-				"status":     "failed",
-				"updated_at": time.Now(),
-			})
-		if failed.Error != nil {
-			return failed.Error
+		if err := tx.Raw(`
+			SELECT * FROM reviews
+			WHERE status = 'running' AND updated_at < ? AND retry_count >= ?
+			FOR UPDATE SKIP LOCKED
+		`, before, MaxRequeueRetries).Scan(&ms).Error; err != nil {
+			return err
 		}
-
-		// 2. 未超上限的重新入队，retry_count + 1。
-		requeued := tx.Model(&models.Review{}).
-			Where("status = 'running' AND updated_at < ? AND retry_count < ?", before, MaxRequeueRetries).
-			Updates(map[string]interface{}{
-				"status":      "queued",
-				"retry_count": gormLib.Expr("retry_count + 1"),
-				"updated_at":  time.Now(),
-			})
-		if requeued.Error != nil {
-			return requeued.Error
+		if len(ms) == 0 {
+			return nil
 		}
-
-		total = failed.RowsAffected + requeued.RowsAffected
-		return nil
+		ids := make([]uint, 0, len(ms))
+		for _, m := range ms {
+			ids = append(ids, m.ID)
+		}
+		return tx.Model(&models.Review{}).Where("id IN ?", ids).
+			Updates(map[string]interface{}{"status": "failed", "updated_at": time.Now()}).Error
 	})
-	return total, err
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.Record, len(ms))
+	for i := range ms {
+		out[i] = reviewToDomain(ms[i])
+	}
+	return out, nil
+}
+
+// RequeueStale 重新入队 stale 的 running 评审（retry_count 未达上限，计数 +1）。
+// 重试达上限的淘汰走 FailStaleRunning（需返回记录补写门禁，故不在本方法内置 failed）。
+func (r *ReviewRepo) RequeueStale(ctx context.Context, before time.Time) (int64, error) {
+	res := r.db.WithContext(ctx).Model(&models.Review{}).
+		Where("status = 'running' AND updated_at < ? AND retry_count < ?", before, MaxRequeueRetries).
+		Updates(map[string]interface{}{
+			"status":      "queued",
+			"retry_count": gormLib.Expr("retry_count + 1"),
+			"updated_at":  time.Now(),
+		})
+	return res.RowsAffected, res.Error
+}
+
+// TouchRunning 心跳：刷新执行中评审的 updated_at。执行期由后台 goroutine 定期调用，
+// 防止长评审（期间无落库事件）被 RequeueStale 误判为孤儿而重复执行。
+func (r *ReviewRepo) TouchRunning(ctx context.Context, reviewID string) error {
+	return r.db.WithContext(ctx).Model(&models.Review{}).
+		Where("review_id = ? AND status = 'running'", reviewID).
+		Update("updated_at", time.Now()).Error
 }
 
 // UpdateInTransaction 在事务内把 model 映射为 domain.Record 交给回调，

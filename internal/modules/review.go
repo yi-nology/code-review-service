@@ -99,11 +99,12 @@ func NewJudge(llmProvider ocr.Provider) *judge.Judge {
 }
 
 // NewFailureReporter 构造统一失败上报器（eino 执行器与 review worker 共用同一实例，
-// 保证执行前失败与执行中失败的副作用集一致：历史/落库/通知/commit status/指标）。
+// 保证执行前失败与执行中失败的副作用集一致：历史/落库/通知/commit status/PR 评论/指标）。
 func NewFailureReporter(repos *repository.RepoContainer, notifier domain.Notifier,
-	gitSvc *gitProvider.GitProviderService, cfg *config.Config) *svcReview.FailureReporter {
+	gitSvc *gitProvider.GitProviderService, writebackPub *writeback.WritebackPublisherAdapter,
+	cfg *config.Config) *svcReview.FailureReporter {
 	return svcReview.NewFailureReporter(repos.Review, notifier,
-		statuscheck.NewPoster(gitSvc, cfg.ExternalBaseURL))
+		statuscheck.NewPoster(gitSvc, cfg.ExternalBaseURL)).WithCommenter(writebackPub)
 }
 
 func NewExecutorService(deps ExecutorDeps) *eino.Executor {
@@ -161,23 +162,24 @@ func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 	argusExecutor := svcReview.NewArgusExecutor(deps.ArgusClient, deps.Repos.Review,
 		statuscheck.NewPoster(deps.GitProviderSvc, deps.Config.ExternalBaseURL))
 	return svcReview.NewService(svcReview.ServiceConfig{
-		ReviewRepo:      deps.Repos.Review,
-		OCRSettingsRepo: deps.Repos.OCRSettings,
-		ProjectRepo:     deps.Repos.ProjectPolicy,
-		GlobalRulesRepo: deps.Repos.GlobalRules,
-		RulePackageRepo: deps.Repos.OCRRulePackage,
-		AgentRepo:       deps.Repos.ReviewerAgent,
-		SessionRepo:     deps.SessionRepo,
-		Policy:          deps.PolicyEngine,
-		Providers:       deps.GitProviders,
-		Runner:          deps.OcrRunner,
-		PreviewRunner:   deps.OcrRunner,
-		ScanRunner:      deps.OcrRunner,
-		Delegator:       deps.OcrRunner, // *ocr.Runner 同时实现 domain.Delegator（OCR v1.7.11+）
-		ProgressManager: deps.ProgressManager,
-		Executor:        svcReview.NewEngineExecutor(deps.ExecutorSvc, argusExecutor),
-		FailureReporter: deps.FailureReporter,
-		Concurrency:     deps.Config.Review.WorkerConcurrency,
-		ArgusEnabled:    deps.ArgusClient.Enabled(),
+		ReviewRepo:        deps.Repos.Review,
+		OCRSettingsRepo:   deps.Repos.OCRSettings,
+		ProjectRepo:       deps.Repos.ProjectPolicy,
+		GlobalRulesRepo:   deps.Repos.GlobalRules,
+		RulePackageRepo:   deps.Repos.OCRRulePackage,
+		AgentRepo:         deps.Repos.ReviewerAgent,
+		SessionRepo:       deps.SessionRepo,
+		Policy:            deps.PolicyEngine,
+		Providers:         deps.GitProviders,
+		Runner:            deps.OcrRunner,
+		PreviewRunner:     deps.OcrRunner,
+		ScanRunner:        deps.OcrRunner,
+		Delegator:         deps.OcrRunner, // *ocr.Runner 同时实现 domain.Delegator（OCR v1.7.11+）
+		ProgressManager:   deps.ProgressManager,
+		Executor:          svcReview.NewEngineExecutor(deps.ExecutorSvc, argusExecutor),
+		FailureReporter:   deps.FailureReporter,
+		Concurrency:       deps.Config.Review.WorkerConcurrency,
+		HeartbeatInterval: deps.Config.GetWorkerStaleAfter() / 3,
+		ArgusEnabled:      deps.ArgusClient.Enabled(),
 	})
 }
