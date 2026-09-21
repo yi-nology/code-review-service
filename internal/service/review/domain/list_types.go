@@ -19,30 +19,34 @@ type ListRequest struct {
 	GateStatus string
 	Provider   string
 	Repo       string
-	Limit      int
-	Offset     int
-	SortBy     string
-	SortOrder  string
+	// Engine 按生效审查引擎过滤：''（不过滤）| EngineOCR | EngineArgus。
+	Engine    string
+	Limit     int
+	Offset    int
+	SortBy    string
+	SortOrder string
 }
 
 // ListEntry 是列表中的一条评审摘要。
 type ListEntry struct {
-	ReviewID        string    `json:"review_id"`
-	Provider        string    `json:"provider"`
-	Repo            string    `json:"repo"`
-	Status          string    `json:"status"`
-	Summary         string    `json:"summary"`
-	Gate            Gate      `json:"gate"`
-	Findings        int       `json:"findings"`
-	Score           int       `json:"score"`
-	Grade           string    `json:"grade,omitempty"`
-	ReportGenerated bool      `json:"report_generated"`
-	RetryCount      int       `json:"retry_count,omitempty"`
-	Author          string    `json:"author,omitempty"`
-	AuthorName      string    `json:"author_name,omitempty"`
-	AuthorAvatar    string    `json:"author_avatar,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ReviewID        string `json:"review_id"`
+	Provider        string `json:"provider"`
+	Repo            string `json:"repo"`
+	Status          string `json:"status"`
+	Summary         string `json:"summary"`
+	Gate            Gate   `json:"gate"`
+	Findings        int    `json:"findings"`
+	Score           int    `json:"score"`
+	Grade           string `json:"grade,omitempty"`
+	ReportGenerated bool   `json:"report_generated"`
+	RetryCount      int    `json:"retry_count,omitempty"`
+	Author          string `json:"author,omitempty"`
+	AuthorName      string `json:"author_name,omitempty"`
+	AuthorAvatar    string `json:"author_avatar,omitempty"`
+	// Engine 生效审查引擎（历史记录无该字段时归一为 ocr）。
+	Engine    string    `json:"engine,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // ListSummary 是列表结果的聚合统计。

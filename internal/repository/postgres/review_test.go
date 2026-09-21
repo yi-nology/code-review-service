@@ -351,3 +351,64 @@ func TestReviewRepo_Save(t *testing.T) {
 		t.Fatalf("Save not persisted: status=%q grade=%q", got.Status, got.Grade)
 	}
 }
+
+// TestReviewRepo_ListEngineFilter 验证按生效审查引擎过滤：engine 存于 Request JSONB
+// （生效值，见 create.go resolveEngine），历史记录无该键时一律视为 ocr；
+// 列表与聚合统计使用同一过滤语义。
+func TestReviewRepo_ListEngineFilter(t *testing.T) {
+	resetTables(t)
+	ctx := context.Background()
+	repo := NewReviewRepo(testDB)
+
+	seed := func(id, engine, status string) {
+		r := newReview(id, "gitea", "acme/app", status)
+		r.Request.Engine = engine
+		if err := repo.Create(ctx, r); err != nil {
+			t.Fatalf("Create %s: %v", id, err)
+		}
+	}
+	seed("rev-engine-ocr", domain.EngineOCR, "success")
+	seed("rev-engine-argus", domain.EngineArgus, "running")
+	// 历史 OCR 记录：Request.Engine 为空（json omitempty），JSONB 里没有 engine 键。
+	seed("rev-engine-legacy", "", "success")
+
+	listIDs := func(engine string) map[string]bool {
+		got, err := repo.List(ctx, domain.ListOptions{Engine: engine, Page: 1, PageSize: 50})
+		if err != nil {
+			t.Fatalf("List(engine=%q): %v", engine, err)
+		}
+		ids := make(map[string]bool, len(got.Items))
+		for _, item := range got.Items {
+			ids[item.ID] = true
+		}
+		return ids
+	}
+
+	ocrIDs := listIDs(domain.EngineOCR)
+	if len(ocrIDs) != 2 || !ocrIDs["rev-engine-ocr"] || !ocrIDs["rev-engine-legacy"] {
+		t.Fatalf("engine=ocr 应含显式 ocr 与历史记录两条，got %v", ocrIDs)
+	}
+	argusIDs := listIDs(domain.EngineArgus)
+	if len(argusIDs) != 1 || !argusIDs["rev-engine-argus"] {
+		t.Fatalf("engine=argus 应只有 argus 一条，got %v", argusIDs)
+	}
+	if all := listIDs(""); len(all) != 3 {
+		t.Fatalf("engine 留空应不过滤（3 条），got %v", all)
+	}
+
+	// 聚合统计同语义：running 只统计当前引擎的记录。
+	agg, err := repo.AggregateStats(ctx, domain.ListOptions{Engine: domain.EngineArgus})
+	if err != nil {
+		t.Fatalf("AggregateStats(engine=argus): %v", err)
+	}
+	if agg.Running != 1 {
+		t.Fatalf("engine=argus running = %d, want 1", agg.Running)
+	}
+	aggOCR, err := repo.AggregateStats(ctx, domain.ListOptions{Engine: domain.EngineOCR})
+	if err != nil {
+		t.Fatalf("AggregateStats(engine=ocr): %v", err)
+	}
+	if aggOCR.Running != 0 {
+		t.Fatalf("engine=ocr running = %d, want 0", aggOCR.Running)
+	}
+}

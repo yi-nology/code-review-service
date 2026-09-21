@@ -3,6 +3,8 @@ export interface Review {
   provider: string
   repo: string
   status: string
+  /** 生效审查引擎：'ocr' | 'argus'（历史记录缺省视为 ocr） */
+  engine?: string
   summary: string
   gate: Gate
   findings: number
@@ -249,6 +251,8 @@ export interface ListOptions {
   gate_status?: string
   provider?: string
   repo?: string
+  /** 按生效审查引擎过滤：'ocr' | 'argus'，留空不过滤 */
+  engine?: string
   page?: number
   page_size?: number
   sort_by?: string

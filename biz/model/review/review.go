@@ -4,7 +4,6 @@ package review
 
 import (
 	"fmt"
-
 	"github.com/apache/thrift/lib/go/thrift"
 )
 
@@ -9539,6 +9538,8 @@ type ListReviewsReq struct {
 	Repo     *string `thrift:"repo,3,optional" json:"repo,omitempty" query:"repo"`
 	Page     *int64  `thrift:"page,4,optional" json:"page,omitempty" query:"page"`
 	PageSize *int64  `thrift:"page_size,5,optional" json:"page_size,omitempty" query:"page_size"`
+	// engine 按生效审查引擎过滤：'ocr' | 'argus'；留空不过滤。
+	Engine *string `thrift:"engine,6,optional" json:"engine,omitempty" query:"engine"`
 }
 
 func NewListReviewsReq() *ListReviewsReq {
@@ -9593,12 +9594,22 @@ func (p *ListReviewsReq) GetPageSize() (v int64) {
 	return *p.PageSize
 }
 
+var ListReviewsReq_Engine_DEFAULT string
+
+func (p *ListReviewsReq) GetEngine() (v string) {
+	if !p.IsSetEngine() {
+		return ListReviewsReq_Engine_DEFAULT
+	}
+	return *p.Engine
+}
+
 var fieldIDToName_ListReviewsReq = map[int16]string{
 	1: "status",
 	2: "provider",
 	3: "repo",
 	4: "page",
 	5: "page_size",
+	6: "engine",
 }
 
 func (p *ListReviewsReq) IsSetStatus() bool {
@@ -9619,6 +9630,10 @@ func (p *ListReviewsReq) IsSetPage() bool {
 
 func (p *ListReviewsReq) IsSetPageSize() bool {
 	return p.PageSize != nil
+}
+
+func (p *ListReviewsReq) IsSetEngine() bool {
+	return p.Engine != nil
 }
 
 func (p *ListReviewsReq) Read(iprot thrift.TProtocol) (err error) {
@@ -9675,6 +9690,14 @@ func (p *ListReviewsReq) Read(iprot thrift.TProtocol) (err error) {
 		case 5:
 			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField5(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 6:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField6(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -9764,6 +9787,17 @@ func (p *ListReviewsReq) ReadField5(iprot thrift.TProtocol) error {
 	p.PageSize = _field
 	return nil
 }
+func (p *ListReviewsReq) ReadField6(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.Engine = _field
+	return nil
+}
 
 func (p *ListReviewsReq) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -9789,6 +9823,10 @@ func (p *ListReviewsReq) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField5(oprot); err != nil {
 			fieldId = 5
+			goto WriteFieldError
+		}
+		if err = p.writeField6(oprot); err != nil {
+			fieldId = 6
 			goto WriteFieldError
 		}
 	}
@@ -9904,6 +9942,25 @@ WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 5 end error: ", p), err)
 }
 
+func (p *ListReviewsReq) writeField6(oprot thrift.TProtocol) (err error) {
+	if p.IsSetEngine() {
+		if err = oprot.WriteFieldBegin("engine", thrift.STRING, 6); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.Engine); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 6 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 6 end error: ", p), err)
+}
+
 func (p *ListReviewsReq) String() string {
 	if p == nil {
 		return "<nil>"
@@ -9929,6 +9986,8 @@ type ListItem struct {
 	AuthorName      *string `thrift:"author_name,14,optional" form:"author_name" json:"author_name,omitempty"`
 	AuthorAvatar    *string `thrift:"author_avatar,15,optional" form:"author_avatar" json:"author_avatar,omitempty"`
 	RetryCount      *int64  `thrift:"retry_count,16,optional" form:"retry_count" json:"retry_count,omitempty"`
+	// engine 生效审查引擎：'ocr' | 'argus'（历史记录缺省视为 ocr）。
+	Engine *string `thrift:"engine,17,optional" form:"engine" json:"engine,omitempty"`
 }
 
 func NewListItem() *ListItem {
@@ -10042,6 +10101,15 @@ func (p *ListItem) GetRetryCount() (v int64) {
 	return *p.RetryCount
 }
 
+var ListItem_Engine_DEFAULT string
+
+func (p *ListItem) GetEngine() (v string) {
+	if !p.IsSetEngine() {
+		return ListItem_Engine_DEFAULT
+	}
+	return *p.Engine
+}
+
 var fieldIDToName_ListItem = map[int16]string{
 	1:  "review_id",
 	2:  "provider",
@@ -10059,6 +10127,7 @@ var fieldIDToName_ListItem = map[int16]string{
 	14: "author_name",
 	15: "author_avatar",
 	16: "retry_count",
+	17: "engine",
 }
 
 func (p *ListItem) IsSetGate() bool {
@@ -10091,6 +10160,10 @@ func (p *ListItem) IsSetAuthorAvatar() bool {
 
 func (p *ListItem) IsSetRetryCount() bool {
 	return p.RetryCount != nil
+}
+
+func (p *ListItem) IsSetEngine() bool {
+	return p.Engine != nil
 }
 
 func (p *ListItem) Read(iprot thrift.TProtocol) (err error) {
@@ -10235,6 +10308,14 @@ func (p *ListItem) Read(iprot thrift.TProtocol) (err error) {
 		case 16:
 			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField16(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 17:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField17(iprot); err != nil {
 					goto ReadFieldError
 				}
 			} else if err = iprot.Skip(fieldTypeId); err != nil {
@@ -10442,6 +10523,17 @@ func (p *ListItem) ReadField16(iprot thrift.TProtocol) error {
 	p.RetryCount = _field
 	return nil
 }
+func (p *ListItem) ReadField17(iprot thrift.TProtocol) error {
+
+	var _field *string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = &v
+	}
+	p.Engine = _field
+	return nil
+}
 
 func (p *ListItem) Write(oprot thrift.TProtocol) (err error) {
 	var fieldId int16
@@ -10511,6 +10603,10 @@ func (p *ListItem) Write(oprot thrift.TProtocol) (err error) {
 		}
 		if err = p.writeField16(oprot); err != nil {
 			fieldId = 16
+			goto WriteFieldError
+		}
+		if err = p.writeField17(oprot); err != nil {
+			fieldId = 17
 			goto WriteFieldError
 		}
 	}
@@ -10817,6 +10913,25 @@ WriteFieldBeginError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 16 begin error: ", p), err)
 WriteFieldEndError:
 	return thrift.PrependError(fmt.Sprintf("%T write field 16 end error: ", p), err)
+}
+
+func (p *ListItem) writeField17(oprot thrift.TProtocol) (err error) {
+	if p.IsSetEngine() {
+		if err = oprot.WriteFieldBegin("engine", thrift.STRING, 17); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := oprot.WriteString(*p.Engine); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 17 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 17 end error: ", p), err)
 }
 
 func (p *ListItem) String() string {

@@ -122,6 +122,7 @@ func (h *ReviewHandler) listReviews(ctx context.Context, c *app.RequestContext) 
 		GateStatus: strings.TrimSpace(string(c.Query("gate_status"))),
 		Provider:   strings.TrimSpace(ptrx.Deref(req.Provider, "")),
 		Repo:       strings.TrimSpace(ptrx.Deref(req.Repo, "")),
+		Engine:     strings.TrimSpace(ptrx.Deref(req.Engine, "")),
 		SortBy:     strings.TrimSpace(string(c.Query("sort_by"))),
 		SortOrder:  strings.TrimSpace(string(c.Query("sort_order"))),
 		Limit:      pageSize,
@@ -148,6 +149,7 @@ func (h *ReviewHandler) listReviews(ctx context.Context, c *app.RequestContext) 
 			AuthorName:      common.StrPtr(item.AuthorName),
 			AuthorAvatar:    common.StrPtr(item.AuthorAvatar),
 			RetryCount:      ptrx.Of(int64(item.RetryCount)),
+			Engine:          common.StrPtr(item.Engine),
 			CreatedAt:       common.StrPtr(common.FormatTime(item.CreatedAt)),
 			UpdatedAt:       common.StrPtr(common.FormatTime(item.UpdatedAt)),
 		}

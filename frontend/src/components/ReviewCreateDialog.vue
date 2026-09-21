@@ -186,7 +186,7 @@ import ReviewUrlInput from './review-create/ReviewUrlInput.vue'
 import ReviewPrSelector from './review-create/ReviewPrSelector.vue'
 import ReviewBranchSelector from './review-create/ReviewBranchSelector.vue'
 
-const props = defineProps<{ modelValue: boolean }>()
+const props = defineProps<{ modelValue: boolean; defaultEngine?: '' | 'ocr' | 'argus' }>()
 const emit = defineEmits<{
   (e: 'update:modelValue', val: boolean): void
   (e: 'created'): void
@@ -565,8 +565,9 @@ function resetForm() {
   parsedUrl.value = null
   parsedCompareUrl.value = null
   submitMode.value = 'async'
-  // 引擎保留上次选择（localStorage），不做重置
-  engine.value = (localStorage.getItem(ENGINE_PREF_KEY) as '' | 'ocr' | 'argus') || ''
+  // 引擎保留上次选择（localStorage），不做重置；调用页指定 defaultEngine 时优先
+  // （如 OCR 审查页固定以 OCR 引擎发起）。
+  engine.value = props.defaultEngine || (localStorage.getItem(ENGINE_PREF_KEY) as '' | 'ocr' | 'argus') || ''
   showAdvanced.value = []
   createForm.provider = availablePlatforms.value[0]?.provider || 'github'
   createForm.repo = ''

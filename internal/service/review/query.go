@@ -12,6 +12,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
+	bizerrors "github.com/oekit/pkg/errors"
+
 	//lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 	"github.com/oekit/logx"
 )
@@ -47,6 +49,11 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 	if options.Offset < 0 {
 		options.Offset = 0
 	}
+	// engine 过滤值白名单校验（非法值 fail-fast 而非静默空列表）。
+	if !domain.IsValidEngineFilter(options.Engine) {
+		return ListResult{}, bizerrors.NewBadRequestError("engine 仅支持 ocr、argus")
+	}
+	options.Engine = strings.ToLower(strings.TrimSpace(options.Engine))
 
 	page := options.Offset/options.Limit + 1
 	result, err := s.reviewRepo.List(ctx, domain.ListOptions{
@@ -54,6 +61,7 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 		GateStatus: options.GateStatus,
 		Provider:   options.Provider,
 		Repo:       options.Repo,
+		Engine:     options.Engine,
 		Page:       page,
 		PageSize:   options.Limit,
 		SortBy:     options.SortBy,
@@ -81,6 +89,7 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 			Author:          review.Author,
 			AuthorName:      review.AuthorName,
 			AuthorAvatar:    review.AuthorAvatar,
+			Engine:          domain.EffectiveEngine(review.Request.Engine),
 			CreatedAt:       review.CreatedAt,
 			UpdatedAt:       review.UpdatedAt,
 		})
@@ -91,6 +100,7 @@ func (s *Service) List(ctx context.Context, options ListOptions) (ListResult, er
 		GateStatus: options.GateStatus,
 		Provider:   options.Provider,
 		Repo:       options.Repo,
+		Engine:     options.Engine,
 	})
 	if err != nil {
 		logx.Warn("failed to compute aggregate stats", "error", err)

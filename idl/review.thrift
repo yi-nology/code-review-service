@@ -208,6 +208,8 @@ struct ListReviewsReq {
     3: optional string repo (api.query="repo")
     4: optional i64 page (api.query="page")
     5: optional i64 page_size (api.query="page_size")
+    // engine 按生效审查引擎过滤：'ocr' | 'argus'；留空不过滤。
+    6: optional string engine (api.query="engine")
 }
 
 struct ListItem {
@@ -227,6 +229,8 @@ struct ListItem {
     14: optional string author_name (api.body="author_name")
     15: optional string author_avatar (api.body="author_avatar")
     16: optional i64 retry_count (api.body="retry_count")
+    // engine 生效审查引擎：'ocr' | 'argus'（历史记录缺省视为 ocr）。
+    17: optional string engine (api.body="engine")
 }
 
 struct ListStats {

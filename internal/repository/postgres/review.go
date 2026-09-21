@@ -141,6 +141,9 @@ func (r *ReviewRepo) List(ctx context.Context, opts domain.ListOptions) (*page.P
 		if opts.Repo != "" {
 			db = db.Where("repo ILIKE ?", "%"+opts.Repo+"%")
 		}
+		if opts.Engine != "" {
+			db = db.Where(reviewEngineFilterClause, opts.Engine)
+		}
 		return db.Order(reviewSortClause(opts.SortBy, opts.SortOrder))
 	})
 	if err != nil {
@@ -158,6 +161,10 @@ func (r *ReviewRepo) List(ctx context.Context, opts domain.ListOptions) (*page.P
 	}
 	return out, nil
 }
+
+// reviewEngineFilterClause 按生效审查引擎过滤：engine 随 Request JSONB 持久化
+// （生效值，见 create.go resolveEngine）；历史记录无该键或为空，一律视为 ocr。
+const reviewEngineFilterClause = "COALESCE(NULLIF(request::jsonb->>'engine', ''), 'ocr') = ?"
 
 // reviewSortClause 把前端传入的排序字段白名单映射为 SQL ORDER BY 表达式。
 // 字段名严格白名单匹配（绝不字符串拼接外部输入），方向仅允许 asc/desc，
@@ -284,6 +291,9 @@ func (r *ReviewRepo) AggregateStats(ctx context.Context, opts domain.ListOptions
 		}
 		if opts.Repo != "" {
 			db = db.Where("repo ILIKE ?", "%"+opts.Repo+"%")
+		}
+		if opts.Engine != "" {
+			db = db.Where(reviewEngineFilterClause, opts.Engine)
 		}
 		if !opts.From.IsZero() {
 			db = db.Where("created_at >= ?", opts.From)

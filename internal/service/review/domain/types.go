@@ -76,6 +76,25 @@ const (
 	EngineArgus = "argus"
 )
 
+// EffectiveEngine 把持久化请求里的 engine 归一为生效引擎：” 或未知值（历史 OCR
+// 记录无该键）一律视为 ocr；engine 随 Request JSONB 持久化的真源见 create.go resolveEngine。
+func EffectiveEngine(engine string) string {
+	if strings.ToLower(strings.TrimSpace(engine)) == EngineArgus {
+		return EngineArgus
+	}
+	return EngineOCR
+}
+
+// IsValidEngineFilter 报告 engine 过滤值是否合法：”（不过滤）、ocr、argus。
+func IsValidEngineFilter(engine string) bool {
+	switch strings.ToLower(strings.TrimSpace(engine)) {
+	case "", EngineOCR, EngineArgus:
+		return true
+	default:
+		return false
+	}
+}
+
 // EphemeralReviewer 描述一个临时的、不入库的 reviewer。
 // 在 executor 层映射为 agent.EphemeralSpec。
 type EphemeralReviewer struct {
@@ -250,6 +269,8 @@ type ListOptions struct {
 	GateStatus string
 	Provider   string
 	Repo       string
+	// Engine 按生效审查引擎过滤：''（不过滤）| EngineOCR | EngineArgus。
+	Engine string
 	// From/To 限定统计时间窗口（基于 created_at）；零值表示不限制。周报用它限定最近 7 天。
 	From     time.Time
 	To       time.Time

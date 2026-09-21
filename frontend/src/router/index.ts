@@ -26,6 +26,12 @@ const router = createRouter({
       component: () => import('@/views/Reviews.vue'),
     },
     {
+      // OCR 审查：锁定 OCR 引擎的审查视图，与审查记录共享 ReviewListView 实现。
+      path: '/ocr',
+      name: 'OcrReviews',
+      component: () => import('@/views/OcrReviews.vue'),
+    },
+    {
       path: '/argus',
       name: 'ArgusReviews',
       component: () => import('@/views/ArgusReviews.vue'),
