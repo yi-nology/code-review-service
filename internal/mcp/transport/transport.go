@@ -67,8 +67,13 @@ func RunHTTP(ctx context.Context, srv *mcpserver.MCPServer, cfg Config) error {
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      60 * time.Second,
-		IdleTimeout:       120 * time.Second,
+		// WriteTimeout 必须为 0：streamable_http 的 tool call 是「POST → handler
+		// 同步执行 → 写响应」长请求，wait=true 时审查可跑 10 分钟（wait 上限 600s），
+		// 有限 WriteTimeout 会让 handler 返回时写响应已超 deadline、连接直接关闭——
+		// 客户端表现为 EOF（2026-09-30 argus 对接实测）。慢速消费的安全闸门由
+		// ReadHeaderTimeout（读头阶段）与 IdleTimeout（连接复用空闲）承担。
+		WriteTimeout: 0,
+		IdleTimeout:  120 * time.Second,
 		// SSE 长连接需要 MaxHeaderBytes 放宽,默认 1MB 够用,不动。
 	}
 
