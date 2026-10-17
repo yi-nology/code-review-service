@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/oagentkit/jsonrepair"
+	"github.com/oekit/pkg/jsonrepair"
 
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"

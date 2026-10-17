@@ -31,9 +31,9 @@ import (
 
 	// 阶段 A 移除"
 
-	"github.com/oekit/hertz/health"
-	"github.com/oekit/hertz/metrics"
-	mw "github.com/oekit/middleware"
+	"github.com/oekit/hertz/hertz/health"
+	"github.com/oekit/hertz/hertz/metrics"
+	mw "github.com/oekit/middleware/middleware"
 	emetrics "github.com/oekit/metrics"
 
 	"github.com/oekit/logx"
@@ -50,16 +50,18 @@ var ServerModule = fx.Options(
 )
 
 func RegisterGlobalMiddleware(h *server.Hertz, cfg *config.Config, repos *repository.RepoContainer) {
-	h.Use(mw.RecoveryMiddleware())
 	h.Use(cors.Default())
 
 	skipPaths := middleware.DefaultSkipPaths
-	stack := mw.DefaultMiddleware(mw.StackConfig{
+	// oekit 零指标强制：Prometheus 显式挂栈首（DefaultMiddleware 栈内自带 Recovery，
+	// 开头显式的 mw.RecoveryMiddleware() 为存量双挂，一并对齐移除由栈内承担）
+	pm := mw.NewPrometheusMetrics(mw.PrometheusConfig{
 		ServiceName: "review-service",
 		SkipPaths:   skipPaths,
 		Registry:    emetrics.Registry,
 	})
-	for _, m := range stack {
+	h.Use(pm.Middleware())
+	for _, m := range mw.DefaultMiddleware(mw.StackConfig{SkipPaths: skipPaths}) {
 		h.Use(m)
 	}
 
@@ -93,7 +95,7 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *ocrcore.Metrics, o
 	repos := ocrReg.Repos()
 	resolver := ocrReg.Resolver()
 
-	healthOpts := []health.Option{}
+	healthOpts := []health.HealthOption{}
 	if sqlDB, err := db.DB(); err == nil {
 		healthOpts = append(healthOpts, health.WithCheckers(health.DBChecker(sqlDB)))
 	}

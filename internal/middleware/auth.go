@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	mw "github.com/oekit/middleware"
+	mw "github.com/oekit/middleware/middleware"
 	"github.com/cloudwego/hertz/pkg/app"
 )
 

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/oekit/core"
+	"github.com/oekit/core/config"
 	"github.com/oekit/logx"
 	"github.com/oekit/tracing"
 )

@@ -2,7 +2,7 @@ package config
 
 import (
 	"github.com/yi-nology/code-review-service/internal/domain/notification"
-	"github.com/oekit/bootstrap/nacos"
+	"github.com/oekit/registry/nacos"
 	"github.com/oekit/tracing"
 )
 

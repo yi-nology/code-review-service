@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/config"
-	"github.com/oekit/bootstrap"
+	"github.com/oekit/bootstrap/bootstrap"
+	nacosbs "github.com/oekit/bootstrap/nacos"
+	obs "github.com/oekit/bootstrap/obs"
 	"github.com/oekit/logx"
 
 	_ "github.com/yi-nology/git-platform-sdk/backends/all" // 注册所有平台后端（v0.32.0 起 provider 不再自动注册）
@@ -33,13 +35,28 @@ func main() {
 		os.Exit(1)
 	}
 
-	bootstrap.Run(bootstrap.Config{
-		ServiceName:     "review-service",
-		Port:            cfg.Port,
-		Nacos:           cfg.Nacos,
-		Tracing:         cfg.GetTracingConfig(),
-		ShutdownTimeout: defaultShutdownTimeout,
-	}, func(app *bootstrap.App) error {
+	// ekit bootstrap.Run(Config) 便捷入口在 oekit 拆分时移除，此处展开等价组合
+	// （与旧 Run 语义一致：ServiceName + Metrics + ShutdownTimeout + Tracing + NNS）。
+	opts := []bootstrap.BootstrapperOption{
+		bootstrap.WithServiceName("review-service"),
+		obs.WithMetrics(),
+		bootstrap.WithShutdownTimeout(defaultShutdownTimeout),
+	}
+	if tc := cfg.GetTracingConfig(); tc != nil {
+		opts = append(opts, obs.WithTracing(*tc))
+	}
+	if cfg.Nacos.ServiceName != "" {
+		opts = append(opts, nacosbs.WithNNS(cfg.Nacos, cfg.Port, nil))
+	}
+	b, berr := bootstrap.New(opts...)
+	if berr != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "bootstrap init failed: %v\n", berr)
+		os.Exit(1)
+	}
+	if err := b.Run(func(app *bootstrap.App) error {
 		return runApp(cfg, app)
-	})
+	}); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "bootstrap failed: %v\n", err)
+		os.Exit(1)
+	}
 }

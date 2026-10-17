@@ -12,7 +12,7 @@ import (
 	"github.com/oekit/pkg/pagination"
 	"github.com/oekit/pkg/ptrx"
 
-	mw "github.com/oekit/middleware"
+	mw "github.com/oekit/middleware/middleware"
 
 	"github.com/oekit/logx"
 	hertzApp "github.com/cloudwego/hertz/pkg/app"
