@@ -145,12 +145,16 @@ func (p *LLMProvider) Complete(ctx context.Context, req LLMRequest) (LLMResponse
 		resp, err = p.completeOpenAI(ctx, data, req)
 	}
 
-	// 熔断状态更新
+	// 熔断状态更新：用户取消（请求超时/调用方放弃）时结果未知，走 Abandon
+	// 不计失败——连续取消误熔断会把可用模型降级（与 agentkit v0.10.27 同教训）。
 	if p.breaker != nil {
-		if err != nil {
-			p.breaker.Failure(time.Now())
-		} else {
+		switch {
+		case err == nil:
 			p.breaker.Success()
+		case ctx.Err() != nil:
+			p.breaker.Abandon()
+		default:
+			p.breaker.Failure(time.Now())
 		}
 	}
 	return resp, err

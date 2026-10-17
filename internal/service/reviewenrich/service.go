@@ -14,7 +14,8 @@ import (
 
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/stringx"
-	"github.com/yi-nology/git-platform-sdk/provider"
+
+	"github.com/yi-nology/go-git-platform/provider"
 )
 
 // CRSource 是补全作者所需的平台窄接口（*GitProviderService 结构化满足）。

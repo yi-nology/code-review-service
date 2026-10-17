@@ -1,5 +1,5 @@
 // Package webhook 把各平台 webhook payload 归一化为 ChangeEvent。
-// Number 是平台 PR/MR 编号，统一为 string（对齐 git-platform-sdk v0.48 的
+// Number 是平台 PR/MR 编号，统一为 string（对齐 go-git-platform v0.48 的
 // ChangeRequest.Number），仅在与 DB/thrift 等数值边界的交接处转换。
 package webhook
 

@@ -12,7 +12,7 @@ import (
 // gerritAdapter 实现 writeback.Adapter 接口，使用 go-gerrit 直接调用
 // Gerrit REST API 进行评审回写。
 //
-// 与其他平台的 platformAdapter 不同，Gerrit 不走 git-platform-sdk 的
+// 与其他平台的 platformAdapter 不同，Gerrit 不走 go-git-platform 的
 // ReviewManager 接口，而是通过独立的 gerrit.Client 发表评审。
 // Gerrit 的评审模型也不同：使用 label 投票（-2~+2）代替 commit status。
 type gerritAdapter struct {

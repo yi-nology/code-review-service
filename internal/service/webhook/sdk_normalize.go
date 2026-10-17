@@ -1,6 +1,6 @@
 // Package webhook 的 SDK 归一化适配层。
 //
-// 本文件用 git-platform-sdk 的 WebhookManager.ParseWebhookEvent 取代历史上
+// 本文件用 go-git-platform 的 WebhookManager.ParseWebhookEvent 取代历史上
 // 5 个平台各自手写的 JSON 解析逻辑（normalizePush / normalizePullRequest /
 // normalizeMergeRequest）。SDK 解析后产出统一的 provider.NormalizedEvent，
 // 再由 mapNormalizedEvent 映射为本项目的 ChangeEvent。
@@ -35,7 +35,7 @@ import (
 	"strings"
 
 	"github.com/oekit/pkg/convert"
-	sdkprovider "github.com/yi-nology/git-platform-sdk/provider"
+	sdkprovider "github.com/yi-nology/go-git-platform/provider"
 )
 
 // ProviderGetter 按平台名返回 SDK provider。

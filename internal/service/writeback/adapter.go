@@ -8,7 +8,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/vcs"
 
 	"github.com/oekit/logx"
-	sdk "github.com/yi-nology/git-platform-sdk/provider"
+	sdk "github.com/yi-nology/go-git-platform/provider"
 )
 
 // ProviderSource 是写回所需的平台提供者窄接口：按平台名取 SDK Provider

@@ -7,7 +7,7 @@ that are not obvious from the directory layout. The canonical, longer reference 
 ## What this service is
 
 A code-review gateway. It receives PR/MR events (webhook or API), clones via the
-git-platform-sdk, runs **Open Code Review (OCR)** as a subprocess with a multi-agent
+go-git-platform, runs **Open Code Review (OCR)** as a subprocess with a multi-agent
 workflow, computes a quality-gate verdict, writes findings back as inline comments
 and commit status, and exposes a Vue.js web console. Supports GitHub, GitLab, Gitea,
 GitCode, Tencent Code. Stack: Go 1.26 + Hertz + uber/fx + GORM/PostgreSQL.
@@ -90,11 +90,11 @@ execution & env vars, writeback flows, and anything touching tokens/secrets.
   `migrations/*.sql` are optional/manual and already covered by AutoMigrate;
   `deploy/migrations/` are one-off manual cleanup scripts for existing deployments.
 - **go.mod:** has local `replace` directives for `ekit` (default `../ekit`) and the
-  git-platform-sdk (default `/opt/project/wechat_project/git-platform-sdk`) used by
+  go-git-platform (default `../go-git-platform`) used by
   `make setup-local-deps`; paths may be overridden with `EKIT_PATH` / `GIT_SDK_PATH`.
   `github.com/apache/thrift` is pinned to v0.13.0 — do not bump (codegen contract).
 - **Platform backends:** `main.go` blank-imports
-  `github.com/yi-nology/git-platform-sdk/backends/all` to register all git platform
+  `github.com/yi-nology/go-git-platform/backends/all` to register all git platform
   providers (v0.32.0+ no longer auto-registers). Adding a new backend means ensuring
   this import covers it.
 - **Frontend:** Vue 3 + Element Plus + Pinia + vue-router, TypeScript, `@` alias →

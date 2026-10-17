@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	sdk "github.com/yi-nology/git-platform-sdk/provider"
+	sdk "github.com/yi-nology/go-git-platform/provider"
 )
 
 // captureWriter 捕获最近一次 CreateCommitStatus 的入参，校验 target_url 规则。

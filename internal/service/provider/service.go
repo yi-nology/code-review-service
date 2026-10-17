@@ -11,7 +11,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/vcs"
 	"github.com/oekit/logx"
 
-	"github.com/yi-nology/git-platform-sdk/provider"
+	"github.com/yi-nology/go-git-platform/provider"
 )
 
 type repoCacheEntry struct {
@@ -314,7 +314,15 @@ func (s *GitProviderService) ListCRs(ctx context.Context, platform string, opts 
 	if err != nil {
 		return nil, 0, err
 	}
-	return p.ListCRs(ctx, opts)
+	// go-git-platform 的 total 为 *int（平台不支持时 nil），服务契约收窄为 int
+	crs, total, err := p.ListCRs(ctx, opts)
+	if err != nil {
+		return nil, 0, err
+	}
+	if total != nil {
+		return crs, *total, nil
+	}
+	return crs, 0, nil
 }
 
 func (s *GitProviderService) GetBranchSHA(ctx context.Context, platform, owner, repo, branch string) (string, error) {

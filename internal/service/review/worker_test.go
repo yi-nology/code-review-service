@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/domain/page"
 	notifdomain "github.com/yi-nology/code-review-service/internal/domain/notification"
+	"github.com/yi-nology/code-review-service/internal/domain/page"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
@@ -81,8 +81,8 @@ func (r *reapRepo) List(_ context.Context, opts domain.ListOptions) (*page.Page[
 
 // reapPoster 捕获 commit status 写入（验证孤儿淘汰/回填补写门禁）。
 type reapPoster struct {
-	mu    sync.Mutex
-	shas  []string
+	mu     sync.Mutex
+	shas   []string
 	states []string
 }
 

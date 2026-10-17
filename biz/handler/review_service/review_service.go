@@ -23,7 +23,7 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	provider_sdk "github.com/yi-nology/git-platform-sdk/provider"
+	provider_sdk "github.com/yi-nology/go-git-platform/provider"
 )
 
 // review_service.go：评审/扫描/平台浏览端点（方法 + 包级一行委托）。

@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	sdkprovider "github.com/yi-nology/git-platform-sdk/provider"
+	sdkprovider "github.com/yi-nology/go-git-platform/provider"
 )
 
 type GitCodeNormalizer struct {

@@ -18,7 +18,7 @@ func NewTencentCodeNormalizer(providers ProviderGetter) *TencentCodeNormalizer {
 	return &TencentCodeNormalizer{providers: providers}
 }
 
-// Normalize 委托 git-platform-sdk 的 WebhookManager.ParseWebhookEvent 解析
+// Normalize 委托 go-git-platform 的 WebhookManager.ParseWebhookEvent 解析
 // 腾讯工蜂 webhook payload，再映射为项目 ChangeEvent。
 func (n *TencentCodeNormalizer) Normalize(rawBody []byte, eventType string) (*ChangeEvent, error) {
 	return normalizeWithSDK(n.providers, "tencent_code", rawBody, eventType)

@@ -5,7 +5,7 @@ import (
 
 	// gitlab backend 需 blank import 注册进 SDK registry（生产环境由 main.go
 	// 统一引入 backends/all，测试此处自行引入）。
-	_ "github.com/yi-nology/git-platform-sdk/backends/gitlab"
+	_ "github.com/yi-nology/go-git-platform/backends/gitlab"
 )
 
 // GitCode payload 为 GitLab 风格；本测试锁定经 SDK gitlab-family 解析后的

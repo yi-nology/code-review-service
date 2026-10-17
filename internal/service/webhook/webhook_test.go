@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	sdkprovider "github.com/yi-nology/git-platform-sdk/provider"
+	sdkprovider "github.com/yi-nology/go-git-platform/provider"
 )
 
 func TestIsSupportedAction(t *testing.T) {

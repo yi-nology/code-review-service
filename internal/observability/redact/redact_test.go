@@ -12,8 +12,17 @@ func TestString_AuthorizationBearer(t *testing.T) {
 	if strings.Contains(out, "ghp_") {
 		t.Fatalf("expected token to be redacted, got %q", out)
 	}
-	if !strings.Contains(out, "Bearer") {
-		t.Fatalf("expected keyword Bearer to remain, got %q", out)
+	if !strings.Contains(out, "Authorization") {
+		t.Fatalf("expected keyword Authorization to remain, got %q", out)
+	}
+}
+
+// Authorization: Basic 后的值也要打码（logredact 只吃到首个空白，本地规则兜底）。
+func TestString_AuthorizationBasic(t *testing.T) {
+	in := "Authorization: Basic dXNlcjpwYXNz"
+	out := String(in)
+	if strings.Contains(out, "dXNlcjpwYXNz") {
+		t.Fatalf("expected basic credential to be redacted, got %q", out)
 	}
 }
 
@@ -76,5 +85,38 @@ func TestString_MultipleSecretsInOneLine(t *testing.T) {
 	out := String(in)
 	if strings.Contains(out, "abc123token") {
 		t.Fatalf("expected Bearer value to be redacted, got %q", out)
+	}
+	if strings.Contains(out, "dXNlcjpwYXNz") {
+		t.Fatalf("expected Basic value to be redacted, got %q", out)
+	}
+}
+
+// GitLab personal access token（logredact 平台前缀名单未收录，本地补充规则兜底）。
+func TestString_GitLabToken(t *testing.T) {
+	in := "clone failed for glpat-AbCdEf123456GhIjKlMnOp: remote end hung up"
+	out := String(in)
+	if strings.Contains(out, "glpat-") {
+		t.Fatalf("expected glpat token to be redacted, got %q", out)
+	}
+}
+
+// logredact 核心新覆盖面：URL 内嵌凭据。
+func TestString_URLCredential(t *testing.T) {
+	in := "connect postgres://svc:s3cretPw@db.internal:5432/review failed"
+	out := String(in)
+	if strings.Contains(out, "s3cretPw") {
+		t.Fatalf("expected URL password to be redacted, got %q", out)
+	}
+	if !strings.Contains(out, "postgres://svc:****@") {
+		t.Fatalf("expected masked URL form, got %q", out)
+	}
+}
+
+// logredact 核心新覆盖面：裸 JWT。
+func TestString_BareJWT(t *testing.T) {
+	in := "auth failed for eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVPmB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+	out := String(in)
+	if strings.Contains(out, "eyJhbGciOiJIUzI1NiJ9") {
+		t.Fatalf("expected JWT to be redacted, got %q", out)
 	}
 }

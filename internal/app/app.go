@@ -6,7 +6,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/domain/platform"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
-	"github.com/yi-nology/git-platform-sdk/provider"
+	"github.com/yi-nology/go-git-platform/provider"
 )
 
 // 本包是 handler / mcp 等消费方依赖的 service 抽象契约。

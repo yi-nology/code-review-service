@@ -18,14 +18,15 @@
 package argusclient
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/oekit/pkg/httpjson"
 )
 
 // TaskKind argus 任务类型（IDL TaskKind 枚举，线上传输为整数）。
@@ -347,37 +348,33 @@ func (c *Client) suppress(ctx context.Context, payload []byte) (bool, error) {
 // ---------- 内部 ----------
 
 // do 发请求并解 ekit 信封 {code,data,message}：code!=0 或 HTTP 非 2xx 均为错误。
+// HTTP 纪律单源走 oekit/pkg/httpjson.DoJSON（限容读体、错误体 rune 安全截断——
+// argus 侧错误消息是中文，此前 %.200s 按字节截断会腰斩 UTF-8）。
 func (c *Client) do(ctx context.Context, method, path string, body []byte, out any) error {
-	var reader io.Reader
-	if body != nil {
-		reader = bytes.NewReader(body)
-	}
-	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, reader)
-	if err != nil {
-		return err
-	}
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
-	}
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("调用 argus 失败: %w", err)
-	}
-	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("argus 返回 %s: %.200s", resp.Status, string(raw))
-	}
 	var envelope struct {
 		Code    int             `json:"code"`
 		Message string          `json:"message"`
 		Data    json.RawMessage `json:"data"`
 	}
-	if err := json.Unmarshal(raw, &envelope); err != nil {
-		return fmt.Errorf("argus 响应解析失败: %w", err)
+	err := httpjson.DoJSON(ctx, c.client, httpjson.Request{
+		Method: method,
+		URL:    c.baseURL + path,
+		Body:   body,
+		Header: func(h http.Header) {
+			if body != nil {
+				h.Set("Content-Type", "application/json")
+			}
+			if c.token != "" {
+				h.Set("Authorization", "Bearer "+c.token)
+			}
+		},
+	}, &envelope)
+	if err != nil {
+		var se *httpjson.StatusError
+		if errors.As(err, &se) {
+			return fmt.Errorf("argus 返回 HTTP %d: %s", se.Code, se.Body)
+		}
+		return fmt.Errorf("调用 argus 失败: %w", err)
 	}
 	if envelope.Code != 0 {
 		return fmt.Errorf("argus 业务错误 code=%d: %s", envelope.Code, envelope.Message)

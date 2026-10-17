@@ -16,7 +16,7 @@ func NewGitHubNormalizer(providers ProviderGetter) *GitHubNormalizer {
 	return &GitHubNormalizer{providers: providers}
 }
 
-// Normalize 委托 git-platform-sdk 的 WebhookManager.ParseWebhookEvent 解析
+// Normalize 委托 go-git-platform 的 WebhookManager.ParseWebhookEvent 解析
 // GitHub webhook payload，再映射为项目 ChangeEvent。
 func (n *GitHubNormalizer) Normalize(rawBody []byte, eventType string) (*ChangeEvent, error) {
 	return normalizeWithSDK(n.providers, "github", rawBody, eventType)

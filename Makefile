@@ -3,7 +3,7 @@ GO_LINT_PATHS = $(shell go list -f '{{.Dir}}' ./... | grep -v '/frontend/node_mo
 
 # Local dependency paths (override with EKIT_PATH=... GIT_SDK_PATH=...)
 EKIT_PATH ?= ../ekit
-GIT_SDK_PATH ?= /opt/project/wechat_project/git-platform-sdk
+GIT_SDK_PATH ?= ../go-git-platform
 
 .PHONY: help fmt lint lint-strict test test-race vuln build run dev frontend-install frontend-lint frontend-build compose-config check setup-local-deps
 
@@ -81,9 +81,9 @@ setup-local-deps:
 		echo "OK: ekit found at $(EKIT_PATH)"; \
 	fi
 	@if [ ! -d "$(GIT_SDK_PATH)" ]; then \
-		echo "WARNING: git-platform-sdk not found at $(GIT_SDK_PATH). Clone it or override with GIT_SDK_PATH=..."; \
+		echo "WARNING: go-git-platform not found at $(GIT_SDK_PATH). Clone it or override with GIT_SDK_PATH=..."; \
 	else \
-		echo "OK: git-platform-sdk found at $(GIT_SDK_PATH)"; \
+		echo "OK: go-git-platform found at $(GIT_SDK_PATH)"; \
 	fi
 	@echo ""
 	@echo "Current go.mod replace directives:"

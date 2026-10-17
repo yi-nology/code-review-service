@@ -4,6 +4,10 @@
 // LLM 提供方回显的 Authorization / Bearer / api_key 等敏感字段。如果把这些
 // 信息无脑写到 logx.Infof / logx.Errorf，会泄露到日志收集系统。
 //
+// 主体委托 agentkit/logredact（审计过的 RE2 线性实现，覆盖 URL 内嵌凭据 /
+// 键值对 / PEM 私钥 / Authorization 头 / Bearer / 平台 token 前缀 sk- ghp_ gho_
+// github_pat_ xox AKIA / JWT）。本地仅保留 logredact 覆盖不到的补充规则。
+//
 // 用法：
 //
 //	if err != nil {
@@ -17,34 +21,38 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/oagentkit/logredact"
 )
 
-// pattern 覆盖常见的密钥形态。匹配时做大小写不敏感。
-var patterns = []*regexp.Regexp{
-	// Authorization: Bearer xxx / Basic xxx
+// localPatterns 是 logredact 覆盖不到的补充形态，先于 logredact 执行
+// （保留键名/关键字前缀的打码风格）：
+//   - Authorization 头完整值：logredact 的同名规则只吃到首个空白
+//     （"Authorization: Basic xxx" 会漏掉 Basic 后的值）；
+//   - api-key 家族的带引号 JSON 键形态（"api_key": "..."，键与分隔符之间
+//     有引号，logredact 的键值规则不命中）——LLM 报错体内嵌原始 JSON 是
+//     本服务的高频脱敏面；
+//   - 散文中裸 "token/bearer <值>"（无键值分隔符；值若为已知平台前缀
+//     logredact 兜底，此处兜任意 8+ 位值）；
+//   - glpat-：GitLab personal access token（本项目对接 GitLab，clone URL /
+//     webhook secret 常含此形态，logredact 平台前缀名单未收录）。
+var localPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)(authorization\s*[:=]\s*)(?:bearer|basic|token)\s+[^\s"',;}{]+`),
-	// 独立出现的 Bearer / Token 关键字 + 至少 8 位的值
-	regexp.MustCompile(`(?i)\b(bearer|token)\s+[A-Za-z0-9._\-+/=]{8,}`),
-	// api_key=xxx / apiKey:xxx / "api_key": "xxx"
 	regexp.MustCompile(`(?i)(api[_-]?key|apikey|access[_-]?key|secret[_-]?key|private[_-]?key)\s*["']?\s*[:=]\s*["']?[^\s"',;}{][^,}\s"';]*`),
-	// GitHub / GitLab / Gitea personal access token 形态
-	regexp.MustCompile(`\b(ghp_[A-Za-z0-9]{20,}|glpat-[A-Za-z0-9_\-]{20,})`),
-	// X-Api-Key / X-Auth-Token headers
-	regexp.MustCompile(`(?i)(x-api-key|x-auth-token|x-token)\s*[:=]\s*[^\s"',;}{]+`),
-	// OpenAI sk-xxx
-	regexp.MustCompile(`\bsk-[A-Za-z0-9]{20,}\b`),
+	regexp.MustCompile(`(?i)\b(bearer|token)\s+[A-Za-z0-9._\-+/=]{8,}`),
+	regexp.MustCompile(`\bglpat-[A-Za-z0-9_\-]{20,}\b`),
 }
 
-// String 返回 s 的脱敏版本：把匹配到的敏感字段替换为 ***。
+// String 返回 s 的脱敏版本：先过本地补充规则，再过 agentkit/logredact 核心。
 func String(s string) string {
 	if s == "" {
 		return s
 	}
 	out := s
-	for _, p := range patterns {
+	for _, p := range localPatterns {
 		out = p.ReplaceAllStringFunc(out, redactMatch)
 	}
-	return out
+	return logredact.Redact(out)
 }
 
 // redactedError 包装 error，在 Error() 输出时自动脱敏，同时保留 Unwrap 链。

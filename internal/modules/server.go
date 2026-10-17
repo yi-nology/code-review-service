@@ -33,13 +33,13 @@ import (
 
 	"github.com/oekit/hertz/hertz/health"
 	"github.com/oekit/hertz/hertz/metrics"
-	mw "github.com/oekit/middleware/middleware"
 	emetrics "github.com/oekit/metrics"
+	mw "github.com/oekit/middleware/middleware"
 
-	"github.com/oekit/logx"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/hertz-contrib/cors"
+	"github.com/oekit/logx"
 	"go.uber.org/fx"
 	"gorm.io/gorm"
 )

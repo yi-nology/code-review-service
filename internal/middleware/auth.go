@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	mw "github.com/oekit/middleware/middleware"
 	"github.com/cloudwego/hertz/pkg/app"
+	mw "github.com/oekit/middleware/middleware"
 )
 
 // DefaultSkipPaths 是不需要认证和日志记录的默认路径列表。

@@ -1,6 +1,6 @@
 // Package gerrit 封装 go-gerrit SDK，提供 Gerrit 平台的评审回写和 Change 查询能力。
 //
-// 与 git-platform-sdk 的其他平台后端不同，Gerrit 不走 SDK 的 Provider 接口，
+// 与 go-git-platform 的其他平台后端不同，Gerrit 不走 SDK 的 Provider 接口，
 // 而是通过 go-gerrit 直接调用 Gerrit REST API。认证使用 HTTP Basic Auth
 // （username + HTTP password），这是 Gerrit 的标准认证方式。
 package gerrit

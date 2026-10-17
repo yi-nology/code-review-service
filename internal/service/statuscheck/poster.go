@@ -15,7 +15,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/vcs"
 	"github.com/oekit/logx"
 
-	sdk "github.com/yi-nology/git-platform-sdk/provider"
+	sdk "github.com/yi-nology/go-git-platform/provider"
 )
 
 // Poster 向 Git 平台写 commit status。

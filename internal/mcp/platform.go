@@ -10,10 +10,10 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	provider_sdk "github.com/yi-nology/git-platform-sdk/provider"
+	provider_sdk "github.com/yi-nology/go-git-platform/provider"
 )
 
-// Tier 2 平台辅助 tool：直接调 GitProviderManager（git-platform-sdk），不走 OCR。
+// Tier 2 平台辅助 tool：直接调 GitProviderManager（go-git-platform），不走 OCR。
 // 用途：minicode / Claude Desktop 在 IDE 里帮用户选 repo、PR、branch 时用。
 //
 // 跟 Tier 1 评审的区别：

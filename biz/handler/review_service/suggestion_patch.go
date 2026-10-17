@@ -15,7 +15,7 @@ import (
 	"github.com/oekit/pkg/convert"
 
 	"github.com/cloudwego/hertz/pkg/app"
-	provider_sdk "github.com/yi-nology/git-platform-sdk/provider"
+	provider_sdk "github.com/yi-nology/go-git-platform/provider"
 )
 
 func (h *ReviewHandler) previewSuggestionPatch(ctx context.Context, c *app.RequestContext) {

@@ -55,7 +55,7 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 
-	_ "github.com/yi-nology/git-platform-sdk/backends/all" // 注册所有平台后端（同主服务）
+	_ "github.com/yi-nology/go-git-platform/backends/all" // 注册所有平台后端（同主服务）
 )
 
 const (

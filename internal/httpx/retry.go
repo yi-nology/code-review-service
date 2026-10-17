@@ -5,8 +5,12 @@
 //
 // 不导出:
 //   - 走 ekit network/httpx 的语义（service discovery / circuit breaker /
-//     Prometheus target label 等）。本服务对 LLM provider 调用的 retry 模式
-//     是 hand-rolled http.Client, 用本 helper 已足够, 没必要拉 network/httpx。
+//     Prometheus target label 等）。
+//   - 严格 JSON 响应语义（2xx 必须 JSON、错误体 rune 安全截断）走
+//     agentkit/httpx.DoJSON（argusclient 在用）。本 helper 保留给宽容 2xx
+//     语义的调用方（webhook 任意 2xx 即成功，不强制 JSON 响应体）与
+//     deprecated ocr.LLMProvider 参考实现——DoJSONWithRetry 对 2xx 空体
+//     会按解析失败报错，webhook 语义不容。
 package httpx
 
 import (
