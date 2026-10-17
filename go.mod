@@ -21,11 +21,11 @@ require (
 	github.com/oekit/core v0.6.0
 	github.com/oekit/gormx v0.5.1
 	github.com/oekit/hertz v0.5.2
-	github.com/oekit/logx v0.3.0
+	github.com/oekit/logx v0.4.0
 	github.com/oekit/metrics v0.1.5
 	github.com/oekit/middleware v0.5.0
 	github.com/oekit/network v0.5.0
-	github.com/oekit/pkg v0.7.0
+	github.com/oekit/pkg v0.9.0
 	github.com/oekit/registry v0.3.0
 	github.com/oekit/tracing v0.2.0
 	github.com/oekit/workflow v0.2.5
@@ -34,7 +34,7 @@ require (
 	github.com/swaggo/files v1.0.1
 	github.com/testcontainers/testcontainers-go v0.43.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.43.0
-	github.com/yi-nology/go-git-platform v0.88.1
+	github.com/yi-nology/go-git-platform v0.89.0
 	go.uber.org/fx v1.24.0
 	golang.org/x/time v0.16.0
 	gorm.io/datatypes v1.2.5
