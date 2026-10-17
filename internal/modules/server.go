@@ -31,10 +31,10 @@ import (
 
 	// 阶段 A 移除"
 
-	"github.com/oekit/hertz/hertz/health"
-	"github.com/oekit/hertz/hertz/metrics"
+	"github.com/oekit/hertz/health"
+	"github.com/oekit/hertz/metrics"
 	emetrics "github.com/oekit/metrics"
-	mw "github.com/oekit/middleware/middleware"
+	mw "github.com/oekit/middleware"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/config"
-	"github.com/oekit/bootstrap/bootstrap"
+	"github.com/oekit/bootstrap"
 	nacosbs "github.com/oekit/bootstrap/nacos"
 	obs "github.com/oekit/bootstrap/obs"
 	"github.com/oekit/logx"

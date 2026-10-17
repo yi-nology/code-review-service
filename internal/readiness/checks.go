@@ -16,7 +16,7 @@ import (
 	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
 
-	"github.com/oekit/hertz/hertz/health"
+	"github.com/oekit/hertz/health"
 	"github.com/oekit/logx"
 	"gorm.io/gorm"
 )

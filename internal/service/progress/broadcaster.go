@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/oekit/network/network/wsutil"
+	"github.com/oekit/network/wsutil"
 	"github.com/oekit/logx"
 	"github.com/hertz-contrib/websocket"
 )

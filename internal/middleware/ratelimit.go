@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"github.com/cloudwego/hertz/pkg/app"
-	mw "github.com/oekit/middleware/middleware"
+	mw "github.com/oekit/middleware"
 	"golang.org/x/time/rate"
 )
 
