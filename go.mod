@@ -14,22 +14,22 @@ require (
 	github.com/hertz-contrib/websocket v0.2.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/mark3labs/mcp-go v1.1.1
-	github.com/oekit/bootstrap v0.5.0
-	github.com/oekit/bootstrap/nacos v0.2.0
-	github.com/oekit/bootstrap/obs v0.2.0
-	github.com/oekit/concurrency v0.5.4
-	github.com/oekit/core v0.6.0
-	github.com/oekit/gormx v0.5.1
-	github.com/oekit/hertz v0.5.3
+	github.com/oekit/bootstrap v0.6.2
+	github.com/oekit/bootstrap/nacos v0.3.1
+	github.com/oekit/bootstrap/obs v0.2.6
+	github.com/oekit/concurrency v0.10.0
+	github.com/oekit/core v0.8.0
+	github.com/oekit/gormx v0.5.5
+	github.com/oekit/hertz v0.6.4
 	github.com/oekit/kitx v0.1.1
-	github.com/oekit/logx v0.5.0
-	github.com/oekit/metrics v0.1.6
-	github.com/oekit/middleware v0.6.2
-	github.com/oekit/network v0.5.0
-	github.com/oekit/pkg v0.11.0
-	github.com/oekit/registry v0.3.1
-	github.com/oekit/tracing v0.2.1
-	github.com/oekit/workflow v0.2.5
+	github.com/oekit/logx v0.7.0
+	github.com/oekit/metrics v0.1.7
+	github.com/oekit/middleware v0.9.0
+	github.com/oekit/network v0.5.4
+	github.com/oekit/pkg v0.12.0
+	github.com/oekit/registry v0.4.1
+	github.com/oekit/tracing v0.2.2
+	github.com/oekit/workflow v0.3.1
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/prometheus/client_golang v1.25.0
 	github.com/swaggo/files v1.0.1
@@ -179,7 +179,7 @@ require (
 	github.com/nacos-group/nacos-sdk-go/v2 v2.3.6-0.20260601044846-0e3d1d099507 // indirect
 	github.com/next-bin/go-gitee v0.0.0-20260521141902-36ce436eee18 // indirect
 	github.com/nikolalohinski/gonja v1.5.3 // indirect
-	github.com/oekit/nns v0.3.5 // indirect
+	github.com/oekit/nns v0.4.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/orcaman/concurrent-map v0.0.0-20210501183033-44dafcb38ecc // indirect
