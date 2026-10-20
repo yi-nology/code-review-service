@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/oekit/logx"
 	"github.com/yi-nology/code-review-service/internal/domain/notification"
 	"github.com/yi-nology/code-review-service/internal/httpx"
-	"github.com/oekit/logx"
 )
 
 // WebhookChannel 通过 HTTP POST 推送通知到外部地址（飞书/企业微信/钉钉/通用）。

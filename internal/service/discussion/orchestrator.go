@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
-	types "github.com/yi-nology/code-review-service/internal/domain/finding"
-	"github.com/yi-nology/code-review-service/internal/ocr"
-	"github.com/yi-nology/code-review-service/internal/strutil"
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/slicex"
+	types "github.com/yi-nology/code-review-service/internal/domain/finding"
+	"github.com/yi-nology/code-review-service/internal/ocr"
+	"github.com/yi-nology/code-review-service/internal/strutil"
 )
 
 // Orchestrator manages the discussion process.

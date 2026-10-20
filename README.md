@@ -1,5 +1,9 @@
 # Review Service / 代码评审服务
 
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/go-1.27%2B-00ADD8.svg)](https://go.dev/)
+[![CI](https://github.com/yi-nology/code-review-service/actions/workflows/quality.yml/badge.svg)](https://github.com/yi-nology/code-review-service/actions/workflows/quality.yml)
+
 [English](#english) | [中文](#中文)
 
 ---
@@ -223,6 +227,25 @@ go test ./...
 ```sh
 golangci-lint run ./...
 ```
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for
+the development setup, the commit convention, and the quality gate the CI
+enforces, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for the community
+expectations.
+
+## Security
+
+Please do not report vulnerabilities through public issues. See
+[SECURITY.md](SECURITY.md) for the private reporting channel and the areas
+that need a security-focused review.
+
+## License
+
+Review Service is released under the **Apache License 2.0**. See
+[LICENSE](LICENSE) for the full text, and [CHANGELOG.md](CHANGELOG.md) for the
+release history.
 
 ---
 
@@ -480,3 +503,21 @@ internal/ocr/
 - `BuildConfig` 是合并的单一实现（overrides > settings > fallback > defaults）
 - `internal.Run(ctx, CommandSpec)` 是统一的 exec 入口（三段式 SIGTERM → KillGrace → SIGKILL）
 - `domain/ocr_aliases.go` 正式定义 OCR 管理接口（LLMTester / LLMProviderLister / RulesChecker / OCRVersioner / ViewerManager / OCRUpgrader）
+
+---
+
+## 贡献指南
+
+欢迎参与贡献。请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)（开发环境、提交约定、
+CI 强制执行的质量门禁）与 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)（社区行为
+准则）。
+
+## 安全
+
+请勿通过公开 issue 报告安全问题。私密上报渠道与需要安全专项评审的区域见
+[SECURITY.md](SECURITY.md)。
+
+## 许可协议
+
+Review Service 以 **Apache License 2.0** 发布。完整条款见 [LICENSE](LICENSE)，
+版本变更记录见 [CHANGELOG.md](CHANGELOG.md)。

@@ -13,8 +13,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/oekit/logx"
 	gogerrit "github.com/andygrunwald/go-gerrit"
+	"github.com/oekit/logx"
 )
 
 // Client 封装 go-gerrit 客户端，提供业务层所需的 Gerrit 操作。

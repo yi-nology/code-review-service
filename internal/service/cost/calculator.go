@@ -9,8 +9,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/oekit/logx"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	"gorm.io/gorm"
 )

@@ -3,14 +3,14 @@ package project_agent_service
 import (
 	"context"
 
+	"github.com/oekit/pkg/slicex"
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelProjectAgent "github.com/yi-nology/code-review-service/biz/model/project_agent"
 	"github.com/yi-nology/code-review-service/internal/domain/reviewer"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/oekit/pkg/slicex"
 
-	"github.com/oekit/logx"
 	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/oekit/logx"
 )
 
 var handlerInst *ProjectAgentHandler

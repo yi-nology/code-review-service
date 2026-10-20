@@ -3,8 +3,8 @@
 package publisher_service
 
 import (
-	publisher_service "github.com/yi-nology/code-review-service/biz/handler/publisher_service"
 	"github.com/cloudwego/hertz/pkg/app/server"
+	publisher_service "github.com/yi-nology/code-review-service/biz/handler/publisher_service"
 )
 
 /*

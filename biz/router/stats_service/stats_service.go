@@ -3,8 +3,8 @@
 package stats_service
 
 import (
-	stats_service "github.com/yi-nology/code-review-service/biz/handler/stats_service"
 	"github.com/cloudwego/hertz/pkg/app/server"
+	stats_service "github.com/yi-nology/code-review-service/biz/handler/stats_service"
 )
 
 /*

@@ -3,8 +3,8 @@
 package settings_service
 
 import (
-	settings_service "github.com/yi-nology/code-review-service/biz/handler/settings_service"
 	"github.com/cloudwego/hertz/pkg/app/server"
+	settings_service "github.com/yi-nology/code-review-service/biz/handler/settings_service"
 )
 
 /*

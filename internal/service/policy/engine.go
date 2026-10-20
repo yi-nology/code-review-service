@@ -1,8 +1,8 @@
 package policy
 
 import (
-	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	"github.com/oekit/pkg/pathx"
+	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 )
 
 type Config struct {

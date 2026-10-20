@@ -3,8 +3,8 @@
 package project_agent_service
 
 import (
-	project_agent_service "github.com/yi-nology/code-review-service/biz/handler/project_agent_service"
 	"github.com/cloudwego/hertz/pkg/app/server"
+	project_agent_service "github.com/yi-nology/code-review-service/biz/handler/project_agent_service"
 )
 
 /*

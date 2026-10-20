@@ -3,8 +3,8 @@
 package session_service
 
 import (
-	session_service "github.com/yi-nology/code-review-service/biz/handler/session_service"
 	"github.com/cloudwego/hertz/pkg/app/server"
+	session_service "github.com/yi-nology/code-review-service/biz/handler/session_service"
 )
 
 /*

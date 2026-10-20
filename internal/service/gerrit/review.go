@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/oekit/logx"
 	gogerrit "github.com/andygrunwald/go-gerrit"
+	"github.com/oekit/logx"
 )
 
 // ReviewInput 描述一次 Gerrit 评审请求。

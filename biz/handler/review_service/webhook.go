@@ -12,8 +12,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/webhook"
 
-	"github.com/oekit/logx"
 	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/oekit/logx"
 )
 
 type WebhookHandler struct {

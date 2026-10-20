@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	"github.com/oekit/pkg/slicex"
+	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 )
 
 // DefaultAggregator implements ResultAggregator with deduplication and confidence scoring

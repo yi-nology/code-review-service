@@ -6,11 +6,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/oekit/bootstrap"
 	nacosbs "github.com/oekit/bootstrap/nacos"
 	obs "github.com/oekit/bootstrap/obs"
 	"github.com/oekit/logx"
+	"github.com/yi-nology/code-review-service/internal/config"
 
 	_ "github.com/yi-nology/go-git-platform/backends/all" // 注册所有平台后端（v0.32.0 起 provider 不再自动注册）
 )

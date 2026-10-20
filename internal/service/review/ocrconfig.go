@@ -3,8 +3,8 @@ package review
 import (
 	"context"
 
-	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/oekit/logx"
+	"github.com/yi-nology/code-review-service/internal/repository"
 )
 
 // DefaultOCRBinary 是 OCRSettings.Binary 未配置时的兜底路径。

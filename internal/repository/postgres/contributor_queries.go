@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yi-nology/code-review-service/internal/domain/stats"
-	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/mathx"
+	"github.com/yi-nology/code-review-service/internal/domain/stats"
+	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
 	gormLib "gorm.io/gorm"
 )

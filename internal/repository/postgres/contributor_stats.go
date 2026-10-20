@@ -3,9 +3,9 @@ package postgres
 import (
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/domain/stats"
 	"github.com/oekit/pkg/mathx"
 	"github.com/oekit/pkg/slicex"
+	"github.com/yi-nology/code-review-service/internal/domain/stats"
 
 	gormLib "gorm.io/gorm"
 )

@@ -10,10 +10,10 @@ import (
 	"github.com/yi-nology/code-review-service/internal/modules"
 	"github.com/yi-nology/code-review-service/internal/observability/redact"
 
-	"github.com/oekit/bootstrap"
-	"github.com/oekit/logx"
 	"github.com/cloudwego/hertz/pkg/app/server"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
+	"github.com/oekit/bootstrap"
+	"github.com/oekit/logx"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 )

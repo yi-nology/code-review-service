@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/logx"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // DefaultMaxDiffBytes 是单次评审 diff 的默认字节上限（5 MiB）。

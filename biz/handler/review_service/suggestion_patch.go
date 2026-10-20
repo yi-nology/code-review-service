@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/oekit/pkg/convert"
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	gitprovider "github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/suggestion"
-	"github.com/oekit/pkg/convert"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	provider_sdk "github.com/yi-nology/go-git-platform/provider"

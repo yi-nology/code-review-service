@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
+	"github.com/oekit/logx"
 	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
-	"github.com/oekit/logx"
 
 	gormLib "gorm.io/gorm"
 	"gorm.io/gorm/clause"

@@ -1,9 +1,9 @@
 package config
 
 import (
-	"github.com/yi-nology/code-review-service/internal/domain/notification"
 	"github.com/oekit/registry/nacos"
 	"github.com/oekit/tracing"
+	"github.com/yi-nology/code-review-service/internal/domain/notification"
 )
 
 // Config 配置结构

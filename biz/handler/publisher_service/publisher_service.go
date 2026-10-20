@@ -12,8 +12,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
 
-	"github.com/oekit/logx"
 	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/oekit/logx"
 )
 
 var handlerInst *PublisherHandler //nolint:unused // initialized by InitHandler, used by route handlers

@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/oekit/pkg/mathx"
 	"github.com/yi-nology/code-review-service/internal/domain/stats"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-	"github.com/oekit/pkg/mathx"
 )
 
 func (r *ContributorStatsRepo) ListProjects(ctx context.Context, opts domain.ProjectStatsOptions) (*stats.ProjectListResult, error) {

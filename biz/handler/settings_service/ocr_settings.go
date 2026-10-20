@@ -14,8 +14,8 @@ import (
 
 	"github.com/oekit/pkg/ptrx"
 
-	"github.com/oekit/logx"
 	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/oekit/logx"
 )
 
 func (h *SettingsHandler) getOCRSettings(ctx context.Context, c *app.RequestContext) {

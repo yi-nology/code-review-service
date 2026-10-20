@@ -3,9 +3,9 @@
 package review_service
 
 import (
+	"github.com/cloudwego/hertz/pkg/app/server"
 	argusHandler "github.com/yi-nology/code-review-service/biz/handler/argus_service"
 	review_service "github.com/yi-nology/code-review-service/biz/handler/review_service"
-	"github.com/cloudwego/hertz/pkg/app/server"
 )
 
 /*

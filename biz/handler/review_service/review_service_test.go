@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/ocr"
 	bizerrors "github.com/oekit/pkg/errors"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 )
 
 func TestMapReviewErrorMapsRunnerErrors(t *testing.T) {

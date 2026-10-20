@@ -10,10 +10,10 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/oekit/logx"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/strutil"
 	"github.com/yi-nology/code-review-service/internal/vcs"
-	"github.com/oekit/logx"
 
 	sdk "github.com/yi-nology/go-git-platform/provider"
 )

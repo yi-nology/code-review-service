@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/domain/auth"
-	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
+	"github.com/yi-nology/code-review-service/internal/domain/auth"
+	"github.com/yi-nology/code-review-service/internal/repository"
 
 	"github.com/cloudwego/hertz/pkg/app"
 )

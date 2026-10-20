@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/domain/notification"
 	"github.com/oekit/logx"
+	"github.com/yi-nology/code-review-service/internal/domain/notification"
 )
 
 // Notifier 是通知编排器，持有所有已配置的渠道，实现 domain.Notifier。

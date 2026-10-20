@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/oekit/logx"
 	domainplatform "github.com/yi-nology/code-review-service/internal/domain/platform"
 	"github.com/yi-nology/code-review-service/internal/vcs"
-	"github.com/oekit/logx"
 
 	"github.com/yi-nology/go-git-platform/provider"
 )

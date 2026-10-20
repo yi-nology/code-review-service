@@ -1,14 +1,10 @@
-# 全量构建（CI/harbor）：源码 → 二进制。本地产物镜像用 Dockerfile.deploy（增量），
+# 全量构建（CI）：源码 → 二进制。本地产物镜像用 Dockerfile.deploy（增量），
 # 本地构建用 Dockerfile.local。三者的 OCR_VERSION 与 MCP npm 包清单必须保持一致。
 FROM docker.io/library/golang:1.26-alpine AS build
 
 ENV GOPROXY=https://goproxy.cn,direct \
     GONOSUMCHECK='*' \
     GONOSUMDB='*' \
-    GOPRIVATE='' \
-    # github.com/yi-nology 证书过期时仍可拉取 ekit（仅构建期,运行时不含源码）。
-    GOINSECURE='' \
-    GIT_SSL_NO_VERIFY='false' \
     GOTOOLCHAIN=auto
 RUN apk add --no-cache git
 
@@ -49,6 +45,8 @@ WORKDIR /app
 USER review
 # review-service 路径跟历史保持一致(/usr/local/bin/review-service,默认 entrypoint)。
 # mcp-server 放 /usr/local/bin/，compose 用 entrypoint override 启动。
+# Apache-2.0 §4(a)：分发衍生作品时必须附许可证副本。
+COPY --from=build /src/LICENSE /usr/local/share/licenses/review-service/LICENSE
 COPY --from=build /out/review-service /usr/local/bin/review-service
 COPY --from=build /out/mcp-server /usr/local/bin/mcp-server
 

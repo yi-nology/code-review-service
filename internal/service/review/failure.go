@@ -6,13 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/oekit/concurrency/async"
+	"github.com/oekit/logx"
 	notifdomain "github.com/yi-nology/code-review-service/internal/domain/notification"
 	bizmetrics "github.com/yi-nology/code-review-service/internal/observability/metrics"
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/strutil"
-	"github.com/oekit/concurrency/async"
-	"github.com/oekit/logx"
 )
 
 // FailureReporter 统一「评审失败」的完整上报管线：

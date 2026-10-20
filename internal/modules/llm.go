@@ -3,9 +3,9 @@ package modules
 import (
 	"context"
 
+	"github.com/oekit/logx"
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/oekit/logx"
 
 	"go.uber.org/fx"
 )

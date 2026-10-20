@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/oekit/logx"
+	"github.com/yi-nology/code-review-service/internal/ocr"
 )
 
 // ClarifyingQuestion 表示一条需向利益相关者澄清的问题（阶段 4）。

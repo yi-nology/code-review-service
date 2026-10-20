@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/oekit/pkg/slicex"
+	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 func BuildAnalysis(result domain.Result) domain.Analysis {

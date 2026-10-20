@@ -3,8 +3,8 @@
 package progress_service
 
 import (
-	progress_service "github.com/yi-nology/code-review-service/biz/handler/progress_service"
 	"github.com/cloudwego/hertz/pkg/app/server"
+	progress_service "github.com/yi-nology/code-review-service/biz/handler/progress_service"
 )
 
 /*

@@ -4,6 +4,7 @@
 node_modules
 frontend/node_modules
 *.md
+!LICENSE
 deploy/*
 !deploy/nginx.conf
 !deploy/Dockerfile.frontend

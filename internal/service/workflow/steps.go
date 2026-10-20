@@ -6,6 +6,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/oekit/logx"
+	"github.com/oekit/pkg/slicex"
 	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	"github.com/yi-nology/code-review-service/internal/domain/scoring"
 	dsession "github.com/yi-nology/code-review-service/internal/domain/session"
@@ -14,8 +16,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/discussion"
 	"github.com/yi-nology/code-review-service/internal/service/requirements"
 	"github.com/yi-nology/code-review-service/internal/service/session"
-	"github.com/oekit/logx"
-	"github.com/oekit/pkg/slicex"
 )
 
 // contextDiscoveryStep Phase 1: 加载配置和发现项目标准

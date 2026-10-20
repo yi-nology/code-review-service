@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudwego/eino/callbacks"
 	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 	"github.com/yi-nology/code-review-service/internal/ocr"
@@ -27,7 +28,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
 	"github.com/yi-nology/code-review-service/internal/strutil"
 	"github.com/yi-nology/code-review-service/internal/vcs"
-	"github.com/cloudwego/eino/callbacks"
 
 	agentkitllm "github.com/oagentkit/llm"
 	"github.com/oagentkit/llm/obsx"

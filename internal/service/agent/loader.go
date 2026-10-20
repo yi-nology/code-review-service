@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/domain/reviewer"
 	"github.com/oekit/logx"
+	"github.com/yi-nology/code-review-service/internal/domain/reviewer"
 )
 
 // reviewRunnerFactory creates review runners with different configurations
