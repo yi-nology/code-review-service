@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/yi-nology/code-review-service/internal/config"
+	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres"
 	"github.com/yi-nology/code-review-service/internal/service/cost"
 
@@ -16,9 +17,13 @@ var CostModule = fx.Options(
 	fx.Provide(NewCostCalculator, NewBudgetChecker),
 )
 
-// NewCostCalculator 用主 DB 构造成本估算器。
-func NewCostCalculator(db *gormDB.DB) *cost.Calculator {
-	return cost.NewCalculator(db)
+// NewCostCalculator 用单价仓储构造成本估算器。
+//
+// 成本估算不再直接持有 *gorm.DB——service 层摸 ORM 具体类型是分层倒置
+// （此前本包是全仓唯一这么做的 service 包）。单价读写走 PricingRepository
+// 接口，实现留在 repository/postgres。
+func NewCostCalculator(pricingRepo repository.PricingRepository) *cost.Calculator {
+	return cost.NewCalculator(pricingRepo)
 }
 
 // NewBudgetChecker 用成本估算器 + 配置 + 月度用量查询构造预算检查器。

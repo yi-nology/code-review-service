@@ -23,6 +23,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/oekit/pkg/stringx"
 	"github.com/yi-nology/agent-harness/toolfail"
 )
 
@@ -102,12 +103,15 @@ func stderrOf(err error) string {
 // 于是 "ENOTFOUND" 与 "ECONNREFUSED" 两条**从未生效**，
 // Node.js 的 DNS 失败被判成可重试，白白再等一个 timeout。
 func containsAny(lower string, patterns []string) bool {
+	// stringx.ContainsAny 两侧都小写化，与手搓版语义一致。
+	// 空 pattern 需自行排除：库里空串会被当成「命中一切」。
+	filtered := make([]string, 0, len(patterns))
 	for _, pat := range patterns {
-		if pat != "" && strings.Contains(lower, strings.ToLower(pat)) {
-			return true
+		if pat != "" {
+			filtered = append(filtered, pat)
 		}
 	}
-	return false
+	return stringx.ContainsAny(lower, filtered...)
 }
 
 // ocrFailure 把一个错误包装成底座失败值。

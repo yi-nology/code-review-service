@@ -76,6 +76,7 @@ tracing:
 #   namespace: "review"            # 记忆库命名空间前缀（底座按 前缀/平台/仓库 隔离）
 #   recall_limit: 10               # 单次召回条数上限
 #   recall_budget: 1500            # 单次召回 token 预算
+#   recall_timeout: 2s             # 单次召回总时限（召回在评审主链上，无时限=评审跟着存储一起挂）
 #   maintenance_enabled: true      # 后台维护（回收原始事件 / 合并同签名事实 / 退役过期事实）
 #   maintenance_interval: "6h"     # 维护周期
 #   raw_retention: "720h"          # 原始事件保留期（30 天）；超过则回收，其证据全没的事实顺带退役
@@ -88,4 +89,4 @@ tracing:
 #   bot_url: "http://argus:8899"
 #   bot_token: "${ARGUS_BOT_TOKEN:}"
 # 对外基地址：PR 门禁 check 跳转评审详情页链接；留空则不携带 target_url
-# external_base_url: http://review.example.com
+# external_base_url: http://code-review.me

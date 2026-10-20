@@ -52,7 +52,8 @@ func (r *Runner) WithResolver(resolver *ConfigResolver) *Runner {
 	r.resolver = resolver
 	// 立即同步刷新一次，避免首次执行用 fallback。
 	r.refreshNow()
-	go r.refreshLoop()
+	// async.GoSafe：后台刷新循环里的 panic 会终止整个进程。
+	async.GoSafe(r.refreshLoop)
 	return r
 }
 

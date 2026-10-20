@@ -14,14 +14,14 @@ import (
 	"github.com/yi-nology/code-review-service/internal/strutil"
 
 	"github.com/oekit/logx"
+	"github.com/oekit/pkg/stringx"
 )
 
 // 执行器的持久化辅助：状态流转、审计历史、OCR 快照、SHAs、判定转换。
 func truncateSHA(sha string) string {
-	if len(sha) > 8 {
-		return sha[:8]
-	}
-	return sha
+	// stringx.FirstN 按 rune 边界截断（sha 本身是 hex ASCII，但统一走库的
+	// 口径，避免各处各写一份「按字节切」的截断）。
+	return stringx.FirstN(sha, 8)
 }
 
 func truncateForStatus(s string) string {

@@ -65,10 +65,24 @@ func BuildGeneratorFromSettings(ctx context.Context, settings Settings) (llm.Gen
 }
 
 // truncateMiddle 截断字符串中间部分，保留头尾。
+//
+// 按 **rune** 切，不按字节。调用点的入参是 LLM 降级原因——中文占比很高，
+// 按字节切会腰斩多字节字符，产出**非法 UTF-8**（落日志、进 JSON、渲染到前端
+// 都会出问题）。
+//
+// maxLen 是**字符数**预算（头尾各占一半），"..." 额外计 3 个字符。
 func truncateMiddle(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	if maxLen <= 0 {
+		return ""
+	}
+	runes := []rune(s)
+	if len(runes) <= maxLen {
 		return s
 	}
 	half := maxLen / 2
-	return s[:half] + "..." + s[len(s)-half:]
+	if half == 0 {
+		// 预算太小，容不下「头 + 省略号 + 尾」，退化为前缀截断。
+		return string(runes[:maxLen])
+	}
+	return string(runes[:half]) + "..." + string(runes[len(runes)-half:])
 }

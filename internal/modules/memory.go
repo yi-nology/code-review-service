@@ -43,11 +43,21 @@ func NewMemoryService(cfg *config.Config, llmProvider ocr.Provider) *memory.Serv
 		namespace = "review"
 	}
 
+	// 召回时限：空/非法 = 用底座默认（2s）。召回在评审主链上，无时限等于
+	// 存储一挂评审就跟着挂。
+	var recallTimeout time.Duration
+	if d, err := time.ParseDuration(cfg.Memory.RecallTimeout); err == nil && d > 0 {
+		recallTimeout = d
+	} else if cfg.Memory.RecallTimeout != "" {
+		logx.Warnf("invalid memory recall_timeout %q, using kernel default: %v", cfg.Memory.RecallTimeout, err)
+	}
+
 	svc, err := memory.New(memory.Config{
-		Namespace:    namespace,
-		Host:         "review-service",
-		RecallLimit:  cfg.Memory.RecallLimit,
-		RecallBudget: cfg.Memory.RecallBudget,
+		Namespace:     namespace,
+		Host:          "review-service",
+		RecallLimit:   cfg.Memory.RecallLimit,
+		RecallBudget:  cfg.Memory.RecallBudget,
+		RecallTimeout: recallTimeout,
 	}, memory.Deps{
 		Store:      store,
 		Redactor:   memory.NewRedactor(),

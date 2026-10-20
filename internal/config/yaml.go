@@ -1,15 +1,15 @@
 package config
 
 import (
+	"github.com/yi-nology/code-review-service/internal/domain/notification"
 	"github.com/oekit/registry/nacos"
 	"github.com/oekit/tracing"
-	"github.com/yi-nology/code-review-service/internal/domain/notification"
 )
 
 // Config 配置结构
 type Config struct {
 	Port int `yaml:"port"`
-	// ExternalBaseURL 服务对外基地址（如 http://review.example.com），用于把 PR 门禁
+	// ExternalBaseURL 服务对外基地址（如 http://code-review.me），用于把 PR 门禁
 	// check 的 target_url 拼成可点击的评审详情页链接；留空则不携带 target_url
 	// （GitLab 拒绝相对路径，整条 status 会写入失败）。
 	ExternalBaseURL string             `yaml:"external_base_url"`
@@ -44,6 +44,11 @@ type MemoryConfig struct {
 	RecallLimit int `yaml:"recall_limit"`
 	// RecallBudget 单次召回的 token 预算（0=用底座默认）。
 	RecallBudget int `yaml:"recall_budget"`
+	// RecallTimeout 单次召回的总时限（如 "2s"）。空/非法 = 用底座默认 2s。
+	//
+	// 召回在评审主链上：PG 挂起或慢查询时，没有时限就等于评审一直等下去。
+	// 底座默认是 2s；要放开就显式配一个更大的值。
+	RecallTimeout string `yaml:"recall_timeout"`
 	// MaintenanceEnabled 是否启用记忆库后台维护（回收/合并/退役）。
 	//
 	// 记忆是长期资产，必须能被维护：不维护的话原始事件只进不出，

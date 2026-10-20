@@ -14,23 +14,23 @@ require (
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/mark3labs/mcp-go v1.1.1
 	github.com/oagentkit/guardx v0.8.2
-	github.com/oagentkit/llm v0.14.1
-	github.com/oekit/bootstrap v0.6.2
+	github.com/oagentkit/llm v0.14.2
+	github.com/oekit/bootstrap v0.6.4
 	github.com/oekit/bootstrap/nacos v0.3.2
 	github.com/oekit/bootstrap/obs v0.2.7
 	github.com/oekit/concurrency v0.18.0
 	github.com/oekit/core v0.10.0
-	github.com/oekit/gormx v0.5.5
-	github.com/oekit/hertz v0.6.4
-	github.com/oekit/kitx v0.2.0
+	github.com/oekit/gormx v0.6.1
+	github.com/oekit/hertz v0.7.1
+	github.com/oekit/kitx v0.2.1
 	github.com/oekit/logx v0.7.1
-	github.com/oekit/metrics v0.1.7
-	github.com/oekit/middleware v0.11.0
-	github.com/oekit/network v0.5.4
+	github.com/oekit/metrics v0.1.9
+	github.com/oekit/middleware v0.12.1
+	github.com/oekit/network v0.5.5
 	github.com/oekit/pkg v0.18.0
-	github.com/oekit/registry v0.4.1
-	github.com/oekit/tracing v0.2.2
-	github.com/oekit/workflow v0.3.1
+	github.com/oekit/registry v0.4.2
+	github.com/oekit/tracing v0.3.0
+	github.com/oekit/workflow v0.3.2
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/prometheus/client_golang v1.25.0
 	github.com/swaggo/files v1.0.1
@@ -187,7 +187,7 @@ require (
 	github.com/nikolalohinski/gonja v1.5.3 // indirect
 	github.com/oagentkit/runtime v0.7.1 // indirect
 	github.com/oagentkit/textx v0.6.1 // indirect
-	github.com/oekit/nns v0.4.1 // indirect
+	github.com/oekit/nns v0.4.3 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/orcaman/concurrent-map v0.0.0-20210501183033-44dafcb38ecc // indirect
@@ -231,8 +231,10 @@ require (
 	go.opentelemetry.io/contrib/propagators/ot v1.47.0 // indirect
 	go.opentelemetry.io/otel v1.47.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.47.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.47.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.47.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.47.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.47.0 // indirect
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
 	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.47.0 // indirect

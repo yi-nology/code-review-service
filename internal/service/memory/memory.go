@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/yi-nology/code-review-service/internal/ocr"
 
@@ -71,6 +72,11 @@ type Config struct {
 	RecallLimit int
 	// RecallBudget 单次召回的 token 预算（0=用底座默认 1500）。
 	RecallBudget int
+	// RecallTimeout 单次召回的总时限（0=用底座默认 2s）。
+	//
+	// 召回在评审**主链**上（internal/eino/executor.go）：PG 挂起或慢查询时，
+	// 没有时限就等于评审无限等待。
+	RecallTimeout time.Duration
 }
 
 // Deps 是装配依赖。
@@ -101,7 +107,23 @@ func New(cfg Config, deps Deps) (*Service, error) {
 		return nil, errors.New("记忆注入防伪未装配：召回内容是不可信内容")
 	}
 
-	recallCfg := recall.Config{TotalBudget: cfg.RecallBudget}
+	// 召回配置以**底座默认**为基线，只覆盖本仓可配的项。
+	//
+	// 此前手写 recall.Config{TotalBudget: ...}，其余字段全是零值——而底座的
+	// normalize() 只补 Sources/TopK/TotalBudget/MaxRaw，**不补** PerEntityMax
+	// 与 RecallTimeout：
+	//   - RecallTimeout 0 = 单次召回无时限。召回在评审主链上，PG 挂起时评审
+	//     会一直等下去（这是「主链被存储拖死」而非「召回慢一点」）。
+	//   - PerEntityMax 0 = 单个实体不限条数。同一实体挂十条事实时，它们说的
+	//     是同一件事的十个侧面，全塞进去会把其他实体的事实挤出预算。
+	// 改用底座默认（RecallTimeout 2s / PerEntityMax 3），确需放开时再显式配。
+	recallCfg := recall.DefaultConfig()
+	if cfg.RecallBudget > 0 {
+		recallCfg.TotalBudget = cfg.RecallBudget
+	}
+	if cfg.RecallTimeout > 0 {
+		recallCfg.RecallTimeout = cfg.RecallTimeout
+	}
 	app, err := application.New(application.Config{
 		Namespace: store.Namespace(cfg.Namespace),
 		Host:      cfg.Host,

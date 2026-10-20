@@ -6,6 +6,7 @@ import (
 
 	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/oekit/pkg/stringx"
 )
 
 type ValidatedComment struct {
@@ -117,8 +118,5 @@ func FormatStaleBanner(expected, actual string) string {
 
 // ShortSHA 截取 commit SHA 的前 8 位用于展示。
 func ShortSHA(sha string) string {
-	if len(sha) > 8 {
-		return sha[:8]
-	}
-	return sha
+	return stringx.FirstN(sha, 8)
 }

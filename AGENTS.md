@@ -4,6 +4,30 @@ This is the `review-service` codebase. Read this before editing; it captures fac
 that are not obvious from the directory layout. The canonical, longer reference is
 `docs/CODE_REVIEW_POLICY.md` — follow its gates and severity rules when changing code.
 
+## Repos: internal mirror and the public one
+
+This working copy is the **internal** mirror:
+
+- `origin` → `ssh://git@github.com/yi-nology/code-review-service.git`
+  (module path `github.com/yi-nology/code-review-service`, deployed to the
+  215 environment from the internal registry `harbor.enjoye.top`).
+
+The **public** repository is <https://github.com/yi-nology/code-review-service>
+(Apache-2.0, published 2026-10-21 as v0.1.0), with module path
+`github.com/yi-nology/code-review-service`. Its history was rewritten with
+`git filter-repo` to drop the internal domain and one leaked LLM token; the
+internal GitLab keeps the original history.
+
+Consequences for agents:
+
+- **Do not push to GitHub from this working copy.** The module paths differ, so
+  the two trees are not interchangeable. Public-side changes are made in the
+  separate checkout `../code-review-service` (mirror `../code-review-service.git`).
+- Changes made here (bug fixes, features) need porting to the public tree
+  before they can be published — the module path rewrite touches every import.
+- The internal copy deliberately keeps the internal registry, `GOPRIVATE`, and
+  the deployment wiring; do not "clean these up" here.
+
 ## What this service is
 
 A code-review gateway. It receives PR/MR events (webhook or API), clones via the
@@ -181,6 +205,32 @@ execution & env vars, writeback flows, and anything touching tokens/secrets.
   `frontend/src`. API layer (`frontend/src/api/`) and types (`frontend/src/types/`)
   must stay in sync with backend thrift models. Component/UI work should match the
   existing tab/wizard patterns (see `frontend/src/components/model-settings/`).
+
+## Architecture policy (enforced, not prose)
+
+`architecture-policy.yaml` at the repo root is **both a declaration and an
+executable gate**. The judgment comes from the base
+`agent-harness/archcheck` (no second copy of the rules lives here); the policy
+file lists the modules, their allowed dependency directions, and the
+rule set. `make architecture-check` (also a CI step) fails on a violation.
+
+What it enforces today:
+
+- `internal/domain/*` must not depend on infra (ORM / Hertz / platform SDK /
+  kernels) nor on any internal package — it is the leaf of the dependency graph.
+- `internal/service/*` must not import `gorm.io` or `repository/postgres` —
+  service layer talks to **interfaces** only.
+- `biz/handler/*` must not import the PostgreSQL implementation; `biz/router/*`
+  must not touch repository or service at all.
+- `biz/model/*` is thriftgo-generated — no hand-written dependencies in it.
+
+Rules marked `severity: warn` are **known debt**. They show up in every report
+but do not block. When one is paid off, raise it to `error` — the ratchet only
+tightens.
+
+**New internal dependency directions: change `architecture-policy.yaml` first,
+then write the code.** The policy is the only place that decides what the
+dependency graph may look like.
 
 ## Before you finish
 

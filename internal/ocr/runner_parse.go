@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/yi-nology/code-review-service/internal/domain/session"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
@@ -43,7 +44,11 @@ func parseOCRProgress(line string, reporter progress.ProgressReporter) {
 	}
 
 	// 已知 phase 名与 progress.Phase 常量一致，直接映射以驱动前端阶段切换。
-	if _, ok := knownOCRPhases[phaseName]; ok {
+	//
+	// 判据取领域层单一事实源（internal/domain/session）——此前本文件另持一份
+	// 手写副本，新增阶段时领域层与 progress 层都有、OCR 侧没有，该阶段的进度
+	// 会被静默误报成 analysis（reporter.ReportProgress 强制 PhaseAnalysis）。
+	if session.IsKnownPhase(phaseName) {
 		reporter.UpdatePhase(progress.Phase(phaseName), "active", pct, "ocr: "+rest)
 		return
 	}

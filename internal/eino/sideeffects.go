@@ -12,9 +12,9 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/statuscheck"
 
+	notifdomain "github.com/yi-nology/code-review-service/internal/domain/notification"
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
-	notifdomain "github.com/yi-nology/code-review-service/internal/domain/notification"
 )
 
 // 执行器的对外副作用：writeback、commit status、通知、指标、OCR 入参构造。
@@ -131,8 +131,11 @@ func (e *Executor) notifyStart(ctx context.Context, id string, req domain.Reques
 			req.Provider, req.Repo,
 			truncateSHA(req.BaseSHA), truncateSHA(req.HeadSHA),
 		)
-		// 异步发评论，不阻塞主流程
-		go func() {
+		// 异步发评论，不阻塞主流程。
+		// 走 async.GoSafeLabeled：裸 go func 里的 panic 会终止整个进程
+		//（Go 的 goroutine panic 不跨 goroutine 传播），而这里正处在外部
+		// 调用边界（writeback 发布）上——一次 panic 不该把服务带走。
+		async.GoSafeLabeled("post-start-comment", func() {
 			bgCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 			if _, err := e.writeback.PublishWithDiff(bgCtx, req, domain.Result{
@@ -140,7 +143,7 @@ func (e *Executor) notifyStart(ctx context.Context, id string, req domain.Reques
 			}, ""); err != nil {
 				logx.Warnf("[executor] failed to post start comment: %v", err)
 			}
-		}()
+		})
 	}
 
 	e.appendHistory(ctx, id, "notify", "started", "review start notification sent", nil)

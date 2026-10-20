@@ -1,0 +1,334 @@
+# review-service 架构治理策略
+#
+# 本文件既是**声明面**（模块清单 + 依赖方向，供人阅读与 AI 对齐），也是**可执行面**
+# （rules 段由 agent-harness/archcheck 逐条执行，`make architecture-check` 门禁，
+# 违反即非零退出）。
+#
+# 为什么要有这个文件：AGENTS.md 里的层级规则一直是散文——「service 不该摸 ORM」
+# 「domain 层不该依赖 infra」这类话靠人记，靠 review 靠不住。散文会随人手改动
+# 而失效，而失效之后没人知道它曾经存在过。policy 把它们变成**可执行断言**：
+# 违反即 CI 红。
+#
+# 纪律：
+#   - 提交前跑 `make check`（含 architecture-check）；
+#   - 新增内部依赖方向**先改本文件再写代码**（policy 先行）；
+#   - 新模块登记 {id, roots, requires, owner}；
+#   - 例外必须带注释说明原因与拆除条件；
+#   - severity: warn 的规则是**已知欠账**——它们会在报告里显形但不阻断，
+#     欠账还清完就升级为 error（棘轮只能收紧，不能放松）。
+#
+# 正则一律 RE2 语法（Go regexp 原生，不支持 (?!...)）；负向前置用
+# negative_follow 结构化表达（anchor 是**字面串**，判定用 strings.Index 匹配
+# 字面量，且必须位于命中起点之前或等于——所以 forbid_import_regex 不能带
+# '.*' 前缀）。
+version: 1
+
+# ── 模块清单（requires = 允许的依赖方向）──
+modules:
+  - id: app
+    roots: ['internal/app']
+    requires: ['domain', 'reviewdomain']
+    owner: review-service
+    managed: true
+    notes: 应用层抽象（端口）：对外暴露角色接口，隔离具体实现
+
+  - id: argusclient
+    roots: ['internal/argusclient']
+    requires: ['ext:github.com/oekit']
+    owner: review-service
+    managed: true
+    notes: Argus 引擎 HTTP 客户端
+
+  - id: cmd
+    roots: ['cmd/mcp-server']
+    requires: ['config', 'mcp', 'modules', 'observability', 'ext:github.com/oekit']
+    owner: review-service
+    managed: true
+    notes: MCP 服务进程入口
+
+  - id: config
+    roots: ['internal/config']
+    requires: ['domain', 'ext:github.com/oekit']
+    owner: review-service
+    managed: true
+    notes: 基础设施配置（env + yaml）
+
+  - id: domain
+    roots: ['internal/domain']
+    requires: ['ext:github.com/oekit']
+    owner: review-service
+    managed: true
+    notes: 领域类型叶子包：只依赖标准库与 oekit/pkg
+
+  - id: eino
+    roots: ['internal/eino']
+    requires: ['domain', 'observability', 'ocr', 'progress', 'repository', 'reviewdomain', 'service', 'strutil', 'vcs', 'ext:github.com/cloudwego', 'ext:github.com/oagentkit', 'ext:github.com/oekit']
+    owner: review-service
+    managed: true
+    notes: Eino 引擎适配与编排
+
+  - id: handler
+    roots: ['biz/handler']
+    requires: ['app', 'argusclient', 'domain', 'model', 'ocr', 'progress', 'repository', 'reviewdomain', 'service', 'ext:github.com/cloudwego', 'ext:github.com/oekit', 'ext:gorm.io']
+    owner: review-service
+    managed: true
+    notes: HTTP 处理器
+
+  - id: httpx
+    roots: ['internal/httpx']
+    requires: []
+    owner: review-service
+    managed: true
+    notes: 内部 HTTP 工具
+
+  - id: mcp
+    roots: ['internal/mcp']
+    requires: ['app', 'domain', 'repository', 'reviewdomain', 'service', 'strutil', 'ext:github.com/oekit']
+    owner: review-service
+    managed: true
+    notes: MCP 端点
+
+  - id: middleware
+    roots: ['internal/middleware']
+    requires: ['domain', 'repository', 'ext:github.com/cloudwego', 'ext:github.com/oekit']
+    owner: review-service
+    managed: true
+    notes: Hertz 中间件
+
+  - id: model
+    roots: ['biz/model']
+    requires: []
+    owner: review-service
+    managed: true
+    notes: thriftgo 生成的模型（勿手改）
+
+  - id: modules
+    roots: ['internal/modules']
+    requires: ['argusclient', 'config', 'domain', 'eino', 'handler', 'middleware', 'observability', 'ocr', 'progress', 'readiness', 'repository', 'reviewdomain', 'router', 'service', 'swagger', 'ext:github.com/cloudwego', 'ext:github.com/oekit', 'ext:github.com/yi-nology/agent-memory', 'ext:gorm.io']
+    owner: review-service
+    managed: true
+    notes: uber/fx 装配
+
+  - id: observability
+    roots: ['internal/observability']
+    requires: ['ext:github.com/oagentkit', 'ext:github.com/oekit']
+    owner: review-service
+    managed: true
+    notes: 指标与日志脱敏
+
+  - id: ocr
+    roots: ['internal/ocr']
+    requires: ['domain', 'progress', 'repository', 'reviewdomain', 'ext:github.com/cloudwego', 'ext:github.com/oagentkit', 'ext:github.com/oekit', 'ext:github.com/yi-nology/agent-harness']
+    owner: review-service
+    managed: true
+    notes: OCR 能力的单一入口
+
+  - id: progress
+    roots: ['internal/service/progress']
+    requires: ['domain', 'ext:github.com/oekit', 'ext:github.com/yi-nology/agent-harness']
+    owner: review-service
+    managed: true
+    notes: 进度事件词汇与总线桥
+
+  - id: readiness
+    roots: ['internal/readiness']
+    requires: ['ocr', 'repository', 'ext:github.com/oekit', 'ext:gorm.io']
+    owner: review-service
+    managed: true
+    notes: 就绪探针
+
+  - id: repository
+    roots: ['internal/repository']
+    requires: ['config', 'domain', 'reviewdomain', 'ext:github.com/oekit', 'ext:gorm.io']
+    owner: review-service
+    managed: true
+    notes: 仓储接口与 PostgreSQL 实现
+
+  - id: reviewdomain
+    roots: ['internal/service/review/domain']
+    requires: ['domain', 'ext:github.com/oekit']
+    owner: review-service
+    managed: true
+    notes: 评审领域类型（当前寄居 service 路径下——见欠账规则）
+
+  - id: root
+    roots: ['.']
+    requires: ['config', 'modules', 'observability', 'ext:github.com/cloudwego', 'ext:github.com/oekit']
+    owner: review-service
+    managed: true
+    notes: 主服务入口
+
+  - id: router
+    roots: ['biz/router']
+    requires: ['handler', 'ext:github.com/cloudwego']
+    owner: review-service
+    managed: true
+    notes: HTTP 路由
+
+  - id: service
+    roots: ['internal/service']
+    requires: ['argusclient', 'config', 'domain', 'httpx', 'observability', 'ocr', 'progress', 'repository', 'reviewdomain', 'strutil', 'vcs', 'ext:github.com/oekit', 'ext:github.com/yi-nology/agent-harness', 'ext:github.com/yi-nology/agent-memory']
+    owner: review-service
+    managed: true
+    notes: 业务服务层
+
+  - id: strutil
+    roots: ['internal/strutil']
+    requires: []
+    owner: review-service
+    managed: true
+    notes: 字符串工具
+
+  - id: swagger
+    roots: ['swagger']
+    requires: ['ext:github.com/cloudwego']
+    owner: review-service
+    managed: true
+    notes: Swagger UI 路由注册
+
+  - id: vcs
+    roots: ['internal/vcs']
+    requires: ['ext:github.com/oagentkit', 'ext:github.com/yi-nology/agent-harness']
+    owner: review-service
+    managed: true
+    notes: VCS 克隆与出站防护
+
+
+# ── 依赖方向门禁 ──
+#
+# 只判**内部模块边**与**受管外部包面**（ext_prefixes 段列出的家族库）。
+# 第三方依赖不归这张表管。
+dependency_direction:
+  enabled: true
+  severity: error
+  desc: |
+    模块之间的依赖方向由 modules 段的 requires 声明。新增内部依赖方向时
+    先改 architecture-policy.yaml 再写代码——policy 先行，是这份文件存在的
+    全部意义。
+  ext_prefixes:
+    - github.com/oekit
+    - github.com/oagentkit
+    - github.com/yi-nology/agent-harness
+    - github.com/yi-nology/agent-memory
+    - gorm.io
+    - github.com/cloudwego
+
+# ── 结构债阈值 ──
+thresholds:
+  # 超长文件：机械判据。当前最长的手写文件约 714 行（internal/eino/executor.go）。
+  # 阈值定在 800 是「给重构留出余量但不允许继续长胖」——文件越长越难拆。
+  max_file_lines: 800
+  # 上帝对象：一个类型的实质方法数上限（转发壳不计入）。
+  max_methods_per_type: 30
+  scan_roots:
+    - internal
+    - biz/handler
+    - biz/router
+  # enforce=false：只报告不阻断。结构债的清理是渐进的，用阻断逼人硬拆
+  # 只会催生「为了过门禁而拆出无意义的壳」。
+  # scan_roots 不含 biz/model：那是 thriftgo 生成代码，长度不由人控制。
+  enforce: false
+
+# ── 可执行规则 ──
+#
+# severity: error = 违反即非零退出（CI 红）。
+# severity: warn  = 已知欠账，在报告里显形但不阻断。欠账还清完就升级为 error
+# ——这道棘轮只能收紧，不能放松。
+rules:
+  - id: domain-no-infra-import
+    desc: |
+      领域层不得依赖基础设施（ORM / Web 框架 / 平台 SDK / 内核）。
+      internal/domain/* 是纯类型叶子包：它一旦需要 ORM 或 Hertz，
+      说明「领域」这个划分本身已经失效。
+    severity: error
+    scope: [internal/domain]
+    ignore_test: true
+    forbid_import_regex: '^(gorm\.io|github\.com/cloudwego|github\.com/yi-nology/go-git-platform|github\.com/yi-nology/agent-harness|github\.com/yi-nology/agent-memory)'
+
+  - id: domain-no-internal-dep
+    desc: |
+      领域层不得依赖任何内部包。它是依赖图的叶子，依赖谁都行、谁都不该依赖它。
+    severity: error
+    scope: [internal/domain]
+    ignore_test: true
+    forbid_import_regex: '.*/internal/(service|repository|modules|eino|ocr|mcp|middleware|app)/'
+
+  - id: service-no-orm
+    desc: |
+      业务服务层不得直接依赖 ORM（gorm.io / repository/postgres 的模型）。
+      service 层只认 repository 包里的**接口**；要查库就走接口。
+      （此前 internal/service/cost 直接持 *gorm.DB，是全仓唯一的例外，已修。）
+    severity: error
+    scope: [internal/service]
+    ignore_test: true
+    forbid_import_regex: '^(gorm\.io|.*/internal/repository/postgres)'
+
+  - id: handler-no-postgres
+    desc: |
+      HTTP 处理器不得直接依赖 PostgreSQL 实现。handler 只认 internal/app
+      暴露的角色接口与 internal/service 的服务接口——数据访问经仓储接口，
+      不经实现。
+    severity: error
+    scope: [biz/handler]
+    ignore_test: true
+    forbid_import_regex: '.*/internal/repository/postgres'
+
+  - id: router-no-repository
+    desc: |
+      路由层只做「路径 → handler」的映射，不得直接摸仓储或服务。
+    severity: error
+    scope: [biz/router]
+    ignore_test: true
+    forbid_import_regex: '.*/internal/(repository|service)/'
+
+  - id: model-generated-only
+    desc: |
+      biz/model/* 是 thriftgo 生成代码（idl/*.thrift 的产物），不得引入
+      ORM / Web 框架 / 日志库等手写依赖——生成代码的手工改动会在下次
+      重新生成时静默丢失。
+    severity: error
+    scope: [biz/model]
+    forbid_import_regex: '^(gorm\.io|github\.com/cloudwego|github\.com/oekit|github\.com/oagentkit)'
+
+  # ── 已知欠账（warn：不阻断，但每次报告都显形）──
+  - id: repository-no-service-dep
+    desc: |
+      【欠账】仓储层（infra）不得依赖服务层。当前唯一一条边是
+      internal/repository → internal/service/review/domain —— 那本是个纯领域
+      叶子包，却寄居在 service 路径下，于是 infra → service 的方向倒了过来。
+      拆法：把评审领域类型下沉到 internal/domain/，service 侧保留别名层。
+      拆除条件：上述边消失后把 severity 升为 error。
+    severity: warn
+    scope: [internal/repository]
+    ignore_test: true
+    forbid_import_regex: 'internal/service/'
+    negative_follow:
+      # 评审领域类型是纯叶子包，本次欠账只针对它——豁免后其余 service 边照样阻断。
+      - anchor: 'internal/service/'
+        forbid_follow: review/domain
+
+  - id: eino-no-repository-dep
+    desc: |
+      【欠账】编排层不得直接持有仓储。internal/eino 目前直接持 6 个仓储并读
+      5 张业务表，等于在 service/review 之外另起了一套编排骨架——两套编排互相
+      调用，是耦合的主要来源。拆法：把 Execute 的前置步骤下沉为
+      review.ReviewPipeline，eino 只做引擎适配。
+      拆除条件：eino 不再 import internal/repository 后升为 error。
+    severity: warn
+    scope: [internal/eino]
+    ignore_test: true
+    forbid_import_regex: 'internal/repository'
+
+  - id: ocr-no-service-dep
+    desc: |
+      【欠账】OCR 层不得依赖业务服务层。internal/ocr 目前为上报进度依赖
+      internal/service/progress（那本该是领域词汇，不是服务）。
+      拆法：进度事件词汇下沉到 internal/domain/progress。
+      拆除条件：上述边消失后升为 error。
+    severity: warn
+    scope: [internal/ocr]
+    ignore_test: true
+    forbid_import_regex: 'internal/service/'
+    negative_follow:
+      - anchor: 'internal/service/'
+        forbid_follow: review/domain

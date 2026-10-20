@@ -191,18 +191,6 @@ const defaultOCRMaxRetries = 1
 // retryBaseBackoff 是首次重试前的指数退避基准。
 const retryBaseBackoff = 2 * time.Second
 
-// knownOCRPhases 列出 progress.Phase 体系支持的阶段名（见 progress/types.go）。
-var knownOCRPhases = map[string]struct{}{
-	"context":        {},
-	"change_context": {},
-	"analysis":       {},
-	"reviews":        {},
-	"aggregation":    {},
-	"discourse":      {},
-	"synthesis":      {},
-	"complete":       {},
-}
-
 // maxSubprocessOutput 限制单个 OCR 子进程 stdout/stderr 的内存上限，
 // 防止健谈/失控的二进制把内存撑爆（OOM）。正常 JSON 输出远小于此。
 const maxSubprocessOutput = 64 << 20 // 64 MB

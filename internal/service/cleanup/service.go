@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
 )
 
@@ -57,7 +58,9 @@ func (c *WorkspaceCleaner) Start() {
 		c.baseDir, c.pattern, c.maxAge, c.interval)
 
 	c.scanTicker = time.NewTicker(c.interval)
-	go c.loop()
+	// async.GoSafe：裸 goroutine 里的 panic 会终止整个进程，而清理逻辑
+	// 走的是文件 IO（ReadDir/RemoveAll），一次异常不该把服务带走。
+	async.GoSafe(c.loop)
 }
 
 func (c *WorkspaceCleaner) loop() {

@@ -47,6 +47,12 @@ jobs:
         run: |
           test -z "$(gofmt -l $(git ls-files '*.go'))"
 
+      # 架构门禁：执行 architecture-policy.yaml 的可执行面（判据来自底座
+      # agent-harness/archcheck）。domain 层不得依赖 infra、service 不得摸 ORM、
+      # handler 不得直连 postgres 实现——这些原本只是 AGENTS.md 里的散文。
+      - name: Architecture policy
+        run: go run github.com/yi-nology/agent-harness/cmd/archcheck --report
+
       - name: Vet
         run: go vet ./...
 
