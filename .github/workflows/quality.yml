@@ -25,6 +25,24 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # 预取模块并重试：proxy.golang.org 的 CDN 偶发「stream error /
+      # INTERNAL_ERROR」（传输层中断，不是版本不存在也不是校验失败）。这类抖动
+      # 会让随后的 vet / test 报「read .../@v/xxx.zip: stream error」而红，
+      # 但重试通常一次就过——已下载部分进了 module cache，重试只补剩下的。
+      - name: Download modules
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5; do
+            if go mod download all; then
+              echo "modules ready (attempt $i)"
+              exit 0
+            fi
+            echo "::warning::go mod download failed (attempt $i/5), retrying in 10s"
+            sleep 10
+          done
+          echo "::error::go mod download failed after 5 attempts"
+          exit 1
+
       - name: Check formatting
         run: |
           test -z "$(gofmt -l $(git ls-files '*.go'))"
@@ -62,6 +80,20 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Download modules
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5; do
+            if go mod download all; then
+              echo "modules ready (attempt $i)"
+              exit 0
+            fi
+            echo "::warning::go mod download failed (attempt $i/5), retrying in 10s"
+            sleep 10
+          done
+          echo "::error::go mod download failed after 5 attempts"
+          exit 1
 
       # 诊断信息：出问题时能直接看到 runner 的磁盘/内存余量，不必再猜。
       - name: Diagnostics
