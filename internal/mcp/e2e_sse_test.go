@@ -35,6 +35,17 @@ import (
 // HTTP transport: MCP 2025-03 spec，streamable_http。client 跟 server 之间用
 // POST /mcp 单向请求-响应（带 session-id header 标识）；本测试只覆盖 stateless 部分。
 func TestMCPHTTPEndToEnd(t *testing.T) {
+	// 重型集成测试：起 testcontainers Postgres + 编译并拉起 mcp-server 二进制。
+	// 后者会在 `go test ./...` 跑到一半时**再拉起一次完整 go build**（cmd/mcp-server
+	// 的全部依赖树），与外层并发编译/ vet 叠加后在 2 核 7G 的 CI runner 上峰值资源
+	// 打满，vet/编译子进程被 OOM killer 杀掉 —— 外层随即报
+	// 「刚写好的 $WORK/xxx/vet.out、importcfg 不存在」这类假失败，且每次挂的包都不同。
+	//
+	// 因此默认路径（-short）跳过它，由 CI 的独立 e2e job 单独跑（此时机器由它独占）。
+	// 本地直接 `go test ./internal/mcp/...` 仍会跑，行为不变。
+	if testing.Short() {
+		t.Skip("MCP e2e 需要 Docker + 完整二次构建，-short 模式下跳过")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	pg, _, err := tcdb.StartPostgres(ctx)

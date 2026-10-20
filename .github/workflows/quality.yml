@@ -33,7 +33,11 @@ jobs:
         run: go vet ./...
 
       - name: Test
-        run: go test ./...
+        # -short：跳过重型集成测试（internal/mcp 的 e2e：testcontainers + 二次完整
+        # go build）。它与外层并发编译叠加时会打满 CI runner 的内存，导致 vet/编译
+        # 子进程被 OOM killer 杀掉，外层报「$WORK/xxx/vet.out 不存在」这类假失败。
+        # 该测试由下面的 backend-e2e job 独占机器单独跑。
+        run: go test -short ./...
 
       - name: Vulnerability scan
         uses: golang/govulncheck-action@v1
@@ -45,6 +49,30 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           args: --timeout=5m
+
+  backend-e2e:
+    name: Backend E2E
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # 诊断信息：出问题时能直接看到 runner 的磁盘/内存余量，不必再猜。
+      - name: Diagnostics
+        run: |
+          df -h / /tmp
+          free -m
+          go env GOCACHE GOTMPDIR
+
+      # 只跑 e2e 包，且不加 -short；此时机器由本 job 独占，峰值资源不被外层抢。
+      - name: MCP end-to-end
+        run: go test -v -timeout 600s ./internal/mcp/...
 
   frontend:
     name: Frontend
