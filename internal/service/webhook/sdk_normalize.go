@@ -21,9 +21,14 @@
 // 的优先级见 provider.ResolveMRSHAs（与历史 normalizer 一致）。
 //
 // 签名校验：本层不依赖 SDK 的签名校验。重建的 *http.Request 不携带签名
-// header，且传入空 secret，使 SDK 各 backend 跳过其内部签名校验；签名校验
-// 仍由各 normalizer 的 VerifySignature 负责（gitcode/tencent 的 header 约定
-// 及空 secret 安全策略与 SDK 不同）。
+// header，调用 ParseWebhookEvent 时传 provider.SkipValidationSecret 哨兵，
+// 让 SDK 跳过其内部签名校验；签名校验仍由各 normalizer 的 VerifySignature
+// 负责（gitcode/tencent 的 header 约定及空 secret 安全策略与 SDK 不同）。
+//
+// 注意：SDK v0.77.0 起校验器不再接受空 secret（此前靠空 secret 隐式跳过
+// 校验的写法已失效，会在解析入口报 "missing token header"）。哨兵是 SDK
+// 显式提供的 parse-only 入口，且只在 envelope.Read 内生效，不影响
+// ValidateWebhookWithRegistry 等公开校验 API。
 package webhook
 
 import (
@@ -85,7 +90,10 @@ func normalizeWithSDK(getter ProviderGetter, platform string, rawBody []byte, ev
 	}
 
 	req := buildSDKWebhookRequest(platform, eventType, rawBody)
-	ne, err := p.ParseWebhookEvent(req, "")
+	// 只做 payload 解析：签名已由各 normalizer 的 VerifySignature 校验
+	// （各平台 header 约定与 SDK 模型不同），SDK 内部再校验一次既冗余又必然
+	// 失败——用哨兵显式声明 parse-only。
+	ne, err := p.ParseWebhookEvent(req, sdkprovider.SkipValidationSecret)
 	if err != nil {
 		return nil, fmt.Errorf("sdk parse webhook: %w", err)
 	}

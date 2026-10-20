@@ -240,6 +240,31 @@ func (s *GitProviderService) BuildCloneURL(platform, owner, repo string) string 
 	return base + fmt.Sprintf("/%s/%s.git", owner, repo)
 }
 
+// ValidateCloneURL 校验拼出的 clone URL 可否安全出站。
+//
+// owner/repo 来自 webhook 载荷（外部可控），未校验就拼进 URL 会有两个后果：
+// host 逃逸（owner 含 "@" 时 URL 的 host 变成攻击者的地址，服务带着 git token
+// 去访问它）与路径穿越（owner 含 ".." 时指向平台上的另一个路径）。
+//
+// 判据在 vcs.CloneURLGuard（底座 netguard）：拼出的 host 必须与该平台
+// 配置的 base URL 的 host 完全一致，且通过出站校验（拒回环）。
+func (s *GitProviderService) ValidateCloneURL(platform, owner, repo, cloneURL string) error {
+	if err := vcs.ValidateRepoPath(owner, repo); err != nil {
+		return err
+	}
+
+	s.mu.RLock()
+	cfg, ok := s.configs[platform]
+	s.mu.RUnlock()
+	if !ok {
+		return fmt.Errorf("平台 %q 未配置", platform)
+	}
+
+	// 基地址取**未做平台路径改写**的原始值：host 比较只关心 host，
+	// 而改写只动路径部分（/api/v4 之类），host 不变。
+	return vcs.NewCloneURLGuard().Validate(cfg.BaseURL, cloneURL)
+}
+
 func (s *GitProviderService) GetToken(platform string) string {
 	s.mu.RLock()
 	cfg, ok := s.configs[platform]

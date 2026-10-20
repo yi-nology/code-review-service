@@ -65,6 +65,21 @@ tracing:
 #   monthly_budget_usd: 100.0      # 月度预算上限（美元），0 表示不限制
 #   review_action: "warn"          # warn（仅告警，默认）/ block（拒绝新评审）
 
+# 跨会话长期记忆（可选，底座 agent-memory）
+# 开启后：每次评审的产出沉淀为长期记忆，下次同仓库评审时召回并注入评审背景。
+# 记忆库是独立数据面：默认落 SQLite 文件；多实例部署必须配 dsn 走 Postgres
+# （SQLite 文件在多副本下各写各的，记忆会分裂）。
+# memory:
+#   enabled: true
+#   path: "./data/memory.sqlite"  # dsn 为空时生效
+#   dsn: "${MEMORY_DATABASE_URL:}" # 非空时走 Postgres
+#   namespace: "review"            # 记忆库命名空间前缀（底座按 前缀/平台/仓库 隔离）
+#   recall_limit: 10               # 单次召回条数上限
+#   recall_budget: 1500            # 单次召回 token 预算
+#   maintenance_enabled: true      # 后台维护（回收原始事件 / 合并同签名事实 / 退役过期事实）
+#   maintenance_interval: "6h"     # 维护周期
+#   raw_retention: "720h"          # 原始事件保留期（30 天）；超过则回收，其证据全没的事实顺带退役
+
 # Argus 对接（可选）
 # Argus Bot（外部 PR 审查引擎）基地址与 API token（即 argus 侧 ARGUS_APITOKEN）。
 # bot_url 为空 = argus 引擎整体关闭（创建期 fail-fast、轮询器与反馈回流不启动）。

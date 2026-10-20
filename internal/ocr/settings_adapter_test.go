@@ -68,25 +68,3 @@ func TestConvertOCRSettings_NilInput(t *testing.T) {
 		t.Errorf("expected nil for nil input, got %+v", got)
 	}
 }
-
-func TestLLMProviderAdapter_SatisfiesLLMProvider(t *testing.T) {
-	// 阶段 A15 关键断言：*LLMProviderAdapter 必须实现 llm.Provider 接口。
-	settings := NewSettingsSnapshot(&SettingsData{
-		URL:       "https://api.example.com",
-		ModelName: "gpt-4",
-	})
-	provider := NewLLMProvider(settings)
-	adapter := WrapLLMProvider(provider)
-
-	// 编译期检查：把 adapter 赋值给 llm.Provider 接口变量
-	var p llmProviderInterface = adapter
-	if p == nil {
-		t.Fatalf("adapter should not be nil")
-	}
-}
-
-// llmProviderInterface 是 llm.Provider 的内部 alias（避免 import llm 到 ocr 测试文件）。
-type llmProviderInterface interface {
-	Available(ctx context.Context) bool
-	Complete(ctx context.Context, req LLMRequest) (LLMResponse, error)
-}

@@ -23,23 +23,6 @@ type ruleFile struct {
 	Rules []ruleEntry `json:"rules"`
 }
 
-// ResolveRuleFile 合并项目规则、引用的规则包、全局规则集（scope=global）与全局规则（legacy 兜底），
-// 写入临时文件并返回路径与清理函数。无规则时返回 ("", nil, nil)。
-//
-// 合并来源（顺序）：
-//  1. 项目内联规则（projectPolicy.Rules）
-//  2. 项目引用的规则包（projectPolicy.RulePackageIDs → GetByID）
-//  3. 审查员引用的规则包（agentRefs 并集 → GetByID）
-//  4. 全局规则集（scope=global 的包，始终合并）
-//  5. scope=project 且 project_refs 匹配当前项目的包（legacy 自动匹配）
-//  6. 旧 global_rules 表（迁移过渡期兜底，迁移后通常为空）
-//
-// 作为 review 与 executor 路径的单一实现（含 rule packages），消除重复，
-// 并修复此前 executor 路径丢失 rule packages 处理的问题。
-func ResolveRuleFile(ctx context.Context, projectPolicy projectpolicy.ProjectPolicy, rulePackageRepo repository.OCRRulePackageRepository, globalRulesRepo repository.GlobalRulesRepository) (string, func(), error) {
-	return ResolveRuleFileForAgents(ctx, projectPolicy, rulePackageRepo, globalRulesRepo)
-}
-
 // ResolveRuleFileForAgents 在 ResolveRuleFile 基础上，把审查员引用的规则包一并合并。
 // agentRefs 为本次选中的每个审查员自己的 RulePackageIDs（json.RawMessage），函数内做合并去重。
 // 这样所有审查员共享同一份合并后的规则文件（单一数据源，且修复了 workflow 路径丢失规则的 bug）。

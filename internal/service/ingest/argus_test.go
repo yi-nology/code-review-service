@@ -14,8 +14,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/domain/argusingest"
 )
 
-func sp(s string) *string { return &s }
-
 func validPayload() *IngestPayload {
 	return &IngestPayload{
 		ArgusTaskID: "task-1", Platform: "gitea", Owner: "zhangyi", Repo: "demo",

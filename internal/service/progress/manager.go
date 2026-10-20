@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/oekit/logx"
+	"github.com/yi-nology/agent-harness/eventbus"
 )
 
 type ProgressReporter interface {
@@ -30,6 +31,8 @@ func ProgressReporterFromContext(ctx context.Context) ProgressReporter {
 
 type ProgressManager struct {
 	broadcaster *broadcaster
+	bus         *eventbus.Bus
+	bridge      *eventBridge
 	trackers    map[string]*ProgressTracker
 	mu          sync.RWMutex
 }
@@ -37,10 +40,23 @@ type ProgressManager struct {
 const completedTrackerRetention = 10 * time.Minute
 
 func NewProgressManager() *ProgressManager {
-	return &ProgressManager{
-		broadcaster: newBroadcaster(),
+	bc := newBroadcaster()
+	bus := eventbus.New()
+	pm := &ProgressManager{
+		broadcaster: bc,
+		bus:         bus,
 		trackers:    make(map[string]*ProgressTracker),
 	}
+	pm.bridge = newEventBridge(context.Background(), bus, bc)
+	return pm
+}
+
+// Bus 返回进程内的事件总线（底座 agent-harness/eventbus）。
+//
+// 编排层（workflow）用它发布阶段生命周期事件；前端 websocket 订阅的是
+// 桥接出去的进度事件。两者共用一条总线，事件面因此只有一个发布点。
+func (pm *ProgressManager) Bus() *eventbus.Bus {
+	return pm.bus
 }
 
 // GetBroadcaster 返回 Broadcaster 接口（PR-12 修复：原返回 unexported *broadcaster，
@@ -63,7 +79,7 @@ func (pm *ProgressManager) CreateTracker(reviewID, sessionID string, round int) 
 		existing.Complete()
 	}
 
-	tracker := newProgressTracker(pm.broadcaster, reviewID, sessionID, round)
+	tracker := newProgressTracker(pm.broadcaster, pm.bus, reviewID, sessionID, round)
 	pm.trackers[reviewID] = tracker
 	logx.Infof("created progress tracker for review: %s", reviewID)
 	return tracker
@@ -115,5 +131,8 @@ func (pm *ProgressManager) Close() {
 		tracker.Complete()
 	}
 	pm.trackers = make(map[string]*ProgressTracker)
+	if pm.bridge != nil {
+		pm.bridge.Close()
+	}
 	pm.broadcaster.Close()
 }

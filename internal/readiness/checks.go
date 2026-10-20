@@ -114,15 +114,3 @@ func LLMEndpointCheck(repos *repository.RepoContainer, resolver *ocrcore.ConfigR
 		return nil
 	}
 }
-
-// RegistryOCRHealthChecks 一次性构造 OCR + LLM 两个 readiness check。
-// B6 新增：用 *ocrcore.Registry 代替 (repos, resolver) 两个参数。
-//
-// 阶段 A 完整迁移后，OCRBinaryCheck / LLMEndpointCheck 这两个老函数可删除，
-// 所有调用点改为 RegistryOCRHealthChecks(reg)。
-func RegistryOCRHealthChecks(reg *ocrcore.Registry, resolver *ocrcore.ConfigResolver) []health.HealthChecker {
-	return []health.HealthChecker{
-		OCRBinaryCheck(reg.Repos(), resolver),
-		LLMEndpointCheck(reg.Repos(), resolver),
-	}
-}

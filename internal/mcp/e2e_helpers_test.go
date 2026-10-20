@@ -101,21 +101,6 @@ func assertToolError(t *testing.T, resp []byte, expect string) string {
 	return cat
 }
 
-// assertToolSuccess 校验 CallToolResult isError=false（成功）。
-func assertToolSuccess(t *testing.T, resp []byte) bool {
-	t.Helper()
-	var call struct {
-		Result struct {
-			IsError bool `json:"isError"`
-		} `json:"result"`
-	}
-	if err := json.Unmarshal(resp, &call); err != nil {
-		t.Logf("unmarshal failed: %v\nraw: %s", err, resp)
-		return false
-	}
-	return !call.Result.IsError
-}
-
 // TestE2ECompileOnly 极简的「能跑就行」 sanity check：测 fx wire 路径不会出现编译期循环。
 func TestE2ECompileOnly(t *testing.T) {
 	var _ app.ReviewService = (app.ReviewService)(nil)

@@ -64,12 +64,13 @@ func (l *AgentLoader) LoadFromDB(ctx context.Context, agents []reviewer.Agent) e
 			}
 
 			agentConfig := ocrAgentConfig{
-				Name:      instanceName,
-				Persona:   agentModel.Name,
-				Priority:  agentModel.Priority,
-				Focus:     extractTags(agentModel.Tags),
-				Timeout:   l.timeout,
-				IsDefault: agentModel.IsDefault,
+				Name:       instanceName,
+				Persona:    agentModel.Name,
+				Priority:   agentModel.Priority,
+				Focus:      extractTags(agentModel.Tags),
+				Timeout:    l.timeout,
+				IsDefault:  agentModel.IsDefault,
+				Background: agentModel.Background,
 			}
 
 			agentInstance := newOCRAgent(runnerInstance, agentConfig)
@@ -90,11 +91,12 @@ func (l *AgentLoader) LoadDefaultAgent(background string) {
 	runner := l.factory.CreateRunner(background, "")
 
 	agentConfig := ocrAgentConfig{
-		Name:      "default",
-		Priority:  l.priority,
-		Focus:     []string{"code_quality", "best_practices", "potential_bugs"},
-		Timeout:   l.timeout,
-		IsDefault: true,
+		Name:       "default",
+		Priority:   l.priority,
+		Focus:      []string{"code_quality", "best_practices", "potential_bugs"},
+		Timeout:    l.timeout,
+		IsDefault:  true,
+		Background: background,
 	}
 
 	agent := newOCRAgent(runner, agentConfig)

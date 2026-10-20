@@ -72,7 +72,10 @@ func (n *GitCodeNormalizer) Normalize(rawBody []byte, eventType string) (*Change
 	}
 	req, _ := http.NewRequest(http.MethodPost, "/webhook", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	ne, err := p.ParseWebhookEvent(req, "")
+	// 只做 payload 解析：签名已由本 normalizer 的 VerifySignature 校验
+	// （GitCode 的 header 约定与 SDK gitlab 家族不同），SDK 内部再校验一次
+	// 既冗余又必然失败——用哨兵显式声明 parse-only。
+	ne, err := p.ParseWebhookEvent(req, sdkprovider.SkipValidationSecret)
 	if err != nil {
 		return nil, fmt.Errorf("gitcode parse webhook: %w", err)
 	}

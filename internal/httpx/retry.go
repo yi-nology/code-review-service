@@ -8,9 +8,8 @@
 //     Prometheus target label 等）。
 //   - 严格 JSON 响应语义（2xx 必须 JSON、错误体 rune 安全截断）走
 //     agentkit/httpx.DoJSON（argusclient 在用）。本 helper 保留给宽容 2xx
-//     语义的调用方（webhook 任意 2xx 即成功，不强制 JSON 响应体）与
-//     deprecated ocr.LLMProvider 参考实现——DoJSONWithRetry 对 2xx 空体
-//     会按解析失败报错，webhook 语义不容。
+//     语义的调用方（webhook 任意 2xx 即成功，不强制 JSON 响应体）——
+//     DoJSONWithRetry 对 2xx 空体会按解析失败报错，webhook 语义不容。
 package httpx
 
 import (

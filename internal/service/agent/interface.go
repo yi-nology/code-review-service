@@ -28,6 +28,9 @@ type Workspace struct {
 	RulePath     string
 	Requirements *Requirements
 	Context      map[string]interface{}
+	// MemoryContext 是召回的跨会话长期记忆（底座 agent-memory）。
+	// 注入进 OCR 的 --background，与 persona 背景拼接后一起给模型。
+	MemoryContext string
 }
 
 // AgentResult contains the agent's review results

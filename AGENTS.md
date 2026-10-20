@@ -10,7 +10,12 @@ A code-review gateway. It receives PR/MR events (webhook or API), clones via the
 go-git-platform, runs **Open Code Review (OCR)** as a subprocess with a multi-agent
 workflow, computes a quality-gate verdict, writes findings back as inline comments
 and commit status, and exposes a Vue.js web console. Supports GitHub, GitLab, Gitea,
-GitCode, Tencent Code. Stack: Go 1.26 + Hertz + uber/fx + GORM/PostgreSQL.
+GitCode, Tencent Code. Stack: Go 1.27 + Hertz + uber/fx + GORM/PostgreSQL.
+
+Dependency orgs (all split repos, no monorepo):
+`github.com/oekit/*` (基础库矩阵), `github.com/oagentkit/*` (Agent/LLM 工具链),
+`github.com/yi-nology/agent-harness` (多智能体编排内核),
+`github.com/yi-nology/agent-memory` (跨会话长期记忆内核).
 
 ## Common commands
 
@@ -70,6 +75,82 @@ Layered, wired with `uber/fx`:
 - `internal/modules/*` fx wiring (`fx.Provide` / `fx.Invoke`). New services must be
   registered here, mirroring the existing module pattern.
 
+### Agent kernels (agent-harness / agent-memory)
+
+Two upstream kernels carry the orchestration and the long-term memory. They are
+**siblings, not parent/child** — the harness never imports the memory kernel and
+vice versa; the exchange happens in this repo.
+
+- **`agent-harness`** — orchestration mechanism (no domain vocabulary). This repo
+  consumes: `statemachine` (the legal transition table for step status), `eventbus`
+  (the single publish point for progress events), `budget` (input-side context
+  budget), `toolfail` (mechanical failure classification), `netguard` (outbound
+  egress guard).
+  Adapter layer: `internal/service/workflow/kernel.go` — `phaseController` is the one
+  place a phase transition goes through; `internal/service/progress/broadcaster.go`
+  bridges the event bus to the websocket.
+  **Do not re-implement a status table locally** — the harness owns the legal
+  transition table; two tables drift and nobody knows which one is now guarding.
+- **`budget` — context budget.** `internal/service/workflow/budget.go` owns the
+  diff-truncation budget. Token estimation goes through
+  `agent-memory/ports.StaticEstimator` (CJK 2 chars/token, ASCII 4); window
+  deduction and pressure tiering go through `harness/budget` (`MaxInput`
+  subtracts the output reserve, `Classify` reports normal/tight/critical).
+  **Never estimate tokens as `chars / 4`** — the review corpus is largely Chinese
+  and that ratio under-counts by 2~4x, so the budget looks fine while the request
+  is already over the window. The diff cutoff also lands on **rune** boundaries:
+  byte slicing splits a Han character and ships invalid UTF-8 to the model.
+- **`toolfail` — failure classification.** `internal/ocr/failure.go` maps OCR
+  subprocess failures onto the kernel's classes; the retry loop asks
+  `ocrRetryable` instead of deciding locally. Authentication failures are a
+  **distinct** class from DNS failures: both are non-retryable, but only the
+  former needs a human (rotate the token). Pattern matching lowercases **both**
+  sides — a mixed-case pattern table silently never matches.
+- **`netguard` — outbound egress.** `internal/vcs/cloneurl.go` guards the clone
+  URL. The repo path comes from the webhook payload, so it is externally
+  controlled: the guard pins the clone host to the platform's configured
+  `base_url` host and rejects path traversal, query/fragment truncation, `@`,
+  duplicate slashes, and loopback targets. The allow face permits private ranges
+  (self-hosted GitLab is usually internal) but still rejects loopback.
+- **Deliberately not consumed from agent-harness** — these have no trigger in this
+  architecture, and wiring them would be fake machinery rather than a guarantee:
+  `checkpoint` (a service-level snapshot would duplicate OCR's own `--resume`, which
+  is the resume mechanism that actually runs; a snapshot nobody reads is also
+  redundant with the session's `phase` column), `commitgate` (the pipeline never
+  retries a step and every review gets a fresh session, so there is no "two branches
+  both won the terminal state" race), `contract` (the orchestration engine *is* these
+  steps — there is no separate engine to put a boundary in front of), `protocol`
+  (its Report shape is ops-diagnosis shaped and does not match review findings).
+- **`agent-memory`** — long-term memory mechanism. Adapter layer:
+  `internal/service/memory/`. Flow: capture → extract (LLM, one shot) → promote
+  (five gates, decided by the kernel) → recall → maintain (GC / consolidate /
+  retention). The host owns only the projection: the repository is the sole
+  entity, review output becomes the event.
+  Three hard rules: candidates must be **saved before** promotion; the repository
+  entity must be registered by the host through `pipeline/entity.Resolver` (the
+  kernel never creates entities, and the resolver adds alias-conflict detection
+  that a hand-rolled `SaveEntity` loop silently lacks); and **memory must be
+  maintainable** — without GC the raw-event table only grows, and duplicate
+  atoms crowd out the useful ones during recall.
+- **Memory namespaces are host-tracked.** The kernel's storage interface filters
+  by namespace and cannot enumerate across them, so the host records every
+  namespace it touches (capture *and* recall) in `Service.namespaces`; that
+  registry is what the background maintainer walks.
+- **Memory scope stays empty (global).** Since v0.6.0 the kernel carries a
+  record-level `Scope` dimension (empty = globally visible) on raw events,
+  candidates, and atoms. This service does **not** use it: a repository's
+  review history is meant to be visible to every reviewer of that repository.
+  Leaving it empty is also what keeps the v0.6.0 storage migration harmless —
+  it backfills old rows with `''`, so pre-upgrade data stays visible. If a
+  non-empty scope is ever introduced, the capture **and** recall sides must
+  set it symmetrically: a scope written but not read is an atom that can never
+  be recalled, and one read but not written is a leak.
+- **Phase order** lives in exactly one place: `internal/domain/session/phase.go`.
+  `internal/service/session` and `internal/service/progress` reference it — do not
+  add a second copy.
+- The harness `protocol` package is **not** used here: its Report shape is
+  ops-diagnosis shaped (symptom/rollback/approval) and does not match review findings.
+
 Sensitive areas (per `docs/CODE_REVIEW_POLICY.md`) require security-focused review:
 provider/vcs clone & URL/SHA validation, webhook signature verification, OCR command
 execution & env vars, writeback flows, and anything touching tokens/secrets.
@@ -89,10 +170,9 @@ execution & env vars, writeback flows, and anything touching tokens/secrets.
 - **Migrations:** schema changes go through GORM AutoMigrate (on by default).
   `migrations/*.sql` are optional/manual and already covered by AutoMigrate;
   `deploy/migrations/` are one-off manual cleanup scripts for existing deployments.
-- **go.mod:** has local `replace` directives for `ekit` (default `../ekit`) and the
-  go-git-platform (default `../go-git-platform`) used by
-  `make setup-local-deps`; paths may be overridden with `EKIT_PATH` / `GIT_SDK_PATH`.
-  `github.com/apache/thrift` is pinned to v0.13.0 — do not bump (codegen contract).
+- **go.mod:** no local `replace` except `github.com/apache/thrift` → v0.13.0 —
+  do not bump (codegen contract). Everything else resolves from the split repos
+  (`github.com/oekit/*`, `github.com/oagentkit/*`) at published versions.
 - **Platform backends:** `main.go` blank-imports
   `github.com/yi-nology/go-git-platform/backends/all` to register all git platform
   providers (v0.32.0+ no longer auto-registers). Adding a new backend means ensuring

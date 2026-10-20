@@ -21,7 +21,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/jackc/pgx/v5/pgconn"
-	"gorm.io/datatypes"
 )
 
 type mockReviewRepo struct {
@@ -162,13 +161,6 @@ func (m *mockReviewRepo) TouchRunning(_ context.Context, _ string) error {
 	m.touchCalls++
 	m.mu.Unlock()
 	return nil
-}
-
-// touchCallCount 返回 TouchRunning 被调用次数（心跳测试用）。
-func (m *mockReviewRepo) touchCallCount() int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.touchCalls
 }
 
 func (m *mockReviewRepo) QueueDepth(_ context.Context) (int64, error) {
@@ -1070,13 +1062,6 @@ func TestNewReviewID(t *testing.T) {
 		seen[id] = struct{}{}
 	}
 }
-
-func mustMarshalJSON(v interface{}) datatypesJSON {
-	data, _ := json.Marshal(v)
-	return datatypesJSON(data)
-}
-
-type datatypesJSON = datatypes.JSON
 
 type stubScanRunner struct {
 	result *domain.ScanResult

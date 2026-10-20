@@ -14,7 +14,7 @@ type OCRSettingsGetter interface {
 
 // SettingsAdapter 把 repository.OCRSettingsRepository 适配成 ocr.Settings 接口。
 //
-// 阶段 A15：让 ocr.LLMProvider / Tester / Versioner 等新代码能直接接 DB settings。
+// 阶段 A15：让 ocr 侧的 Provider / Tester / Versioner 等代码能直接接 DB settings。
 type SettingsAdapter struct {
 	repo OCRSettingsGetter
 }

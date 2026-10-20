@@ -19,9 +19,8 @@ import (
 type Calculator struct {
 	db *gorm.DB
 
-	mu       sync.RWMutex
-	cache    map[string]ModelPrice // key = provider|model
-	cacheLen int
+	mu    sync.RWMutex
+	cache map[string]ModelPrice // key = provider|model
 }
 
 // ModelPrice 是单个模型的单价（每百万 token 美元）。

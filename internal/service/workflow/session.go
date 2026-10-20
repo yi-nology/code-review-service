@@ -1,12 +1,14 @@
 package workflow
 
 import (
+	"context"
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/discussion"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/requirements"
+	"github.com/oekit/logx"
 )
 
 // ReviewSession 在各步骤间共享的会话数据
@@ -28,6 +30,36 @@ type ReviewSession struct {
 
 	// 进度追踪
 	Tracker *progress.ProgressTracker
+
+	// Kernel 是底座适配层：阶段推进、进度快照与终态独占提交都走它。
+	// 阶段状态迁移的合法性由 agent-harness/statemachine 裁决，
+	// 宿主不另立状态表。
+	Kernel *phaseController
+}
+
+// enterPhase 推进到某个阶段。
+//
+// 失败只记日志不中断评审——阶段推进失败属于「进度没跟上」，
+// 不该把一次本来能跑完的评审判死（与重构前的行为一致）。
+func (rs *ReviewSession) enterPhase(ctx context.Context, phase, message string) {
+	if rs.Kernel == nil {
+		rs.Tracker.UpdatePhase(progress.Phase(phase), "active", 0, message)
+		return
+	}
+	if err := rs.Kernel.begin(ctx, phase, message); err != nil {
+		logx.Errorf("advance review phase %s failed: %v", phase, err)
+	}
+}
+
+// completePhase 收口某个阶段（成功终态）。
+func (rs *ReviewSession) completePhase(phase, message string) {
+	if rs.Kernel == nil {
+		rs.Tracker.UpdatePhase(progress.Phase(phase), "completed", 100, message)
+		return
+	}
+	if err := rs.Kernel.end(phase, phaseSucceeded, message); err != nil {
+		logx.Errorf("complete review phase %s failed: %v", phase, err)
+	}
 }
 
 // ReviewRequest contains the review request parameters
@@ -48,6 +80,9 @@ type ReviewRequest struct {
 	RulePath string
 	// EphemeralReviewers 是本次评审临时加入的 reviewer（阶段 5），不入库。
 	EphemeralReviewers []agent.EphemeralSpec
+	// MemoryContext 是召回的跨会话长期记忆（底座 agent-memory），
+	// 透传给每个 agent，拼进 OCR 的 --background。
+	MemoryContext string
 }
 
 // ReviewResult contains the final review result

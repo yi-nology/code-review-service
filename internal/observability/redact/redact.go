@@ -22,7 +22,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/oagentkit/logredact"
+	"github.com/oagentkit/guardx/logredact"
 )
 
 // localPatterns 是 logredact 覆盖不到的补充形态，先于 logredact 执行

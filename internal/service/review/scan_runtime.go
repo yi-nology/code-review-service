@@ -3,10 +3,6 @@ package review
 import (
 	"context"
 	"sync"
-	"time"
-
-	"github.com/yi-nology/code-review-service/internal/service/progress"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
@@ -95,29 +91,5 @@ func (r *scanRuntime) WaitIdle(ctx context.Context) error {
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
-	}
-}
-
-// updateScanPhase 是 scan 路径的进度上报便捷封装（reporter 为 nil 时 no-op）。
-func updateScanPhase(reporter progress.ProgressReporter, phase progress.Phase, status string, percent float64, message string) {
-	if reporter == nil {
-		return
-	}
-	reporter.UpdatePhase(phase, status, percent, message)
-}
-
-// scanQueuedResponse 构造 scan 入队的初始 Response。
-func scanQueuedResponse(id string) domain.Response {
-	return domain.Response{
-		ReviewID: id,
-		Status:   StatusQueued,
-		Summary:  "repository scan queued",
-		Gate:     domain.PendingGate(),
-		History: []domain.Event{{
-			Stage:     stageQueued,
-			Status:    statusCompleted,
-			Message:   "repository scan queued",
-			CreatedAt: time.Now().UTC(),
-		}},
 	}
 }

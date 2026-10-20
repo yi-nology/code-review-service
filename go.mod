@@ -3,7 +3,6 @@ module github.com/yi-nology/code-review-service
 go 1.27.2
 
 require (
-	github.com/yi-nology/agentkit v0.15.0
 	github.com/andygrunwald/go-gerrit v1.2.0
 	github.com/apache/thrift v0.23.0
 	github.com/cloudwego/eino v0.9.21
@@ -14,19 +13,21 @@ require (
 	github.com/hertz-contrib/websocket v0.2.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/mark3labs/mcp-go v1.1.1
+	github.com/oagentkit/guardx v0.8.2
+	github.com/oagentkit/llm v0.14.1
 	github.com/oekit/bootstrap v0.6.2
-	github.com/oekit/bootstrap/nacos v0.3.1
-	github.com/oekit/bootstrap/obs v0.2.6
-	github.com/oekit/concurrency v0.13.1
-	github.com/oekit/core v0.8.0
+	github.com/oekit/bootstrap/nacos v0.3.2
+	github.com/oekit/bootstrap/obs v0.2.7
+	github.com/oekit/concurrency v0.18.0
+	github.com/oekit/core v0.10.0
 	github.com/oekit/gormx v0.5.5
 	github.com/oekit/hertz v0.6.4
 	github.com/oekit/kitx v0.2.0
-	github.com/oekit/logx v0.7.0
+	github.com/oekit/logx v0.7.1
 	github.com/oekit/metrics v0.1.7
-	github.com/oekit/middleware v0.9.0
+	github.com/oekit/middleware v0.11.0
 	github.com/oekit/network v0.5.4
-	github.com/oekit/pkg v0.13.0
+	github.com/oekit/pkg v0.18.0
 	github.com/oekit/registry v0.4.1
 	github.com/oekit/tracing v0.2.2
 	github.com/oekit/workflow v0.3.1
@@ -35,7 +36,9 @@ require (
 	github.com/swaggo/files v1.0.1
 	github.com/testcontainers/testcontainers-go v0.43.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.43.0
-	github.com/yi-nology/go-git-platform v0.89.0
+	github.com/yi-nology/agent-harness v0.6.5
+	github.com/yi-nology/agent-memory v0.6.0
+	github.com/yi-nology/go-git-platform v0.95.0
 	go.uber.org/fx v1.24.0
 	golang.org/x/time v0.16.0
 	gorm.io/datatypes v1.2.5
@@ -78,8 +81,8 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/bytedance/gopkg v0.1.4 // indirect
-	github.com/bytedance/sonic v1.15.0 // indirect
-	github.com/bytedance/sonic/loader v0.5.0 // indirect
+	github.com/bytedance/sonic v1.15.4 // indirect
+	github.com/bytedance/sonic/loader v0.5.2 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -159,11 +162,13 @@ require (
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
 	github.com/klauspost/compress v1.20.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
+	github.com/lib/pq v1.12.3 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/meguminnnnnnnnn/go-openai v0.1.2 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/meguminnnnnnnnn/go-openai v0.1.6 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.2.0 // indirect
 	github.com/moby/moby/api v1.54.2 // indirect
@@ -177,8 +182,11 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nacos-group/nacos-sdk-go/v2 v2.3.6-0.20260601044846-0e3d1d099507 // indirect
+	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/next-bin/go-gitee v0.0.0-20260521141902-36ce436eee18 // indirect
 	github.com/nikolalohinski/gonja v1.5.3 // indirect
+	github.com/oagentkit/runtime v0.7.1 // indirect
+	github.com/oagentkit/textx v0.6.1 // indirect
 	github.com/oekit/nns v0.4.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
@@ -190,6 +198,8 @@ require (
 	github.com/prometheus/client_model v0.6.3 // indirect
 	github.com/prometheus/common v0.72.0 // indirect
 	github.com/prometheus/procfs v0.22.0 // indirect
+	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/rogpeppe/go-internal v1.15.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.5 // indirect
@@ -251,6 +261,10 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.6.0 // indirect
+	modernc.org/libc v1.66.10 // indirect
+	modernc.org/mathutil v1.7.1 // indirect
+	modernc.org/memory v1.11.0 // indirect
+	modernc.org/sqlite v1.40.1 // indirect
 )
 
 replace github.com/apache/thrift => github.com/apache/thrift v0.13.0

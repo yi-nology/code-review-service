@@ -11,6 +11,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/cost"
 	"github.com/yi-nology/code-review-service/internal/service/judge"
+	"github.com/yi-nology/code-review-service/internal/service/memory"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
@@ -89,7 +90,8 @@ type ExecutorDeps struct {
 	Config          *config.Config
 	BudgetChecker   *cost.BudgetChecker
 	CostCalc        *cost.Calculator
-	Judge           *judge.Judge // OCR 结果二次综合判断
+	Judge           *judge.Judge    // OCR 结果二次综合判断
+	Memory          *memory.Service // 跨会话长期记忆（nil = 未启用）
 }
 
 // NewJudge 构造 OCR 结果二次综合判断器。
@@ -135,6 +137,7 @@ func NewExecutorService(deps ExecutorDeps) *eino.Executor {
 		AgentManager: deps.AgentManager,
 		LLMMetrics:   deps.LLMMetrics,
 		Judge:        deps.Judge,
+		Memory:       deps.Memory,
 	})
 }
 

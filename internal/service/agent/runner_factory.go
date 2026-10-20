@@ -82,6 +82,9 @@ func (a *ocrRunnerAdapter) Run(ctx context.Context, workspace reviewWorkspace) (
 		HeadSHA:  workspace.HeadSHA,
 		Diff:     workspace.Diff,
 		RulePath: workspace.RulePath,
+		// 背景以 override 形式下发：runner 里的 persona 背景已在装载期定死，
+		// 这里下发的是「persona + 本次召回的记忆」的完整版本。
+		OCR: domain.OCROverrides{Background: workspace.Background},
 	}
 
 	result, err := a.runner.Run(ctx, reviewWs)

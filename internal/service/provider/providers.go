@@ -85,6 +85,11 @@ func (a *gitProviderAdapter) Prepare(ctx context.Context, req domain.Request) (d
 	}
 
 	cloneURL := a.svc.BuildCloneURL(a.platform, owner, repoName)
+	// 出站防护：owner/repo 来自 webhook 载荷（外部可控），
+	// 未校验就出站可能把 git token 送到攻击者的 host 上。详见 vcs.CloneURLGuard。
+	if err := a.svc.ValidateCloneURL(a.platform, owner, repoName, cloneURL); err != nil {
+		return domain.Workspace{}, fmt.Errorf("clone 目标校验失败: %w", err)
+	}
 	token := a.svc.GetToken(a.platform)
 	skipTLS := a.svc.GetSkipTLS(a.platform)
 

@@ -1,9 +1,6 @@
 package webhook
 
-import (
-	"encoding/json"
-	"strconv"
-)
+import ()
 
 // gitlab 家族（gitlab/gitcode/tencent_code）同时接受平台原生词（open/reopen/update）
 // 与 SDK v0.62+ 规范化词（opened/reopened/updated）——SDK 升级换了 action 词表，
@@ -112,19 +109,4 @@ func IsBotSender(provider string, payload map[string]any, botName string) bool {
 		}
 	}
 	return botName != "" && sender == botName
-}
-
-// jsonNumberStr 提取 JSON 数值字段并保留为 string（平台编号全链路统一 string）。
-func jsonNumberStr(v any) string {
-	switch n := v.(type) {
-	case string:
-		return n
-	case json.Number:
-		return n.String()
-	case float64:
-		return strconv.FormatInt(int64(n), 10)
-	case int:
-		return strconv.Itoa(n)
-	}
-	return ""
 }

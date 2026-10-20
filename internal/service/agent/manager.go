@@ -255,10 +255,11 @@ func (m *AgentManager) buildEphemeralAgents(ephemeral []EphemeralSpec) []reviewA
 		}
 		runner := factory.CreateRunner(spec.Background, "")
 		agents = append(agents, newOCRAgent(runner, ocrAgentConfig{
-			Name:     name,
-			Persona:  name,
-			Priority: 100, // 临时 agent 优先级较低
-			Focus:    []string{"ad-hoc"},
+			Name:       name,
+			Persona:    name,
+			Priority:   100, // 临时 agent 优先级较低
+			Focus:      []string{"ad-hoc"},
+			Background: spec.Background,
 		}))
 	}
 	return agents

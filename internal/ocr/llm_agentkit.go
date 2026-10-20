@@ -2,7 +2,7 @@
 //
 // 调用方（workflow / discussion / judge / executor）零改动——仍用 ocr.Provider 接口。
 // 内部委托 agentkit/llm.Resilient（自动获得重试/限速/熔断/fitInput/降级链）。
-// 旧 LLMProvider（HTTP 手撸）已废弃，保留作为参考实现。
+// 旧的 LLMProvider（手写 HTTP 协议）已随其唯一使用者一起删除。
 package ocr
 
 import (
@@ -11,9 +11,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/oagentkit/llm"
-
 	"github.com/cloudwego/eino/schema"
+	"github.com/oagentkit/llm"
 )
 
 // AgentKitProvider 把 agentkit/llm.Generator 包装为 ocr.Provider。

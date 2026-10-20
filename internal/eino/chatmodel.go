@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/oagentkit/llm"
-
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
+	"github.com/oagentkit/llm"
 )
 
 // AgentKitChatModel wraps agentkit llm.Generator as an eino ChatModel.

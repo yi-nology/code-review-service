@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	types "github.com/yi-nology/code-review-service/internal/domain/finding"
@@ -20,6 +21,9 @@ type reviewWorkspace struct {
 	HeadSHA  string
 	Diff     string
 	RulePath string
+	// Background 是本次评审最终的背景（persona 背景 + 召回的记忆上下文），
+	// 透传 OCR 的 --background。
+	Background string
 }
 
 // reviewResult represents a review result.
@@ -44,6 +48,11 @@ type ocrAgentConfig struct {
 	Focus     []string
 	Timeout   time.Duration
 	IsDefault bool
+	// Background 是该审查员的 persona 背景（评审侧重点）。
+	//
+	// 单独存一份是为了在每次评审时把它与召回的记忆上下文拼成完整的 --background：
+	// runner 是在装载期创建的，背景已经定死，而记忆是每次评审都变的。
+	Background string
 }
 
 // newOCRAgent creates a new OCR agent
@@ -85,11 +94,12 @@ func (a *ocrAgent) IsDefault() bool {
 // Review performs the code review using OCR
 func (a *ocrAgent) Review(ctx context.Context, workspace Workspace) (AgentResult, error) {
 	reviewWs := reviewWorkspace{
-		Dir:      workspace.Dir,
-		BaseSHA:  workspace.BaseSHA,
-		HeadSHA:  workspace.HeadSHA,
-		Diff:     workspace.Diff,
-		RulePath: workspace.RulePath,
+		Dir:        workspace.Dir,
+		BaseSHA:    workspace.BaseSHA,
+		HeadSHA:    workspace.HeadSHA,
+		Diff:       workspace.Diff,
+		RulePath:   workspace.RulePath,
+		Background: composeBackground(a.config.Background, workspace.MemoryContext),
 	}
 
 	startTime := time.Now()
@@ -145,4 +155,21 @@ func inferCategoryFromReview(f Finding) string {
 		return "documentation"
 	}
 	return "code_quality"
+}
+
+// composeBackground 把 persona 背景与召回的记忆上下文拼成一段背景。
+//
+// 顺序有讲究：记忆是**历史经验**，persona 是**本次的角色设定**，
+// persona 在后——模型读到最后的指示时更容易把它当成当前生效的规则。
+func composeBackground(persona, memory string) string {
+	persona = strings.TrimSpace(persona)
+	memory = strings.TrimSpace(memory)
+	switch {
+	case memory == "":
+		return persona
+	case persona == "":
+		return memory
+	default:
+		return persona + "\n\n" + memory
+	}
 }

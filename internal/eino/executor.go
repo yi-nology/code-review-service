@@ -18,6 +18,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/cost"
 	"github.com/yi-nology/code-review-service/internal/service/judge"
+	"github.com/yi-nology/code-review-service/internal/service/memory"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
@@ -29,7 +30,7 @@ import (
 	"github.com/cloudwego/eino/callbacks"
 
 	agentkitllm "github.com/oagentkit/llm"
-	"github.com/oagentkit/obsx"
+	"github.com/oagentkit/llm/obsx"
 	"github.com/oekit/logx"
 )
 
@@ -57,6 +58,7 @@ type Executor struct {
 	llmMetrics      *ocr.Metrics
 	judge           *judge.Judge            // OCR 结果二次综合判断
 	failureReporter *review.FailureReporter // 统一失败上报（历史/落库/通知/status/指标）
+	memory          *memory.Service         // 跨会话长期记忆（可 nil = 不启用）
 
 	// running tracks currently executing reviews for cancellation support
 	runningMu sync.Mutex
@@ -87,6 +89,8 @@ type ExecutorConfig struct {
 	// FailureReporter 统一失败上报；nil 时用 Notifier/StatusPoster 兜底构造
 	//（保持旧行为），两者也缺时退化为仅落库。
 	FailureReporter *review.FailureReporter
+	// Memory 跨会话长期记忆（可 nil = 不启用）。
+	Memory *memory.Service
 }
 
 // NewExecutor creates a new eino-based executor
@@ -116,6 +120,7 @@ func NewExecutor(cfg ExecutorConfig) *Executor {
 		agentManager:    cfg.AgentManager,
 		llmMetrics:      cfg.LLMMetrics,
 		failureReporter: failureReporter,
+		memory:          cfg.Memory,
 		running:         make(map[string]context.CancelFunc),
 	}
 }
@@ -327,6 +332,19 @@ func (e *Executor) Execute(ctx context.Context, id string, req domain.Request, p
 		logx.Warn("failed to update OCR input", "review_id", id, "error", err)
 	}
 
+	// Step 2.65: 召回跨会话长期记忆（底座 agent-memory）。
+	// 召回失败/为空都不阻断评审：记忆是加分项，不是前置条件。
+	memoryContext := e.recallReviewMemory(ctx, id, req, workspace)
+	if memoryContext != "" {
+		workspace.OCR.Background = mergeMemoryContext(workspace.OCR.Background, memoryContext)
+		e.appendAuditStep(ctx, id, newAuditStep("memory").done(
+			"已召回历史评审记忆",
+			"agent-memory 跨会话长期记忆（按仓库隔离，注入评审背景）",
+			map[string]any{"provider": req.Provider, "repo": req.Repo},
+			map[string]any{"chars": len(memoryContext)},
+		))
+	}
+
 	// Step 2.7: Agent 选择
 	stepAgent := newAuditStep("agent")
 	if e.agentManager != nil {
@@ -406,27 +424,35 @@ func (e *Executor) Execute(ctx context.Context, id string, req domain.Request, p
 	))
 
 	if e.shouldUseWorkflow() {
-		return e.executeWithWorkflow(ctx, id, req, workspace, projectPolicy)
+		return e.executeWithWorkflow(ctx, id, req, workspace, projectPolicy, memoryContext)
 	}
 
 	return e.executeWithRunner(ctx, id, req, workspace, projectPolicy)
 }
 
-func (e *Executor) executeWithWorkflow(ctx context.Context, id string, req domain.Request, workspace domain.Workspace, projectPolicy projectpolicy.ProjectPolicy) (domain.Response, error) {
+func (e *Executor) executeWithWorkflow(
+	ctx context.Context,
+	id string,
+	req domain.Request,
+	workspace domain.Workspace,
+	projectPolicy projectpolicy.ProjectPolicy,
+	memoryContext string,
+) (domain.Response, error) {
 	e.appendHistory(ctx, id, "workflow", "running", "multi-agent review workflow started", nil)
 
 	wfReq := workflow.ReviewRequest{
-		ReviewID:     id,
-		Provider:     req.Provider,
-		Repo:         req.Repo,
-		BaseSHA:      workspace.BaseSHA,
-		HeadSHA:      workspace.HeadSHA,
-		Diff:         workspace.Diff,
-		Dir:          workspace.Dir,
-		Round:        1,
-		Requirements: req.Requirements,
-		Language:     workspace.OCR.Language,
-		RulePath:     workspace.RulePath,
+		ReviewID:      id,
+		Provider:      req.Provider,
+		Repo:          req.Repo,
+		MemoryContext: memoryContext,
+		BaseSHA:       workspace.BaseSHA,
+		HeadSHA:       workspace.HeadSHA,
+		Diff:          workspace.Diff,
+		Dir:           workspace.Dir,
+		Round:         1,
+		Requirements:  req.Requirements,
+		Language:      workspace.OCR.Language,
+		RulePath:      workspace.RulePath,
 	}
 	if len(req.EphemeralReviewers) > 0 {
 		wfReq.EphemeralReviewers = make([]agent.EphemeralSpec, len(req.EphemeralReviewers))
@@ -495,6 +521,12 @@ func (e *Executor) executeWithWorkflow(ctx context.Context, id string, req domai
 
 	analysis := review.BuildAnalysis(dummyResult)
 	gate := domain.CompletedGate(result.FinalReport.GatePassed, result.FinalReport.GateReason)
+
+	// 把本次评审沉淀进跨会话长期记忆（异步，见 captureReviewMemoryAsync）。
+	e.captureReviewMemoryAsync(ctx, id, req, workspace, domain.Result{
+		Summary:  result.FinalReport.Summary,
+		Findings: findings,
+	}, result.FinalReport.GatePassed)
 
 	resp := domain.Response{
 		ReviewID: id,
@@ -640,6 +672,12 @@ func (e *Executor) executeWithRunner(ctx context.Context, id string, req domain.
 	if judgment != nil && judgment.SummaryForHuman != "" {
 		summary = judgment.SummaryForHuman
 	}
+
+	// 把本次评审沉淀进跨会话长期记忆（异步，见 captureReviewMemoryAsync）。
+	e.captureReviewMemoryAsync(ctx, id, req, workspace, domain.Result{
+		Summary:  summary,
+		Findings: result.Findings,
+	}, gate.Passed)
 
 	resp := domain.Response{
 		ReviewID: id,

@@ -24,6 +24,38 @@ type Config struct {
 	Argus           ArgusConfig        `yaml:"argus"`
 	Notification    NotificationConfig `yaml:"notification"`
 	Cost            CostConfig         `yaml:"cost"`
+	Memory          MemoryConfig       `yaml:"memory"`
+}
+
+// MemoryConfig 是跨会话长期记忆的配置（底座 agent-memory）。
+//
+// 记忆库是独立数据面：默认落 SQLite 文件，多实例部署须配 dsn 走 Postgres
+// （SQLite 文件在多副本下各写各的，记忆会分裂）。
+type MemoryConfig struct {
+	// Enabled 是否启用长期记忆。关闭时评审行为与启用前一致。
+	Enabled bool `yaml:"enabled"`
+	// DSN Postgres 连接串；非空时走 Postgres。
+	DSN string `yaml:"dsn"`
+	// Path SQLite 文件路径（dsn 为空时生效）。
+	Path string `yaml:"path"`
+	// Namespace 记忆库命名空间前缀；底座按「前缀/平台/仓库」隔离。
+	Namespace string `yaml:"namespace"`
+	// RecallLimit 单次召回条数上限（0=用底座默认）。
+	RecallLimit int `yaml:"recall_limit"`
+	// RecallBudget 单次召回的 token 预算（0=用底座默认）。
+	RecallBudget int `yaml:"recall_budget"`
+	// MaintenanceEnabled 是否启用记忆库后台维护（回收/合并/退役）。
+	//
+	// 记忆是长期资产，必须能被维护：不维护的话原始事件只进不出，
+	// 同签名事实越堆越多，召回被重复内容稀释。
+	// 关闭时记忆仍可正常捕获与召回，只是没有后台清理。
+	MaintenanceEnabled bool `yaml:"maintenance_enabled"`
+	// MaintenanceInterval 维护周期（如 "6h"）。空 = 用默认 6 小时。
+	MaintenanceInterval string `yaml:"maintenance_interval"`
+	// RawRetention 原始事件保留时长（如 "720h"）。空 = 用默认 30 天。
+	//
+	// 保留期越长，事实的证据链越完整（可回溯）；越短则库越小。
+	RawRetention string `yaml:"raw_retention"`
 }
 
 // ArgusConfig Argus（PR 自动审查 Bot）对接：反馈回流（误报抑制代理）需要

@@ -2,23 +2,12 @@ package session
 
 import (
 	dsession "github.com/yi-nology/code-review-service/internal/domain/session"
-	"github.com/oekit/pkg/slicex"
 )
 
+// isValidPhaseTransition 判定阶段迁移是否合法。
+//
+// 顺序表的单一事实源在 internal/domain/session/phase.go——
+// 此前本文件持有一份手写副本，与领域层各写一份，改一处忘另一处就会漂移。
 func isValidPhaseTransition(from, to string) bool {
-	validTransitions := map[string][]string{
-		dsession.PhaseContext:       {dsession.PhaseChangeContext},
-		dsession.PhaseChangeContext: {dsession.PhaseAnalysis},
-		dsession.PhaseAnalysis:      {dsession.PhaseReviews},
-		dsession.PhaseReviews:       {dsession.PhaseAggregation},
-		dsession.PhaseAggregation:   {dsession.PhaseDiscussion, dsession.PhaseSynthesis},
-		dsession.PhaseDiscussion:    {dsession.PhaseSynthesis},
-		dsession.PhaseSynthesis:     {dsession.PhaseComplete},
-		dsession.PhaseComplete:      {},
-	}
-	allowed, ok := validTransitions[from]
-	if !ok {
-		return false
-	}
-	return slicex.Contains(allowed, to)
+	return dsession.CanTransitionPhase(from, to)
 }

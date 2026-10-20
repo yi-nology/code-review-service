@@ -249,8 +249,13 @@ func (r *Runner) Run(ctx context.Context, workspace domain.Workspace) (domain.Re
 		if IsBinaryMissing(err) {
 			break
 		}
-		// 不可重试错误（如 DNS 解析失败、认证失败、配置错误）：重试只会双倍超时，不重试。
-		if IsPermanent(err) {
+		// 值得重试吗：判据来自 harness/toolfail 的策略表，宿主不再自己判。
+		// 认证失败/权限不足这类「不可重试且需人工介入」的失败也在这里收口——
+		// 它们不会进入退避环，但会在下面单独留痕。
+		if !ocrRetryable(err, stderrOf(err)) {
+			if ocrNeedsOperator(err, stderrOf(err)) {
+				logx.CtxErrorf(ctx, "ocr run failed with a failure that needs operator intervention: %v", err)
+			}
 			break
 		}
 		// 还有重试机会：指数退避后再试。

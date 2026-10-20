@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	"github.com/yi-nology/code-review-service/internal/domain/scoring"
@@ -11,7 +12,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/discussion"
-	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/requirements"
 	"github.com/yi-nology/code-review-service/internal/service/session"
 	"github.com/oekit/logx"
@@ -25,7 +25,7 @@ type contextDiscoveryStep struct {
 
 func (s *contextDiscoveryStep) Run(ctx context.Context) error {
 	rs := s.rs
-	rs.Tracker.UpdatePhase(progress.PhaseContext, "active", 0, "Loading configuration and discovering project standards")
+	rs.enterPhase(ctx, dsession.PhaseContext, "Loading configuration and discovering project standards")
 
 	if len(rs.Request.Requirements) > 0 {
 		parser := requirements.NewParser()
@@ -44,7 +44,7 @@ func (s *contextDiscoveryStep) Run(ctx context.Context) error {
 		rs.Workspace.Context["project_standards"] = standards
 	}
 
-	rs.Tracker.UpdatePhase(progress.PhaseContext, "completed", 100, "Context discovery completed")
+	rs.completePhase(dsession.PhaseContext, "Context discovery completed")
 	return nil
 }
 
@@ -56,13 +56,9 @@ type changeAnalysisStep struct {
 
 func (s *changeAnalysisStep) Run(ctx context.Context) error {
 	rs := s.rs
-	rs.Tracker.UpdatePhase(progress.PhaseChangeContext, "active", 0, "Analyzing git diff and understanding changes")
+	rs.enterPhase(ctx, dsession.PhaseChangeContext, "Analyzing git diff and understanding changes")
 
-	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, dsession.PhaseChangeContext, 50); err != nil {
-		logx.Errorf("update session phase failed: %v", err)
-	}
-
-	rs.Tracker.UpdatePhase(progress.PhaseChangeContext, "completed", 100, "Change analysis completed")
+	rs.completePhase(dsession.PhaseChangeContext, "Change analysis completed")
 	return nil
 }
 
@@ -76,7 +72,7 @@ type analysisStep struct {
 
 func (s *analysisStep) Run(ctx context.Context) error {
 	rs := s.rs
-	rs.Tracker.UpdatePhase(progress.PhaseAnalysis, "active", 0, "Summarizing changes and identifying risks")
+	rs.enterPhase(ctx, dsession.PhaseAnalysis, "Summarizing changes and identifying risks")
 
 	// B2: 用 LLM 做真 Tech Lead 分析；不可用则降级（仅更新进度）
 	if analysis := s.runTechLeadAnalysis(ctx, rs); analysis != nil {
@@ -84,11 +80,7 @@ func (s *analysisStep) Run(ctx context.Context) error {
 		logx.Infof("tech lead analysis produced: %d risks, %d recommendations", len(analysis.Risks), len(analysis.Recommendations))
 	}
 
-	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, dsession.PhaseAnalysis, 50); err != nil {
-		logx.Errorf("update session phase failed: %v", err)
-	}
-
-	rs.Tracker.UpdatePhase(progress.PhaseAnalysis, "completed", 100, "Analysis completed")
+	rs.completePhase(dsession.PhaseAnalysis, "Analysis completed")
 	return nil
 }
 
@@ -101,10 +93,14 @@ func (s *analysisStep) runTechLeadAnalysis(ctx context.Context, rs *ReviewSessio
 		return nil
 	}
 
-	diff := rs.Request.Diff
-	maxDiffChars := s.config.GetMaxDiffChars()
-	if len(diff) > maxDiffChars {
-		diff = diff[:maxDiffChars] + "\n... (diff truncated)"
+	// diff 按上下文预算截断（token 感知，见 budget.go）。
+	// 截断后的真实 token 估算与压力档位一并留痕：预算算错时
+	// 「为什么这次评审的 diff 被砍掉一半」才有据可查。
+	b := computeDiffBudget(s.config.resolveContextWindow())
+	diff, diffTokens, pressure := truncateDiff(rs.Request.Diff, b)
+	if diffTokens < estimateTokens(rs.Request.Diff) {
+		logx.Warnf("[workflow] diff truncated for tech lead analysis: %d→%d chars, ~%d tokens, pressure=%s",
+			utf8.RuneCountInString(rs.Request.Diff), utf8.RuneCountInString(diff), diffTokens, diffPressure(pressure))
 	}
 
 	language := strings.TrimSpace(rs.Request.Language)
@@ -174,11 +170,7 @@ type parallelReviewsStep struct {
 
 func (s *parallelReviewsStep) Run(ctx context.Context) error {
 	rs := s.rs
-	rs.Tracker.UpdatePhase(progress.PhaseReviews, "active", 0, "Running multiple review agents in parallel")
-
-	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, dsession.PhaseReviews, 0); err != nil {
-		logx.Errorf("update session phase failed: %v", err)
-	}
+	rs.enterPhase(ctx, dsession.PhaseReviews, "Running multiple review agents in parallel")
 
 	// 准备 workspace
 	workspace := agent.Workspace{
@@ -187,6 +179,8 @@ func (s *parallelReviewsStep) Run(ctx context.Context) error {
 		HeadSHA:  rs.Request.HeadSHA,
 		Diff:     rs.Request.Diff,
 		RulePath: rs.Request.RulePath,
+		// 召回的长期记忆随工作区下发给每个 agent。
+		MemoryContext: rs.Request.MemoryContext,
 	}
 
 	// 添加 requirements 到 workspace
@@ -210,7 +204,7 @@ func (s *parallelReviewsStep) Run(ctx context.Context) error {
 	}
 
 	rs.AggregatedResult = &aggregatedResult
-	rs.Tracker.UpdatePhase(progress.PhaseReviews, "completed", 100, fmt.Sprintf("Completed with %d findings", len(aggregatedResult.Findings)))
+	rs.completePhase(dsession.PhaseReviews, fmt.Sprintf("Completed with %d findings", len(aggregatedResult.Findings)))
 	return nil
 }
 
@@ -222,13 +216,9 @@ type aggregationStep struct {
 
 func (s *aggregationStep) Run(ctx context.Context) error {
 	rs := s.rs
-	rs.Tracker.UpdatePhase(progress.PhaseAggregation, "active", 0, "Merging findings from multiple agents")
+	rs.enterPhase(ctx, dsession.PhaseAggregation, "Merging findings from multiple agents")
 
-	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, dsession.PhaseAggregation, 50); err != nil {
-		logx.Errorf("update session phase failed: %v", err)
-	}
-
-	rs.Tracker.UpdatePhase(progress.PhaseAggregation, "completed", 100, "Aggregation completed")
+	rs.completePhase(dsession.PhaseAggregation, "Aggregation completed")
 	return nil
 }
 
@@ -249,11 +239,7 @@ func (s *discussionStep) Run(ctx context.Context) error {
 		return nil
 	}
 
-	rs.Tracker.UpdatePhase(progress.PhaseDiscussion, "active", 0, "Agents debating and validating findings")
-
-	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, dsession.PhaseDiscussion, 0); err != nil {
-		logx.Errorf("update session phase failed: %v", err)
-	}
+	rs.enterPhase(ctx, dsession.PhaseDiscussion, "Agents debating and validating findings")
 
 	// 获取 agent 名称
 	agentNames := slicex.Map(rs.AggregatedResult.AgentResults, func(r agent.AgentResult) string { return r.AgentName })
@@ -275,7 +261,7 @@ func (s *discussionStep) Run(ctx context.Context) error {
 		logx.Warn("run discussion returned empty result")
 	}
 
-	rs.Tracker.UpdatePhase(progress.PhaseDiscussion, "completed", 100, "Discussion completed")
+	rs.completePhase(dsession.PhaseDiscussion, "Discussion completed")
 	return nil
 }
 
@@ -289,11 +275,7 @@ type synthesisStep struct {
 
 func (s *synthesisStep) Run(ctx context.Context) error {
 	rs := s.rs
-	rs.Tracker.UpdatePhase(progress.PhaseSynthesis, "active", 0, "Producing final prioritized review")
-
-	if err := s.sessionService.UpdatePhase(ctx, rs.SessionID, dsession.PhaseSynthesis, 0); err != nil {
-		logx.Errorf("update session phase failed: %v", err)
-	}
+	rs.enterPhase(ctx, dsession.PhaseSynthesis, "Producing final prioritized review")
 
 	// 生成 requirements coverage
 	if s.enableRequirements && len(rs.Request.Requirements) > 0 && rs.AggregatedResult != nil {
@@ -352,7 +334,7 @@ func (s *synthesisStep) Run(ctx context.Context) error {
 		}
 	}
 
-	rs.Tracker.UpdatePhase(progress.PhaseSynthesis, "completed", 100, "Synthesis completed")
+	rs.completePhase(dsession.PhaseSynthesis, "Synthesis completed")
 	return nil
 }
 
@@ -364,7 +346,7 @@ type completeStep struct {
 
 func (s *completeStep) Run(ctx context.Context) error {
 	rs := s.rs
-	rs.Tracker.UpdatePhase(progress.PhaseComplete, "active", 0, "Review completed")
+	rs.enterPhase(ctx, dsession.PhaseComplete, "Review completed")
 
 	if rs.FinalReport != nil {
 		finalReportData := dsession.FinalReportData{

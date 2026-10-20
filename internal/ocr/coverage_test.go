@@ -12,6 +12,18 @@ import (
 
 // ===================== MetricsProvider 测试 =====================
 
+// availableStubProvider 是「始终可用」的 Provider 替身。
+//
+// 用于 MetricsProvider 的可用性断言：需要一个 Available=true 的内层 Provider，
+// 而生产实现（AgentKitProvider）依赖真实的 LLM 设置，装不出一个稳定的替身。
+type availableStubProvider struct{}
+
+func (availableStubProvider) Complete(context.Context, CompleteRequest) (CompleteResponse, error) {
+	return CompleteResponse{Content: "{}"}, nil
+}
+
+func (availableStubProvider) Available(context.Context) bool { return true }
+
 func TestMetricsSnapshot(t *testing.T) {
 	m := &Metrics{}
 	m.Calls.Add(10)
@@ -66,11 +78,7 @@ func TestNewMetricsProvider_NilInner(t *testing.T) {
 }
 
 func TestMetricsProvider_Available_True(t *testing.T) {
-	settings := NewSettingsSnapshot(&SettingsData{
-		URL:       "https://api.example.com",
-		ModelName: "gpt-4",
-	})
-	inner := NewLLMProvider(settings)
+	inner := &availableStubProvider{}
 	mp, m := NewMetricsProvider(inner)
 
 	if !mp.Available(context.Background()) {

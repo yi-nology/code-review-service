@@ -28,5 +28,6 @@ var CoreServiceModule = fx.Options(
 	CostModule,
 	AgentModule,
 	WorkflowModule,
+	MemoryModule,
 	ReviewModule,
 )

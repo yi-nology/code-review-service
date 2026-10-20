@@ -1,6 +1,10 @@
 package progress
 
-import "time"
+import (
+	"time"
+
+	dsession "github.com/yi-nology/code-review-service/internal/domain/session"
+)
 
 type eventType string
 
@@ -13,17 +17,21 @@ const (
 	eventComplete      eventType = "complete"
 )
 
+// Phase 是评审流程的阶段名。
+//
+// 取值直接引用领域层的阶段枚举（单一事实源）——此前本包另持一份字面量副本，
+// 与 internal/domain/session 并存，改一处忘另一处就会漂移。
 type Phase string
 
 const (
-	PhaseContext       Phase = "context"
-	PhaseChangeContext Phase = "change_context"
-	PhaseAnalysis      Phase = "analysis"
-	PhaseReviews       Phase = "reviews"
-	PhaseAggregation   Phase = "aggregation"
-	PhaseDiscussion    Phase = "discourse"
-	PhaseSynthesis     Phase = "synthesis"
-	PhaseComplete      Phase = "complete"
+	PhaseContext       Phase = dsession.PhaseContext
+	PhaseChangeContext Phase = dsession.PhaseChangeContext
+	PhaseAnalysis      Phase = dsession.PhaseAnalysis
+	PhaseReviews       Phase = dsession.PhaseReviews
+	PhaseAggregation   Phase = dsession.PhaseAggregation
+	PhaseDiscussion    Phase = dsession.PhaseDiscussion
+	PhaseSynthesis     Phase = dsession.PhaseSynthesis
+	PhaseComplete      Phase = dsession.PhaseComplete
 )
 
 type progressEvent struct {

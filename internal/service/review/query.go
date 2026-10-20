@@ -254,13 +254,6 @@ func (s *Service) Scan(ctx context.Context, req domain.ScanRequest) (*domain.Sca
 	return s.scanOrchestrator.Scan(ctx, req)
 }
 
-func (s *Service) updateReviewFields(ctx context.Context, reviewID string, fn func(review *domain.Record)) error {
-	return s.reviewRepo.UpdateInTransaction(ctx, reviewID, func(review *domain.Record) error {
-		fn(review)
-		return nil
-	})
-}
-
 // ProjectPolicyToOCROverrides 将项目策略中的 OCR 配置项映射为 review.OCROverrides。
 // 作为 scan 路径与 executor 路径的单一实现，消除重复。
 func ProjectPolicyToOCROverrides(p projectpolicy.ProjectPolicy) domain.OCROverrides {

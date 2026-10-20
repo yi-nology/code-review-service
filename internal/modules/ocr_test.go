@@ -1,7 +1,6 @@
 package modules
 
 import (
-	"context"
 	"testing"
 
 	"github.com/yi-nology/code-review-service/internal/config"
@@ -9,14 +8,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 )
-
-// stubLLMProvider 实现 ocr.Provider（用于 fx 注入）。
-type stubLLMProvider struct{}
-
-func (stubLLMProvider) Complete(_ context.Context, _ ocr.CompleteRequest) (ocr.CompleteResponse, error) {
-	return ocr.CompleteResponse{Content: "ok"}, nil
-}
-func (stubLLMProvider) Available(_ context.Context) bool { return true }
 
 // TestNewOCRRegistry_ConstructsSuccessfully 验证 NewOCRRegistry 构造流程。
 // 真实 fx 集成测试在 handler/registry_test.go；这里只测纯函数构造。

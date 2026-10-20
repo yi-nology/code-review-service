@@ -11,6 +11,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/oekit/logx"
+	"github.com/yi-nology/agent-harness/toolfail"
 )
 
 // runner_errors.go：子进程输出采集（cappedBuffer）与错误分类（超时/退出/永久性/二进制缺失）。
@@ -53,31 +54,26 @@ func (b *cappedBuffer) Bytes() []byte { return b.buf.Bytes() }
 func (b *cappedBuffer) String() string { return b.buf.String() }
 
 // classifyExitError 把 cmd.Wait 的失败归类为 TimeoutError、PermanentError 或 ExitError。
+//
+// 对外的错误类型**保持不变**（调用方按 errors.As 判别，这是既有契约），
+// 但内部分类不再靠字符串匹配自己判「不可重试」——
+// 类别判定下沉到 harness/toolfail（见 failure.go）：
+// 认证失败与 DNS 失败虽然都不可重试，前者**需要人工介入**，
+// 压成一类会让运维看不出「这是配置问题」。
 func classifyExitError(ctx context.Context, runErr error, timeout time.Duration, stderr string) error {
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return &TimeoutError{Timeout: timeout}
 	}
-	// DNS 解析失败 / 未知主机这类错误不可恢复（ocr 子进程调用 LLM 端点时 DNS 查不到），
-	// 重试只会再多等一个 timeout。识别 stderr 中的特征文本，归类为 PermanentError。
 	combined := stderr
 	if runErr != nil {
 		combined = combined + " " + runErr.Error()
 	}
-	if isPermanentMessage(combined) {
+	switch classifyOCRFailure(runErr, combined) {
+	case toolfail.ClassPermanent, toolfail.ClassAuthentication, toolfail.ClassNotFound:
 		return &PermanentError{Stderr: stderr, Err: runErr}
+	default:
+		return &ExitError{Stderr: stderr, Err: runErr}
 	}
-	return &ExitError{Stderr: stderr, Err: runErr}
-}
-
-// isPermanentMessage 判断错误文本是否属于不可重试类别（大小写不敏感）。
-func isPermanentMessage(s string) bool {
-	lower := strings.ToLower(s)
-	for _, pat := range permanentMessagePatterns {
-		if strings.Contains(lower, pat) {
-			return true
-		}
-	}
-	return false
 }
 
 // TimeoutError 表示 OCR 评审超过 context deadline。
@@ -211,9 +207,14 @@ var knownOCRPhases = map[string]struct{}{
 // 防止健谈/失控的二进制把内存撑爆（OOM）。正常 JSON 输出远小于此。
 const maxSubprocessOutput = 64 << 20 // 64 MB
 
-// permanentMessagePatterns 匹配不可恢复（重试无意义）的错误特征。
-// 主要是 DNS 解析失败类：ocr 子进程访问 LLM 端点时域名解析不到，
+// permanentMessagePatterns 匹配**环境类**不可恢复错误的特征（DNS 解析失败、连接被拒）。
+//
+// 这些错误重试无意义：ocr 子进程访问 LLM 端点时域名解析不到，
 // 短时间内不会自愈，重试只会双倍超时。
+//
+// 注意它**不再**覆盖认证失败——认证失败另有归属（见 failure.go 的
+// authMessagePatterns），因为两者处置动作不同：前者等环境恢复，
+// 后者要人换 token / 配权限。
 var permanentMessagePatterns = []string{
 	"no such host",          // DNS NXDOMAIN（getaddrinfo 标准措辞）
 	"lookup",                // DNS 解析失败前缀（如 "lookup xxx on ..."）

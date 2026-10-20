@@ -28,25 +28,26 @@ type WorkflowConfig struct {
 	EnableDiscussion   bool
 	EnableRequirements bool
 	DiscussionRounds   int
-	ContextWindow      int // 上下文窗口大小（tokens），0=模型默认
+	// ContextWindow 上下文窗口大小（tokens），0=模型默认。
+	//
+	// 它是 diff 预算的推导依据（见 budget.go）：窗口已知才能算出
+	// 「扣掉输出预留后的输入侧上限」与 diff 占其中多少。
+	//
+	// 刻意做成**函数**而不是值：OCR 设置存 DB 且支持热更，
+	// 启动时拍一次快照会让预算用旧窗口算——而窗口是模型端的事实，
+	// 变了就该跟着变。故每次推导时现取。
+	ContextWindow func() int
 }
 
-// GetMaxDiffChars 根据上下文窗口大小计算合适的 diff 截断字符数
-// 经验公式：diff 应占上下文窗口的 30-40%，留空间给系统提示、用户提示和输出
-func (c *WorkflowConfig) GetMaxDiffChars() int {
-	if c.ContextWindow <= 0 {
-		// 未配置上下文窗口，使用默认值
-		return 30000
+// resolveContextWindow 取当前上下文窗口大小。
+//
+// 取不到（未接线 / 设置未就绪）时返回 0，预算走「窗口未知」的保守分支
+// （固定上限 + 压力恒为 critical），与重构前的行为一致。
+func (c *WorkflowConfig) resolveContextWindow() int {
+	if c == nil || c.ContextWindow == nil {
+		return 0
 	}
-	// 按上下文窗口的 35% 计算 diff 上限，但不少于 10000，不超过 500000
-	limit := int(float64(c.ContextWindow) * 0.35 / 4) // 假设平均 4 chars/token
-	if limit < 10000 {
-		limit = 10000
-	}
-	if limit > 500000 {
-		limit = 500000
-	}
-	return limit
+	return c.ContextWindow()
 }
 
 // NewReviewWorkflow creates a new review workflow
@@ -96,6 +97,8 @@ func (w *ReviewWorkflow) RunReview(ctx context.Context, request ReviewRequest) (
 		Request:   request,
 		StartTime: startTime,
 		Tracker:   tracker,
+		// Kernel 是底座适配层：阶段推进、进度快照与终态独占提交都走它。
+		Kernel: w.newKernel(session.SessionID, session.Phase, tracker),
 	}
 
 	// Build and run pipeline
@@ -126,6 +129,17 @@ func (w *ReviewWorkflow) RunReview(ctx context.Context, request ReviewRequest) (
 
 	logx.Infof("review completed in %v with %d findings", result.Duration, len(result.AgentResults))
 	return result, nil
+}
+
+// newKernel 构造阶段推进器。
+//
+// 会话初始阶段就是首个阶段，推进器据此避免把「同一阶段」写成一次非法迁移。
+func (w *ReviewWorkflow) newKernel(
+	sessionID string,
+	sessionPhase string,
+	tracker *progress.ProgressTracker,
+) *phaseController {
+	return newPhaseController(sessionID, w.sessionService, tracker, sessionPhase)
 }
 
 // buildPipeline 构建 review 流程管道

@@ -6,7 +6,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -133,11 +132,4 @@ func (c *WebhookChannel) sign(req *http.Request, body []byte) {
 		q.Set("sign", sign)
 		req.URL.RawQuery = q.Encode()
 	}
-}
-
-// hexSHA256 工具（通用 generic 渠道可选 HMAC 校验预留）。
-func hexSHA256(key, data string) string {
-	h := hmac.New(sha256.New, []byte(key))
-	h.Write([]byte(data))
-	return hex.EncodeToString(h.Sum(nil))
 }
