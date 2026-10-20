@@ -12,9 +12,9 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/statuscheck"
 
-	notifdomain "github.com/yi-nology/code-review-service/internal/domain/notification"
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
+	notifdomain "github.com/yi-nology/code-review-service/internal/domain/notification"
 )
 
 // 执行器的对外副作用：writeback、commit status、通知、指标、OCR 入参构造。

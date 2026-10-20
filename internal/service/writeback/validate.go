@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/oekit/pkg/stringx"
 	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
-	"github.com/oekit/pkg/stringx"
 )
 
 type ValidatedComment struct {
