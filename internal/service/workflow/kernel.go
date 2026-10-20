@@ -100,6 +100,24 @@ func (c *phaseController) begin(ctx context.Context, phase, message string) erro
 	return nil
 }
 
+// failCurrent 把**当前阶段**收成失败终态。
+//
+// 此前 phaseController.end 支持 phaseFailed 终态，但全仓只有 completePhase
+// 调它、且只用 succeeded —— case phaseFailed 分支不可达：步骤失败时该阶段
+// 在底座 statemachine 里永远停在 running，底座从不记录「这一阶段失败了」。
+//
+// 判据用底座的 statemachine（合法转移表由底座裁决），宿主不另立一份。
+func (c *phaseController) failCurrent(message string) error {
+	c.mu.Lock()
+	phase := c.currentStep
+	c.mu.Unlock()
+	if phase == "" {
+		// 尚未起步（没有当前阶段）——没有可失败的对象。
+		return nil
+	}
+	return c.end(phase, phaseFailed, message)
+}
+
 // end 结束一个阶段：状态迁移到终态 + 进度上报。
 func (c *phaseController) end(phase, status, message string) error {
 	c.mu.Lock()

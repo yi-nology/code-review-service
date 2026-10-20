@@ -105,6 +105,9 @@ func (w *ReviewWorkflow) RunReview(ctx context.Context, request ReviewRequest) (
 	// v0.19.0 PipeFlow.Run(ctx) error 不再接受 req/sess, 通过 step 字段传入 (rs)
 	pipe := w.buildPipeline(rs)
 	if err := pipe.Run(ctx); err != nil {
+		// 阶段收口：步骤失败时把当前阶段标成 failed 终态。此前 failed 分支
+		// 不可达，失败阶段在底座 statemachine 里永远停在 running。
+		rs.failCurrentPhase(err.Error())
 		w.failSession(ctx, session.SessionID, err.Error())
 		tracker.SetError(err.Error())
 		return nil, err

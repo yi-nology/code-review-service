@@ -62,6 +62,19 @@ func (rs *ReviewSession) completePhase(phase, message string) {
 	}
 }
 
+// failCurrentPhase 把当前阶段收成失败终态（步骤失败时调用）。
+//
+// 走 kernel 而不是自己改状态：阶段状态的合法转移表由底座 statemachine
+// 裁决，宿主不另立一份（否则两份表会漂移）。
+func (rs *ReviewSession) failCurrentPhase(message string) {
+	if rs.Kernel == nil {
+		return
+	}
+	if err := rs.Kernel.failCurrent(message); err != nil {
+		logx.Errorf("fail review phase failed: %v", err)
+	}
+}
+
 // ReviewRequest contains the review request parameters
 type ReviewRequest struct {
 	ReviewID     string

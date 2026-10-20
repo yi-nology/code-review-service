@@ -140,6 +140,22 @@ func ocrRetryable(err error, stderr string) bool {
 	return toolfail.Retryable(ocrFailure(err, stderr))
 }
 
+// NeedsOperator 判断一次 OCR 执行失败是否**需要人工介入**。
+//
+// 典型场景是 LLM 凭证失效/权限不足：机器自己无能为力（重试也没用），
+// 只能人去换 token 或放权限。判据来自 harness/toolfail 的策略表
+// （ClassAuthentication / ClassPermissionDenied 带 NeedsOperator 标记），
+// 宿主不自己判类别。
+//
+// 供上层（service/review 的失败上报）决定要不要把「要人处理」推给通知渠道——
+// 此前这条信号只落到一行日志里，人不看日志就发现不了 token 过期了。
+func NeedsOperator(err error) bool {
+	if err == nil {
+		return false
+	}
+	return ocrNeedsOperator(err, stderrOf(err))
+}
+
 // ocrNeedsOperator 判断一次失败是否需要人工介入。
 //
 // 认证失败/权限不足必须让人看到：等它自愈不会发生，

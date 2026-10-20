@@ -50,6 +50,11 @@ func formatEvent(event notification.Event) (title, body string) {
 			}
 		}
 		body = fmt.Sprintf("评审 %s 在「%s」阶段失败：%s", event.ReviewID, event.Stage, detail)
+		if event.NeedsOperator {
+			// 这类失败重试没有意义（凭证失效/权限不足），必须有人去改配置——
+			// 文案里要说清「要做什么」，否则收通知的人只能自己去猜。
+			body += "\n\n⚠️ 该失败需人工介入（通常是 LLM 凭证失效或权限不足）：请更新 Web 控制台的模型设置后重试。"
+		}
 	case notification.KindGateFailed:
 		title = fmt.Sprintf("门禁未通过 · %s", ref)
 		body = fmt.Sprintf("评审 %s 完成，但质量门禁未通过。发现 %d 个问题，评分 %s。",

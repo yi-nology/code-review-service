@@ -96,6 +96,10 @@ func (f *FailureReporter) notify(id string, req domain.Request, stage string, ru
 		Kind:     notifdomain.KindFailed,
 		Stage:    stage,
 		Error:    runErr.Error(),
+		// 「需人工介入」的失败（如 LLM 凭证失效）此前只落到 OCR runner 的一行
+		// 日志里——不看日志就发现不了 token 过期。判据来自 harness/toolfail
+		// 的策略表，宿主不自己判类别。
+		NeedsOperator: ocr.NeedsOperator(runErr),
 	}
 	async.GoSafe(func() {
 		notifyCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)

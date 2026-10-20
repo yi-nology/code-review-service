@@ -74,13 +74,6 @@ modules:
     managed: true
     notes: HTTP 处理器
 
-  - id: httpx
-    roots: ['internal/httpx']
-    requires: []
-    owner: review-service
-    managed: true
-    notes: 内部 HTTP 工具
-
   - id: mcp
     roots: ['internal/mcp']
     requires: ['app', 'domain', 'repository', 'reviewdomain', 'service', 'strutil', 'ext:github.com/oekit']
@@ -167,7 +160,7 @@ modules:
 
   - id: service
     roots: ['internal/service']
-    requires: ['argusclient', 'config', 'domain', 'httpx', 'observability', 'ocr', 'progress', 'repository', 'reviewdomain', 'strutil', 'vcs', 'ext:github.com/oekit', 'ext:github.com/yi-nology/agent-harness', 'ext:github.com/yi-nology/agent-memory']
+    requires: ['argusclient', 'config', 'domain', 'observability', 'ocr', 'progress', 'repository', 'reviewdomain', 'strutil', 'vcs', 'ext:github.com/oekit', 'ext:github.com/yi-nology/agent-harness', 'ext:github.com/yi-nology/agent-memory']
     owner: review-service
     managed: true
     notes: 业务服务层
@@ -192,7 +185,6 @@ modules:
     owner: review-service
     managed: true
     notes: VCS 克隆与出站防护
-
 
 # ── 依赖方向门禁 ──
 #

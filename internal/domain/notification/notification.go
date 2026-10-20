@@ -23,6 +23,12 @@ type Event struct {
 	// Stage 仅 Kind==Failed 时有意义，标识失败环节（repository/ocr/workflow 等）。
 	Stage string `json:"stage,omitempty"`
 	Error string `json:"error,omitempty"`
+	// NeedsOperator 标记「机器自己无能为力、需人工介入」的失败（如 LLM 凭证失效）。
+	//
+	// 与 Error 分开是因为二者的处置完全不同：Error 是「重试或等一会儿就好」，
+	// NeedsOperator 是「等人来换 token」——后者不推出去就没人知道。
+	// 判据来自 agent-harness/toolfail 的策略表（NeedsOperator 标记）。
+	NeedsOperator bool `json:"needs_operator,omitempty"`
 	// Summary 是评审摘要（完成时），供通知正文引用。
 	Summary string `json:"summary,omitempty"`
 }
