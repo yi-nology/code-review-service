@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // fakeStateStore 是 ReviewStateStore 的内存实现。

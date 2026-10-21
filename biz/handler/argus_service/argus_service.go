@@ -23,10 +23,10 @@ import (
 	modelReview "github.com/yi-nology/code-review-service/biz/model/review"
 	"github.com/yi-nology/code-review-service/internal/argusclient"
 	"github.com/yi-nology/code-review-service/internal/domain/argusingest"
+	svcReviewDomain "github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	svcIngest "github.com/yi-nology/code-review-service/internal/service/ingest"
 	svcReview "github.com/yi-nology/code-review-service/internal/service/review"
-	svcReviewDomain "github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"

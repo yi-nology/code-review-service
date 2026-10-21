@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/domain/progress"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/domain/session"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // runner_parse.go：OCR 输出解析（进度行/结果 JSON/标题推断/语言 prompt）。

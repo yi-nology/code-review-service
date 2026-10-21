@@ -8,8 +8,8 @@ import (
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelWebhook "github.com/yi-nology/code-review-service/biz/model/webhook"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/webhook"
 
 	"github.com/cloudwego/hertz/pkg/app"

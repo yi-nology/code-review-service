@@ -8,9 +8,9 @@ import (
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/concurrency/group"
 	"github.com/oekit/logx"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	bizmetrics "github.com/yi-nology/code-review-service/internal/observability/metrics"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval, staleAfter time.Duration) {

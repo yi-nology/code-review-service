@@ -102,7 +102,7 @@ internal/ocr/                          # 核心包（方案 A 最终落点）
 ├── progress.go                       # OCR 进度 reporter（吸收 runner/progress.go）
 └── *_test.go                         # 全部单测聚合
 
-internal/service/review/domain/       # domain 拆分为两个文件
+internal/domain/review/       # domain 拆分为两个文件
 ├── review.go                         # Provider / Runner / PreviewRunner / ScanRunner / WritebackPublisher
 └── ocr.go                            # LLMTester / LLMProviderLister / RulesChecker / OCRVersioner / ViewerManager / OCRUpgrader
 ```
@@ -119,7 +119,7 @@ import (
     "sync/atomic"
 
     "github.com/yi-nology/code-review-service/internal/repository"
-    "github.com/yi-nology/code-review-service/internal/service/review/domain"
+    "github.com/yi-nology/code-review-service/internal/domain/review"
 )
 
 // Client 是 open-code-review 能力的统一入口。
@@ -301,7 +301,7 @@ func Run(ctx context.Context, spec Command) (*Result, error) {
 ### 3.5 domain 拆分
 
 ```go
-// internal/service/review/domain/review.go
+// internal/domain/review/review.go
 package domain
 
 // 评审核心接口（不变）
@@ -311,7 +311,7 @@ type PreviewRunner interface { ... }
 type ScanRunner interface { ... }
 type WritebackPublisher interface { ... }
 
-// internal/service/review/domain/ocr.go
+// internal/domain/review/ocr.go
 package domain
 
 // OCR 管理接口（从 interfaces.go 移过来）

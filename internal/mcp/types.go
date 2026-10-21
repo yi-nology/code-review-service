@@ -68,7 +68,7 @@ func WithStringArrayParam(name string, required bool, description string) mcp.To
 
 // 通用 review 输入 schema（多个 tool 复用：create_review / preview_change_files / scan_repository）。
 //
-// 字段命名跟 internal/service/review/domain.Request 对齐，避免 tool schema 跟内部类型
+// 字段命名跟 internal/domain/review.Request 对齐，避免 tool schema 跟内部类型
 // 两套命名 — 减少 LLM/客户端学习成本。
 func reviewRequestSchema() []mcp.ToolOption {
 	return []mcp.ToolOption{

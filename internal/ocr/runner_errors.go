@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 
 	"github.com/oekit/logx"
 	"github.com/yi-nology/agent-harness/toolfail"

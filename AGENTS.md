@@ -84,9 +84,12 @@ Layered, wired with `uber/fx`:
   of generated scaffolding; check whether a file is generated before editing.
 - Handlers (`biz/handler/*`) → call service interfaces declared in `internal/app/`
   and `internal/service/*`. Handlers should stay thin.
-- `internal/service/*` business logic. Within review: `internal/service/review/domain/`
-  holds the pure domain types/interfaces (`Request`, `Response`, `Result`, `Finding`,
-  runner/OCR aliases); keep it free of infra imports.
+- `internal/service/*` business logic. The review aggregate's pure domain
+  types/interfaces (`Request`, `Response`, `Result`, `Finding`, runner/OCR
+  aliases) live in `internal/domain/review/` — **under `internal/domain/`, not
+  under `internal/service/`**: it is a domain leaf, and letting the repository
+  layer import it from a `service/` path inverted the dependency direction
+  (infra → service). It stays free of infra imports.
 - `internal/repository/*` GORM data access behind interfaces; postgres impl under
   `internal/repository/postgres/`. GORM models are distinct from domain types —
   mapping lives in `internal/repository/postgres/mapping.go`.

@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/service/judge"
 	"github.com/yi-nology/code-review-service/internal/service/review"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/strutil"
 
 	"github.com/oekit/logx"

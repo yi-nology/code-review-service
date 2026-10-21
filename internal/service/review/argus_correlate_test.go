@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/domain/argusingest"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	pg "github.com/yi-nology/code-review-service/internal/repository/postgres"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/testutil"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // 回报关联（真库集成）：engine=argus 的 active Record 在 push 落库后收敛终态。

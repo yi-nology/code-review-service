@@ -11,10 +11,10 @@ import (
 	"github.com/yi-nology/code-review-service/internal/domain/ocrasset"
 	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/domain/reviewer"
 	"github.com/yi-nology/code-review-service/internal/domain/rules"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // ---- 测试替身 ----

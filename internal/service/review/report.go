@@ -1,9 +1,9 @@
 package review
 
 import (
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/domain/scoring"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // 评分逻辑已提取到 scoring 包（高内聚），此处保留常量/函数为向后兼容别名。

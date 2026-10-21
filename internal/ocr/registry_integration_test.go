@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 )
 
 // TestRegistry_LLMAvailableAndComplete 验证 LLM 能力的完整调用链。

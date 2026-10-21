@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/argusclient"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 )
 
 // argus 任务失败（不回推）→ 轮询器把 running 记录收敛 failed；

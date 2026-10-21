@@ -3,8 +3,8 @@ package postgres
 import (
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	domstats "github.com/yi-nology/code-review-service/internal/domain/stats"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // statsFilterParts 是统计查询 WHERE 片段的 clause+args 组合。

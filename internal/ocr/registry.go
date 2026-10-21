@@ -15,8 +15,8 @@
 package ocr
 
 import (
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // Registry 是 open-code-review 能力的注册中心，handler/模块一次性拿到所有子能力。

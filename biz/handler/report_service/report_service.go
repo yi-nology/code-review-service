@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/domain/stats"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/cloudwego/hertz/pkg/app"
 )

@@ -138,7 +138,7 @@ modules:
     notes: 仓储接口与 PostgreSQL 实现
 
   - id: reviewdomain
-    roots: ['internal/service/review/domain']
+    roots: ['internal/domain/review']
     requires: ['domain', 'ext:github.com/oekit']
     owner: review-service
     managed: true
@@ -282,22 +282,17 @@ rules:
     scope: [biz/model]
     forbid_import_regex: '^(gorm\.io|github\.com/cloudwego|github\.com/oekit|github\.com/oagentkit)'
 
-  # ── 已知欠账（warn：不阻断，但每次报告都显形）──
   - id: repository-no-service-dep
     desc: |
-      【欠账】仓储层（infra）不得依赖服务层。当前唯一一条边是
-      internal/repository → internal/service/review/domain —— 那本是个纯领域
-      叶子包，却寄居在 service 路径下，于是 infra → service 的方向倒了过来。
-      拆法：把评审领域类型下沉到 internal/domain/，service 侧保留别名层。
-      拆除条件：上述边消失后把 severity 升为 error。
-    severity: warn
+      仓储层（infra）不得依赖服务层。评审领域类型已从 internal/service/review/domain
+      下沉到 internal/domain/review（纯领域叶子包，住在 service 路径下会让
+      infra → service 的方向倒过来）——仓储层现在只依赖 domain 层。
+
+      此规则**守住这条边界**：仓储层一旦重新 import 任何 internal/service/* 即报错。
+    severity: error
     scope: [internal/repository]
     ignore_test: true
     forbid_import_regex: 'internal/service/'
-    negative_follow:
-      # 评审领域类型是纯叶子包，本次欠账只针对它——豁免后其余 service 边照样阻断。
-      - anchor: 'internal/service/'
-        forbid_follow: review/domain
 
   - id: eino-no-repository-dep
     desc: |

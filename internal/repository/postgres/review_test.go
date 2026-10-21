@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // newReview 构造一条最小可入库的 models.Review。caller 填充关键字段。

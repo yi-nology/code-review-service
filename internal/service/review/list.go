@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 )
 
 // 下列类型已下沉至 domain 包（见 domain/list_types.go），此处用 type alias 重导出，

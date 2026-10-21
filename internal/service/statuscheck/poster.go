@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/oekit/logx"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/strutil"
 	"github.com/yi-nology/code-review-service/internal/vcs"
 
@@ -24,7 +24,7 @@ import (
 // 满足），statuscheck 不再依赖 internal/service/provider 具体类型。
 type Poster struct {
 	gitSvc StatusWriter
-	// externalBaseURL 服务对外基地址（如 http://review.example.com）。非空时把 check
+	// externalBaseURL 服务对外基地址（如 http://code-review.me）。非空时把 check
 	// 的 target_url 拼成 <base>/reviews/:id 供点击跳转；为空时不携带 target_url。
 	externalBaseURL string
 }

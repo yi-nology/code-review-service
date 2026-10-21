@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/oekit/pkg/slicex"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 )
 
 func BuildAnalysis(result domain.Result) domain.Analysis {

@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // stubRepository 是不依赖 DB 的最小 RepoContainer。

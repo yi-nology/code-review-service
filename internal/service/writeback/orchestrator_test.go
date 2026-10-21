@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	wbitem "github.com/yi-nology/code-review-service/internal/domain/writeback"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 type mockWritebackItemRepo struct {

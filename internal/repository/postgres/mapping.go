@@ -11,6 +11,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/domain/platform"
 	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/domain/reviewer"
 	"github.com/yi-nology/code-review-service/internal/domain/revision"
 	"github.com/yi-nology/code-review-service/internal/domain/rules"
@@ -18,7 +19,6 @@ import (
 	domainWebhook "github.com/yi-nology/code-review-service/internal/domain/webhook"
 	"github.com/yi-nology/code-review-service/internal/domain/writeback"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"gorm.io/datatypes"
 	gormDB "gorm.io/gorm"

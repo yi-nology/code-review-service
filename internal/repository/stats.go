@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/domain/stats"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // ContributorStatsRepository 已迁移为 domain 类型（#6 收尾）：不再依赖 postgres/models。

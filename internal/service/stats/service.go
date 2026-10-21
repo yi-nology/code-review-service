@@ -6,9 +6,9 @@ import (
 
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/slicex"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/domain/stats"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 type Service struct {

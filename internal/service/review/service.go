@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	//lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
 	"github.com/oekit/logx"

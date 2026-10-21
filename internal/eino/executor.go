@@ -8,6 +8,7 @@ import (
 
 	"github.com/cloudwego/eino/callbacks"
 	types "github.com/yi-nology/code-review-service/internal/domain/finding"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/cost"
@@ -16,7 +17,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/statuscheck"
 	"github.com/yi-nology/code-review-service/internal/service/workflow"
 	"github.com/yi-nology/code-review-service/internal/strutil"

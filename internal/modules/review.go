@@ -5,6 +5,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/argusclient"
 	"github.com/yi-nology/code-review-service/internal/config"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/eino"
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/repository"
@@ -16,7 +17,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 	svcReview "github.com/yi-nology/code-review-service/internal/service/review"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/reviewenrich"
 	"github.com/yi-nology/code-review-service/internal/service/statuscheck"
 	"github.com/yi-nology/code-review-service/internal/service/workflow"

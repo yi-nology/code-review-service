@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/domain/page"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/domain/writeback"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // ReviewRepository 已迁移为 domain 类型（#6 keystone）：不再依赖 postgres/models。

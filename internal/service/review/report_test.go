@@ -3,8 +3,8 @@ package review_test
 import (
 	"testing"
 
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/service/review"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 func TestBuildReportPerfectScore(t *testing.T) {

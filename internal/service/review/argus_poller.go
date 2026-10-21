@@ -20,8 +20,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/argusclient"
 	"github.com/yi-nology/code-review-service/internal/domain/argusingest"
 	notifdomain "github.com/yi-nology/code-review-service/internal/domain/notification"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/statuscheck"
 
 	"github.com/oekit/concurrency/async"

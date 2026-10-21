@@ -2,9 +2,9 @@ package modules
 
 import (
 	"github.com/yi-nology/code-review-service/internal/config"
+	reviewdomain "github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	svcnotif "github.com/yi-nology/code-review-service/internal/service/notification"
-	reviewdomain "github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"go.uber.org/fx"
 )

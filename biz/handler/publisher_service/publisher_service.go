@@ -8,8 +8,8 @@ import (
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelPublisher "github.com/yi-nology/code-review-service/biz/model/publisher"
 	types "github.com/yi-nology/code-review-service/internal/domain/finding"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/service/provider"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
 
 	"github.com/cloudwego/hertz/pkg/app"

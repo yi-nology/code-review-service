@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/ocr"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // OCRRunnerFactory 阶段 A15 part 5：完全迁入 ocr 包。

@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/strutil"
 	"github.com/yi-nology/code-review-service/internal/vcs"
 

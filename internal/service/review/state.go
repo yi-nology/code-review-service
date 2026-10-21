@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/oekit/logx"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // ReviewStateStore 是写入评审终态所需的最小仓储面。

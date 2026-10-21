@@ -9,7 +9,7 @@
 package ocr
 
 import (
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 )
 
 // 重新导出 domain 类型，方便 internal/ocr 包内部使用。

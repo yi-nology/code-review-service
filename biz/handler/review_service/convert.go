@@ -8,8 +8,8 @@ import (
 
 	"github.com/yi-nology/code-review-service/biz/handler/common"
 	modelReview "github.com/yi-nology/code-review-service/biz/model/review"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/ocr"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/oekit/pkg/convert"
 	"github.com/oekit/pkg/ptrx"

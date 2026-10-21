@@ -9,9 +9,9 @@ import (
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
 	notifdomain "github.com/yi-nology/code-review-service/internal/domain/notification"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	bizmetrics "github.com/yi-nology/code-review-service/internal/observability/metrics"
 	"github.com/yi-nology/code-review-service/internal/ocr"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/strutil"
 )
 

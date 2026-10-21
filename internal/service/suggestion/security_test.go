@@ -3,7 +3,7 @@ package suggestion
 import (
 	"testing"
 
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 )
 
 // TestNormalizePatchPath_RejectsTraversal 验证路径逃逸防护：

@@ -10,8 +10,8 @@ import (
 
 	notifdomain "github.com/yi-nology/code-review-service/internal/domain/notification"
 	"github.com/yi-nology/code-review-service/internal/domain/page"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/repository"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // reapRepo 只实现孤儿收敛/心跳/回填路径用到的 ReviewRepository 方法，

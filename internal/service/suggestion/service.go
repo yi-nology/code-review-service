@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 )
 
 // ReviewFetcher 解耦对 review.Service 的依赖：suggestion 只需要按 ID 读取评审记录。

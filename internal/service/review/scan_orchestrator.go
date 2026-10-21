@@ -10,11 +10,11 @@ import (
 
 	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/oekit/logx"
 )

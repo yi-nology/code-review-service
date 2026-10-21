@@ -3,7 +3,7 @@ package review
 import (
 	"testing"
 
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 )
 
 func TestBuildAnalysis_WithTechLeadAnalysis(t *testing.T) {

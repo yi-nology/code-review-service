@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/yi-nology/code-review-service/internal/domain/platform"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 
 	"github.com/yi-nology/go-git-platform/provider"
 )

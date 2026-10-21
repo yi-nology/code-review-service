@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 )
 
 // TestRunner_DirectRun_EmptyDir 验证 Run 在 Dir 为空时返回明确错误。

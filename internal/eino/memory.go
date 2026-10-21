@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/service/memory"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"

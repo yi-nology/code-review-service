@@ -7,7 +7,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/app"
 	types "github.com/yi-nology/code-review-service/internal/domain/finding"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/service/suggestion"
 	"github.com/yi-nology/code-review-service/internal/strutil"
 

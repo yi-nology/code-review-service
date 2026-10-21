@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 )
 
 // TestParseOpenCodeReviewOutput_RealSchema 用真实 `ocr review --format json` 输出验证解析。

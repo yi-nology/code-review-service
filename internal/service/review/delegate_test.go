@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/service/review"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 
 // stubDelegator 实现 domain.Delegator，记录调用参数并返回预设结果。

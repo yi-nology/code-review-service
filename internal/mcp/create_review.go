@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/yi-nology/code-review-service/internal/app"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/service/review"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )

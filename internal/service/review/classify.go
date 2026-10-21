@@ -2,7 +2,7 @@ package review
 
 import (
 	"github.com/oekit/pkg/stringx"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 )
 
 var categoryKeywords = []struct {

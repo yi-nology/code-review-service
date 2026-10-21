@@ -3,7 +3,7 @@ package review
 import (
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 )
 
 // audit.go：审计步骤的构造器。

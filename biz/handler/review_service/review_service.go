@@ -10,8 +10,8 @@ import (
 	modelPlatform "github.com/yi-nology/code-review-service/biz/model/platform"
 	modelReview "github.com/yi-nology/code-review-service/biz/model/review"
 	svcApp "github.com/yi-nology/code-review-service/internal/app"
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/service/review"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	reviewenrich "github.com/yi-nology/code-review-service/internal/service/reviewenrich"
 	"github.com/yi-nology/code-review-service/internal/service/suggestion"
 

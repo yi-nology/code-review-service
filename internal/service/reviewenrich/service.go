@@ -8,8 +8,8 @@ package reviewenrich
 import (
 	"context"
 
+	"github.com/yi-nology/code-review-service/internal/domain/review"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
-	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/vcs"
 
 	"github.com/oekit/logx"
