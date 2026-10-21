@@ -117,7 +117,7 @@ func (r *Runner) runDelegateCmd(ctx context.Context, binary string, args []strin
 	cmd := exec.CommandContext(ctx, binary, args...)
 	cmd.Dir = dir
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Env = cfg.AppendEnv(childEnv(os.Environ()))
+	cmd.Env = cfg.AppendEnv(childEnv(os.Environ(), cfg.hasExplicitLLMCredential()))
 
 	stdout := newCappedBuffer(maxSubprocessOutput)
 	stderr := newCappedBuffer(maxSubprocessOutput)

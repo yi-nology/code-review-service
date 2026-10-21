@@ -1,5 +1,7 @@
 package ocr
 
+import "strings"
+
 // 默认严重级别：未指定时使用 "major"。
 const DefaultSeverity = "major"
 
@@ -185,6 +187,15 @@ func defaultToolsConfig(tools ToolSettings, mode string) string {
 // AppendEnv 把 Config 转成 ocr 二进制的环境变量。
 //
 // 这是单一真相，所有 OCR 命令调用都应使用此函数构造 env（吸收 runner.AppendLLMEnv）。
+// hasExplicitLLMCredential 表示 OCR 已经通过 OCR_LLM_TOKEN 显式拿到了 LLM 凭证。
+//
+// 用于决定环境里的 provider 凭证（OPENAI_API_KEY 等）算不算「冗余」：
+// 显式下发过凭证时，环境里的同类凭证只会扩大泄露面；没下发过时，它们
+// 可能正是 OCR 赖以跑 LLM 的东西，摘掉会让评审跑不起来。
+func (c Config) hasExplicitLLMCredential() bool {
+	return strings.TrimSpace(c.AuthToken) != ""
+}
+
 func (c Config) AppendEnv(env []string) []string {
 	if c.URL != "" {
 		env = append(env, "OCR_LLM_URL="+c.URL)

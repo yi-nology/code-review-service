@@ -103,7 +103,7 @@ func (t *Tester) runLLMTest(ctx context.Context, cfg Config) *domain.LLMTestResu
 	res, err := InternalRun(ctx, CommandSpec{
 		Binary:  binary,
 		Args:    []string{"llm", "test"},
-		Env:     cfg.AppendEnv(childEnv(os.Environ())),
+		Env:     cfg.AppendEnv(childEnv(os.Environ(), cfg.hasExplicitLLMCredential())),
 		Timeout: 60 * time.Second,
 	})
 	if err != nil && res == nil {

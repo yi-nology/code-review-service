@@ -383,7 +383,7 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 	cmd.Dir = workspace.Dir
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	env := childEnv(os.Environ())
+	env := childEnv(os.Environ(), cfg.hasExplicitLLMCredential())
 	env = cfg.AppendEnv(env)
 	cmd.Env = env
 

@@ -19,7 +19,7 @@ func TestChildEnv_StripsHostSecrets(t *testing.T) {
 		"ARGUS_BOT_TOKEN=argus-secret",
 		"HOME=/root",
 	}
-	got := childEnv(base)
+	got := childEnv(base, false)
 
 	for _, kv := range got {
 		name, _, _ := strings.Cut(kv, "=")
@@ -45,15 +45,45 @@ func TestChildEnv_KeepsEverythingElse(t *testing.T) {
 		"NODE_EXTRA_CA_CERTS=/etc/ssl/corp.pem",
 		"OPENAI_API_KEY=sk-ambient",
 	}
-	got := childEnv(base)
+	got := childEnv(base, false)
 	if len(got) != len(base) {
 		t.Errorf("非凭据变量应全部保留：期望 %d 项，实际 %d 项", len(base), len(got))
 	}
 }
 
+// TestChildEnv_StripsProviderCredentialOnlyWhenTokenExplicit 验证
+// provider 凭证**只在 OCR 已显式拿到凭证时**被摘掉。
+//
+// OCR 的凭证走 OCR_LLM_TOKEN 显式下发；此时环境里残留的 OPENAI_API_KEY 等
+// 是冗余的，而 OCR 的运行范围（工作区 + 仓库 hooks + MCP server）不完全受控，
+// 冗余凭证只会扩大泄露面。
+//
+// 但 OCR 没拿到显式凭证时不能摘——那种部署正是靠环境里的 key 跑 LLM，
+// 摘掉等于让评审跑不起来。
+func TestChildEnv_StripsProviderCredentialOnlyWhenTokenExplicit(t *testing.T) {
+	base := []string{
+		"PATH=/usr/bin",
+		"OPENAI_API_KEY=sk-ambient",
+		"ANTHROPIC_API_KEY=sk-ant",
+	}
+
+	withToken := childEnv(base, true)
+	for _, kv := range withToken {
+		name, _, _ := strings.Cut(kv, "=")
+		if providerCredentialEnv[name] {
+			t.Errorf("已显式下发凭证时，%s 应被摘掉", name)
+		}
+	}
+
+	withoutToken := childEnv(base, false)
+	if len(withoutToken) != len(base) {
+		t.Errorf("未显式下发凭证时 provider 凭证应保留, got %v", withoutToken)
+	}
+}
+
 // TestChildEnv_EmptyBase 验证空输入不炸。
 func TestChildEnv_EmptyBase(t *testing.T) {
-	if got := childEnv(nil); len(got) != 0 {
+	if got := childEnv(nil, false); len(got) != 0 {
 		t.Errorf("nil 输入应返回空，got %v", got)
 	}
 }

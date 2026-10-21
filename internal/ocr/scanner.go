@@ -49,7 +49,7 @@ func (r *Runner) Preview(ctx context.Context, workspace domain.Workspace) (*doma
 	cmd := exec.CommandContext(ctx, cfg.Binary, args...)
 	cmd.Dir = workspace.Dir
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Env = cfg.AppendEnv(childEnv(os.Environ()))
+	cmd.Env = cfg.AppendEnv(childEnv(os.Environ(), cfg.hasExplicitLLMCredential()))
 
 	stdout := newCappedBuffer(maxSubprocessOutput)
 	stderr := newCappedBuffer(maxSubprocessOutput)
@@ -169,7 +169,7 @@ func (r *Runner) Scan(ctx context.Context, workspace domain.Workspace, req domai
 	cmd := exec.CommandContext(ctx, cfg.Binary, args...)
 	cmd.Dir = workspace.Dir
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Env = cfg.AppendEnv(childEnv(os.Environ()))
+	cmd.Env = cfg.AppendEnv(childEnv(os.Environ(), cfg.hasExplicitLLMCredential()))
 
 	stdout := newCappedBuffer(maxSubprocessOutput)
 	stderr := newCappedBuffer(maxSubprocessOutput)
