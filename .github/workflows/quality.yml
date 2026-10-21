@@ -15,6 +15,10 @@ jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
+    env:
+      # 限制并发编译的包数：默认并行度下本仓的依赖树峰值内存贴着 runner 上限，
+      # 出现过子进程被资源限制杀掉、报错却像编译错误的情况（每次挂的包都不同）。
+      GOFLAGS: -p=2
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,11 +51,16 @@ jobs:
         run: |
           test -z "$(gofmt -l $(git ls-files '*.go'))"
 
-      # 架构门禁：执行 architecture-policy.yaml 的可执行面（判据来自底座
-      # agent-harness/archcheck）。domain 层不得依赖 infra、service 不得摸 ORM、
-      # handler 不得直连 postgres 实现——这些原本只是 AGENTS.md 里的散文。
-      - name: Architecture policy
-        run: go run github.com/yi-nology/agent-harness/cmd/archcheck --report
+
+      # 资源诊断：出问题时能直接看到 runner 的磁盘/内存余量，不必再猜。
+      # 这个 job 要编译整棵依赖树（eino/otel/grpc/云 SDK/testcontainers），
+      # 峰值资源本来就贴着 runner 上限——历史上出现过「刚写好的 vet.out 不存在」
+      # 的假失败，那是子进程被资源限制杀掉，不是编译错误。
+      - name: Resources
+        run: |
+          df -h / /tmp
+          free -m
+          go env GOCACHE GOMODCACHE
 
       - name: Vet
         run: go vet ./...
@@ -111,6 +120,29 @@ jobs:
       # 只跑 e2e 包，且不加 -short；此时机器由本 job 独占，峰值资源不被外层抢。
       - name: MCP end-to-end
         run: go test -v -timeout 600s ./internal/mcp/...
+
+  # 架构门禁独立成 job：它要编译 archcheck 工具并用 go/parser 扫全仓，
+  # 与 Backend job 的 vet+test 叠在同一台 runner 上会把峰值资源推高，
+  # 触发「刚写好的 $WORK/xxx/vet.out 不存在」这类假失败（子进程被资源
+  # 限制杀掉，报错却像编译错误）。独立 job 让它独占机器。
+  architecture:
+    name: Architecture
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # 架构门禁：执行 architecture-policy.yaml 的可执行面（判据来自底座
+      # agent-harness/archcheck）。domain 层不得依赖 infra、service 不得摸 ORM、
+      # handler 不得直连 postgres 实现——这些原本只是 AGENTS.md 里的散文。
+      - name: Architecture policy
+        run: go run github.com/yi-nology/agent-harness/cmd/archcheck --report
 
   frontend:
     name: Frontend
