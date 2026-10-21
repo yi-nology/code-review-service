@@ -44,7 +44,7 @@ func backgroundCtx() context.Context {
 	return ctx
 }
 
-// ResolveExtraBody 已在 reasoning.go 中定义并实现（阶段 A15 part 9 完整化）。
+// ResolveExtraBody 已在 reasoning.go 中定义并实现。
 
 // safeBackgroundFile 校验 OCR --background-file 路径是否安全（OCR v1.7.6+）。
 //

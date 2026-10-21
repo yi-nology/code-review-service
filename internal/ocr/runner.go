@@ -183,7 +183,7 @@ func (r *Runner) Scanner() domain.ScanRunner { return r }
 
 // Run 实现 domain.Runner。
 //
-// 阶段 A12 完整化：直接调 ocr 二进制，保留原 runner.OpenCodeReviewRunner 的所有行为：
+// 直接调 ocr 二进制，保留原 runner.OpenCodeReviewRunner 的所有行为：
 //   - 超时 + 重试（默认 1 次，配置可调）+ 指数退避
 //   - ctx cancel → SIGKILL 三段式
 //   - stderr 行级回调（用于 progress 解析）

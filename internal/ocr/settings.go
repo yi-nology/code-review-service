@@ -7,17 +7,16 @@ import (
 
 // Settings 是「读 OCR 配置」的唯一接口。
 //
-// 阶段 A 修复：原 5 个等价接口（ocr/settingsSource / runner/ocrSettingsSource /
+// 整合修复：原 5 个等价接口（ocr/settingsSource / runner/ocrSettingsSource /
 // llm/settingsSource / ocr/upgrader.settingsStore / runner/toolPackageSource）
 // 全部统一为这一个。
 //
 // 满足该接口的有：
-//   - repository.OCRSettingsRepository（包装后的 adapter）
+//   - *SettingsAdapter（包装 repository.OCRSettingsRepository）
 //   - *SettingsSnapshot（用于测试与 fallback）
-//   - ocr.Client 内部 sub-settings（如 GetOverrideByProject）
 type Settings interface {
 	// Get 返回当前 OCR 配置。ctx 用于取消与超时。
-	// settings 为 nil 表示「尚未配置」，client 应当 fallback 到 YAML 默认值。
+	// settings 为 nil 表示「尚未配置」，调用方应当 fallback 到 YAML 默认值。
 	Get(ctx context.Context) (*SettingsData, error)
 	// Save 持久化新的配置（Upgrader / OCRTester.TestLLMWithSettings 会用到）。
 	Save(ctx context.Context, settings *SettingsData) error
@@ -25,7 +24,7 @@ type Settings interface {
 
 // SettingsData 是合并前各层配置的统一结构。
 //
-// 阶段 A+1：把它从 models.OCRSettings 解耦，让 ocr 包不依赖 internal/repository/postgres。
+// 它从 models.OCRSettings 解耦，让 ocr 包不依赖 internal/repository/postgres。
 type SettingsData struct {
 	Binary       string
 	Audience     string
@@ -66,7 +65,7 @@ type SettingsData struct {
 	MaxOutputTokens int
 
 	// DefaultSeverity 是 OCRSettings.DefaultSeverity 字段的直传。
-	// 阶段 A+1：完整字段映射表（与 models.OCRSettings 一对一）。
+	// 完整字段映射表（与 models.OCRSettings 一对一）。
 	DefaultSeverity string
 
 	// GitHubMirror 是 OCR 资产的 GitHub 下载镜像地址（OCR v1.9.5+）。

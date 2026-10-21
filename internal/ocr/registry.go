@@ -9,9 +9,8 @@
 //
 // Registry 把所有能力收口为一个对象，handler / 模块通过 Registry 一次性拿到。
 //
-// 阶段 B（当前 PR）：Registry 是「薄壳」，实现仍由 runner/ocr/llm 三个老包提供。
-// 阶段 A（OCR_CORE_DESIGN.md 后续 PR）：registry 升级为 full Client，把三个老包吸收到
-// 单一的 internal/ocr 核心包。
+// 整合已完成：原先分散在 internal/service/{ocr,runner,llm} 的三个包已全部
+// 吸收到 internal/ocr 这个单一核心包，Registry 是它们对外的唯一聚合入口。
 package ocr
 
 import (
@@ -23,8 +22,8 @@ import (
 //
 // 设计原则：
 //   - Registry 不持有任何状态，所有能力都是 getter 转发到底层 manager
-//   - 构造完成后不可变；如需重载配置，调用 Refresh()（阶段 A 引入）
-//   - 零依赖：registry 本身只 import domain + runner/ocr/llm + repository，不引入新包
+//   - 构造完成后不可变；配置变更时调用 NotifyConfigChange 通知 Runner 重载
+//   - 零依赖：registry 本身只 import domain + repository，不引入新包
 type Registry struct {
 	repos *repository.RepoContainer
 
@@ -53,8 +52,7 @@ type Registry struct {
 // 仍保留 ocr.NewTester / ocr.NewVersioner 等老构造函数供模块按需 fx.Provide，
 // 但强烈推荐新代码直接拿 *Registry。
 //
-// 阶段 A15 part 3：fallback 参数类型改为 ocr.Config（替代 *runner.OpenCodeReviewRunner），
-// 消除对 internal/service/runner 包的直接依赖。
+// fallback 参数类型为 ocr.Config（不再依赖 internal/service/runner 包的类型）。
 func New(
 	repos *repository.RepoContainer,
 	fallback Config,
@@ -68,7 +66,7 @@ func New(
 	sessions domain.SessionLister,
 	llmProvider Provider,
 ) *Registry {
-	_ = fallback // 阶段 A15 part 4: 用 fallback 构造 default Runner
+	_ = fallback // 用 fallback 构造 default Runner（见 WithRunner）
 	return &Registry{
 		repos:       repos,
 		resolver:    resolver,
@@ -162,7 +160,7 @@ func (r *Registry) SessionLister() domain.SessionLister { return r.sessions }
 func (r *Registry) LLM() Provider { return r.llmProvider }
 
 // Resolver 返回 ConfigResolver。
-// 阶段 A+10：删除 modules.SetPackageResolver 过渡机制后，所有消费者通过此 getter 获取 resolver。
+// modules.SetPackageResolver 过渡机制已删除，所有消费者通过此 getter 获取 resolver。
 func (r *Registry) Resolver() *ConfigResolver { return r.resolver }
 
 // Settings 暴露 OCRSettingsRepository，方便 readiness / health 调用。

@@ -29,8 +29,6 @@ import (
 	_ "github.com/yi-nology/code-review-service/internal/observability/metrics"
 	"github.com/yi-nology/code-review-service/swagger"
 
-	// 阶段 A 移除"
-
 	"github.com/oekit/hertz/health"
 	"github.com/oekit/hertz/metrics"
 	emetrics "github.com/oekit/metrics"

@@ -95,7 +95,7 @@ func NewProviderLister(settings Settings, resolver *ConfigResolver) *ProviderLis
 
 // ListLLMProviders 实现 domain.LLMProviderLister。
 func (l *ProviderLister) ListLLMProviders(_ context.Context) ([]domain.LLMProvider, error) {
-	// 阶段 A 占位：从 presets 列出；阶段 A+5 接 internal.Run "ocr llm providers" 命令
+	// 占位：从 presets 列出；后续接 internal.Run "ocr llm providers" 命令
 	return []domain.LLMProvider{
 		{Name: "openai", Protocol: "openai"},
 		{Name: "anthropic", Protocol: "anthropic"},
@@ -638,6 +638,6 @@ func adaptSettings(data *SettingsData) *ocrsettings.Settings {
 	if data == nil {
 		return nil
 	}
-	// 阶段 A 占位：仅填充 Binary 字段，其他字段由 legacy runner 自己解析 settings
+	// 占位：仅填充 Binary 字段，其他字段由 runner 自行解析 settings
 	return &ocrsettings.Settings{Binary: data.Binary}
 }

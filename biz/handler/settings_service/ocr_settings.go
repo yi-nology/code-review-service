@@ -56,7 +56,7 @@ func (h *SettingsHandler) updateOCRSettings(ctx context.Context, c *app.RequestC
 	if dbSettings.Enabled {
 		if tester, ok := h.ocr.Tester().(*ocrcore.Tester); ok {
 			testCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-			// 阶段 A15 part 6：TestLLMWithSettings 现需 ocr.SettingsData 参数；
+			// TestLLMWithSettings 现需 ocr.SettingsData 参数；
 			// 完整的 models.OCRSettings -> SettingsData 映射在 ocr.SettingsAdapter 中。
 			// 当前只调用简单 LLM 连通测试，不预检特定配置。
 			result, err := tester.TestLLM(testCtx)

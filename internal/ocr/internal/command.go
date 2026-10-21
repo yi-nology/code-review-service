@@ -1,8 +1,8 @@
 // Package internal 提供 Runner 的 exec 公共原语。
 //
-// 阶段 A+3 设计：原 runner/internal/Run + ocr/command.runOCRCommand 合并到此处。
-//
-// 阶段 A2（当前）：保留 Run 作为 fallback，跨包类型通过 Config 适配。
+// 本包是 OCR 子进程调用的唯一入口：原 runner/internal/Run 与
+// ocr/command.runOCRCommand 已合并到此处，Run 作为跨包统一入口，
+// 类型通过 Config 适配。
 package internal
 
 import (
@@ -51,8 +51,8 @@ type CommandResult struct {
 //   - cmd.Wait() 与 stderr scanner 串行化（避免 use of closed pipe）
 //   - 返回的 error 含 redact.String 脱敏
 //
-// 此函数是阶段 A 后所有 OCR 子进程调用的唯一入口，
-// 取代 runner/internal.Run + ocr/command.runOCRCommand。
+// 此函数是所有 OCR 子进程调用的唯一入口，
+// 取代原 runner/internal.Run + ocr/command.runOCRCommand。
 func Run(ctx context.Context, spec CommandSpec) (*CommandResult, error) {
 	if spec.Binary == "" {
 		return nil, errors.New("internal.Run: Binary is required")
@@ -178,5 +178,5 @@ func (b *lockedBuffer) Bytes() []byte {
 	return out
 }
 
-// ensureUnreachableWorkspace 占位：阶段 A+3 完整化时把 exec 路径直接接到 Runner.Run。
+// ensureUnreachableWorkspace 占位：exec 路径本可直接接到 Runner.Run。
 var _ = domain.Workspace{}

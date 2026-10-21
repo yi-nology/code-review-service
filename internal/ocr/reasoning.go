@@ -48,7 +48,7 @@ var providerFormatMap = map[string]providerFormat{
 }
 
 // ResolveExtraBody 根据 reasoningMode + customBudget + provider 解析最终的 extra_body JSON。
-// 阶段 A15 part 9 完整化：吸收 runner.ResolveExtraBody。
+// 吸收 runner.ResolveExtraBody。
 func ResolveExtraBody(extraBody, reasoningMode string, customBudget int, provider string) string {
 	// 1. 显式 extra_body 最高优先
 	if trimmed := strings.TrimSpace(extraBody); trimmed != "" && trimmed != "null" {

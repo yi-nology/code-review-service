@@ -18,15 +18,15 @@ type Factory struct {
 }
 
 // NewFactory 构造 Factory。
-// 阶段 A：仍委托给 Runner（薄壳 wrapper）。
+// 委托给 Runner（薄壳 wrapper）。
 func NewFactory(cfg Config, runner *Runner) *Factory {
 	return &Factory{baseConfig: cfg, runner: runner}
 }
 
 // CreateRunner 按 persona background + rule content 构造独立 runner。
 //
-// 阶段 A：实现与原 agent.OCRRunnerFactory 等价；
-// 阶段 A+3 把 ruleContent 写盘逻辑搬入内部 helper。
+// 实现与原 agent.OCRRunnerFactory 等价；
+// ruleContent 写盘逻辑已搬入内部 helper。
 func (f *Factory) CreateRunner(background, ruleContent string) *Runner {
 	cfg := f.baseConfig
 	cfg.Background = background

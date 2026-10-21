@@ -12,7 +12,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/ocr"
 )
 
-// OCRRunnerFactory 阶段 A15 part 5：完全迁入 ocr 包。
+// OCRRunnerFactory 已完全迁入 ocr 包。
 // 原 agent.OCRRunnerFactory 的 baseConfig 类型从 runner.OpenCodeReviewConfig
 // 改为 ocr.Config。
 //

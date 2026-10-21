@@ -512,7 +512,7 @@ func dryRunToolConfig(ctx context.Context, raw json.RawMessage) (string, error) 
 	return strings.TrimSpace(output), nil
 }
 
-// runDryRunCommand 阶段 A9 改为通过 ocr.Run 统一 exec 入口。
+// runDryRunCommand 通过 ocr.Run 统一 exec 入口。
 // 取代直接 exec.CommandContext 硬编码 + 自管 SIGKILL 三段式。
 func runDryRunCommand(parent context.Context, dir, name string, args ...string) (string, error) {
 	res, err := ocr.InternalRun(parent, ocr.CommandSpec{

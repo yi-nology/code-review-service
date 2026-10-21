@@ -67,14 +67,14 @@
 
 把「open-code-review 能力」收口为单一入口 `internal/ocr` 核心包：
 
-| 目标 | 衡量 |
-|---|---|
-| 单包拥有所有 OCR 子能力 | `internal/ocr` 0 依赖循环，所有 getter 可独立测试 |
-| 消除 4 处 exec 重复 | `runner` / `ocr` / `biz/handler` 三处都调 `ocr.Run` |
-| 消除 5 个等价 settingsSource | 1 个 `ocr.Settings` 接口 |
-| 消除 7 个 manager 重复 read | 由 `ocr.Client.Config()` 统一读 + 缓存 |
-| handler 参数从 14 降到 2 | 阶段 B 立即见效，阶段 A 最终收敛 |
-| 启动期 fx Provide 从 12 降到 1 | `fx.Provide(ocr.New)` 单点 |
+| 目标 | 衡量 | 落地结果 |
+|---|---|---|
+| 单包拥有所有 OCR 子能力 | `internal/ocr` 0 依赖循环，所有 getter 可独立测试 | ✅ |
+| 消除 4 处 exec 重复 | `runner` / `ocr` / `biz/handler` 三处都调 `ocr.Run` | ✅ |
+| 消除 5 个等价 settingsSource | 1 个 `ocr.Settings` 接口 | ✅ |
+| 消除 7 个 manager 重复 read | 统一经 `ConfigResolver` 解析 + `SettingsSnapshot` 缓存 | ✅ |
+| handler 参数从 14 降到 2 | 分两步收敛：先合并 handler 字段，再统一到 `Registry` | ✅ 经 `Registry` 聚合 |
+| 启动期 fx Provide 从 12 降到 1 | `fx.Provide(ocr.New)` 单点 | ✅ `fx.Provide(NewOCRRegistry)` |
 
 ## 3. 架构
 

@@ -66,7 +66,7 @@ func NewOCRRegistry(
 	).WithRunner(ocrRunner, ocrRunner, ocrRunner)
 }
 
-// NewConfigResolver 阶段 A15 part 6：fallback 改用 ocr.Fallback。
+// NewConfigResolver：fallback 用 ocr.Fallback。
 func NewConfigResolver(repos *repository.RepoContainer) *ocrcore.ConfigResolver {
 	fallback := ocrcore.Fallback{
 		Binary:          "ocr",

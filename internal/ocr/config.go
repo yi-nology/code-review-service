@@ -7,7 +7,6 @@ const DefaultSeverity = "major"
 
 // Config 是 open-code-review 的运行时配置。
 //
-// 阶段 A 设计：
 //   - Config 由 settings (DB) + overrides (请求/项目策略) + fallback (YAML) 三层合并而来
 //   - BuildConfig 是合并的单一实现（吸收 runner.BuildConfig + ocr.ConfigResolver）
 //   - Validate 校验合并后的配置完整性
@@ -119,9 +118,8 @@ func (c Config) Validate() error {
 //  3. fallback  — YAML 文件兜底
 //  4. 内置默认值（audience="agent"：服务端调用方始终是程序）
 //
-// 阶段 A：本函数是原 runner.BuildConfig 的对等实现（保持行为一致）。
-// 阶段 A+1：把 settings/fallback 类型从 models.OCRSettings + OpenCodeReviewConfig
-// 改为本包定义的 SettingsSource 接口（消除 5 个等价接口）。
+// 本函数是原 runner.BuildConfig 的对等实现（保持行为一致）。
+// settings/fallback 类型用本包定义的 SettingsSource 接口（消除 5 个等价接口）。
 func BuildConfig(settings *SettingsData, overrides OCROverrides, fallback Fallback, tools ToolSettings) Config {
 	cfg := Config{
 		Binary:          firstNonBlank(settings.Binary, fallback.Binary),
@@ -249,5 +247,5 @@ func (c Config) AppendEnv(env []string) []string {
 	return env
 }
 
-// 阶段 A+1：将 modelOrEmpty / languageOrEmpty 等 helper 改为 settings.* 方法，
+// modelOrEmpty / languageOrEmpty 等 helper 已改为 settings.* 方法，
 // 取代外部类型 OCROverrides 的扩展。

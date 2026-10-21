@@ -28,15 +28,14 @@ func resolveBinaryFrom(s *ocrsettings.Settings, fallback Fallback) string {
 
 // Tester 是 LLM 连通性测试器（吸收 ocr/tester.go）。
 //
-// 阶段 A：薄壳，调用 internal.Run 调 ocr llm test 子命令。
-// 实际执行仍委托给 legacy runner.OpenCodeReviewRunner。
+// 薄壳实现：调用 internal.Run 调 ocr llm test 子命令。
 type Tester struct {
 	settings Settings
 	resolver *ConfigResolver
 }
 
 // ConfigResolver 是合并多来源 OCR 配置的解析器（吸收 ocr.ConfigResolver）。
-// 阶段 A：仍是薄壳，调用 BuildConfig。
+// 薄壳实现：调用 BuildConfig。
 type ConfigResolver struct {
 	settings Settings
 	fallback Fallback
@@ -158,9 +157,9 @@ func formatLLMTestSuccess(stdout string) string {
 
 // SettingsData 上 enabled 判定（private helper，外部用 Enabled 字段更清晰）。
 func (s *SettingsData) enabled() bool {
-	// 阶段 A 占位：settings 没有 Enabled 字段；调用方应在 Save 前强制 enable
+	// 占位：settings 没有 Enabled 字段；调用方应在 Save 前强制 enable
 	return true
 }
 
-// logNoop 占位（让 logx 在 OCR 模块里仍能引用；阶段 A+3 删除）。
+// logNoop 占位（让 logx 在 OCR 模块里仍能引用）。
 var _ = logx.Infof

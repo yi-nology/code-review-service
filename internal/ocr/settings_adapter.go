@@ -14,7 +14,7 @@ type OCRSettingsGetter interface {
 
 // SettingsAdapter 把 repository.OCRSettingsRepository 适配成 ocr.Settings 接口。
 //
-// 阶段 A15：让 ocr 侧的 Provider / Tester / Versioner 等代码能直接接 DB settings。
+// 让 ocr 侧的 Provider / Tester / Versioner 等代码能直接接 DB settings。
 type SettingsAdapter struct {
 	repo OCRSettingsGetter
 }
@@ -38,8 +38,8 @@ func (a *SettingsAdapter) Get(ctx context.Context) (*SettingsData, error) {
 
 // Save 实现 ocr.Settings 接口（Upgrader.Save 用）。
 func (a *SettingsAdapter) Save(_ context.Context, _ *SettingsData) error {
-	// 阶段 A15 占位：upgrader.Save 需要写入 DB；当前没有实现，
-	// 阶段 A15 末尾从 internal/service/ocr/upgrader.go 迁移时实现。
+	// 占位：upgrader.Save 需要写入 DB；当前没有实现，
+	// 待从 internal/service/ocr/upgrader.go 迁移时实现。
 	return nil
 }
 

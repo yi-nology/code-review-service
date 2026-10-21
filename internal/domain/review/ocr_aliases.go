@@ -4,7 +4,7 @@ import "context"
 
 // 本文件定义 OCR 管理接口。
 //
-// 阶段 A+10：从 type alias 升级为正式接口定义。
+// 这些是正式接口定义（原为 type alias）。
 // ocr 包的 manager（Tester / Versioner / Lister / Checker / Viewer / Upgrader）
 // 实现这些接口。
 

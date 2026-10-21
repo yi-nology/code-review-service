@@ -160,7 +160,7 @@ func IsPermanent(err error) bool {
 	return IsPermanentError(err)
 }
 
-// Runner 是 open-code-review 子进程调用入口（阶段 A12 完整化）。
+// Runner 是 open-code-review 子进程调用入口。
 //
 // 实现了 domain.Runner / domain.PreviewRunner / domain.ScanRunner 三接口。
 //
@@ -169,7 +169,7 @@ func IsPermanent(err error) bool {
 //   - Preview: 调 "ocr scan --preview ..." 子进程
 //   - Scan: 调 "ocr scan ..." 子进程，支持 batch / paths / exclude
 //
-// 阶段 A12：完整吸收 runner/runner.go + runner/preview.go + runner/scan.go 业务逻辑。
+// 完整吸收 runner/runner.go + runner/preview.go + runner/scan.go 业务逻辑。
 // runnerRefreshInterval 是后台刷新 baseCfg 的间隔。
 // OCR 设置变更频率极低（人工操作），30s 足够；PUT handler 会通过 NotifyRefresh 立即触发。
 const runnerRefreshInterval = 30 * time.Second

@@ -8,7 +8,7 @@ import (
 )
 
 // Public aliases to internal/ocr/internal（让 ocr.Run / ocr.CommandSpec 等可被外部使用）。
-// 阶段 A+3 完整化：把这些函数迁移到 ocr 包顶层，去掉 internal/ 子包。
+// 这些函数已迁移到 ocr 包顶层，不再留在 internal/ 子包。
 
 // CommandSpec 描述一次外部命令调用。
 type CommandSpec = ocrinternal.CommandSpec
