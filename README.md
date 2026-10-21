@@ -72,9 +72,33 @@ Review Service is a code review gateway that integrates with GitHub, GitLab, Git
 
 ### Prerequisites
 
-- Go 1.26+
+- Go 1.27+
 - PostgreSQL 14+
 - Open Code Review binary (for AI-powered reviews)
+
+### Prebuilt binaries
+
+Every release ships statically linked Linux binaries — no Go toolchain needed on
+the target machine (glibc-free, so they also run on Alpine):
+
+| Asset | Architecture |
+|---|---|
+| `review-service-linux-amd64` | x86-64 |
+| `review-service-linux-arm64` | aarch64 |
+| `mcp-server-linux-amd64` | x86-64 (MCP endpoint) |
+| `mcp-server-linux-arm64` | aarch64 (MCP endpoint) |
+
+Download them from the [Releases page](https://github.com/yi-nology/code-review-service/releases)
+together with `SHA256SUMS` for verification:
+
+```sh
+sha256sum -c SHA256SUMS
+./review-service-linux-amd64 --env prod
+```
+
+The `Build Binaries` workflow rebuilds them on every push and attaches them to
+the matching release when a `v*` tag is pushed. To build them locally with the
+same parameters, run `make build-linux`.
 
 ### Database setup
 
@@ -309,9 +333,32 @@ Review Service 是一个代码评审网关，支持 GitHub、GitLab、Gitea、Gi
 
 ### 环境要求
 
-- Go 1.26+
+- Go 1.27+
 - PostgreSQL 14+
 - Open Code Review 二进制文件（用于 AI 评审）
+
+### 预编译二进制
+
+每个 Release 都附带**静态链接**的 Linux 二进制——目标机器不需要装 Go 工具链
+（无 glibc 依赖，Alpine 上也能直接跑）：
+
+| 资产 | 架构 |
+|---|---|
+| `review-service-linux-amd64` | x86-64 |
+| `review-service-linux-arm64` | aarch64 |
+| `mcp-server-linux-amd64` | x86-64（MCP 端点） |
+| `mcp-server-linux-arm64` | aarch64（MCP 端点） |
+
+从 [Releases 页面](https://github.com/yi-nology/code-review-service/releases) 下载，
+同时提供 `SHA256SUMS` 供校验：
+
+```sh
+sha256sum -c SHA256SUMS
+./review-service-linux-amd64 --env prod
+```
+
+`Build Binaries` 工作流会在每次推送时重新构建，推 `v*` tag 时自动把二进制挂到
+对应 Release。本地用 `make build-linux` 能以相同参数复现。
 
 ### 数据库初始化
 
