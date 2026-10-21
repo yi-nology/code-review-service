@@ -13,7 +13,7 @@ This working copy is the **internal** mirror:
   215 environment from the internal registry `harbor.enjoye.top`).
 
 The **public** repository is <https://github.com/yi-nology/code-review-service>
-(Apache-2.0, published 2026-10-21 as v0.1.0), with module path
+(Apache-2.0, published 2026-10-21; latest release v0.2.0), with module path
 `github.com/yi-nology/code-review-service`. Its history was rewritten with
 `git filter-repo` to drop the internal domain and one leaked LLM token; the
 internal GitLab keeps the original history.
