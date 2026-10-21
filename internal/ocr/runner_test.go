@@ -450,3 +450,91 @@ func TestRunner_NoResumeUsesHeadSHA(t *testing.T) {
 		t.Errorf("expected --to followed by synthetic-def (HeadSHA) in non-resume path, got:\n%s", string(argv))
 	}
 }
+
+// TestRunner_DirectRun_AttemptCounts 钉住「重试次数」这一语义。
+//
+// 既有用例只校验 marker 文件**存在**（存在 ≠ 只跑了一次），证明不了
+// 「不可重试的失败不会重试」。这里用计数器文件记录**实际执行次数**：
+//
+//   - 永久失败（DNS 特征）配 MaxRetries=3 → 只应执行 1 次；
+//   - 瞬时失败配 MaxRetries=2 → 应执行 2 次（第 2 次成功）。
+//
+// 这条用例正是重试实现换成 oekit/concurrency/retry 之后要守住的边界：
+// 「可重试与否」的判定必须仍由 harness/toolfail 的策略表说了算。
+func TestRunner_DirectRun_AttemptCounts(t *testing.T) {
+	t.Run("permanent failure runs once", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		counter := filepath.Join(tmpDir, "runs")
+		scriptPath := filepath.Join(tmpDir, "fake-ocr")
+		script := `#!/bin/sh
+echo x >> "` + counter + `"
+echo "dial tcp: lookup api.example.com: no such host" 1>&2
+exit 1
+`
+		if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		cfg := Defaults().ToConfig()
+		cfg.Binary = scriptPath
+		cfg.MaxRetries = 3
+		r := NewRunner(cfg)
+
+		if _, err := r.Run(context.Background(), domain.Workspace{Dir: tmpDir}); err == nil {
+			t.Fatalf("expected err for permanent failure")
+		}
+		if got := countLines(t, counter); got != 1 {
+			t.Errorf("permanent failure executed %d times, want 1 (permanent failures must not retry)", got)
+		}
+	})
+
+	t.Run("transient failure retries up to limit", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		counter := filepath.Join(tmpDir, "runs")
+		scriptPath := filepath.Join(tmpDir, "fake-ocr")
+		// 前两次失败（瞬时特征），第三次成功。
+		script := `#!/bin/sh
+echo x >> "` + counter + `"
+n=$(wc -l < "` + counter + `")
+if [ "$n" -lt 3 ]; then
+  echo "upstream overloaded, retry later" 1>&2
+  exit 1
+fi
+cat <<'JSON'
+{"status":"success","summary":{"files_reviewed":1,"comments":0},"comments":[]}
+JSON
+`
+		if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		cfg := Defaults().ToConfig()
+		cfg.Binary = scriptPath
+		cfg.MaxRetries = 2 // 最多 3 次尝试
+		r := NewRunner(cfg)
+
+		result, err := r.Run(context.Background(), domain.Workspace{Dir: tmpDir})
+		if err != nil {
+			t.Fatalf("expected retry to succeed, got err: %v", err)
+		}
+		if result.OCR.Status != "success" {
+			t.Errorf("expected status=success after retry, got %q", result.OCR.Status)
+		}
+		if got := countLines(t, counter); got != 3 {
+			t.Errorf("transient failure executed %d times, want 3 (initial + 2 retries)", got)
+		}
+	})
+}
+
+// countLines 统计文件行数（文件不存在返回 0）。
+func countLines(t *testing.T, path string) int {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0
+		}
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return strings.Count(strings.TrimSpace(string(data)), "\n") + 1
+}

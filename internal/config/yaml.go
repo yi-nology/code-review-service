@@ -2,7 +2,6 @@ package config
 
 import (
 	"github.com/oekit/registry/nacos"
-	"github.com/oekit/tracing"
 	"github.com/yi-nology/code-review-service/internal/domain/notification"
 )
 
@@ -16,7 +15,7 @@ type Config struct {
 	Auth            AuthConfig         `yaml:"auth"`
 	Database        DatabaseConfig     `yaml:"database"`
 	Nacos           nacos.Bootstrap    `yaml:"nacos"`
-	Tracing         tracing.Config     `yaml:"tracing"`
+	Tracing         TracingConfig      `yaml:"tracing"`
 	Review          ReviewConfig       `yaml:"review"`
 	Agents          AgentsConfig       `yaml:"agents"`
 	RateLimit       RateLimitConfig    `yaml:"rate_limit"`
@@ -25,6 +24,32 @@ type Config struct {
 	Notification    NotificationConfig `yaml:"notification"`
 	Cost            CostConfig         `yaml:"cost"`
 	Memory          MemoryConfig       `yaml:"memory"`
+}
+
+// TracingConfig 链路追踪配置（上游 tracing.Config 的本地镜像）。
+//
+// 为什么不直接用 tracing.Config：上游该结构体**没有任何 yaml tag**，
+// yaml.v3 的默认键名是「字段名整体小写」——`SampleRate` 的键是 `samplerate`，
+// 不是常规的 `sample_rate`。于是配置里按惯例写的 `sample_rate` 永远匹配不上，
+// 且因「未知键被静默忽略」而**无声失效**：prod 配的 `sample_rate: 0.1`
+// 从未生效，实际跑的是 100% 采样。`service_name` 同理——它决定 OTel
+// resource 的 service.name，不配就一直是空。
+//
+// 这里给一层带 tag 的镜像，把键名钉成常规 snake_case；
+// 到上游结构的转换见 GetTracingConfig。
+type TracingConfig struct {
+	// ServiceName 写入 OTel resource 的 service.name。
+	ServiceName string `yaml:"service_name"`
+	// Endpoint OTLP 端点（grpc: host:port；http: 完整 URL 或基址）。
+	Endpoint string `yaml:"endpoint"`
+	// Insecure 跳过 TLS（本地开发用 true）。
+	Insecure bool `yaml:"insecure"`
+	// SampleRate 采样率 0.0~1.0；<=0 沿用上游语义（全量采样）。
+	SampleRate float64 `yaml:"sample_rate"`
+	// Protocol 导出协议：grpc（缺省）/ http。
+	Protocol string `yaml:"protocol"`
+	// Headers 随导出请求带上的附加头（认证等）。
+	Headers map[string]string `yaml:"headers"`
 }
 
 // MemoryConfig 是跨会话长期记忆的配置（底座 agent-memory）。

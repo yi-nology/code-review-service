@@ -84,7 +84,11 @@ func main() {
 	}
 
 	config.SetCurrentEnv(*env)
-	cfg := config.LoadWithEnv(*env)
+	cfg, err := config.LoadWithEnv(*env)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "config load failed: %v\n", err)
+		os.Exit(1)
+	}
 	if err := cfg.Validate(config.CurrentEnv()); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)

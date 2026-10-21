@@ -65,3 +65,6 @@ data/*.json
 
 # ZCode/本地工具状态
 .v2c/
+
+# 宣传片成片不进仓库（渲染产物，见 docs/promo-video/）
+*.mp4

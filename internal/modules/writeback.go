@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/yi-nology/code-review-service/internal/service/gerrit"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 	"github.com/yi-nology/code-review-service/internal/service/writeback"
 
@@ -19,7 +20,7 @@ var WritebackModule = fx.Options(
 func NewWritebackOrchestrator(
 	gitProviderSvc *gitProvider.GitProviderService,
 	repos *repository.RepoContainer,
-	gerritContainer *GerritClientContainer,
+	gerritHolder *gerrit.ClientHolder,
 ) *writeback.Orchestrator {
 	// 从 DB 加载策略配置，使用内置默认值兜底。
 	maxComments := 20
@@ -62,10 +63,12 @@ func NewWritebackOrchestrator(
 	}
 
 	// Gerrit 走独立的 go-gerrit 客户端，不经过 SDK。
-	if gerritClient := gerritContainer.Get(); gerritClient != nil {
-		adapters["gerrit"] = writeback.NewGerritAdapter(gerritClient)
-		logx.Info("gerrit writeback adapter registered")
-	}
+	//
+	// 适配器无条件注册：它按需从 holder 取当前客户端。这样「启动时还没配
+	// Gerrit、后来在 web console 补上」也能立刻生效——若在装配期因为没有
+	// 客户端就跳过注册，改完配置仍要重启进程才认。
+	adapters["gerrit"] = writeback.NewGerritAdapter(gerritHolder.Get)
+	logx.Info("gerrit writeback adapter registered")
 
 	return writeback.NewOrchestrator(writeback.OrchestratorConfig{
 		Adapters:    adapters,

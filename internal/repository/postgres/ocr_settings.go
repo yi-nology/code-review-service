@@ -4,13 +4,12 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	"github.com/yi-nology/code-review-service/internal/repository/postgres/models"
 
-	"github.com/oekit/concurrency/singleflight"
+	"github.com/oekit/pkg/cache"
 
 	gormLib "gorm.io/gorm"
 )
@@ -19,6 +18,15 @@ import (
 // 取 30s：覆盖 LLM 30s 周期探活（probe 每次调 2 次 Get），让 probe 完全走 cache。
 // Save 会立即 invalidate，所以用户在 Web UI 改 settings 后立刻看到效果。
 const ocrSettingsCacheTTL = 30 * time.Second
+
+// ocrSettingsCacheKey 是 OCR settings 缓存的固定 key（全局只有这一份设置）。
+const ocrSettingsCacheKey = "ocr_settings"
+
+// ocrSettingsCacheNow 是缓存 TTL 判定用的时钟（缺省 time.Now）。
+//
+// 测试注入假时钟即可**确定性**地驱动过期窗口，无需 sleep（oekit/pkg/cache
+// 的 LocalConfig.Now 同款口径：假时钟驱动过期/空值窗口，无 sleep 无 flake）。
+var ocrSettingsCacheNow func() time.Time
 
 type OCRSettingsDefaults struct {
 	Enabled         bool
@@ -31,14 +39,22 @@ type OCRSettingsRepo struct {
 	db       *gormLib.DB
 	defaults OCRSettingsDefaults
 
-	// flight 防止 cache miss 时多个 caller 同时涌入 DB（dogpile / thundering herd）。
-	// 同一时刻只允许一个 goroutine 走「DB 读 + 写 cache」路径，其他等待共享结果。
-	flight singleflight.Flight[*ocrsettings.Settings]
-	mu     sync.RWMutex
-	cached *ocrsettings.Settings
-	// cachedAt 是最近一次「成功读 DB 并写入 cache」的时间，用于 30s 过期判断。
-	// 注意：cache hit 路径不更新此值，确保 cache miss 严格每 30s 一次（不计单进程内多次 hit）。
-	cachedAt time.Time
+	// settingsCache 是 OCR settings 的本地缓存（Cache-Aside）。
+	//
+	// 此前是手搓的「RWMutex + cached + cachedAt + singleflight」四件套：
+	// TTL 判定、拷贝语义、并发回源合并各写一份，边界（命中是否续期、
+	// 错误是否入缓存、并发 miss 是否只查一次库）全靠注释维持。
+	//
+	// 现在用 oekit/pkg/cache：LocalCache 提供 TTL/读命中拷贝（CloneOnRead），
+	// 外层 SingleFlightCache 装饰器提供并发回源合并（同一 key 只回源一次）。
+	// 语义与旧实现逐条对齐：
+	//   - TTL 从**写入**时起算，读命中不续期（探活每 30s 才回源一次）；
+	//   - 回源失败不写缓存，错误原样上抛；
+	//   - 无记录时回源返回默认值（与旧实现一致，同样入缓存）。
+	//
+	// cacheInner 单独持有是为了拿到 Close（Cache 接口面上没有这个方法）。
+	cache      *cache.SingleFlightCache[ocrsettings.Settings]
+	cacheInner *cache.LocalCache[ocrsettings.Settings]
 }
 
 func NewOCRSettingsRepo(db *gormLib.DB, defaults ...OCRSettingsDefaults) *OCRSettingsRepo {
@@ -46,63 +62,62 @@ func NewOCRSettingsRepo(db *gormLib.DB, defaults ...OCRSettingsDefaults) *OCRSet
 	if len(defaults) > 0 {
 		repo.defaults = defaults[0]
 	}
+	now := ocrSettingsCacheNow
+	if now == nil {
+		now = time.Now
+	}
+	repo.cacheInner = cache.NewLocalCache(cache.LocalConfig[ocrsettings.Settings]{
+		TTL: ocrSettingsCacheTTL,
+		Now: now,
+		// 单键缓存：过期条目由读路径惰性删除即可，不必为它常驻一个
+		// 后台清扫协程（也就不必给仓储容器加 Close 生命周期钩子）。
+		NoBackgroundSweep: true,
+		// 读命中返回副本：调用方改写返回值不会污染缓存里那份
+		// （旧实现是手工拷贝一份再返回）。
+		CloneOnRead: func(s *ocrsettings.Settings) *ocrsettings.Settings {
+			if s == nil {
+				return nil
+			}
+			cp := *s
+			return &cp
+		},
+		Source: repo.loadSettings,
+	})
+	repo.cache = cache.NewSingleFlightCache(repo.cacheInner)
 	return repo
 }
 
+// Get 读取 OCR settings（带 30s 本地缓存）。
 func (r *OCRSettingsRepo) Get(ctx context.Context) (*ocrsettings.Settings, error) {
-	// 快路径：30s 内 cache hit（只读锁，无竞争开销）。
-	r.mu.RLock()
-	if r.cached != nil && time.Since(r.cachedAt) < ocrSettingsCacheTTL {
-		out := *r.cached
-		r.mu.RUnlock()
-		return &out, nil
+	return r.cache.GetOrLoad(ctx, ocrSettingsCacheKey)
+}
+
+// loadSettings 是缓存的回源函数：读 DB 最新一条；无记录则回默认值。
+func (r *OCRSettingsRepo) loadSettings(ctx context.Context, _ string) (*ocrsettings.Settings, error) {
+	var settings models.OCRSettings
+	err := r.db.WithContext(ctx).
+		Order("id DESC").
+		First(&settings).Error
+	if err != nil {
+		if errors.Is(err, gormLib.ErrRecordNotFound) {
+			return r.defaultSettings(), nil
+		}
+		return nil, err
 	}
-	r.mu.RUnlock()
-
-	// cache miss：所有并发 caller 收敛到 singleflight，同一时刻只 1 个真正查 DB。
-	return r.flight.Do(ctx, "ocr_settings", func(ctx context.Context) (*ocrsettings.Settings, error) {
-		// 二次检查：进入 flight 后可能上一个 caller 刚写好 cache。
-		r.mu.RLock()
-		if r.cached != nil && time.Since(r.cachedAt) < ocrSettingsCacheTTL {
-			out := *r.cached
-			r.mu.RUnlock()
-			return &out, nil
-		}
-		r.mu.RUnlock()
-
-		var settings models.OCRSettings
-		err := r.db.WithContext(ctx).
-			Order("id DESC").
-			First(&settings).Error
-		if err != nil {
-			if errors.Is(err, gormLib.ErrRecordNotFound) {
-				def := r.defaultSettings()
-				r.setCache(def)
-				return def, nil
-			}
-			return nil, err
-		}
-		d := ocrSettingsToDomain(settings)
-		r.setCache(&d)
-		return &d, nil
-	})
+	d := ocrSettingsToDomain(settings)
+	return &d, nil
 }
 
-// setCache 写入缓存（拷贝值，外部修改不会影响 cache）。
-func (r *OCRSettingsRepo) setCache(s *ocrsettings.Settings) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	cp := *s
-	r.cached = &cp
-	r.cachedAt = time.Now()
-}
-
-// invalidateCache 清缓存。Save 后调用，让 web UI 改动立即生效。
-func (r *OCRSettingsRepo) invalidateCache() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.cached = nil
-	r.cachedAt = time.Time{}
+// Close 释放缓存资源（幂等）。
+//
+// 当前实现用 NoBackgroundSweep（不起后台清扫协程），故无协程可停；
+// 保留该方法是为了与 LocalCache 的资源契约对齐，也方便将来打开后台清扫
+// 时无需改调用方。
+func (r *OCRSettingsRepo) Close(ctx context.Context) error {
+	if r.cacheInner == nil {
+		return nil
+	}
+	return r.cacheInner.Close(ctx)
 }
 
 func (r *OCRSettingsRepo) defaultSettings() *ocrsettings.Settings {
@@ -140,7 +155,10 @@ func (r *OCRSettingsRepo) Save(ctx context.Context, settings *ocrsettings.Settin
 		return tx.Save(&m).Error
 	})
 	if err == nil {
-		r.invalidateCache()
+		// 清缓存：让 web UI 的改动立即生效（不等 30s TTL 自然过期）。
+		if delErr := r.cache.Del(ctx, ocrSettingsCacheKey); delErr != nil {
+			return delErr
+		}
 	}
 	return err
 }

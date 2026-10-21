@@ -158,7 +158,6 @@ func TestValidateRepoPathRejectsTraversal(t *testing.T) {
 		{name: "owner 为 ..", owner: "..", repo: "app"},
 		{name: "repo 为 ..", owner: "acme", repo: ".."},
 		{name: "owner 为 .", owner: ".", repo: "app"},
-		{name: "owner 含斜杠", owner: "a/b", repo: "app"},
 		{name: "repo 含斜杠", owner: "acme", repo: "a/b"},
 		{name: "owner 含问号", owner: "acme?", repo: "app"},
 		{name: "repo 含井号", owner: "acme", repo: "app#x"},
@@ -169,6 +168,16 @@ func TestValidateRepoPathRejectsTraversal(t *testing.T) {
 		{name: "owner 含空格", owner: "acme org", repo: "app"},
 		{name: "repo 含反斜杠", owner: "acme", repo: `app\x`},
 		{name: "repo 含控制字符", owner: "acme", repo: "app\n"},
+		// 嵌套 group 是合法的（GitLab 常态），但**多段形态**仍要逐段判：
+		{name: "嵌套 group 含穿越段", owner: "obs/../etc", repo: "app"},
+		{name: "嵌套 group 含当前目录段", owner: "obs/./doc", repo: "app"},
+		{name: "嵌套 group 含空段", owner: "obs//doc", repo: "app"},
+		{name: "嵌套 group 以斜杠开头", owner: "/group/subgroup", repo: "app"},
+		{name: "嵌套 group 末段为空", owner: "group/subgroup/", repo: "app"},
+		{name: "嵌套 group 含 at", owner: "obs/@evil.com", repo: "app"},
+		{name: "嵌套 group 含问号", owner: "obs/do?c", repo: "app"},
+		{name: "嵌套 group 含井号", owner: "obs/do#c", repo: "app"},
+		{name: "嵌套 group 含百分号", owner: "obs%2fdoc", repo: "app"},
 	}
 
 	for _, tc := range cases {
@@ -181,6 +190,10 @@ func TestValidateRepoPathRejectsTraversal(t *testing.T) {
 }
 
 // TestValidateRepoPathAcceptsLegitimate 合法路径必须放行。
+//
+// 含 **嵌套 group**（owner 多段）：GitLab 的常态
+// （"group/subgroup/project" → owner="group/subgroup"）。这条不是理论场景——
+// 现网曾因把整个 owner 当单段校验，把这类仓库全部误杀。
 func TestValidateRepoPathAcceptsLegitimate(t *testing.T) {
 	cases := []struct {
 		owner string
@@ -191,6 +204,10 @@ func TestValidateRepoPathAcceptsLegitimate(t *testing.T) {
 		{owner: "my-group", repo: "my-project"},
 		{owner: "acme", repo: "app_name"},
 		{owner: "团队", repo: "应用"},
+		// 嵌套 group：owner 多段是合法的。
+		{owner: "group/subgroup", repo: "project"},
+		{owner: "group/subgroup2", repo: "another-project"},
+		{owner: "a/b/c/d", repo: "app"},
 	}
 
 	for _, tc := range cases {

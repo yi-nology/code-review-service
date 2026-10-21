@@ -6,6 +6,8 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/strutil"
+
+	"github.com/oekit/pkg/stringx"
 )
 
 const systemPrompt = `你是一位资深代码审查专家。你的任务是对 OCR（Open Code Review）工具产出的代码审查结果进行二次综合判断。
@@ -52,9 +54,11 @@ func buildAnalysisPrompt(input AnalyzeInput, ocrResult domain.Result) string {
 	}
 
 	b.WriteString("\n## 代码 Diff（前 3000 字符）\n\n")
-	diff := input.Diff
-	if r := []rune(diff); len(r) > 3000 {
-		diff = string(r[:3000]) + "\n... (diff 已截断)"
+	// 按 rune 截断（委托 stringx.TruncRunes）：diff 以中文为主，
+	// 按字节切会腰斩多字节字符，产出非法 UTF-8 进 prompt。
+	diff, truncated := stringx.TruncRunes(input.Diff, 3000)
+	if truncated {
+		diff += "\n... (diff 已截断)"
 	}
 	b.WriteString("```\n")
 	b.WriteString(diff)

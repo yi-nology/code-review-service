@@ -9,6 +9,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/domain/progress"
 	"github.com/yi-nology/code-review-service/internal/domain/review"
 	"github.com/yi-nology/code-review-service/internal/domain/session"
+
+	"github.com/oekit/pkg/stringx"
 )
 
 // runner_parse.go：OCR 输出解析（进度行/结果 JSON/标题推断/语言 prompt）。
@@ -182,10 +184,9 @@ func findingTitle(content string) string {
 			break
 		}
 	}
-	if r := []rune(title); len(r) > 80 {
-		title = string(r[:80]) + "…"
-	}
-	return title
+	// 按 rune 截断到 80 位（超长时补省略号）——委托 stringx，
+	// 避免在多字节字符中间腰斩产出非法 UTF-8。
+	return stringx.TruncEllipsis(title, 80)
 }
 
 // languagePrompt 根据语言设置生成 background 提示，确保 LLM 用指定语言输出。

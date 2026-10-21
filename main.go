@@ -29,7 +29,13 @@ func main() {
 	flag.Parse()
 
 	config.SetCurrentEnv(*env)
-	cfg := config.LoadWithEnv(*env)
+	cfg, err := config.LoadWithEnv(*env)
+	if err != nil {
+		// 配置文件存在但内容非法（未知键等）→ 启动即失败。
+		// 静默降级成空配置会把「哪个键写错了」推迟到更远的地方才暴露。
+		_, _ = fmt.Fprintf(os.Stderr, "config load failed: %v\n", err)
+		os.Exit(1)
+	}
 	if err := cfg.Validate(config.CurrentEnv()); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)

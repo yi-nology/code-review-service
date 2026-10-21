@@ -13,13 +13,13 @@ require (
 	github.com/hertz-contrib/websocket v0.2.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/mark3labs/mcp-go v1.1.1
-	github.com/oagentkit/guardx v0.8.2
+	github.com/oagentkit/guardx v0.12.0
 	github.com/oagentkit/llm v0.14.2
 	github.com/oekit/bootstrap v0.6.4
-	github.com/oekit/bootstrap/nacos v0.3.2
-	github.com/oekit/bootstrap/obs v0.2.7
+	github.com/oekit/bootstrap/nacos v0.3.5
+	github.com/oekit/bootstrap/obs v0.2.9
 	github.com/oekit/concurrency v0.18.0
-	github.com/oekit/core v0.10.0
+	github.com/oekit/core v0.11.0
 	github.com/oekit/gormx v0.6.1
 	github.com/oekit/hertz v0.7.1
 	github.com/oekit/kitx v0.2.1
@@ -28,7 +28,7 @@ require (
 	github.com/oekit/middleware v0.12.1
 	github.com/oekit/network v0.5.5
 	github.com/oekit/pkg v0.18.0
-	github.com/oekit/registry v0.4.2
+	github.com/oekit/registry/nacos v0.1.0
 	github.com/oekit/tracing v0.3.0
 	github.com/oekit/workflow v0.3.2
 	github.com/oklog/ulid/v2 v2.1.2
@@ -188,6 +188,8 @@ require (
 	github.com/oagentkit/runtime v0.7.1 // indirect
 	github.com/oagentkit/textx v0.6.1 // indirect
 	github.com/oekit/nns v0.4.3 // indirect
+	github.com/oekit/registry v0.5.0 // indirect
+	github.com/oekit/registry/nacosimpl v0.1.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/orcaman/concurrent-map v0.0.0-20210501183033-44dafcb38ecc // indirect

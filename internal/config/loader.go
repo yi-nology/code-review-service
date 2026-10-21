@@ -13,23 +13,36 @@ import (
 	"github.com/oekit/tracing"
 )
 
-// Load 加载配置。PR-19 修复：原实现用全局 var env = flag.String(...)，
-// 不可测试且 init 顺序敏感。改为显式接收 env 参数。
-func Load() *Config {
-	return LoadWithEnv("local")
-}
-
 // LoadWithEnv 用显式环境名加载配置（便于测试与 main.go 显式控制）。
-func LoadWithEnv(env string) *Config {
+//
+// # 错误语义
+//
+//   - **配置文件不存在** → 不算错误：回落到默认值，由 Validate 决定这份默认配置
+//     是否可接受（本地无库时 Validate 会报 DSN 缺失，那才是真问题）。
+//   - **配置文件存在但内容非法**（未知键 / 解析失败 / tag 接线失败）→ 返回 error，
+//     由调用方**启动即失败**。
+//
+// 为什么非法配置不能静默降级成空配置：降级后服务会带着「空配置」继续启动，
+// 真正的错误（哪个键写错了）被推迟到更远的地方才暴露——表现为「连不上库」/
+// 「端口不对」这类与根因无关的症状。启动那一刻说清「哪个键写错了」才是可用的。
+//
+// 严格模式（未知键拒载）由 oekit/core 的 config.WithStrict 提供：错误信息带
+// 嵌套路径、该层合法键清单与近似拼写建议。
+func LoadWithEnv(env string) (*Config, error) {
 	cfgFile := fmt.Sprintf("etc/config-%s.yaml", env)
-	cfg, err := config.LoadBootstrap[Config](env)
+	cfg, err := config.LoadBootstrap[Config](env, config.WithStrict())
 	if err != nil {
-		if _, statErr := os.Stat(cfgFile); os.IsNotExist(statErr) {
+		// 只有「**所有**候选文件都不存在」才回落默认值。
+		//
+		// oekit 的 LoadBootstrap 先读 etc/config.yaml、再读 etc/config-{env}.yaml，
+		// 两个都可能存在。只按 cfgFile 判存在性会漏掉一种情形：
+		// etc/config.yaml 存在（且内容非法）而 etc/config-{env}.yaml 不存在时，
+		// 严格模式的报错会被误当成「文件缺失」吞掉——配置错误就此静默。
+		if !anyConfigFileExists(env) {
 			logx.Warn("config file not found, using defaults", "file", cfgFile, "error", err)
 			cfg = &Config{}
 		} else {
-			logx.Errorf("failed to parse config file %s: %v", cfgFile, err)
-			cfg = &Config{}
+			return nil, fmt.Errorf("加载配置文件 %s 失败: %w", cfgFile, err)
 		}
 	}
 
@@ -39,7 +52,19 @@ func LoadWithEnv(env string) *Config {
 
 	applyEnvOverrides(cfg)
 
-	return cfg
+	return cfg, nil
+}
+
+// anyConfigFileExists 报告加载链上的任一候选配置文件是否存在。
+// 候选与 oekit 的 LoadBootstrap 保持一致：etc/config.yaml 优先，
+// 其次 etc/config-{env}.yaml。
+func anyConfigFileExists(env string) bool {
+	for _, p := range []string{"etc/config.yaml", fmt.Sprintf("etc/config-%s.yaml", env)} {
+		if _, err := os.Stat(p); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func applyEnvOverrides(cfg *Config) {
@@ -144,7 +169,16 @@ func (c *Config) GetTracingConfig() *tracing.Config {
 	if c.Tracing.Endpoint == "" {
 		return nil
 	}
-	return &c.Tracing
+	// 本地镜像 → 上游结构（见 TracingConfig 的注释：上游无 yaml tag，
+	// sample_rate / service_name 这类键在那边接不上）。
+	return &tracing.Config{
+		ServiceName: c.Tracing.ServiceName,
+		Endpoint:    c.Tracing.Endpoint,
+		Insecure:    c.Tracing.Insecure,
+		SampleRate:  c.Tracing.SampleRate,
+		Protocol:    c.Tracing.Protocol,
+		Headers:     c.Tracing.Headers,
+	}
 }
 
 func (c *Config) GetDatabaseConfig() *DatabaseConfig {

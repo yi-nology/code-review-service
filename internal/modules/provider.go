@@ -6,6 +6,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/repository"
+	"github.com/yi-nology/code-review-service/internal/service/gerrit"
 	gitProvider "github.com/yi-nology/code-review-service/internal/service/provider"
 
 	"github.com/oekit/logx"
@@ -17,9 +18,9 @@ var ProviderModule = fx.Options(
 	fx.Provide(NewGitProviderProviders),
 )
 
-func NewGitProviderService(lc fx.Lifecycle, repos *repository.RepoContainer) (*gitProvider.GitProviderService, error) {
+func NewGitProviderService(lc fx.Lifecycle, repos *repository.RepoContainer, gerritHolder *gerrit.ClientHolder) (*gitProvider.GitProviderService, error) {
 	// Git 平台配置全部从 DB 加载，不再从 YAML 读取。
-	svc, err := gitProvider.NewGitProviderService(nil)
+	svc, err := gitProvider.NewGitProviderService(nil, gerritHolder)
 	if err != nil {
 		return nil, fmt.Errorf("init git providers: %w", err)
 	}

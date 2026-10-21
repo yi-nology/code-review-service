@@ -45,6 +45,12 @@ persisted in the database and managed from the web console or the settings
 API. Only infrastructure and deployment tuning live in `.env` and
 `etc/config-{local,dev,prod}.yaml`.
 
+`etc/config-{env}.yaml` is loaded in **strict mode**: an unknown key (a typo,
+or a key that no longer exists) makes the service refuse to start, and the
+error names the offending path, the legal keys of that level, and a
+nearest-match suggestion. A missing config file is not an error — the service
+falls back to defaults and `Validate` decides whether that is acceptable.
+
 ## Before you open a pull request
 
 Run the gate for the area you touched:

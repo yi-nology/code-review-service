@@ -25,7 +25,7 @@
 // # 放行面的取舍
 //
 // netguard 的零值 Allow{} 是「私网与回环全拒」。本服务**不能**用零值：
-// 自建 GitLab 常在内网（如 10.44.x.x），零值会把正常 clone 全拦掉。
+// 自建 GitLab 常部署在内网，零值会把正常 clone 全拦掉。
 //
 // 所以这里用 Allow{Private: true}（放行私网、仍拒回环），
 // 把「防回环（SSRF 打本机）」保留住，而「防外网」由**同 host 白名单**承担——
@@ -181,15 +181,34 @@ func targetHost(u *url.URL) string { return u.Scheme + "://" + u.Host }
 // 这是 host 白名单之外的**第二道**防线：路径穿越（owner 含 ".."）
 // 不会被 host 校验拦下——它仍指向同一个 host，只是路径变了。
 //
+// # owner 可能是多段
+//
+// GitLab 的嵌套 group 是常态：`group/subgroup/project` 拆出来的 owner 是
+// `group/subgroup`（ParseRepoPath 把除最后一段外的全部前缀留给 owner）。把整个 owner
+// 当成一段来校验，会把这类仓库**全部误杀**——现网日志里就有：
+//
+//	clone 目标校验失败: 仓库路径段 owner 含非法字符："group/subgroup"
+//
+// 而 BuildCloneURL 拼出的 `base/group/subgroup/project.git` 本身是对的，
+// CloneURLGuard 也放行它（守卫只关心 host 与路径形态）——两层自相矛盾，
+// 结果是嵌套组仓库一律评审失败。
+//
+// 因此这里按 "/" 拆开**逐段**校验。防护一条没少，只是判据落到了正确的位置：
+//   - ".." / "." 段 → 路径穿越，仍拒；
+//   - 空段（"obs//doc"、"/obs"）→ 拼出的路径含重复斜杠，仍拒；
+//   - "?" "#" "@" "%" 空格/控制字符/反斜杠 → 仍逐段拒；
+//   - owner 里的 "/" 不再算非法字符——它就是嵌套 group 本身。
+//
 // 判据（逐段）：
 //   - 非空
-//   - 不含 "/"（调用方应已拆分好）
 //   - 不含 ".." 或 "."（路径穿越与当前目录）
-//   - 不含 URL 保留字符（"/"、"?"、"#"、"@"、"%"）与控制字符
+//   - 不含 URL 保留字符（"?"、"#"、"@"、"%"）与控制字符
 //   - 不含空格与反斜杠
 func ValidateRepoPath(owner, repo string) error {
-	if err := validatePathSegment("owner", owner); err != nil {
-		return err
+	for _, seg := range strings.Split(owner, "/") {
+		if err := validatePathSegment("owner", seg); err != nil {
+			return err
+		}
 	}
 	return validatePathSegment("repo", repo)
 }

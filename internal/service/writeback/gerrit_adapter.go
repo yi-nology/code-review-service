@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/oekit/logx"
 	gerrit "github.com/yi-nology/code-review-service/internal/service/gerrit"
+	"github.com/oekit/logx"
 )
 
 // gerritAdapter 实现 writeback.Adapter 接口，使用 go-gerrit 直接调用
@@ -16,12 +16,27 @@ import (
 // ReviewManager 接口，而是通过独立的 gerrit.Client 发表评审。
 // Gerrit 的评审模型也不同：使用 label 投票（-2~+2）代替 commit status。
 type gerritAdapter struct {
-	client *gerrit.Client
+	// get 返回当前生效的 Gerrit 客户端。持 getter 而非固定 *Client：
+	// 适配器在装配期就构造出来了，若把客户端捕获进去，之后在 web console
+	// 改平台配置（换 token / 换地址）也不会生效——只能重启进程。
+	get func() *gerrit.Client
 }
 
-// NewGerritAdapter 构造 Gerrit 写回适配器。
-func NewGerritAdapter(client *gerrit.Client) Adapter {
-	return &gerritAdapter{client: client}
+// NewGerritAdapter 构造 Gerrit 写回适配器。get 为 nil 时适配器不可用。
+func NewGerritAdapter(get func() *gerrit.Client) Adapter {
+	return &gerritAdapter{get: get}
+}
+
+// client 取当前客户端；未配置时返回错误而不是 nil 指针。
+func (a *gerritAdapter) client() (*gerrit.Client, error) {
+	if a.get == nil {
+		return nil, fmt.Errorf("gerrit: 客户端未接入")
+	}
+	cl := a.get()
+	if cl == nil {
+		return nil, fmt.Errorf("gerrit: 客户端未配置（请在「配置 → Git 平台」配置 Gerrit 平台）")
+	}
+	return cl, nil
 }
 
 func (a *gerritAdapter) Capabilities(_ context.Context, _ ChangeRequest) (Capabilities, error) {
@@ -34,6 +49,11 @@ func (a *gerritAdapter) Capabilities(_ context.Context, _ ChangeRequest) (Capabi
 }
 
 func (a *gerritAdapter) Publish(ctx context.Context, rev Review) (Result, error) {
+	client, err := a.client()
+	if err != nil {
+		return Result{}, err
+	}
+
 	// Gerrit 的 Repository 格式为 "/project"，需要提取 project name。
 	project := gerrit.ExtractProjectFromPath(rev.ChangeRequest.Repository)
 	if project == "" {
@@ -41,7 +61,7 @@ func (a *gerritAdapter) Publish(ctx context.Context, rev Review) (Result, error)
 	}
 
 	// Stale check：比对当前 Gerrit 端的 head SHA
-	headSHA, err := a.client.GetHeadSHA(ctx, rev.ChangeRequest.Number)
+	headSHA, err := client.GetHeadSHA(ctx, rev.ChangeRequest.Number)
 	if err != nil {
 		logx.Warn("gerrit: failed to get head SHA for stale check",
 			"change", rev.ChangeRequest.Number,
@@ -66,7 +86,7 @@ func (a *gerritAdapter) Publish(ctx context.Context, rev Review) (Result, error)
 	// 确定 label 投票
 	label := mapGerritLabelVote(rev.Event)
 
-	reviewResult, err := a.client.SetReview(ctx, gerrit.ReviewInput{
+	reviewResult, err := client.SetReview(ctx, gerrit.ReviewInput{
 		ChangeNumber: rev.ChangeRequest.Number,
 		RevisionID:   rev.ChangeRequest.HeadSHA,
 		CommitSHA:    rev.ChangeRequest.HeadSHA,
@@ -80,7 +100,7 @@ func (a *gerritAdapter) Publish(ctx context.Context, rev Review) (Result, error)
 			"change", rev.ChangeRequest.Number,
 			"error", err,
 		)
-		msgErr := a.client.SetReviewMessage(ctx, rev.ChangeRequest.Number, rev.Summary)
+		msgErr := client.SetReviewMessage(ctx, rev.ChangeRequest.Number, rev.Summary)
 		if msgErr != nil {
 			return Result{}, fmt.Errorf("gerrit: set review and fallback message both failed: %w", errors.Join(err, msgErr))
 		}

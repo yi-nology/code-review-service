@@ -203,6 +203,13 @@ execution & env vars, writeback flows, and anything touching tokens/secrets.
   engine, project policies, rules) lives in the DB and is managed from the web
   console / settings API — do not add env vars for business settings. `DATABASE_URL`
   and `REVIEW_TOKEN` are required to run.
+  The yaml is loaded in **strict mode** (oekit/core `config.WithStrict`): an
+  unknown key refuses startup instead of being silently ignored, and a missing
+  file falls back to defaults. Upstream structs used as config types must carry
+  yaml tags of their own — `tracing.Config` has none, so the repo keeps a tagged
+  mirror (`config.TracingConfig`); a key that silently never binds is a bug, not
+  a style question. `internal/config/etc_strict_test.go` guards the shipped
+  configs against unknown keys.
 - **Migrations:** schema changes go through GORM AutoMigrate (on by default).
   `migrations/*.sql` are optional/manual and already covered by AutoMigrate;
   `deploy/migrations/` are one-off manual cleanup scripts for existing deployments.

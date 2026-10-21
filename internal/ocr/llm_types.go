@@ -2,9 +2,9 @@ package ocr
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"strings"
+
+	"github.com/oekit/pkg/jsonrepair"
 )
 
 // =====================================================================
@@ -46,13 +46,23 @@ type CompleteResponse struct {
 }
 
 // CompleteJSON 是便利方法：请求 JSON 输出并把响应解析到 out。
+//
+// 解析走 oekit/pkg/jsonrepair：它是「宽容解析」的单一实现——
+// 围栏剥离 → 直接解析 → 语法级修复（全角标点 / 非法转义 / 尾逗号 /
+// 未闭合括号）→ 从散文中抽对象或数组。
+//
+// 此前这里是手写的 parseJSONLoose（剥 ``` 围栏 + 取首个 {/[ 到末个 }/]），
+// 它只能吃「围栏包裹的纯净 JSON」：模型输出里多一句散文、多个尾逗号、
+// 全角冒号，就整段作废——而这些恰恰是 LLM 输出的高频形态。三个调用方
+// （discussion / workflow 的 tech-lead 分析 / requirements 澄清提问）
+// 都把解析失败当作「降级返回 nil」，等于**静默丢掉整段评审产出**。
 func CompleteJSON(ctx context.Context, p Provider, req CompleteRequest, out any) error {
 	req.JSONMode = true
 	resp, err := p.Complete(ctx, req)
 	if err != nil {
 		return err
 	}
-	return parseJSONLoose(resp.Content, out)
+	return jsonrepair.Unmarshal(resp.Content, out)
 }
 
 // NoopProvider 永远返回 ErrNotConfigured，用于 fx 降级或测试桩。
@@ -63,26 +73,3 @@ func (NoopProvider) Complete(_ context.Context, _ CompleteRequest) (CompleteResp
 	return CompleteResponse{}, ErrNotConfigured
 }
 func (NoopProvider) Available(_ context.Context) bool { return false }
-
-// parseJSONLoose 从可能含 markdown 围栏或前后噪声的 LLM 响应中提取并解析 JSON。
-func parseJSONLoose(content string, out any) error {
-	s := strings.TrimSpace(content)
-	if strings.HasPrefix(s, "```") {
-		s = strings.TrimPrefix(s, "```")
-		if idx := strings.IndexByte(s, '\n'); idx >= 0 {
-			first := strings.TrimSpace(s[:idx])
-			if first == "json" || first == "" {
-				s = s[idx+1:]
-			}
-		}
-		s = strings.TrimSpace(s)
-		s = strings.TrimSuffix(s, "```")
-		s = strings.TrimSpace(s)
-	}
-	start := strings.IndexAny(s, "{[")
-	end := strings.LastIndexAny(s, "}]")
-	if start < 0 || end <= start {
-		return json.Unmarshal([]byte(s), out)
-	}
-	return json.Unmarshal([]byte(s[start:end+1]), out)
-}

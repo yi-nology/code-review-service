@@ -167,7 +167,9 @@ modules:
 
   - id: strutil
     roots: ['internal/strutil']
-    requires: []
+    # rune 安全的截断委托 oekit/pkg/stringx（TruncRunes），本模块只保留
+    # 「截断后连省略号算在内也不超上限」这层业务语义。
+    requires: ['ext:github.com/oekit']
     owner: review-service
     managed: true
     notes: 字符串工具

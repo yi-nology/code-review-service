@@ -13,6 +13,8 @@ import (
 	"net/url"
 	"strings"
 
+	domainplatform "github.com/yi-nology/code-review-service/internal/domain/platform"
+
 	gogerrit "github.com/andygrunwald/go-gerrit"
 	"github.com/oekit/logx"
 )
@@ -124,4 +126,41 @@ func DetectGerrit(remoteURL string) bool {
 		}
 	}
 	return true
+}
+
+// TestConnection 探测 Gerrit 实例的连通性。
+//
+// Gerrit 不走 SDK 的 Provider.TestConnection，这里直接打 REST API 的
+// accounts/self —— 它是 Gerrit 上唯一一个「凭据对就 200」的端点，顺带把
+// 认证用户名带回来（web console 的连接测试要显示 user_name）。
+//
+// 返回值遵循平台连接测试的统一约定：连通失败不是 error，而是
+// Connected=false + Message 说明原因（与 provider.TestWithToken 保持一致）。
+func TestConnection(ctx context.Context, baseURL, token string, skipTLS bool) (*domainplatform.TestResult, error) {
+	cl, err := NewClient(baseURL, token, skipTLS)
+	if err != nil {
+		return &domainplatform.TestResult{
+			Connected: false,
+			Platform:  domainplatform.ProviderGerrit,
+			Message:   fmt.Sprintf("初始化失败: %v", err),
+		}, nil
+	}
+	account, _, err := cl.raw.Accounts.GetAccount(ctx, "self")
+	if err != nil {
+		return &domainplatform.TestResult{
+			Connected: false,
+			Platform:  domainplatform.ProviderGerrit,
+			Message:   err.Error(),
+		}, nil
+	}
+	userName := account.Username
+	if userName == "" {
+		userName = account.Name
+	}
+	return &domainplatform.TestResult{
+		Connected: true,
+		Platform:  domainplatform.ProviderGerrit,
+		UserName:  userName,
+		Message:   "连接成功",
+	}, nil
 }

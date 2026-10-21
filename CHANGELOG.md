@@ -6,6 +6,32 @@
 > 说明：本项目在开源前有约 4 个月的内部开发历史（377 个提交）。那次历史的变更
 > 记录未逐条回填到本文件——开源首个版本起，本文件开始逐版本维护。
 
+## [Unreleased]
+
+### Gerrit 平台支持
+
+Gerrit 此前**只实现了客户端、没有打通平台注册**——`AddOrUpdate` 无条件调用 SDK 的
+`provider.NewProvider`，而 Gerrit 不在 go-git-platform 的 backend 列表里，
+于是保存 Gerrit 平台必然失败（`platform not registered`），配置进不了 `configs`，
+`HasProvider` 恒为 false，评审编排层判定「平台未配置」，整条链路根本不会启动。
+控制台的下拉里也没有 Gerrit，用户连选都选不到。
+
+现在：
+
+- **平台注册**：`usesSDKBackend()` 识别出 Gerrit 后不创建 SDK provider，
+  改为建立独立的 go-gerrit 客户端并登记配置（clone URL / token / SkipTLS 都从
+  `configs` 读，缺了会退化成「无凭据 clone 空 URL」）。
+- **客户端热更新**：`ClientHolder` 下沉到 service 层，平台配置变更后写回路径
+  立即生效，不用重启进程；平台被删除/禁用时一并清掉客户端。
+- **写回适配器无条件注册**：不再因为「装配时还没配 Gerrit」而跳过注册，
+  之后在控制台补上即可生效。
+- **连接测试**：走 Gerrit 自己的 `accounts/self`（认证 REST API 的 `/a/` 前缀），
+  顺带带出认证用户名。
+- **clone URL**：认证 clone 用 `/a/` 前缀，多层 project（`group/project`）也带全。
+- **控制台**：Git 平台配置页新增 Gerrit 选项与取 Token 指引。
+
+注册路径由 `TestAddOrUpdateGerrit` 钉住（回退修复即失败）。
+
 ## [0.2.0] - 2026-10-21
 
 架构解耦与库接入深化：把「层级规则」从散文变成 CI 可执行断言，并把散落在

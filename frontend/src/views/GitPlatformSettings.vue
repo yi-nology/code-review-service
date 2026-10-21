@@ -247,6 +247,12 @@ const providerDefaults: Record<string, { baseUrl: string; hint: string; tokenGui
     tokenGuide: '腾讯工蜂 → 个人设置 → 访问令牌 → 新建。',
     tokenPlaceholder: '输入访问令牌',
   },
+  gerrit: {
+    baseUrl: '',
+    hint: '填写 Gerrit 站点根地址，例如 https://gerrit.example.com；认证 clone 用的 /a/ 前缀会自动补。',
+    tokenGuide: 'Gerrit → 用户设置 → HTTP Password 生成 HTTP 密码；填「用户名:HTTP密码」，只填密码时用户名默认为 admin。',
+    tokenPlaceholder: '用户名:HTTP密码',
+  },
 }
 
 const statusOptions = [

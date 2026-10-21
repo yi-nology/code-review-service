@@ -4,11 +4,11 @@
 
 ## 概述
 
-Review Service 是一个代码评审网关，支持 GitHub、GitLab、Gitea、GitCode 和腾讯工蜂。它使用 AI 驱动的分析（通过 Open Code Review）自动审查 Pull Request 和 Merge Request，并将可操作的反馈直接发布到代码平台。
+Review Service 是一个代码评审网关，支持 GitHub、GitLab、Gitea、Forgejo、Gitee、GitCode、腾讯工蜂和 Gerrit。它使用 AI 驱动的分析（通过 Open Code Review）自动审查 Pull Request 和 Merge Request，并将可操作的反馈直接发布到代码平台。
 
 ### 核心功能
 
-- **多平台支持**：GitHub、GitLab、Gitea、GitCode、腾讯工蜂
+- **多平台支持**：GitHub、GitLab、Gitea、Forgejo、Gitee、GitCode、腾讯工蜂、Gerrit
 - **AI 驱动分析**：使用 Open Code Review (OCR) 进行智能代码评审
 - **多 Agent 工作流**：并行评审 Agent，支持聚合和讨论
 - **实时进度**：基于 WebSocket 的进度追踪
@@ -335,6 +335,7 @@ internal/ocr/
 ## 文档
 
 - [`docs/API.md`](docs/API.md) — HTTP 接口参考
+- [`docs/FUNCTIONAL_OVERVIEW.md`](docs/FUNCTIONAL_OVERVIEW.md) — 控制台功能介绍（附界面截图）
 - [`docs/CODE_REVIEW_POLICY.md`](docs/CODE_REVIEW_POLICY.md) — 评审与严重度策略
 - [`docs/OCR_CORE_DESIGN.md`](docs/OCR_CORE_DESIGN.md) — OCR 引擎接入设计
 - [`docs/webhook-writeback-design.md`](docs/webhook-writeback-design.md) — webhook 与回写设计

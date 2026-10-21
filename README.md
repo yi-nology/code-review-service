@@ -11,11 +11,11 @@
 
 ## Overview
 
-Review Service is a code review gateway that integrates with GitHub, GitLab, Gitea, GitCode, and Tencent Code. It uses AI-powered analysis (via Open Code Review) to automatically review pull requests and merge requests, providing actionable feedback directly on the code platform.
+Review Service is a code review gateway that integrates with GitHub, GitLab, Gitea, Forgejo, Gitee, GitCode, Tencent Code, and Gerrit. It uses AI-powered analysis (via Open Code Review) to automatically review pull requests and merge requests, providing actionable feedback directly on the code platform.
 
 ### Key Features
 
-- **Multi-platform support**: GitHub, GitLab, Gitea, GitCode, Tencent Code
+- **Multi-platform support**: GitHub, GitLab, Gitea, Forgejo, Gitee, GitCode, Tencent Code, Gerrit
 - **AI-powered analysis**: Uses Open Code Review (OCR) for intelligent code review
 - **Multi-agent workflow**: Parallel review agents with aggregation and discussion
 - **Real-time progress**: WebSocket-based progress tracking
@@ -350,6 +350,7 @@ internal/ocr/
 ## Documentation
 
 - [`docs/API.md`](docs/API.md) — HTTP API reference
+- [`docs/FUNCTIONAL_OVERVIEW.md`](docs/FUNCTIONAL_OVERVIEW.md) — console feature walkthrough (screenshots)
 - [`docs/CODE_REVIEW_POLICY.md`](docs/CODE_REVIEW_POLICY.md) — review & severity policy
 - [`docs/OCR_CORE_DESIGN.md`](docs/OCR_CORE_DESIGN.md) — OCR engine integration design
 - [`docs/webhook-writeback-design.md`](docs/webhook-writeback-design.md) — webhook & writeback design

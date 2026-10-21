@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -128,13 +129,25 @@ func TestOCRSettingsRepo_SaveInvalidatesCache(t *testing.T) {
 }
 
 // TestOCRSettingsRepo_CacheExpiresAfterTTL 验证 30s 后 cache 过期。
-// 用极小 TTL 模拟（不真等 30s），通过覆盖 package-level 常量做不到，
-// 所以这里改测「cache hit 在新写入后立即被识别为命中」+「手工 setCache + 改时间」 验证过期路径。
-// 直接覆盖 r.cachedAt 到 30s 之前，验证下次 Get 走 miss 路径。
+//
+// 过期窗口用**假时钟**驱动（oekit/pkg/cache 的 LocalConfig.Now 注入），
+// 而不是 sleep 30s：真等会把单测拖成 30s，且在负载下的 CI 上还会偶发
+// 变成「等得不够久 → 没过期 → 断言偶发红」。
 func TestOCRSettingsRepo_CacheExpiresAfterTTL(t *testing.T) {
 	truncateTables(t, "ocr_settings")
 	ctx := context.Background()
 	q := newQueryCountingDB(testDB)
+
+	// 假时钟：now 推进 31s 即等价于「缓存已过期」。
+	var nowMu sync.Mutex
+	now := time.Now()
+	ocrSettingsCacheNow = func() time.Time {
+		nowMu.Lock()
+		defer nowMu.Unlock()
+		return now
+	}
+	t.Cleanup(func() { ocrSettingsCacheNow = nil })
+
 	repo := NewOCRSettingsRepo(q.DB)
 
 	// 第一次 Get 写 cache
@@ -145,10 +158,10 @@ func TestOCRSettingsRepo_CacheExpiresAfterTTL(t *testing.T) {
 		t.Fatalf("first Get query count = %d, want 1", c)
 	}
 
-	// 手动把 cachedAt 改到 31s 之前，模拟 30s 过期
-	repo.mu.Lock()
-	repo.cachedAt = time.Now().Add(-31 * time.Second)
-	repo.mu.Unlock()
+	// 时钟推进 31s → 条目过期
+	nowMu.Lock()
+	now = now.Add(31 * time.Second)
+	nowMu.Unlock()
 
 	// 下次 Get 必须走 miss 路径 → 再查 DB
 	if _, err := repo.Get(ctx); err != nil {
@@ -156,5 +169,52 @@ func TestOCRSettingsRepo_CacheExpiresAfterTTL(t *testing.T) {
 	}
 	if c := q.queryCount(); c != 2 {
 		t.Fatalf("Get after expiry query count = %d, want 2 (expired cache must miss)", c)
+	}
+}
+
+// TestOCRSettingsRepo_CacheHitDoesNotExtendTTL 验证「读命中不续期」。
+//
+// 这条语义是探活省库的关键：命中若续期，频繁的读会让缓存永不过期，
+// DB 就再也回不去了（反之则每次命中都回源，探活又打爆 DB）。
+// 两种极端都不对——要的是「写入后固定 30s 窗口」。
+func TestOCRSettingsRepo_CacheHitDoesNotExtendTTL(t *testing.T) {
+	truncateTables(t, "ocr_settings")
+	ctx := context.Background()
+	q := newQueryCountingDB(testDB)
+
+	var nowMu sync.Mutex
+	now := time.Now()
+	ocrSettingsCacheNow = func() time.Time {
+		nowMu.Lock()
+		defer nowMu.Unlock()
+		return now
+	}
+	t.Cleanup(func() { ocrSettingsCacheNow = nil })
+
+	repo := NewOCRSettingsRepo(q.DB)
+	if _, err := repo.Get(ctx); err != nil {
+		t.Fatalf("first Get: %v", err)
+	}
+
+	// 20s 后命中一次（仍在 30s 窗口内）
+	nowMu.Lock()
+	now = now.Add(20 * time.Second)
+	nowMu.Unlock()
+	if _, err := repo.Get(ctx); err != nil {
+		t.Fatalf("cached Get: %v", err)
+	}
+	if c := q.queryCount(); c != 1 {
+		t.Fatalf("cached Get query count = %d, want 1 (still within TTL window)", c)
+	}
+
+	// 再过 20s（距写入已 40s）：命中**不能**把过期时间推后 → 必须回源
+	nowMu.Lock()
+	now = now.Add(20 * time.Second)
+	nowMu.Unlock()
+	if _, err := repo.Get(ctx); err != nil {
+		t.Fatalf("Get after window: %v", err)
+	}
+	if c := q.queryCount(); c != 2 {
+		t.Fatalf("query count = %d, want 2 (hit must not extend the TTL window)", c)
 	}
 }

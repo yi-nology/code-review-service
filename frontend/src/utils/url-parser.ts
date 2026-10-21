@@ -148,6 +148,9 @@ export const PROVIDER_OPTIONS = [
   { label: 'GitCode', value: 'gitcode' },
   { label: 'Gitee', value: 'gitee' },
   { label: 'Tencent Code', value: 'tencent_code' },
+  // Gerrit 不在 go-git-platform SDK 的 backend 列表里，走独立的 go-gerrit 客户端，
+  // 但后端全链路（clone / webhook / 回写）都已支持，因此与其它平台并列可选。
+  { label: 'Gerrit', value: 'gerrit' },
 ] as const
 
 export function getProviderLabel(value: string): string {

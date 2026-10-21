@@ -15,6 +15,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/domain/review"
 
 	"github.com/oekit/concurrency/async"
+	"github.com/oekit/concurrency/retry"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/convert"
 )
@@ -211,9 +212,39 @@ func (r *Runner) Run(ctx context.Context, workspace domain.Workspace) (domain.Re
 
 	reporter := progress.ProgressReporterFromContext(ctx)
 
-	var lastErr error
-	var lastPartial domain.Result // 最后一次失败的 partial result（含 OCR session_id，供上层 retry resume）
-	for attempt := 1; attempt <= attempts; attempt++ {
+	var (
+		lastErr error
+		// lastPartial 是最后一次失败的 partial result（含 OCR session_id，供上层 retry resume）。
+		lastPartial domain.Result
+		// canceledDuringRun 标记 ctx 是在**运行期间**被取消的（而非两次尝试之间）。
+		// 这两种取消在旧实现里返回不同结果，见下方 switch。
+		canceledDuringRun bool
+	)
+
+	// 重试与退避委托 oekit/concurrency/retry：退避序列、ctx 取消感知、
+	// 「可重试与否」的判定门控只有一份实现，不在本地再写一遍循环。
+	//
+	// 退避参数与旧实现逐字对齐：第 i 次失败后等 retryBaseBackoff * 2^(i-1)
+	//（2s / 4s / 8s …），且**不设上限**（旧实现也没有）。
+	retryCfg := retry.Config{
+		Attempts:    attempts,
+		Delay:       retryBaseBackoff,
+		Exponential: true,
+		Retryable: func(err error) bool {
+			// ctx 已取消：不再重试。
+			if ctx.Err() != nil {
+				return false
+			}
+			// 二进制缺失：重试无意义（ocr 不存在，再试也是不存在）。
+			if IsBinaryMissing(err) {
+				return false
+			}
+			// 值得重试吗：判据来自 harness/toolfail 的策略表，宿主不再自己判。
+			return ocrRetryable(err, stderrOf(err))
+		},
+	}
+
+	result, runErr := retry.DoValue(ctx, retryCfg, func(attempt int) (domain.Result, error) {
 		if err := ctx.Err(); err != nil {
 			return domain.Result{}, err
 		}
@@ -241,40 +272,39 @@ func (r *Runner) Run(ctx context.Context, workspace domain.Workspace) (domain.Re
 		if result.OCR.SessionID != "" {
 			lastPartial = result
 		}
-
-		// ctx 已取消：不再重试。
 		if ctx.Err() != nil {
-			break
+			canceledDuringRun = true
 		}
-		// 二进制缺失：重试无意义（ocr 不存在，再试也是不存在）。
-		if IsBinaryMissing(err) {
-			break
+		// 不可重试且需人工介入的失败单独留痕（认证失败/权限不足这类：
+		// 不会进入退避环，但运维必须看到）。这里在 attempt 内部判，
+		// 而不是在 Retryable 门控里——后者在最后一次尝试时不会被调用，
+		// 那样这条留痕会在「恰好是最后一次失败」时漏掉。
+		if ctx.Err() == nil && !IsBinaryMissing(err) && !ocrRetryable(err, stderrOf(err)) &&
+			ocrNeedsOperator(err, stderrOf(err)) {
+			logx.CtxErrorf(ctx, "ocr run failed with a failure that needs operator intervention: %v", err)
 		}
-		// 值得重试吗：判据来自 harness/toolfail 的策略表，宿主不再自己判。
-		// 认证失败/权限不足这类「不可重试且需人工介入」的失败也在这里收口——
-		// 它们不会进入退避环，但会在下面单独留痕。
-		if !ocrRetryable(err, stderrOf(err)) {
-			if ocrNeedsOperator(err, stderrOf(err)) {
-				logx.CtxErrorf(ctx, "ocr run failed with a failure that needs operator intervention: %v", err)
-			}
-			break
-		}
-		// 还有重试机会：指数退避后再试。
-		if attempt < attempts {
-			backoff := retryBaseBackoff * (1 << (attempt - 1)) // 2s, 4s, 8s, ...
-			select {
-			case <-ctx.Done():
-				return domain.Result{}, ctx.Err()
-			case <-time.After(backoff):
-			}
-		}
+		return domain.Result{}, err
+	})
+	if runErr == nil {
+		// 某次尝试成功：直接返回它的结果。
+		return result, nil
 	}
-	// 全部 attempt 失败：返回 lastPartial（可能含 session_id）+ lastErr。
-	// executor 的 recordFailure 应把 lastPartial.OCR.SessionID 持久化，供下次 retry --resume 使用。
-	if lastPartial.OCR.SessionID != "" {
+	if lastErr == nil {
+		// ctx 在两次尝试之间被取消（退避等待期）：错误来自 ctx 而非 OCR 调用。
+		lastErr = runErr
+	}
+
+	switch {
+	case ctx.Err() != nil && !canceledDuringRun:
+		// ctx 在 attempt 之间被取消：与旧实现一致——只回 ctx 错误，不带 partial。
+		return domain.Result{}, ctx.Err()
+	case lastPartial.OCR.SessionID != "":
+		// 全部 attempt 失败：返回 lastPartial（可能含 session_id）+ lastErr。
+		// executor 的 recordFailure 应把 lastPartial.OCR.SessionID 持久化，供下次 retry --resume 使用。
 		return lastPartial, lastErr
+	default:
+		return domain.Result{}, lastErr
 	}
-	return domain.Result{}, lastErr
 }
 
 func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeout time.Duration) (domain.Result, error) {

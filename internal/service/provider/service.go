@@ -7,18 +7,33 @@ import (
 	"sync"
 	"time"
 
+	domainplatform "github.com/yi-nology/code-review-service/internal/domain/platform"
+	"github.com/yi-nology/code-review-service/internal/service/gerrit"
+	"github.com/yi-nology/code-review-service/internal/vcs"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/cache"
-	domainplatform "github.com/yi-nology/code-review-service/internal/domain/platform"
-	"github.com/yi-nology/code-review-service/internal/vcs"
 
 	"github.com/yi-nology/go-git-platform/provider"
 )
+
+// usesSDKBackend 报告该 provider 是否由 go-git-platform SDK 提供 backend。
+//
+// Gerrit 是唯一的例外：它不在 SDK 的 backend 列表里，走独立的 go-gerrit
+// 客户端（internal/service/gerrit）。对 gerrit 调 provider.NewProvider 必然
+// 拿到 "platform not registered"——平台注册、连接测试这两条按 provider 分派
+// 的路径必须先认这条差异，否则保存必然失败、连接测试永远通不过。
+func usesSDKBackend(name string) bool {
+	return name != domainplatform.ProviderGerrit
+}
 
 type GitProviderService struct {
 	mu        sync.RWMutex
 	providers map[string]provider.Provider
 	configs   map[string]provider.Config
+
+	// gerrit 持有 Gerrit 客户端（Gerrit 不走 SDK，见 usesSDKBackend）。
+	// 平台配置变更时热更新它，写回路径不用重启进程。
+	gerrit *gerrit.ClientHolder
 
 	// repoCache 是首页仓库列表的缓存（Cache-Aside）。
 	//
@@ -32,13 +47,21 @@ type GitProviderService struct {
 	repoCacheInner *cache.LocalCache[[]*provider.PlatformRepo]
 }
 
-func NewGitProviderService(configs map[string]provider.Config) (*GitProviderService, error) {
+func NewGitProviderService(configs map[string]provider.Config, gerritHolder *gerrit.ClientHolder) (*GitProviderService, error) {
 	providers := make(map[string]provider.Provider)
 	if configs == nil {
 		configs = make(map[string]provider.Config)
 	}
 
 	for name, cfg := range configs {
+		if !usesSDKBackend(name) {
+			// Gerrit 不创建 SDK provider，只登记配置（clone URL / token / SkipTLS
+			// 都从 configs 读）并建好它自己的客户端。
+			if err := gerritHolder.Reload(cfg.BaseURL, cfg.Token, cfg.SkipTLS); err != nil {
+				return nil, fmt.Errorf("init gerrit client: %w", err)
+			}
+			continue
+		}
 		p, err := provider.NewProvider(cfg)
 		if err != nil {
 			return nil, fmt.Errorf("init provider %s: %w", name, err)
@@ -46,7 +69,7 @@ func NewGitProviderService(configs map[string]provider.Config) (*GitProviderServ
 		providers[name] = p
 	}
 
-	s := &GitProviderService{providers: providers, configs: configs}
+	s := &GitProviderService{providers: providers, configs: configs, gerrit: gerritHolder}
 	s.repoCacheInner = newRepoCache(s)
 	s.repoCache = newSingleFlightRepoCache(s.repoCacheInner)
 	return s, nil
@@ -116,6 +139,27 @@ func (s *GitProviderService) Close(ctx context.Context) error {
 }
 
 func (s *GitProviderService) AddOrUpdate(name string, cfg provider.Config) error {
+	if !usesSDKBackend(name) {
+		// Gerrit 不创建 SDK provider：只登记配置 + 维护它自己的客户端。
+		//
+		// 配置必须登记——clone URL / token / SkipTLS 都从 s.configs 读，缺了它
+		// clone 会退化成「无凭据 clone 空 URL」，评审根本跑不起来。
+		// 顺序上先建客户端再建配置：客户端建不出来就不登记坏配置
+		// （与 SDK 路径「NewProvider 成功才写 configs」一致）。
+		if err := s.gerrit.Reload(cfg.BaseURL, cfg.Token, cfg.SkipTLS); err != nil {
+			return fmt.Errorf("init gerrit client: %w", err)
+		}
+		s.mu.Lock()
+		delete(s.providers, name)
+		s.configs[name] = cfg
+		s.mu.Unlock()
+
+		// 平台配置变更时清除缓存
+		s.invalidateRepoCache(name)
+
+		return nil
+	}
+
 	p, err := provider.NewProvider(cfg)
 	if err != nil {
 		return fmt.Errorf("init provider %s: %w", name, err)
@@ -137,12 +181,24 @@ func (s *GitProviderService) Remove(name string) {
 	delete(s.configs, name)
 	s.mu.Unlock()
 
+	// Gerrit 的客户端独立于 SDK provider map：平台被禁用/删除时要一并清掉，
+	// 否则写回路径还会拿旧客户端继续发评审。
+	if !usesSDKBackend(name) {
+		s.gerrit.Clear()
+	}
+
 	s.invalidateRepoCache(name)
 }
 
 func (s *GitProviderService) Reload(configs map[string]provider.Config) error {
 	newProviders := make(map[string]provider.Provider, len(configs))
 	for name, cfg := range configs {
+		if !usesSDKBackend(name) {
+			if err := s.gerrit.Reload(cfg.BaseURL, cfg.Token, cfg.SkipTLS); err != nil {
+				return fmt.Errorf("init gerrit client: %w", err)
+			}
+			continue
+		}
 		p, err := provider.NewProvider(cfg)
 		if err != nil {
 			return fmt.Errorf("init provider %s: %w", name, err)
@@ -151,6 +207,9 @@ func (s *GitProviderService) Reload(configs map[string]provider.Config) error {
 	}
 	s.mu.Lock()
 	s.providers = newProviders
+	// 配置一并换掉：Gerrit 不在 newProviders 里（它没有 SDK provider），
+	// 但它的 base_url / token 仍要进 configs——clone URL 与凭据都从这儿读。
+	s.configs = configs
 	s.mu.Unlock()
 
 	// 重载时清除所有缓存
@@ -172,6 +231,12 @@ func (s *GitProviderService) GetProvider(platform string) (provider.Provider, er
 	p, ok := s.providers[platform]
 	s.mu.RUnlock()
 	if !ok {
+		// Gerrit 走独立客户端，没有 SDK provider。给它一句说人话的报错，
+		// 而不是「unsupported provider: gerrit (available: ...)」——
+		// 那种话术会让人以为是配置错了，而它其实是「这个平台不经 SDK」。
+		if !usesSDKBackend(platform) {
+			return nil, fmt.Errorf("平台 %s 走独立客户端，不提供仓库/PR 浏览接口（评审与写回走 Gerrit 原生 API）", platform)
+		}
 		s.mu.RLock()
 		available := make([]string, 0, len(s.providers))
 		for k := range s.providers {
@@ -214,20 +279,6 @@ func (s *GitProviderService) GetCRFiles(ctx context.Context, platform, owner, re
 	return p.GetCRFiles(ctx, owner, repo, number)
 }
 
-func (s *GitProviderService) CreateCommitStatus(ctx context.Context, platform, owner, repo, sha string, opts provider.CommitStatusOptions) error {
-	p, err := s.GetProvider(platform)
-	if err != nil {
-		return err
-	}
-	// SDK v0.48 起 CommitStatusManager 是可选能力接口（如 Gitee 无 commit-status
-	// 端点），不再挂在 Provider 上，需断言。
-	csm, ok := p.(provider.CommitStatusManager)
-	if !ok {
-		return fmt.Errorf("platform %s does not support commit statuses", platform)
-	}
-	return csm.CreateCommitStatus(ctx, owner, repo, sha, opts)
-}
-
 func (s *GitProviderService) GetCR(ctx context.Context, platform, owner, repo, number string) (*provider.ChangeRequest, error) {
 	p, err := s.GetProvider(platform)
 	if err != nil {
@@ -256,9 +307,14 @@ func (s *GitProviderService) TestConnection(ctx context.Context, platform string
 // 保留导出包装以维持既有调用点兼容。
 func ParseRepoPath(repoPath string) (string, string, error) { return vcs.ParseRepoPath(repoPath) }
 
+// HasProvider 报告该平台是否已配置可用。
+//
+// 判据取 s.configs 而不是 s.providers：Gerrit 没有 SDK provider（它走独立的
+// go-gerrit 客户端），只登记了配置。若按 providers 判，Gerrit 会被判成「未配置」
+// ——评审编排层拿不到 Provider，整条 Gerrit 链路根本不会启动。
 func (s *GitProviderService) HasProvider(platform string) bool {
 	s.mu.RLock()
-	_, ok := s.providers[platform]
+	_, ok := s.configs[platform]
 	s.mu.RUnlock()
 	return ok
 }
@@ -292,17 +348,20 @@ func (s *GitProviderService) BuildCloneURL(platform, owner, repo string) string 
 		base = strings.TrimSuffix(base, "/api/v3")
 		base = strings.Replace(base, "://api.github.com", "://github.com", 1)
 	case "gerrit":
-		// Gerrit 认证 clone 使用 /a/ 前缀。
-		// 不 strip API path（Gerrit REST API 路径就是根路径）。
-		// Gerrit 的 repo 参数是完整 project name（owner 为空），
-		// 需要提前返回，避免走通用的 /%s/%s.git 格式产生双斜杠。
-		if !strings.HasSuffix(base, "/a") && !strings.Contains(base, "/a/") {
-			base = strings.TrimSuffix(base, "/") + "/a"
-		}
+		// Gerrit 认证 clone 使用 /a/ 前缀；不 strip API path
+		// （Gerrit 的 REST API 路径就是根路径）。
+		//
+		// project 可能是多层的（group/subgroup/project）：owner 非空时要把前缀
+		// 拼回去——只取 repo 会克隆到 group 下的另一个仓库（Gerrit 里
+		// "group/project" 与 "project" 是两个不同的仓库）。
 		if base == "" {
 			return ""
 		}
-		return base + "/" + repo + ".git"
+		project := repo
+		if owner != "" {
+			project = owner + "/" + repo
+		}
+		return gerrit.BuildCloneURL(base, project)
 	}
 
 	if base == "" {
@@ -422,11 +481,25 @@ func (s *GitProviderService) GetBranchSHA(ctx context.Context, platform, owner, 
 	return commits[0].SHA, nil
 }
 
+// GetSupportedPlatforms 返回当前已配置的平台名。
+//
+// 取 s.configs 的键并集（而不是 s.providers）：Gerrit 只在 configs 里登记，
+// 它同样是「已配置可用」的平台，不能在清单里消失。
 func (s *GitProviderService) GetSupportedPlatforms() []string {
 	s.mu.RLock()
-	platforms := make([]string, 0, len(s.providers))
+	seen := make(map[string]bool, len(s.configs))
+	platforms := make([]string, 0, len(s.configs))
 	for name := range s.providers {
-		platforms = append(platforms, name)
+		if !seen[name] {
+			seen[name] = true
+			platforms = append(platforms, name)
+		}
+	}
+	for name := range s.configs {
+		if !seen[name] {
+			seen[name] = true
+			platforms = append(platforms, name)
+		}
 	}
 	s.mu.RUnlock()
 	return platforms
@@ -446,6 +519,13 @@ func (s *GitProviderService) AddOrUpdateFromDB(p *domainplatform.Platform) error
 }
 
 func (s *GitProviderService) TestWithToken(ctx context.Context, platform, baseURL, token string, skipTLS bool) (*domainplatform.TestResult, error) {
+	// Gerrit 不走 SDK：连接测试直接用 go-gerrit 客户端打 accounts/self。
+	// 对 gerrit 调 provider.NewProvider 必然是 "platform not registered"，
+	// 那样的「测试失败」是假的——凭据本身可能完全正常。
+	if !usesSDKBackend(platform) {
+		return gerrit.TestConnection(ctx, baseURL, token, skipTLS)
+	}
+
 	cfg := provider.Config{
 		Platform: provider.Platform(platform),
 		BaseURL:  baseURL,
