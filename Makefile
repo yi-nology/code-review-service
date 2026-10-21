@@ -30,7 +30,11 @@ build:
 # build-linux 交叉编译 Linux 二进制（amd64 + arm64），产物落在 dist/。
 #
 # 与 .github/workflows/build.yml 用同一套参数（CGO_ENABLED=0、-trimpath、
-# -ldflags="-s -w"）：本地构建的产物与 CI 发的产物一致，校验和也能对上。
+# -ldflags="-s -w"）。
+#
+# 可复现的前提：同一 commit + 干净工作树 + 同一 Go 版本 + 同一组参数。
+# Go 默认把 vcs.revision / vcs.time 注入二进制，所以**不同 commit 的产物必然
+# 不同**（逐字节一致的前提是同 commit）。
 build-linux:
 	@mkdir -p dist
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/review-service-linux-amd64 .

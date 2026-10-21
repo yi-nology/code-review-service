@@ -1,15 +1,14 @@
-# OCR Core 整合设计方案
+# OCR Core 整合设计
 
-> 状态: **设计文档**，待方案 B（Registry 聚合）落地后启动方案 A 实施
-> 创建: PR-B0
-> 关联: 22-PR 改造系列 (PR-01 ~ PR-22) 之后的下一步
+> 状态: **已落地**。本文档记录整合的设计决策与最终形态，供回溯"为什么长成这样"。
+> 实现见 `internal/ocr/`（41 个源文件）+ `internal/domain/review/ocr_aliases.go`。
+> 早期版本描述的是尚待实施的方案；文中的"目标""阶段""待办"等时态均已按落地结果校正。
 
 ## 1. 背景
 
-PR-01 ~ PR-22 完成了 review-service 的系统性重构（写回错误、TOCTOU、ctx 传播、redact、ULID 等），
-但「open-code-review 能力」相关的代码仍散落在 3 个包内，存在大量重复：
+"open-code-review 能力"相关的代码原先散落在 3 个包内，存在大量重复。
 
-### 1.1 现状盘点
+### 1.1 整合前的现状盘点
 
 | 包 | 文件数 | LOC | 职责 |
 |---|---|---|---|
@@ -17,7 +16,9 @@ PR-01 ~ PR-22 完成了 review-service 的系统性重构（写回错误、TOCTO
 | `internal/service/ocr` | 7 | ~1100 | 7 个 manager（tester / versioner / upgrader / viewer / lister / checker） |
 | `internal/service/llm` | 7 | ~700 | HTTP 客户端 + provider + metrics |
 
-### 1.2 核心症状
+> 上表为**整合前**的快照。这三个包现均已删除，能力迁入 `internal/ocr/`。
+
+### 1.2 当时的核心症状（均已解决）
 
 1. **5 个等价 settingsSource 接口重复定义**
    - `ocr/source.go:9` `type settingsSource interface { Get(ctx) (*OCRSettings, error) }`
@@ -77,154 +78,112 @@ PR-01 ~ PR-22 完成了 review-service 的系统性重构（写回错误、TOCTO
 
 ## 3. 架构
 
-### 3.1 目标结构
+### 3.1 目标结构（实际形态）
 
 ```
-internal/ocr/                          # 核心包（方案 A 最终落点）
+internal/ocr/                          # 核心包
 ├── doc.go                            # 包级 godoc
-├── client.go                         # Client 主入口
-├── config.go                         # Config + BuildConfig（吸收 runner.BuildConfig + ocr.ConfigResolver）
-├── settings.go                       # Settings 接口（消除 5 个等价接口）
-├── runner.go                         # Runner（吸收 runner/{runner,preview,scan,dynamic}）
-├── command.go                        # exec 统一封装（吸收 ocr.command + runner.internal.command）
-├── env.go                            # AppendEnv / MergeLLMEnv（吸收 runner.AppendLLMEnv）
-├── llm.go                            # LLM Provider（吸收 llm/{openai,presets} + llm.NewDynamicProvider）
-├── metrics.go                        # LLM Metrics（吸收 llm/metrics.go）
-├── tester.go                         # TestLLM（吸收 ocr/tester.go）
-├── versioner.go                      # OCRVersion（吸收 ocr/versioner.go）
-├── lister.go                         # ListLLMProviders（吸收 ocr/provider_lister.go）
-├── checker.go                        # RulesCheck（吸收 ocr/rules_checker.go）
-├── viewer.go                         # Viewer（吸收 ocr/viewer.go + PR-05 修复保留）
-├── upgrader.go                       # Upgrader（吸收 ocr/upgrader.go）
-├── factory.go                        # RunnerFactory（吸收 agent.OCRRunnerFactory）
-├── textparse.go                      # 文本解析（吸收 runner/textparse.go）
-├── reasoning.go                      # ResolveExtraBody（吸收 runner/reasoning.go）
-├── progress.go                       # OCR 进度 reporter（吸收 runner/progress.go）
-└── *_test.go                         # 全部单测聚合
+├── registry.go                       # Registry 主入口（聚合全部能力）
+├── config.go                         # Config + BuildConfig（唯一配置合并实现）
+├── settings.go / settings_adapter.go # Settings 接口与仓储适配（消除等价接口）
+├── runner.go / runner_errors.go / runner_parse.go   # Runner + 错误分类 + 文本解析
+├── scanner.go                        # Scanner（预览与扫描）
+├── delegate.go                       # Delegator（任务派发）
+├── command.go                        # OCR 命令封装
+├── internal/command.go               # 统一 exec 入口（三段式终止）
+├── env.go                            # AppendEnv / MergeLLMEnv
+├── reasoning.go                      # ResolveExtraBody
+├── factory.go                        # Factory（吸收 agent.OCRRunnerFactory）
+├── failure.go                        # OCR 失败分类
+├── managers.go                       # 7 个 manager（Versioner/Lister/Checker/Upgrader/SessionLister 等）
+├── tester.go                         # LLM 连通性测试
+├── helpers.go                        # 通用小工具
+├── llm_agentkit.go / llm_factory.go / llm_metrics.go / llm_types.go  # LLM provider 面
+├── mcp_config.go                     # MCP 配置
+└── *_test.go                         # 单测
 
 internal/domain/review/       # domain 拆分为两个文件
-├── review.go                         # Provider / Runner / PreviewRunner / ScanRunner / WritebackPublisher
-└── ocr.go                            # LLMTester / LLMProviderLister / RulesChecker / OCRVersioner / ViewerManager / OCRUpgrader
+├── interfaces.go                    # Provider / Runner / PreviewRunner / ScanRunner / WritebackPublisher
+└── ocr_aliases.go                   # LLMTester / LLMProviderLister / RulesChecker / OCRVersioner / ViewerManager / OCRUpgrader / SessionLister
 ```
 
-### 3.2 Client 主入口
+> 与设计期草案的差异：`client.go` 落地为 `registry.go`（入口改名）；
+> 7 个 manager 合并进 `managers.go` 而非各占一文件；LLM 能力按
+> agentkit 适配 / 工厂 / 指标 / 类型拆成 4 个文件；文本解析落在 `runner_parse.go`。
+
+### 3.2 Registry 主入口
+
+整合落地时，入口类型定名为 `Registry`（而非设计期的 `Client`）。它不持有可变状态，
+所有能力都是 getter 转发到底层 manager，构造完成后不可变。
 
 ```go
-// internal/ocr/client.go
+// internal/ocr/registry.go
 package ocr
 
-import (
-    "context"
-    "sync"
-    "sync/atomic"
-
-    "github.com/yi-nology/code-review-service/internal/repository"
-    "github.com/yi-nology/code-review-service/internal/domain/review"
-)
-
-// Client 是 open-code-review 能力的统一入口。
+// Registry 是 open-code-review 能力的注册中心，handler/模块一次性拿到所有子能力。
 //
-// 所有子能力通过 Get 方法获取（domain 接口类型）：
-//   - Client.Runner() / Previewer() / Scanner()    → 评审执行
-//   - Client.LLM()                                  → LLM 直接调用
-//   - Client.Tester() / Lister() / Checker() ...   → OCR 管理
-//
-// Client 内部持有一个动态配置缓存，调用 Settings.Get() 后立即 refresh。
-// 这消除 7 个 manager 各自调 Get 的重复。
-type Client struct {
-    settings   repository.OCRSettingsRepository
-    tools      repository.OCRToolPackageRepository
-    rules      repository.GlobalRulesRepository
-    fallback   Config                  // YAML 兜底
+// 设计原则：
+//   - Registry 不持有任何状态，所有能力都是 getter 转发到底层 manager
+//   - 构造完成后不可变；配置重载通过 NotifyConfigChange 通知 Runner
+//   - 零依赖：registry 本身只 import domain + repository，不引入新包
+type Registry struct {
+	repos *repository.RepoContainer
 
-    // 动态配置缓存：每次 settings 变更后 refresh
-    configCache atomic.Pointer[Config]
+	resolver *ConfigResolver
 
-    // 子能力 manager
-    runner    *Runner
-    previewer *Previewer
-    scanner   *Scanner
-    tester    *Tester
-    lister    *Lister
-    checker   *Checker
-    versioner *Versioner
-    viewer    *Viewer
-    upgrader  *Upgrader
-    llm       *LLMProvider
-    factory   *Factory
+	runner    domain.Runner
+	previewer domain.PreviewRunner
+	scanner   domain.ScanRunner
+	tester    domain.LLMTester
+	lister    domain.LLMProviderLister
+	checker   domain.RulesChecker
+	versioner domain.OCRVersioner
+	viewer    domain.ViewerManager
+	upgrader  domain.OCRUpgrader
+	sessions  domain.SessionLister
 
-    refreshMu sync.Mutex  // 保护 refresh 串行
+	llmProvider Provider
+
+	// configRefresh 在 settings 变更后通知 Runner 立即重载 DB 配置。
+	// 由 WithRunner 注入；nil 时 NotifyConfigChange 为 no-op。
+	configRefresh func()
+}
+```
+
+`New` 从已构造的子 manager 装配 Registry，并返回 `*Registry`。能力 getter 覆盖：
+
+| getter | domain 接口 | 用途 |
+|---|---|---|
+| `Runner()` | `domain.Runner` | 评审执行 |
+| `Previewer()` | `domain.PreviewRunner` | 预览 |
+| `Scanner()` | `domain.ScanRunner` | 仓库扫描 |
+| `Delegator()` | `domain.Delegator` | 任务派发 |
+| `Tester()` | `domain.LLMTester` | LLM 连通性测试 |
+| `Lister()` | `domain.LLMProviderLister` | 列出 provider |
+| `Checker()` | `domain.RulesChecker` | 规则检查 |
+| `Versioner()` | `domain.OCRVersioner` | OCR 版本 |
+| `Viewer()` | `domain.ViewerManager` | viewer 进程 |
+| `Upgrader()` | `domain.OCRUpgrader` | OCR 升级 |
+| `SessionLister()` | `domain.SessionLister` | 会话列表 |
+| `LLM()` | `Provider` | LLM 直调 |
+| `Resolver()` | `*ConfigResolver` | 配置解析 |
+
+配套的生命周期方法：
+
+```go
+// NotifyConfigChange 在 OCR settings 被 PUT 保存后调用，通知 Runner 立即重载 DB 配置。
+// 未绑定具体 Runner 时为 no-op。
+func (r *Registry) NotifyConfigChange() {
+	if r.configRefresh != nil {
+		r.configRefresh()
+	}
 }
 
-// New 构造 Client。
-//
-// 自动装配：
-//   1. 构造 ConfigResolver (settings + fallback + tools)
-//   2. 构造 Runner/Previewer/Scanner (动态合并)
-//   3. 构造 Tester/Lister/Checker/Versioner (共享 settings 缓存)
-//   4. 构造 Upgrader (依赖 Versioner)
-//   5. 构造 Viewer (独立进程组)
-//   6. 构造 LLMProvider (复用同一 Config)
-//   7. 构造 Factory (供 agent 包注入)
-func New(cfg Config, repos *repository.RepoContainer) *Client {
-    resolver := NewConfigResolver(repos.OCRSettings, cfg, repos.OCRToolPackage)
-    llm := NewLLMProvider(repos.OCRSettings)
-    
-    c := &Client{
-        settings: repos.OCRSettings,
-        tools:    repos.OCRToolPackage,
-        rules:    repos.GlobalRules,
-        fallback: cfg,
-    }
-    c.configCache.Store(&cfg)
-    
-    // 子能力（共享 resolver 和 llm）
-    c.runner    = NewRunner(resolver)
-    c.previewer = NewPreviewer(resolver)
-    c.scanner   = NewScanner(resolver)
-    c.tester    = NewTester(resolver, llm)
-    c.lister    = NewLister(resolver)
-    c.checker   = NewChecker(resolver, repos.GlobalRules)
-    c.versioner = NewVersioner(resolver)
-    c.viewer    = NewViewer(resolver)
-    c.upgrader  = NewUpgrader(repos.OCRSettings, resolver, c.versioner, cfg.InstallDir, cfg.GitHubRepo)
-    c.llm       = llm
-    c.factory   = NewFactory(c.runner)
-    
-    return c
-}
-
-// -------- 能力 getter --------
-
-func (c *Client) Runner() domain.Runner             { return c.runner }
-func (c *Client) Previewer() domain.PreviewRunner   { return c.previewer }
-func (c *Client) Scanner() domain.ScanRunner       { return c.scanner }
-func (c *Client) Tester() domain.LLMTester         { return c.tester }
-func (c *Client) Lister() domain.LLMProviderLister  { return c.lister }
-func (c *Client) Checker() domain.RulesChecker      { return c.checker }
-func (c *Client) Versioner() domain.OCRVersioner    { return c.versioner }
-func (c *Client) Viewer() domain.ViewerManager     { return c.viewer }
-func (c *Client) Upgrader() domain.OCRUpgrader      { return c.upgrader }
-func (c *Client) LLM() domain.LLMProvider           { return c.llm }  // 注意：domain.LLMProvider 是新接口
-func (c *Client) Factory() domain.RunnerFactory     { return c.factory }
-
-// Refresh 重新从 settings 拉取最新配置，更新内部缓存。
-// 用于 settings API 修改后无需重启服务即可生效。
-func (c *Client) Refresh(ctx context.Context) error {
-    c.refreshMu.Lock()
-    defer c.refreshMu.Unlock()
-    
-    s, err := c.settings.Get(ctx)
-    if err != nil {
-        return fmt.Errorf("refresh: %w", err)
-    }
-    cfg := BuildConfig(s, domain.OCROverrides{}, c.fallback, c.tools)
-    c.configCache.Store(&cfg)
-    c.runner.refresh(cfg)
-    c.previewer.refresh(cfg)
-    c.scanner.refresh(cfg)
-    c.llm.refresh(cfg)
-    return nil
+// StopRunner 停止 Runner 的后台刷新 goroutine（供 fx OnStop 调用，幂等）。
+func (r *Registry) StopRunner() {
+	if cr, ok := r.runner.(*Runner); ok {
+		cr.Stop()
+	}
 }
 ```
 
@@ -300,21 +259,24 @@ func Run(ctx context.Context, spec Command) (*Result, error) {
 
 ### 3.5 domain 拆分
 
-```go
-// internal/domain/review/review.go
-package domain
+评审领域类型已整体迁入 `internal/domain/review/`（原先在 `internal/service/review`）。
+接口按关注点分文件：
 
-// 评审核心接口（不变）
+```go
+// internal/domain/review/interfaces.go
+package review
+
+// 评审核心接口
 type Provider interface { ... }
 type Runner interface { ... }
 type PreviewRunner interface { ... }
 type ScanRunner interface { ... }
 type WritebackPublisher interface { ... }
 
-// internal/domain/review/ocr.go
-package domain
+// internal/domain/review/ocr_aliases.go
+package review
 
-// OCR 管理接口（从 interfaces.go 移过来）
+// OCR 管理接口（从 domain/interfaces.go 移过来）
 // 不动方法签名，只搬位置。
 type LLMTester interface { ... }
 type LLMProviderLister interface { ... }
@@ -322,144 +284,120 @@ type RulesChecker interface { ... }
 type OCRVersioner interface { ... }
 type ViewerManager interface { ... }
 type OCRUpgrader interface { ... }
-
-// 新增：抽象 LLM 抽象（让 ocr 包可以注入非 LLM 场景）
-type LLMProvider interface {
-    Complete(ctx context.Context, req CompleteRequest) (CompleteResponse, error)
-}
-
-// 新增：runner factory 抽象（让 agent 包依赖此接口而非具体 factory）
-type RunnerFactory interface {
-    CreateRunner(background, ruleContent string) Runner
-}
+type SessionLister interface { ... }
 ```
+
+> 设计期设想的 `LLMProvider` / `RunnerFactory` 两个新 domain 接口**没有引入**：
+> LLM provider 实现在 `internal/ocr` 内以 `Provider`（结构体）提供，
+> runner factory 同理留在 `internal/ocr/factory.go`，未上提到 domain 层。
 
 ### 3.6 fx 装配
 
 ```go
-// internal/modules/ocr.go 改造后
+// internal/modules/ocr.go
 package modules
 
+// OCRModule 提供所有 open-code-review 能力。
 var OCRModule = fx.Options(
-    fx.Provide(ocr.New),
-    fx.Invoke(registerOCRHealthChecks),
+	// 单一入口
+	fx.Provide(NewOCRRegistry),
+
+	// 各 manager 由 fx 各构造一次，NewOCRRegistry 通过参数注入同一批实例——
+	// 不要在 NewOCRRegistry 里再调用这些构造函数，否则会出现两份实例
+	//（曾导致 RegisterViewerShutdown 停掉的 Viewer 不是 HTTP 代理在用的那个）。
+	fx.Provide(NewConfigResolver),
+	fx.Provide(NewOCRTester),
+	fx.Provide(NewOCRProviderLister),
+	fx.Provide(NewOCRRulesChecker),
+	fx.Provide(NewOCRVersioner),
+	fx.Provide(NewOCRViewerManager),
+	fx.Provide(NewOCRUpgrader),
+	fx.Provide(NewOCRSessionLister),
+
+	// 服务关闭时回收 viewer 子进程，避免孤儿进程残留。
+	fx.Invoke(RegisterViewerShutdown),
+	// 服务关闭时停止 Runner 后台刷新 goroutine。
+	fx.Invoke(RegisterRunnerShutdown),
 )
-
-func New(
-    cfg *config.Config,
-    repos *repository.RepoContainer,
-) *ocr.Client {
-    fallback := ocr.Config{
-        Binary:          cfg.OCR.Binary,
-        Audience:        "human",
-        RulePath:        cfg.OCR.Rule,
-        DefaultSeverity: "major",
-        Concurrency:     2,
-        MaxGitProcs:     4,
-        TimeoutMinutes:  10,
-        InstallDir:      cfg.OCR.UpgradeInstallDir,
-        GitHubRepo:      cfg.OCR.GitHubRepo,
-    }
-    return ocr.New(fallback, repos)
-}
-
-func registerOCRHealthChecks(lc fx.Lifecycle, c *ocr.Client) {
-    // 把 OCR 健康检查挂到 /healthz
-    // ...
-}
 ```
 
-### 3.7 旧包处理
+> 注意：入口类型是 `*ocr.Registry`（不是设计期的 `Client`）。
+> manager 构造与 Registry 装配**必须共用同一批实例**——重复构造会出现两份
+> Viewer，导致关闭时停错进程。
 
-| 旧包 | 处置 |
+### 3.7 旧包处理（已全部执行）
+
+| 旧包 | 处置 | 现状 |
+|---|---|---|
+| `internal/service/ocr` | 删，新代码用 `internal/ocr` | ✅ 已删除 |
+| `internal/service/runner` | 删，逻辑搬到 `internal/ocr/runner.go` | ✅ 已删除 |
+| `internal/service/llm` | 迁 `openai.go` 到 `internal/ocr/`，provider 走 agentkit 适配 | ✅ 整包已删除 |
+| `internal/service/agent/runner_factory.go` | 删，改用 `internal/ocr/factory.go` | ✅ 已迁移 |
+| `biz/handler/settings_service/ocr_assets.go` 里 `runDryRunCommand` + `exec.Command("ocr", ...)` | 删，改用统一 exec 入口 | ✅ 已改用 `internal/ocr/internal/command.go` 的 `Run` |
+
+### 3.8 迁移兼容期（已结束）
+
+实施期为避免一次性大改，曾提供 3 个月的 type alias 兼容窗口
+（`internal/service/runner/alias.go`、`internal/service/llm/alias.go`）。
+兼容期现已结束：alias 随旧包一并删除，调用方直接指向 `internal/ocr`。
+全仓已无 `Deprecated` 兼容标记。
+
+## 4. 风险与实际缓解
+
+| 风险 | 等级 | 缓解措施 | 落地结果 |
+|---|---|---|---|
+| 跨包循环依赖 | 中 | domain 仍然在最底层，ocr → domain 单向 | ✅ 架构门禁 `eino-no-repository-dep` 等 9 条规则无违反 |
+| 迁移期 API 断裂 | 高 | 先用 type alias 保留旧类型，最小化 caller 改动 | ✅ 兼容层已随迁移完成删除，调用方直接指向新包 |
+| 单测全量回归 | 中 | 每 PR 跑 `go test -count=1 -short ./...` | ✅ `internal/ocr` 及其子包测试全绿 |
+| fx 启动顺序 | 低 | Registry 在 modules 顶层 Provide，不依赖其他模块 | ✅ `internal/modules/ocr.go` 收口为单一 fx Provider |
+| LLM 子能力去留 | 中 | `internal/service/llm` 整包迁出，不留子包 | ✅ 该包已删除，provider 实现在 `internal/ocr/llm_*.go` |
+| 启动期 async 加载一致性 | 中 | 构造只做对象构造不读 DB；加载走 lifecycle 异步 | ✅ `Registry.New` 不读 DB，`NotifyConfigChange` 驱动刷新 |
+
+## 5. 落地现状
+
+### 5.1 整合结果对照
+
+| 原计划 | 实际落地 |
 |---|---|
-| `internal/service/ocr` | 删，新代码用 `internal/ocr` |
-| `internal/service/runner` | 删，逻辑搬到 `internal/ocr/runner.go` + `textparse.go` |
-| `internal/service/llm` | 保留为子包，仅 `presets.go` + `metrics_test.go` 留下；`openai.go` 搬到 `internal/ocr/llm.go` |
-| `internal/service/agent/runner_factory.go` | 删，改用 `ocr.Client.Factory()` |
-| `biz/handler/settings_service/ocr_assets.go` 里 `runDryRunCommand` + `exec.Command("ocr", ...)` | 删，改用 `ocr.Client.Run(...)` |
+| B1 新建 `internal/ocr/registry.go` | ✅ `internal/ocr/registry.go`，对外暴露 21 个 accessor（含 7 个 manager） |
+| B2 `internal/modules/ocr.go` 收口为 1 个 fx.Provide | ✅ 单一 Provider |
+| B3/B4 简化模块与 handler 签名 | ✅ handler 侧经 `Registry` 取能力，不再逐个注入 |
+| A1 迁 `BuildConfig` / config / settings | ✅ `internal/ocr/config.go`（`BuildConfig` 为唯一合并实现）、`settings.go`、`settings_adapter.go` |
+| A2 迁 Runner / Previewer / Scanner | ✅ `internal/ocr/runner.go`、`scanner.go`、`delegate.go` |
+| A3 统一 exec 入口 | ✅ `internal/ocr/internal/command.go` 的 `Run`（三段式 SIGTERM → KillGrace → SIGKILL） |
+| A4 迁 7 个 manager | ✅ `internal/ocr/managers.go`（Versioner / ProviderLister / RulesChecker / Upgrader / SessionLister 等） |
+| A5 迁 LLM provider | ✅ `internal/ocr/llm_agentkit.go`、`llm_factory.go`、`llm_metrics.go`、`llm_types.go` |
+| A6 迁 `agent.OCRRunnerFactory` | ✅ `internal/ocr/factory.go` |
+| A7 拆 `domain/interfaces.go` | ✅ 评审核心类型迁入 `internal/domain/review/`，OCR 接口别名在 `internal/domain/review/ocr_aliases.go` |
+| A8 删旧包 + alias 兼容 | ✅ `internal/service/{ocr,runner,llm}` 三个包均已删除，兼容 alias 亦已移除 |
+| A9 `ocr_assets.go` 改用统一 Run | ✅ 走 `internal/ocr` 的统一 exec 入口 |
+| A10 修整 `internal/service/llm` 残留 | ✅ 整包删除，无残留 |
 
-### 3.8 迁移兼容期
+### 5.2 当前不变量
 
-为避免一次性大改，方案 A 实施时提供 3 个月的兼容窗口：
+改动这块代码时，以下三点必须保持：
 
-```go
-// internal/service/runner/alias.go (过渡期保留)
-package runner
+1. **`BuildConfig` 是配置合并的唯一实现**（overrides > settings > fallback > defaults）。不要另建并行合并路径。
+2. **`internal/ocr/internal/command.go` 的 `Run` 是唯一的 exec 入口**。新代码不要直接 `exec.Command`。
+3. **`internal/ocr` 是 OCR 能力的单一入口**。业务代码经 `Registry` 取用，不要绕过它直接构造具体 manager。
 
-// Deprecated: 改用 internal/ocr.Config
-type OpenCodeReviewConfig = ocr.Config
-
-// Deprecated: 改用 internal/ocr.Runner
-type OpenCodeReviewRunner = ocr.Runner
-```
-
-```go
-// internal/service/llm/alias.go
-package llm
-
-// Deprecated: 改用 internal/ocr.LLMProvider
-type DynamicProvider = ocr.LLMProvider
-```
-
-## 4. 风险评估
-
-| 风险 | 等级 | 缓解 |
-|---|---|---|
-| 跨包循环依赖 | 中 | domain 仍然在最底层，ocr → domain 单向 |
-| 迁移期 API 断裂 | 高 | 用 type alias 保留旧类型，最小化 caller 改动 |
-| 单测全量回归 | 中 | 每 PR 跑 `go test -count=1 -short ./...` |
-| fx 启动顺序 | 低 | ocr.Client 在 modules 顶层 Provide，不依赖其他模块 |
-| LLM 子能力去留 | 中 | 保留 `internal/service/llm` 子包，**只迁 DynamicProvider** |
-| 启动期 async 加载一致性 | 中 | Client.New 只做对象构造，不读 DB；Refresh 走 lifecycle 异步 |
-
-## 5. 实施计划
-
-### 阶段 B（先做，0 风险，2-3 小时）
-
-| PR | 内容 | 工作量 |
-|---|---|---|
-| **B1** | 新建 `internal/ocr/registry.go` + `registry_test.go`，8 个单测 | 1h |
-| **B2** | `internal/modules/ocr.go` 收口为 1 个 fx.Provide | 0.5h |
-| **B3** | 5 个 `internal/modules/*.go` 函数签名简化 | 0.5h |
-| **B4** | `biz/handler/settings_service/handler.go` 字段合并 | 0.5h |
-
-**总目标**：handler 参数 14 → 2，fx Provider 12 → 1，立即改善维护性。
-
-### 阶段 A（方案 B 合并后启动，1-2 周）
-
-| PR | 内容 | 工作量 |
-|---|---|---|
-| **A1** | 新建 `internal/ocr/client.go` + `config.go` + `settings.go`，迁 `BuildConfig` | 2d |
-| **A2** | 迁 `runner.Runner/Previewer/Scanner` 到 `ocr.runner.go` + `ocr.previewer.go` + `ocr.scanner.go` | 1d |
-| **A3** | 统一 `ocr.Run` 替换 4 处 exec 实现 | 1d |
-| **A4** | 迁 7 个 manager 到 ocr 包（tester/versioner/lister/checker/upgrader/viewer） | 2d |
-| **A5** | 迁 `llm.DynamicProvider` 到 `ocr.llm.go` | 1d |
-| **A6** | 迁 `agent.OCRRunnerFactory` 到 `ocr.factory.go` | 0.5d |
-| **A7** | 拆 `domain/interfaces.go` 为 `review.go` + `ocr.go` | 0.5d |
-| **A8** | 删 `internal/service/ocr` / `internal/service/runner` 包 + alias 兼容 | 1d |
-| **A9** | `biz/handler/settings_service/ocr_assets.go` 改用 `ocr.Run` | 0.5d |
-| **A10** | 修整 `internal/service/llm` 残留为 presets 子包 | 0.5d |
-
-**总目标**：消灭 5 处 settingsSource 重复 + 4 处 exec 重复 + 2 条 runner 链路。
-
-## 6. 与 PR-22 改造系列的衔接
+### 5.3 与 PR-22 改造系列的衔接
 
 本方案建立在 PR-01 ~ PR-22 的 22 PR 改造基础上，**不重叠**：
 
 - PR-17 已统一 `runner/internal/Run`，本方案 A3 把剩余 3 处 exec 全部切到该实现
 - PR-08 的 redact 工具在 `ocr.Run` 中强制应用
 - PR-15 拆分的 `internal/service/review/*.go` 仍保留 review 业务，OCR 部分迁出
-- PR-21 的启动期异步加载模式可复用到 `ocr.Client.Refresh`
+- PR-21 的启动期异步加载模式复用到 `Registry` 的配置刷新
 
-## 7. 不在本方案范围内
+## 6. 不在本方案范围内
 
 - ❌ review 业务核心（Service / Worker / Executor）继续在 `internal/service/review`
 - ❌ git 平台 Provider（internal/service/provider）继续原样
 - ❌ writeback 评论回写（internal/service/writeback）继续原样
 - ❌ DB schema / 迁移：本方案无任何 SQL 变更
 
-## 8. 验收标准
+## 7. 验收标准
 
 | 项 | 衡量 |
 |---|---|

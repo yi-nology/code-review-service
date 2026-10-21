@@ -49,7 +49,13 @@ make vuln
 
 - `internal/service/provider` and `internal/vcs`: clone URL validation, SHA validation, and cleanup safety.
 - `internal/service/webhook`: signature verification and provider-specific payload normalization.
-- `internal/service/runner`: external OCR command execution, environment variables, and timeout behavior.
+- `internal/ocr`: external OCR command execution, environment variables, and timeout behavior.
+  The unified exec entry is `internal/ocr/internal/command.go` (`Run`); `command.go` / `env.go` /
+  `failure.go` in the same package cover command building, env merging, and failure classification.
 - `internal/service/writeback`: comment deduplication, platform API failures, and partial publish behavior.
 - `biz/model` and `biz/handler`: generated code drift from `idl/*.thrift`.
 - `frontend/src/api` and `frontend/src/types`: API contract drift from backend models and thrift definitions.
+
+> Historical note: this list previously pointed at `internal/service/runner` for OCR command
+> execution. That package was folded into `internal/ocr` during the OCR core consolidation
+> (see `docs/OCR_CORE_DESIGN.md`); the concern moved with the code.

@@ -50,53 +50,65 @@ if hitRate < 0.8 {
 
 ### Global Rate Limiting
 
+限流参数**配置驱动**，由 `internal/config` 的 `GetRateLimit()` 解析，未配置时回退默认值。
+
 **Default Configuration:**
 - Requests per second: 100
 - Burst size: 200
 
-**Tuning for High Traffic:**
-
-```go
-// In server.go
-middleware.RateLimitMiddleware(500, 1000)  // 500 req/s, burst 1000
+**配置方式（环境变量）:**
+```sh
+RATE_LIMIT_RPS=500     # 每秒请求数
+RATE_LIMIT_BURST=1000  # 突发容量
 ```
 
-### Per-User Rate Limiting
-
-**Default Configuration:**
-- Requests per second: 10
-- Burst size: 20
-
-**Tuning for API Consumers:**
-
+**应用位置:**
 ```go
-// For API-heavy users
-middleware.PerUserRateLimitMiddleware(50, 100)  // 50 req/s, burst 100
+// internal/modules/server.go
+rps, burst := cfg.GetRateLimit()
+h.Use(middleware.RateLimitMiddleware(rps, burst))
 ```
+
+限流中间件按 **ClientIP 分桶**（KeyedLimiter，每 key 独立计数），实现见
+`internal/middleware/ratelimit.go`（委托 ekit 的 `mw.RateLimitMiddleware`）。
+
+> 早期版本文档提到过 `middleware.PerUserRateLimitMiddleware`——该中间件**不存在**，
+> 当前只有上述按 IP 分桶的全局限流。
 
 ## Database Optimization
 
 ### Connection Pooling
 
-```go
-// In postgres/db.go
-db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-sqlDB, _ := db.DB()
+连接池参数**配置驱动**，由 `DATABASE_MAX_OPEN` / `DATABASE_MAX_IDLE` 环境变量控制，
+经 `gormx.WithConnectionPool` 应用。
 
-// Configure pool
-sqlDB.SetMaxIdleConns(10)           // Idle connections
-sqlDB.SetMaxOpenConns(100)          // Max open connections
-sqlDB.SetConnMaxLifetime(time.Hour) // Connection lifetime
+```go
+// internal/repository/postgres/db.go
+db, err := gorm.Open(
+    postgres.Open(dsn),
+    &gorm.Config{},
+    gormx.WithConnectionPool(cfg.MaxIdleConns, cfg.MaxOpenConns, 30*time.Minute),
+)
+if sqlDB, err := db.DB(); err == nil {
+    // 空闲连接 5 分钟后回收，防止 DB 端 wait_timeout 静默关闭后取到失效连接
+    sqlDB.SetConnMaxIdleTime(5 * time.Minute)
+}
 ```
 
 ### Query Optimization
 
-1. **Add Indexes:**
-```sql
-CREATE INDEX idx_reviews_provider_repo ON reviews(provider, repo);
-CREATE INDEX idx_reviews_status ON reviews(status);
-CREATE INDEX idx_sessions_review_id ON review_sessions(review_id);
-```
+1. **Indexes（实际 schema）**
+
+索引由 GORM tag 声明，随 AutoMigrate 建立。`reviews` 表当前有：
+
+| 索引 | 列 | 用途 |
+|---|---|---|
+| `idx_provider_repo_status` | `(provider, repo, status)` | 按平台/仓库/状态过滤——最常用的列表查询 |
+| `idx_reviews_pr` | `(pull_request_id)` | 按 PR 查评审 |
+| `idx_reviews_mr` | `(merge_request_iid)` | 按 MR 查评审 |
+| `idx`（单列） | `author` | 按作者过滤 |
+
+`sessions` 表的 `review_id` 外键列同样带索引。
 
 2. **Use Pagination:**
 ```go
@@ -114,22 +126,27 @@ db.Select("id", "review_id", "status").Find(&reviews)
 ### Connection Management
 
 ```go
-// Configure WebSocket buffer sizes
+// biz/handler/progress_service/progress_service.go
 upgrader := websocket.HertzUpgrader{
-    ReadBufferSize:  4096,
-    WriteBufferSize: 4096,
+    ReadBufferSize:  1024,
+    WriteBufferSize: 1024,
 }
 ```
 
 ### Broadcasting Optimization
 
-1. **Use Room-Based Broadcasting:**
-   - Group connections by review ID
-   - Only broadcast to relevant rooms
+进度事件的出口是**单源总线**：`internal/service/progress/broadcaster.go` 桥接
+底座 `agent-harness/eventbus` 与 WebSocket，事件经总线流向 broadcaster，
+不存在多路直推。
 
-2. **Batch Messages:**
-   - Combine multiple updates into single message
-   - Reduce WebSocket frame overhead
+1. **Room-Based Broadcasting:**
+   - 连接按 review ID 注册到房间（`Register(room, conn)`）
+   - 只向相关房间广播（`BroadcastEvent(room, event)`）
+   - 房间 map 以 Conn 接口值（含指针身份）为 key，避免同值连接互相覆盖
+
+2. **Single Publish Point:**
+   - 进度事件统一经 `eventbus` 发布，tracker 不直接操作 WebSocket
+   - 这保证订阅者（WebSocket 桥、未来的其他消费者）看到的事件顺序一致
 
 ## Memory Management
 

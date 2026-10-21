@@ -41,7 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           for i in 1 2 3 4 5; do
-            if go mod download all; then
+            if go mod download; then
               echo "modules ready (attempt $i)"
               exit 0
             fi
@@ -131,7 +131,7 @@ jobs:
         run: |
           set -euo pipefail
           for i in 1 2 3 4 5; do
-            if go mod download all; then
+            if go mod download; then
               echo "modules ready (attempt $i)"
               exit 0
             fi

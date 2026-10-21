@@ -67,6 +67,36 @@ GET /reviews/:id
 GET /reviews?page=1&page_size=20&status=success&provider=github&repo=owner/repo
 ```
 
+#### Preview Review（不落库）
+```http
+POST /reviews/preview
+Content-Type: application/json
+
+{
+  "provider": "github",
+  "repo": "owner/repo",
+  "base_sha": "abc123",
+  "head_sha": "def456"
+}
+```
+
+返回将要提交的评审内容，不创建评审记录。
+
+#### Scan Repository（仓库扫描）
+```http
+POST /reviews/scan
+Content-Type: application/json
+
+{
+  "provider": "github",
+  "repo": "owner/repo",
+  "base_sha": "abc123",
+  "head_sha": "def456"
+}
+```
+
+对整个仓库做扫描式评审，而非单次 PR/MR 评审。
+
 #### Rerun Review
 ```http
 POST /reviews/:id/rerun
@@ -80,6 +110,11 @@ POST /reviews/:id/cancel
 ---
 
 ### Sessions
+
+#### List All Sessions
+```http
+GET /sessions
+```
 
 #### List Sessions for Review
 ```http
@@ -191,11 +226,6 @@ Content-Type: application/json
 POST /reviews/:id/sessions/:sessionId/cancel
 ```
 
-#### Get Session Map
-```http
-GET /reviews/:id/sessions/:sessionId/map
-```
-
 ---
 
 ### Progress Tracking
@@ -209,47 +239,20 @@ Connect to receive real-time progress updates via WebSocket.
 
 #### Get Progress (REST)
 ```http
+GET /reviews/:id/progress
 GET /reviews/:id/progress/status
 ```
+
+`/progress` 返回完整进度快照，`/progress/status` 返回精简状态。
 
 #### Get Active Reviews
 ```http
 GET /progress/active
 ```
 
----
-
-### Review Maps
-
-#### Generate Map
+#### Get Publish Status
 ```http
-POST /reviews/:id/maps
-Content-Type: application/json
-
-{
-  "session_id": "session-123",
-  "diff": "... unified diff ..."
-}
-```
-
-#### List Maps
-```http
-GET /reviews/:id/maps
-```
-
-#### Get Map
-```http
-GET /reviews/:id/maps/:mapId
-```
-
-#### Preview Map (without saving)
-```http
-POST /reviews/:id/maps/preview
-Content-Type: application/json
-
-{
-  "diff": "... unified diff ..."
-}
+GET /reviews/:id/publish/status
 ```
 
 ---
@@ -269,6 +272,20 @@ GET /reviews/:id/preview
 #### Update Published Comment
 ```http
 PUT /reviews/:id/publish
+```
+
+#### Retry Publish
+```http
+POST /reviews/:id/publish/retry
+```
+
+发布失败后重试回写。
+
+#### Suggestion Patch（建议补丁）
+```http
+GET  /reviews/:id/suggestion-patch          # 预览建议补丁
+GET  /reviews/:id/suggestion-patch/check    # 校验补丁
+GET  /reviews/:id/suggestion-patch.diff     # 下载 diff
 ```
 
 ---
@@ -299,6 +316,74 @@ Content-Type: application/json
 #### Test LLM Connection
 ```http
 POST /settings/ocr/test-llm
+```
+
+#### OCR Version & Upgrade
+```http
+GET  /settings/ocr/version         # 当前 OCR 版本
+GET  /settings/ocr/upgrade/info    # 可升级版本信息
+GET  /settings/ocr/upgrade/status  # 升级状态
+POST /settings/ocr/upgrade         # 执行升级
+```
+
+#### OCR Viewer
+```http
+GET  /settings/ocr/viewer      # viewer 状态
+POST /settings/ocr/viewer/start
+POST /settings/ocr/viewer/stop
+```
+
+#### LLM Providers
+```http
+GET /settings/ocr/providers
+```
+
+#### Custom Providers
+```http
+GET    /settings/ocr/custom-providers
+POST   /settings/ocr/custom-providers
+PUT    /settings/ocr/custom-providers/:id
+DELETE /settings/ocr/custom-providers/:id
+```
+
+#### Tool Packages
+```http
+GET    /settings/ocr/tool-packages
+POST   /settings/ocr/tool-packages
+PUT    /settings/ocr/tool-packages/:id
+DELETE /settings/ocr/tool-packages/:id
+POST   /settings/ocr/tool-packages/validate
+```
+
+#### Rules Check
+```http
+POST /settings/ocr/rules-check
+```
+
+#### OCR Sessions
+```http
+GET /settings/ocr/sessions
+```
+
+---
+
+### Settings - Rules
+
+#### List Rule Packages
+```http
+GET /settings/rules/packages
+```
+
+#### Create / Update / Delete Rule Package
+```http
+POST   /settings/rules/packages
+PUT    /settings/rules/packages/:id
+DELETE /settings/rules/packages/:id
+```
+
+#### Global Rules
+```http
+GET /settings/rules/global
 ```
 
 ---
@@ -393,9 +478,12 @@ DELETE /settings/projects?provider=github&repo=owner/repo
 
 ### Settings - Project Agents
 
+> 端点为扁平的 `/settings/project-agents`，**`provider` / `repo` 走请求体**（或 query），
+> 不在路径里。
+
 #### Get Project Agent Configuration
 ```http
-GET /settings/projects/:provider/:repo/agents
+GET /settings/project-agents?provider=github&repo=owner/repo
 ```
 
 Response:
@@ -430,10 +518,12 @@ Response:
 
 #### Update Project Agent
 ```http
-PUT /settings/projects/:provider/:repo/agents
+PUT /settings/project-agents
 Content-Type: application/json
 
 {
+  "provider": "github",
+  "repo": "owner/repo",
   "agent_id": 1,
   "enabled": true,
   "priority": 10
@@ -442,10 +532,12 @@ Content-Type: application/json
 
 #### Batch Update Project Agents
 ```http
-POST /settings/projects/:provider/:repo/agents/batch
+POST /settings/project-agents/batch
 Content-Type: application/json
 
 {
+  "provider": "github",
+  "repo": "owner/repo",
   "agents": [
     { "agent_id": 1, "enabled": true, "priority": 10 },
     { "agent_id": 2, "enabled": true, "priority": 20 },
@@ -456,7 +548,14 @@ Content-Type: application/json
 
 #### Delete Project Agent
 ```http
-DELETE /settings/projects/:provider/:repo/agents/:agentId
+DELETE /settings/project-agents
+Content-Type: application/json
+
+{
+  "provider": "github",
+  "repo": "owner/repo",
+  "agent_id": 1
+}
 ```
 
 ---
@@ -570,6 +669,18 @@ GET /stats/contributors/:author/trend
 GET /stats/contributors/:author/categories
 ```
 
+#### Project Statistics
+```http
+GET /stats/projects                # 项目列表
+GET /stats/projects/detail         # 项目详情
+GET /stats/projects/contributors   # 项目贡献者
+GET /stats/projects/categories     # 项目分类统计
+GET /stats/projects/files          # 项目文件维度
+GET /stats/projects/trend          # 项目趋势
+GET /stats/projects/ocr            # 项目 OCR 统计
+GET /stats/projects/ocr/trend      # 项目 OCR 趋势
+```
+
 ---
 
 ### Webhooks
@@ -587,12 +698,21 @@ X-Hub-Signature-256: sha256=...
 
 ---
 
-### Health Check
+### Health & Observability
+
+这些端点挂在**根路径**（不在 `/api/v1` 下），且在 auth 中间件的跳过白名单里——
+探针与抓取端点无需 Bearer token。
 
 ```http
-GET /health
-GET /ping
+GET /healthz        # 就绪检查：db / ocr-binary / llm-endpoint 三项
+GET /readyz         # 同上（k8s 探针路径）
+GET /health         # hertz health 插件
+GET /ping           # hertz health 插件
+GET /metrics        # Prometheus 指标
+GET /debug/llm/metrics   # LLM 调用指标快照
 ```
+
+> 早期文档把它们写成 `/api/v1/health`、`/api/v1/ping`，实际注册在根路径。
 
 ---
 
@@ -852,8 +972,9 @@ token 即 argus 侧 `ARGUS_APITOKEN`）；未配置时返回 400。
 GET /argus/reviews/:id/report
 ```
 
-懒拉取代理：按承接记录的 `argus_task_id` 调 argus `GET /tasks/:taskId` 返回报告全文
-（markdown），本站不落库。响应：`{"argus_task_id": "...", "status": "done", "verdict":
+懒拉取代理：按承接记录的 `argus_task_id` 调 argus 侧 `GET /tasks/:taskId` 返回报告全文
+（markdown），本站不落库。> 该路径属于**外部 argus 服务**，不是本站端点。
+响应：`{"argus_task_id": "...", "status": "done", "verdict":
 "comment", "report": "# ...", "findings_count": 3}`。记录无任务 ID（纯上报/旧数据）返回 400。
 
 ### List Argus Tasks (任务对账)

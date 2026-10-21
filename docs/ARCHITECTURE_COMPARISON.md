@@ -1,14 +1,31 @@
-# 架构对比：旧 Executor vs 新 eino 架构
+# 架构演进：executor.Service → eino → 引擎适配层
 
-## 概述
+> 状态: **演进史**。本文档记录评审执行架构的三次形态变迁与各自的决策依据，
+> 供回溯"为什么长成这样"。文中"旧架构/新架构"的对比轴是**历史切片**，
+> 不是当前形态。
+>
+> 当前形态见文末「当前形态」一节。
 
-本文档对比 review-service 中两种评审执行架构的差异。
+## 0. 三次形态变迁
+
+| 阶段 | 形态 | 状态 |
+|---|---|---|
+| 一 | `executor.Service`（单体执行器） | 已被替换 |
+| 二 | `eino.Executor`（eino 工作流编排） | 已被再次收敛 |
+| 三 | 引擎适配层 `internal/eino` + 编排端口 `review.PipelineRunner` | **当前** |
+
+- 阶段一 → 阶段二：把单体执行器换成 eino 工作流，接口与依赖保持不变。
+- 阶段二 → 阶段三：把**前置编排**从引擎适配层下沉到 service 层。原因是这段流程
+  属于评审领域（克隆工作区 → 项目策略 → 文件过滤 → 规则合并 → 记忆召回 →
+  OCR 执行参数），与"用哪个引擎跑"无关。此前它住在引擎适配层，导致该层直接持
+  6 个仓储、绕过 service 层直读 5 张业务表，又反向调用 service/review 的 13 个
+  导出函数——两套编排互相调用，是耦合的主要来源。
 
 ---
 
 ## 1. 整体架构
 
-### 旧架构（executor.Service）
+### 旧架构（executor.Service，已移除）
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -520,3 +537,48 @@ tools := []tool.InvokableTool{
 | **性能** | 相同 | 相同 | ➖ 无差异 |
 
 **结论：** 新架构在代码质量、可测试性、扩展性方面有显著提升，适合长期维护和功能演进。
+
+---
+
+## 当前形态（阶段三）
+
+### 分层
+
+```
+internal/service/review/     # 评审领域
+├── pipeline.go              # 前置编排（实现 review.PipelineRunner 端口）
+├── worker.go                # worker 生命周期
+└── ...                      # create/query/report/rules/state 等
+
+internal/eino/               # 引擎适配层（只认端口，不持仓储）
+├── executor.go              # Execute 主流程与两条引擎路径（workflow / 单 runner）
+├── sideeffects.go           # 副作用（写回、通知）
+└── ...
+
+internal/domain/review/      # 领域词汇与端口
+├── interfaces.go            # Executor / PipelineRunner / ReviewStateStore 等
+└── ocr_aliases.go           # OCR 相关接口别名
+```
+
+### 关键约束
+
+1. **引擎适配层不持仓储。** `internal/eino` 只依赖 `review.PipelineRunner`（前置编排端口）
+   与 `review.ReviewStateStore`（窄状态存储接口），不 import 任何 repository 包。
+   这条由架构门禁规则 `eino-no-repository-dep` 强制执行。
+2. **前置编排在 service 层。** 克隆工作区 → 项目策略 → 文件过滤 → 规则合并 →
+   记忆召回 → OCR 执行参数，实现在 `internal/service/review/pipeline.go`。
+3. **状态存储用窄接口。** 引擎侧用 `review.ReviewStateStore` 而非完整的
+   `repository.ReviewRepository`，避免依赖方向倒置（infra → service）。
+
+### 当前能力
+
+| 维度 | 当前状态 |
+|------|----------|
+| 代码组织 | 引擎适配层与领域编排分离，依赖方向单向 |
+| 可测试性 | 编排可脱离引擎单测（pipeline_test.go） |
+| 并行能力 | 多 Agent 并行（workflow 路径） |
+| 工具化 | eino Tool 封装 |
+| 依赖方向 | 由 `architecture-policy.yaml` + `archcheck` 门禁强制 |
+
+> 修改执行架构时，先看 `AGENTS.md` 的「Architecture & layer rules」与
+> `architecture-policy.yaml`——那些是**当前**的规则，本文档只记录演进脉络。

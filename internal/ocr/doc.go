@@ -1,11 +1,15 @@
 // Package ocr 是「open-code-review 能力」的核心包。
 //
-// 阶段 A 设计：把 internal/service/ocr + internal/service/runner + internal/service/llm
-// 三个包的内容全部迁入本包，消除 5 个等价 settingsSource 接口、4 处 exec 重复、
-// 7 个 manager 重复 read settings。
+// 本包是 OCR 能力的单一入口：runner、scanner、preview、7 个 manager
+// （Versioner / Lister / Checker / Viewer / Upgrader / SessionLister / Tester）、
+// LLM provider 与配置合并都在这里。原先散落在 internal/service/{ocr,runner,llm}
+// 的实现已全部迁入，重复的 settingsSource 接口、exec 封装与 config 合并路径
+// 随之收敛为单例：BuildConfig 是配置合并的唯一实现，internal/ocr/internal
+// 的 Run 是统一的 exec 入口。
 //
-// 阶段 A 完成后，internal/service/{ocr,runner,llm} 三个包标记为 deprecated，
-// 保留 type alias 兼容 3 个月，consumer 逐步迁移。
+// 能力面通过 Registry 聚合（见 registry.go），上层按需取用而非直接构造。
+//
+// 设计背景与演进过程见 docs/OCR_CORE_DESIGN.md。
 package ocr
 
 import (

@@ -44,11 +44,15 @@ jobs:
       # INTERNAL_ERROR」（传输层中断，不是版本不存在也不是校验失败）。这类抖动
       # 会让随后的 build 报「read .../@v/xxx.zip: stream error」而红，
       # 但重试通常一次就过——已下载部分进了 module cache，重试只补剩下的。
+      #
+      # 用 `go mod download`（构建列表）而不是 `all`：`all` 会把测试闭包的传递
+      # 依赖哈希补进 go.sum，把工作树改成 dirty —— 于是 Go 的 VCS 注入记下
+      # vcs.modified=true，二进制里就带着「源码被改过」的假标记。
       - name: Download modules
         run: |
           set -euo pipefail
           for i in 1 2 3 4 5; do
-            if go mod download all; then
+            if go mod download; then
               echo "modules ready (attempt $i)"
               exit 0
             fi
@@ -70,7 +74,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          # -trimpath：去掉本地路径，二进制可复现（不同机器构建结果一致）。
+          # -trimpath：去掉构建机的本地路径（构建结果与构建机无关）。
+          # 注意二进制**不是跨 commit 逐字节一致**的：Go 默认把 vcs.revision /
+          # vcs.time 注入二进制。同 commit + 干净工作树 + 同 Go 版本 + 同组
+          # 参数，才可复现（已实测）。
           go build -trimpath -ldflags="-s -w" \
             -o "dist/review-service-linux-${{ matrix.goarch }}" .
           go build -trimpath -ldflags="-s -w" \
