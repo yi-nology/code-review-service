@@ -1,11 +1,13 @@
 package repository
 
-import (
-	"github.com/yi-nology/code-review-service/internal/repository/postgres"
-
-	gormDB "gorm.io/gorm"
-)
-
+// container.go：全部仓储接口的聚合容器。
+//
+// 容器**类型**住在接口包——它只是一组接口的聚合，消费方（如 handler）依赖它
+// 不必直连实现包。
+//
+// 构造器（NewRepoContainer）住在**实现包** internal/repository/postgres：接口包
+// 一旦 import 实现包，依赖方向就倒了（domain → impl → infra），而且会让所有
+// 间接依赖仓储接口的包（如 internal/ocr）传递依赖上 GORM 实现。
 type RepoContainer struct {
 	Review           ReviewRepository
 	OCRSettings      OCRSettingsRepository
@@ -25,27 +27,4 @@ type RepoContainer struct {
 	Notification     NotificationRepository
 	Auth             AuthRepository
 	ArgusReview      ArgusReviewRepository
-}
-
-func NewRepoContainer(db *gormDB.DB) *RepoContainer {
-	return &RepoContainer{
-		Review:           postgres.NewReviewRepo(db),
-		OCRSettings:      postgres.NewOCRSettingsRepo(db),
-		ProjectPolicy:    postgres.NewProjectPolicyRepo(db),
-		GitPlatform:      postgres.NewGitPlatformRepo(db),
-		WebhookDelivery:  postgres.NewWebhookDeliveryRepo(db),
-		ChangeRevision:   postgres.NewChangeRevisionRepo(db),
-		WritebackItem:    postgres.NewWritebackItemRepo(db),
-		GlobalRules:      postgres.NewGlobalRulesRepo(db),
-		OCRRulePackage:   postgres.NewOCRRulePackageRepo(db),
-		OCRToolPackage:   postgres.NewOCRToolPackageRepo(db),
-		ContributorStats: postgres.NewContributorStatsRepo(db),
-		ReviewerAgent:    postgres.NewReviewerAgentRepo(db),
-		ProjectAgent:     postgres.NewProjectAgentRepo(db),
-		CustomProvider:   postgres.NewCustomProviderRepo(db),
-		FindingFeedback:  postgres.NewFindingFeedbackRepo(db),
-		Notification:     postgres.NewNotificationRepo(db),
-		Auth:             postgres.NewAuthRepo(db),
-		ArgusReview:      postgres.NewArgusReviewRepo(db),
-	}
 }

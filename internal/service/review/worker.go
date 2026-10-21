@@ -3,14 +3,15 @@ package review
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
-	"github.com/oekit/concurrency/async"
-	"github.com/oekit/concurrency/group"
-	"github.com/oekit/logx"
 	"github.com/yi-nology/code-review-service/internal/domain/review"
 	bizmetrics "github.com/yi-nology/code-review-service/internal/observability/metrics"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
+	"github.com/oekit/concurrency/async"
+	"github.com/oekit/concurrency/group"
+	"github.com/oekit/logx"
 )
 
 func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval, staleAfter time.Duration) {
@@ -154,7 +155,12 @@ func (s *Service) startHeartbeat(reviewID string, interval time.Duration) (stop 
 		return func() {}
 	}
 	done := make(chan struct{})
+	// wg 让 stop 能等心跳协程真正退出：否则 stop 返回后可能还有一次正在进行的
+	// tick（调用方无法依赖「stop 之后再无 touch」）。
+	var wg sync.WaitGroup
+	wg.Add(1)
 	async.GoSafeLabeled("review-heartbeat", func() {
+		defer wg.Done()
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
@@ -171,7 +177,10 @@ func (s *Service) startHeartbeat(reviewID string, interval time.Duration) (stop 
 			}
 		}
 	})
-	return func() { close(done) }
+	return func() {
+		close(done)
+		wg.Wait()
+	}
 }
 
 // Shutdown 通知 worker 停止并等待所有 in-flight review 完成或 ctx 超时。

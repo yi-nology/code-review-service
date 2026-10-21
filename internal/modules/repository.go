@@ -10,7 +10,7 @@ import (
 )
 
 var RepositoryModule = fx.Options(
-	fx.Provide(repository.NewRepoContainer),
+	fx.Provide(postgres.NewRepoContainer),
 	fx.Provide(NewSessionRepository),
 	fx.Provide(NewPricingRepository),
 	fx.Provide(session.NewSessionService),

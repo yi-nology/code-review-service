@@ -24,10 +24,12 @@ type reapRepo struct {
 	listOpts  []domain.ListOptions
 	mu        sync.Mutex
 	touches   int
+	// touchCh 每次 TouchRunning 发一个信号——测试等信号而不是睡固定时间。
+	touchCh chan struct{}
 }
 
 func newReapRepo() *reapRepo {
-	return &reapRepo{store: newFakeStateStore()}
+	return &reapRepo{store: newFakeStateStore(), touchCh: make(chan struct{}, 64)}
 }
 
 func (r *reapRepo) GetByReviewID(ctx context.Context, id string) (*domain.Record, error) {
@@ -56,9 +58,29 @@ func (r *reapRepo) RequeueStale(_ context.Context, _ time.Time) (int64, error) {
 
 func (r *reapRepo) TouchRunning(_ context.Context, _ string) error {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.touches++
+	r.mu.Unlock()
+	select {
+	case r.touchCh <- struct{}{}:
+	default:
+	}
 	return nil
+}
+
+// waitTouches 等到心跳触达 n 次（带超时）。
+//
+// 不用「睡固定时间再数」：CI 上调度延迟会让 sleep 版的判定假红（心跳 10ms
+// 一次、睡 60ms、要求 ≥2 次——机器一忙就只触发 0~1 次）。
+func (r *reapRepo) waitTouches(t *testing.T, n int) {
+	t.Helper()
+	deadline := time.After(5 * time.Second)
+	for i := 0; i < n; i++ {
+		select {
+		case <-r.touchCh:
+		case <-deadline:
+			t.Fatalf("expected >=%d heartbeat touches, got %d", n, r.touchCount())
+		}
+	}
 }
 
 func (r *reapRepo) touchCount() int {
@@ -336,13 +358,15 @@ func TestStartHeartbeat(t *testing.T) {
 	svc := newReapTestService(repo, &reapPoster{}, &captureNotifier{}, &captureWriteback{})
 
 	stop := svc.startHeartbeat("hb-1", 10*time.Millisecond)
-	time.Sleep(60 * time.Millisecond)
+	repo.waitTouches(t, 2)
 	stop()
 
 	n := repo.touchCount()
 	if n < 2 {
 		t.Fatalf("expected >=2 heartbeat touches, got %d", n)
 	}
+	// stop 会等心跳协程退出（见 worker.go 的 startHeartbeat），
+	// 所以此后不该再有 touch——这里给它一个心跳周期的时间来暴露「没停」。
 	time.Sleep(40 * time.Millisecond)
 	if after := repo.touchCount(); after != n {
 		t.Fatalf("heartbeat kept running after stop: %d -> %d", n, after)
