@@ -7,7 +7,7 @@ that are not obvious from the directory layout. The canonical, longer reference 
 ## This repository
 
 - **Public repository**: <https://github.com/yi-nology/code-review-service>
-  (Apache-2.0, published 2026-10-21; latest release v0.2.0).
+  (Apache-2.0, published 2026-10-21; latest release v0.2.1).
 - **Module path**: `github.com/yi-nology/code-review-service`.
 - **Remotes in this checkout**: `github` → the GitHub repository above;
   `origin` → a local bare mirror (`../code-review-service.git`).

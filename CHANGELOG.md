@@ -6,7 +6,10 @@
 > 说明：本项目在开源前有约 4 个月的内部开发历史（377 个提交）。那次历史的变更
 > 记录未逐条回填到本文件——开源首个版本起，本文件开始逐版本维护。
 
-## [Unreleased]
+## [0.2.1] - 2026-10-22
+
+Gerrit 平台支持与产品文档重写：把「支持 Gerrit」从文档里的声明变成真能配、真能跑的能力，
+并按 AI Code Review 的产品定位重写了功能介绍与截图。
 
 ### Gerrit 平台支持
 
@@ -31,6 +34,23 @@ Gerrit 此前**只实现了客户端、没有打通平台注册**——`AddOrUpd
 - **控制台**：Git 平台配置页新增 Gerrit 选项与取 Token 指引。
 
 注册路径由 `TestAddOrUpdateGerrit` 钉住（回退修复即失败）。
+
+### 产品文档与素材
+
+- `docs/FUNCTIONAL_OVERVIEW.md` 重写：产品名统一为 **AI Code Review**，支持平台更新为
+  **8 个**（GitHub、GitLab、Gitea、Forgejo、Gitee、GitCode、腾讯工蜂、Gerrit），
+  新增 Gerrit 专章——为什么它是例外、注册路径怎么走、diff 为什么从 git 算、
+  webhook 为什么独立归一化。
+- `docs/assets/screenshots/` 换为 16 张新截图（本地真实运行的控制台实拍，1920 宽）。
+- `scripts/seed-demo.sql`：一键灌入合成演示数据（`acme/*` 仓库名、机器人提交者、
+  `*.example.com` 地址），任何人 clone 后都能复现截图，不含真实代码或客户信息。
+
+### 修复
+
+- Gerrit 移植时模块路径改写（`git.enjoye.top` → `github.com`）打乱了 import 分组，
+  未过 `gofmt` 检查，CI 的 Check formatting 报红——已修正。
+- 公共树清理：移除制作工具链（宣传片渲染工程、一次性移植脚本）与内含内网域名映射的
+  截图脱敏工具；根 `.gitignore` 加 `*.mp4` 守卫，成片一律不进仓库。
 
 ## [0.2.0] - 2026-10-21
 
