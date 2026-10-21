@@ -52,8 +52,15 @@ jobs:
           exit 1
 
       - name: Check formatting
+        # 不用 `test -z "$(gofmt -l ...)"`：命令替换会把文件列表吞掉，
+        # 失败时只看到一句 exit code 1，得再本地复现一遍才知道是哪个文件。
         run: |
-          test -z "$(gofmt -l $(git ls-files '*.go'))"
+          unformatted="$(gofmt -l $(git ls-files '*.go'))"
+          if [ -n "$unformatted" ]; then
+            echo "::error::以下文件未格式化（gofmt -w 修正）："
+            echo "$unformatted"
+            exit 1
+          fi
 
 
       # 资源诊断：出问题时能直接看到 runner 的磁盘/内存余量，不必再猜。
