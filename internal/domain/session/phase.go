@@ -3,7 +3,7 @@ package session
 // phase.go：评审流程的**阶段顺序表**——全仓唯一一份。
 //
 // 此前有两份手写副本：internal/service/session/validation.go 的迁移表，
-// 以及 internal/service/progress/types.go 的阶段常量。两份必然漂移，
+// 以及 internal/domain/progress 的阶段常量。两份必然漂移，
 // 且谁改了另一份不会跟着改——这里把顺序表收成单一事实源，
 // 进度包改为直接引用本包的常量。
 //

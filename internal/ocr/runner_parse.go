@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/yi-nology/code-review-service/internal/domain/progress"
 	"github.com/yi-nology/code-review-service/internal/domain/session"
-	"github.com/yi-nology/code-review-service/internal/service/progress"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 )
 

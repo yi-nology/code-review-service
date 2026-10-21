@@ -316,11 +316,14 @@ rules:
 
   - id: ocr-no-service-dep
     desc: |
-      【欠账】OCR 层不得依赖业务服务层。internal/ocr 目前为上报进度依赖
-      internal/service/progress（那本该是领域词汇，不是服务）。
-      拆法：进度事件词汇下沉到 internal/domain/progress。
-      拆除条件：上述边消失后升为 error。
-    severity: warn
+      OCR 层不得依赖业务服务层。进度事件是**评审领域词汇**（阶段名、上报
+      端口），已下沉到 internal/domain/progress：internal/ocr 要的只是阶段名
+      与上报端口，不该为一个常量拖上整个服务包。
+
+      此前 internal/ocr 依赖 internal/service/progress，只为一个阶段名常量
+      与一个上报端口——而那个包里装的是 tracker / manager / websocket 桥等
+      机制。此规则现在**守住这条边界**：ocr 一旦重新依赖业务服务层即报错。
+    severity: error
     scope: [internal/ocr]
     ignore_test: true
     forbid_import_regex: 'internal/service/'

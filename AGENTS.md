@@ -98,6 +98,11 @@ Layered, wired with `uber/fx`:
   (port `review.PipelineRunner`), and the engine side only holds that port plus
   the narrow state store `review.ReviewStateStore`. The architecture gate
   (`eino-no-repository-dep`) enforces this.
+- `internal/domain/progress/` holds the progress **vocabulary and port**
+  (phase names, `ProgressReporter`, ctx plumbing); `internal/service/progress/`
+  holds the **mechanism** (tracker / manager / websocket bridge) and re-exports
+  the vocabulary as aliases. Consumers that only need the vocabulary (e.g.
+  `internal/ocr`) must depend on the domain package, not the service one.
 - `internal/ocr/` is the **single entry point for all OCR capability** (runner,
   scanner, preview, 7 managers, LLM provider/adapter, config merge). See
   `docs/OCR_CORE_DESIGN.md`. `BuildConfig` is the one config-merge implementation
@@ -178,7 +183,7 @@ vice versa; the exchange happens in this repo.
   set it symmetrically: a scope written but not read is an atom that can never
   be recalled, and one read but not written is a leak.
 - **Phase order** lives in exactly one place: `internal/domain/session/phase.go`.
-  `internal/service/session` and `internal/service/progress` reference it — do not
+  `internal/service/session` and `internal/domain/progress` reference it — do not
   add a second copy.
 - The harness `protocol` package is **not** used here: its Report shape is
   ops-diagnosis shaped (symptom/rollback/approval) and does not match review findings.

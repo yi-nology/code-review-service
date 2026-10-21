@@ -9,26 +9,6 @@ import (
 	"github.com/yi-nology/agent-harness/eventbus"
 )
 
-type ProgressReporter interface {
-	ReportProgress(message string, progress float64)
-	ReportFileProgress(filename string, current, total int)
-	ReportAgentStatus(agentName, status, message string)
-	UpdatePhase(phase Phase, status string, progress float64, message string)
-}
-
-type progressReporterKey struct{}
-
-func WithProgressReporter(ctx context.Context, reporter ProgressReporter) context.Context {
-	return context.WithValue(ctx, progressReporterKey{}, reporter)
-}
-
-func ProgressReporterFromContext(ctx context.Context) ProgressReporter {
-	if reporter, ok := ctx.Value(progressReporterKey{}).(ProgressReporter); ok {
-		return reporter
-	}
-	return nil
-}
-
 type ProgressManager struct {
 	broadcaster *broadcaster
 	bus         *eventbus.Bus
