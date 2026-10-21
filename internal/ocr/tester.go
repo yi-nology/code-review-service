@@ -138,8 +138,8 @@ func (t *Tester) runLLMTest(ctx context.Context, cfg Config) *domain.LLMTestResu
 // 输出示例：
 //
 //	Source: OCR environment
-//	URL:    https://token-plan-cn.xiaomimimo.com/v1
-//	Model:  mimo-v2.5-pro
+//	URL:    https://<llm-gateway>/v1
+//	Model:  <model-name>
 //	我是 open-code-review ...
 //	✓ Connection test successful
 func formatLLMTestSuccess(stdout string) string {

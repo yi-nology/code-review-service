@@ -36,11 +36,11 @@ test_merge_request() {
         },
         "project": {
             "id": 12345,
-            "path_with_namespace": "zy84338719/test-api-1781165929863739000",
+            "path_with_namespace": "example-user/test-api-1781165929863739000",
             "name": "test-api"
         },
         "user": {
-            "username": "zy84338719",
+            "username": "example-user",
             "name": "Test User",
             "avatar_url": "https://gitcode.com/avatar/test.png"
         }
@@ -74,10 +74,10 @@ test_push() {
         "after": "abc123def456789",
         "repository": {
             "id": 12345,
-            "full_name": "zy84338719/test-api-1781165929863739000",
+            "full_name": "example-user/test-api-1781165929863739000",
             "name": "test-api"
         },
-        "user_username": "zy84338719",
+        "user_username": "example-user",
         "commits": [
             {
                 "id": "abc123def456789",

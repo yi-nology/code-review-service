@@ -26,8 +26,8 @@ review-service (:8080 / :3000)        网关:多平台 webhook / Agent / 质量�
 
 近期对 review-service 自身的评审(6/22)在 OCR viewer 中可见全部失败:
 ```
-Post "https://token-plan-cn.xiaomimimo.com/v1/chat/completions":
-dial tcp: lookup token-plan-cn.xiaomimimo.com: no such host
+Post "https://<llm-gateway>/v1/chat/completions":
+dial tcp: lookup <llm-gateway>: no such host
 ```
 但 review-service 自身可观测性看不到此细节,由 5 个缺陷叠加造成:
 

@@ -4,9 +4,12 @@
 *.dll
 *.so
 *.dylib
-review-service
-code-review-service
-mcp-server
+# 根锚定：只忽略仓库根下编译出来的可执行文件。
+# 不加前导 "/" 时，模式会匹配任意层级的同名路径——曾把源码目录
+# cmd/mcp-server/ 整个误判为构建产物（其 main.go 处于「已跟踪却被忽略」状态）。
+/review-service
+/code-review-service
+/mcp-server
 # Platform-specific Go build artifacts
 *-linux-amd64
 *-linux-arm64

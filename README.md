@@ -228,6 +228,15 @@ go test ./...
 golangci-lint run ./...
 ```
 
+## Documentation
+
+- [`docs/API.md`](docs/API.md) — HTTP API reference
+- [`docs/CODE_REVIEW_POLICY.md`](docs/CODE_REVIEW_POLICY.md) — review & severity policy
+- [`docs/OCR_CORE_DESIGN.md`](docs/OCR_CORE_DESIGN.md) — OCR engine integration design
+- [`docs/webhook-writeback-design.md`](docs/webhook-writeback-design.md) — webhook & writeback design
+- [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) — performance notes
+- [`docs/archive/`](docs/archive/) — historical planning documents
+
 ## Contributing
 
 Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for
@@ -505,6 +514,15 @@ internal/ocr/
 - `domain/ocr_aliases.go` 正式定义 OCR 管理接口（LLMTester / LLMProviderLister / RulesChecker / OCRVersioner / ViewerManager / OCRUpgrader）
 
 ---
+
+## 文档
+
+- [`docs/API.md`](docs/API.md) — HTTP 接口参考
+- [`docs/CODE_REVIEW_POLICY.md`](docs/CODE_REVIEW_POLICY.md) — 评审与严重度策略
+- [`docs/OCR_CORE_DESIGN.md`](docs/OCR_CORE_DESIGN.md) — OCR 引擎接入设计
+- [`docs/webhook-writeback-design.md`](docs/webhook-writeback-design.md) — webhook 与回写设计
+- [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) — 性能说明
+- [`docs/archive/`](docs/archive/) — 历史规划文档归档
 
 ## 贡献指南
 

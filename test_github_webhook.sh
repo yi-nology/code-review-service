@@ -40,20 +40,20 @@ test_pull_request() {
                 "ref": "main"
             },
             "user": {
-                "login": "zy84338719",
+                "login": "example-user",
                 "avatar_url": "https://avatars.githubusercontent.com/u/test"
             }
         },
         "repository": {
             "id": 12345,
-            "full_name": "zy84338719/test-repo",
+            "full_name": "example-user/test-repo",
             "name": "test-repo",
             "owner": {
-                "login": "zy84338719"
+                "login": "example-user"
             }
         },
         "sender": {
-            "login": "zy84338719"
+            "login": "example-user"
         }
     }'
     
@@ -88,11 +88,11 @@ test_push() {
         "after": "abc123def456789",
         "repository": {
             "id": 12345,
-            "full_name": "zy84338719/test-repo",
+            "full_name": "example-user/test-repo",
             "name": "test-repo"
         },
         "sender": {
-            "login": "zy84338719"
+            "login": "example-user"
         },
         "commits": [
             {
