@@ -91,8 +91,12 @@ Layered, wired with `uber/fx`:
   (clone workspace → project policy → file filter → rule merge → memory recall
   → OCR parameters) lives in `internal/service/review` as `Pipeline`
   (port `review.PipelineRunner`), and the engine side only holds that port plus
-  the narrow state store `review.ReviewStateStore`. The architecture gate
-  (`eino-no-repository-dep`) enforces this.
+  the narrow state store `review.ReviewStateStore`. Both ports are declared in
+  `internal/service/review` (`pipeline.go` / `state.go`) — orchestration is a
+  service-layer concern, not a domain one. `internal/domain/review` holds the
+  domain vocabulary and core interfaces (`Runner` / `Provider` / `Notifier` /
+  `WritebackPublisher` / OCR aliases) only. The architecture gate
+  (`eino-no-repository-dep`) enforces the separation.
 - `internal/domain/progress/` holds the progress **vocabulary and port**
   (phase names, `ProgressReporter`, ctx plumbing); `internal/service/progress/`
   holds the **mechanism** (tracker / manager / websocket bridge) and re-exports

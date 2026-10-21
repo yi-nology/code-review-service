@@ -25,6 +25,56 @@
 
 ## 1. 整体架构
 
+### 当前形态（阶段三）
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              internal/eino —— 引擎适配层                      │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  Execute()                                             │  │
+│  │  ├── 取消同 review 的在途执行 + 绑定可取消 ctx          │  │
+│  │  ├── 启用 eino 调用追踪 + token 用量记账                │  │
+│  │  ├── 更新状态 → 通知开始（commit status / PR 评论）     │  │
+│  │  ├── 预算门禁 CheckBlock                                │  │
+│  │  ├── 前置编排：pipeline.Run(...)  ────────┐             │  │
+│  │  └── 分支：shouldUseWorkflow()           │             │  │
+│  │      ├── true  → executeWithWorkflow()    │             │  │
+│  │      └── false → executeWithRunner()      │             │  │
+│  └───────────────────────────────│──────────┘             │
+│                                  │ 端口                     │
+│                        review.PipelineRunner                │
+│                        （定义在 service/review）            │
+└──────────────────────────────────┼──────────────────────────┘
+                                   │
+┌──────────────────────────────────┼──────────────────────────┐
+│    internal/service/review —— 前置编排实现（Pipeline）        │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  Step 0    初始 OCR 输入（工作区尚未建立）              │  │
+│  │  Step 1    克隆仓库 + 准备工作区                        │  │
+│  │  Step 2    加载项目策略                                 │  │
+│  │  Step 2.5  过滤文件（ignore_paths）                    │  │
+│  │  Step 2.6  合并规则                                     │  │
+│  │  Step 2.65 召回跨会话长期记忆（agent-memory）           │  │
+│  │  Step 2.7  Agent 选择                                   │  │
+│  │  Step 2.8  OCR 执行参数                                 │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+
+引擎侧只负责：起引擎上下文、管编排生命周期、调 workflow / 单 runner。
+工作区清理责任在调用方（defer out.Cleanup()）——编排期间目录与规则文件必须存活。
+```
+
+**与旧形态的关键差别：**
+
+| 关注点 | 当前做法 |
+|---|---|
+| 前置编排归属 | 在 service 层（`review.Pipeline`），不在引擎层 |
+| 引擎层持有的依赖 | 只有 `review.PipelineRunner` 端口 + `review.ReviewStateStore` 窄接口，**不持仓储** |
+| 端口定义位置 | `PipelineRunner` / `ReviewStateStore` 在 `internal/service/review`（编排是服务层的事） |
+| 领域词汇归属 | `internal/domain/review` 放 Runner / Provider / Notifier 等核心接口与类型 |
+| 失败定位 | `review.StageOf(err)` 从错误链取失败环节 |
+| 约束的强制方式 | 架构门禁 `eino-no-repository-dep`（CI 红） |
+
 ### 旧架构（executor.Service，已移除）
 
 ```
@@ -542,7 +592,9 @@ tools := []tool.InvokableTool{
 
 ## 当前形态（阶段三）
 
-### 分层
+> 执行流程图见上文「1. 整体架构 → 当前形态（阶段三）」。本节补充代码位置与约束。
+
+### 代码位置
 
 ```
 internal/service/review/     # 评审领域
