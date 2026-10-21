@@ -19,6 +19,11 @@ jobs:
       # 限制并发编译的包数：默认并行度下本仓的依赖树峰值内存贴着 runner 上限，
       # 出现过子进程被资源限制杀掉、报错却像编译错误的情况（每次挂的包都不同）。
       GOFLAGS: -p=2
+      # Go 的构建临时目录放到 runner 自己的临时目录下（不在 /tmp）：CI 上
+      # /tmp 里的构建中间产物曾整体消失（报「open $WORK/bNNN/vet.out: no such
+      # file or directory」，每次挂的包都不同）。移出 /tmp 后，出问题时能直接
+      # 区分是「谁动了 /tmp」还是别的原因。
+      GOTMPDIR: ${{ runner.temp }}/gotmp
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -58,6 +63,7 @@ jobs:
       # 的假失败，那是子进程被资源限制杀掉，不是编译错误。
       - name: Resources
         run: |
+          mkdir -p "$GOTMPDIR"
           df -h / /tmp
           free -m
           go env GOCACHE GOMODCACHE
@@ -65,12 +71,19 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      # -short：跳过重型集成测试（internal/mcp 的 e2e：testcontainers + 二次完整
+      # go build）。该测试由 backend-e2e job 独占机器单独跑。
+      #
+      # -vet=off：vet 已由上一个步骤（go vet ./...）单独覆盖。go test 内置的
+      # vet 动作会在构建中途产出 $WORK/bNNN/vet.out，而 CI 上这些中间产物曾
+      # 整体消失（报「can't import facts ...: open $WORK/b793/vet.out: no such
+      # file or directory」，且每次挂的包都不同）。去掉这重复的一整类构建动作，
+      # 既去掉那条失败路径，也让构建量减半。
+      #
+      # GOTMPDIR 指向 runner 自己的临时目录（不在 /tmp 下）：Go 的构建临时目录
+      # 从此不与 /tmp 同处，出问题时能直接区分是「谁动了 /tmp」还是别的原因。
       - name: Test
-        # -short：跳过重型集成测试（internal/mcp 的 e2e：testcontainers + 二次完整
-        # go build）。它与外层并发编译叠加时会打满 CI runner 的内存，导致 vet/编译
-        # 子进程被 OOM killer 杀掉，外层报「$WORK/xxx/vet.out 不存在」这类假失败。
-        # 该测试由下面的 backend-e2e job 独占机器单独跑。
-        run: go test -short ./...
+        run: go test -short -vet=off ./...
 
       - name: Vulnerability scan
         uses: golang/govulncheck-action@v1
