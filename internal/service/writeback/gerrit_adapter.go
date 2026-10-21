@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	gerrit "github.com/yi-nology/code-review-service/internal/service/gerrit"
 	"github.com/oekit/logx"
+	gerrit "github.com/yi-nology/code-review-service/internal/service/gerrit"
 )
 
 // gerritAdapter 实现 writeback.Adapter 接口，使用 go-gerrit 直接调用

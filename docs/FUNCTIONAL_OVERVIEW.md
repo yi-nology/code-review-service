@@ -276,7 +276,7 @@ commit status 上，分支保护勾选它即可实现「检查通过才允许合
 - **排查入口**：先看控制台「诊断中心」的 webhook/写回明细，再看评审详情页的阶段时间戳，
   最后才去翻容器日志。
 - **本地起一套做演示**：`scripts/seed-demo.sql` 一键灌入合成演示数据，
-  配套 `docs/promo-video/tools/capture.mjs` 可复现本文的全部截图。
+  起后端与前端后即可复现本文的全部截图（1920 宽整页图）。
 
 ---
 
@@ -333,10 +333,12 @@ commit status 上，分支保护勾选它即可实现「检查通过才允许合
 重新采集：
 
 ```sh
-# 1) 起依赖与后端（数据库需先 CREATE DATABASE ai_code_review_demo）
-# 2) 灌演示数据
+# 1) 建库并灌演示数据（合成数据，可反复重置）
+docker exec difftest-pg psql -U postgres -c "CREATE DATABASE ai_code_review_demo"
 docker exec -i difftest-pg psql -U postgres -d ai_code_review_demo < scripts/seed-demo.sql
-# 3) 前端 dev server 起在 :3000
-# 4) 抓图
-node docs/promo-video/tools/capture.mjs
+# 2) 起后端（连上面的库）与前端 dev server（:3000）
+# 3) 用 Playwright 打开对应路由，整页截图（1920 宽）存入 docs/assets/screenshots/
 ```
+
+> 宣传片的渲染工程（截图脚本、逐帧合成器、配音生成）属于**制作工具链，不随产品仓库发布**，
+> 成片也不进仓库（根 `.gitignore` 已加 `*.mp4` 守卫）。
