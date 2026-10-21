@@ -119,6 +119,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      # gh release upload 要靠 git 上下文判断上传到哪个仓（远端 origin 的 URL），
+      # 没有 checkout 就会报 "failed to run git: fatal: not a git repository"。
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
