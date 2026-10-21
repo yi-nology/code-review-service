@@ -134,6 +134,14 @@ jobs:
       - name: List artifacts
         run: ls -lh dist/
 
+      - name: Regenerate checksums
+        run: |
+          # 每个架构的 artifact 各自带一份 SHA256SUMS，merge-multiple 合并后同名文件
+          # 会互相覆盖 —— 最终只校验得到一个架构的产物。这里按合并后的全部二进制重算，
+          # 让 Release 上那一份覆盖全部四个文件。
+          cd dist && sha256sum review-service-linux-* mcp-server-linux-* > SHA256SUMS
+          cat SHA256SUMS
+
       - name: Attach to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
