@@ -299,6 +299,19 @@ type RecallRequest struct {
 //
 // 没有记忆时返回空串（调用方照常评审）——底座刻意不返回「没有记忆」这类句子，
 // 那会占预算并诱导模型去想记忆这件事。
+// RecallReviewContext 是 review.MemoryRecaller 窄接口的实现。
+//
+// 参数与返回值都是 review 侧自有类型——review 因此不依赖记忆内核的请求类型
+// （Go 的接口是结构化的：实现方不需要 import 声明方）。
+func (s *Service) RecallReviewContext(ctx context.Context, provider, repo, reviewID, query string) (string, error) {
+	return s.RecallReview(ctx, RecallRequest{
+		Provider: provider,
+		Repo:     repo,
+		ReviewID: reviewID,
+		Query:    query,
+	})
+}
+
 func (s *Service) RecallReview(ctx context.Context, req RecallRequest) (string, error) {
 	if strings.TrimSpace(req.Repo) == "" {
 		return "", nil

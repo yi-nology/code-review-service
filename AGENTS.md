@@ -90,6 +90,14 @@ Layered, wired with `uber/fx`:
 - `internal/repository/*` GORM data access behind interfaces; postgres impl under
   `internal/repository/postgres/`. GORM models are distinct from domain types —
   mapping lives in `internal/repository/postgres/mapping.go`.
+- `internal/eino/` is the **engine adapter layer** — it starts the engine
+  context, drives the lifecycle, and hands off to the workflow / single-runner
+  paths. It must not hold repositories: the review's pre-orchestration
+  (clone workspace → project policy → file filter → rule merge → memory recall
+  → OCR parameters) lives in `internal/service/review` as `Pipeline`
+  (port `review.PipelineRunner`), and the engine side only holds that port plus
+  the narrow state store `review.ReviewStateStore`. The architecture gate
+  (`eino-no-repository-dep`) enforces this.
 - `internal/ocr/` is the **single entry point for all OCR capability** (runner,
   scanner, preview, 7 managers, LLM provider/adapter, config merge). See
   `docs/OCR_CORE_DESIGN.md`. `BuildConfig` is the one config-merge implementation

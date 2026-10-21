@@ -100,9 +100,13 @@ func WriteOCRInput(ctx context.Context, store ReviewStateStore, id string, ocrIn
 	if err != nil {
 		return fmt.Errorf("marshal ocr input: %w", err)
 	}
-	return store.UpdateInTransaction(ctx, id, func(r *domain.Record) error {
+	err = store.UpdateInTransaction(ctx, id, func(r *domain.Record) error {
 		r.RawOCRInput = raw
 		r.UpdatedAt = time.Now().UTC()
 		return nil
 	})
+	if errors.Is(err, repoerr.ErrNotFound) {
+		return fmt.Errorf("review not found: %s", id)
+	}
+	return err
 }

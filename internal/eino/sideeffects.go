@@ -8,7 +8,6 @@ import (
 
 	bizmetrics "github.com/yi-nology/code-review-service/internal/observability/metrics"
 	"github.com/yi-nology/code-review-service/internal/service/judge"
-	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
 	"github.com/yi-nology/code-review-service/internal/service/statuscheck"
 
@@ -237,26 +236,4 @@ func (e *Executor) notifyAsync(event notifdomain.Event) {
 				"[notification] review %s kind=%s notify failed: %v", event.ReviewID, event.Kind, err)
 		}
 	})
-}
-
-func (e *Executor) buildOCRInput(ctx context.Context, workspace domain.Workspace, req domain.Request) domain.OCRInput {
-	return domain.OCRInput{
-		Binary: review.ResolveOCRBinary(ctx, e.ocrSettingsRepo),
-		Args: []string{
-			"review",
-			"--repo", workspace.Dir,
-			"--from", workspace.BaseSHA,
-			"--to", workspace.HeadSHA,
-			"--format", "json",
-		},
-		Workspace: domain.WorkspaceInfo{
-			Provider: req.Provider,
-			Repo:     req.Repo,
-			BaseSHA:  workspace.BaseSHA,
-			HeadSHA:  workspace.HeadSHA,
-			Dir:      workspace.Dir,
-		},
-		RulePath:  workspace.RulePath,
-		StartedAt: time.Now().UTC(),
-	}
 }

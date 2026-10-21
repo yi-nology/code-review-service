@@ -3,11 +3,8 @@ package eino
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"time"
 
-	"github.com/yi-nology/code-review-service/internal/repository/repoerr"
 	"github.com/yi-nology/code-review-service/internal/service/judge"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 	"github.com/yi-nology/code-review-service/internal/service/review/domain"
@@ -47,7 +44,7 @@ func (e *Executor) appendHistory(ctx context.Context, id, stage, status, message
 // 输入了什么（Input）、产出了什么（Output）、耗时（DurationMs）。
 // 实现统一走 review.AppendHistoryEvent（与 worker/收敛路径同一份）。
 func (e *Executor) appendAuditStep(ctx context.Context, id string, event domain.Event) {
-	review.AppendHistoryEvent(ctx, e.reviewRepo, id, event)
+	review.AppendHistoryEvent(ctx, e.store, id, event)
 }
 
 // auditStep 是一个便捷构造器，自动记录起始时间和耗时。
@@ -87,7 +84,7 @@ func (s *auditStep) failed(message, how string, input any, err error) domain.Eve
 }
 
 func (e *Executor) updateStatus(ctx context.Context, id, status string) error {
-	return e.reviewRepo.UpdateInTransaction(ctx, id, func(r *domain.Record) error {
+	return e.store.UpdateInTransaction(ctx, id, func(r *domain.Record) error {
 		resp := r.Response
 		previousStatus := resp.Status
 		previousHistory := append([]domain.Event(nil), resp.History...)
@@ -108,27 +105,23 @@ func (e *Executor) updateStatus(ctx context.Context, id, status string) error {
 // updateWithRawOCR writes the final review state + raw OCR payload.
 // 实现统一收敛到 review.WriteReviewState（事务内合并 history、写全 Score/Grade/Summary）。
 func (e *Executor) updateWithRawOCR(ctx context.Context, id string, req domain.Request, response domain.Response, rawOCR json.RawMessage) error {
-	return review.WriteReviewState(ctx, e.reviewRepo, id, req, response, rawOCR)
+	return review.WriteReviewState(ctx, e.store, id, req, response, rawOCR)
 }
 
 func (e *Executor) updateRequestSHAs(ctx context.Context, id string, req domain.Request) {
-	r, err := e.reviewRepo.GetByReviewID(ctx, id)
+	r, err := e.store.GetByReviewID(ctx, id)
 	if err != nil {
 		return
 	}
 	r.Request = req
 	r.UpdatedAt = time.Now().UTC()
-	if err := e.reviewRepo.Save(ctx, r); err != nil {
+	if err := e.store.Save(ctx, r); err != nil {
 		logx.Warn("failed to update request SHAs", "review_id", id, "error", err)
 	}
 }
 
 func (e *Executor) updateWithOCRInput(ctx context.Context, id string, ocrInput domain.OCRInput) error {
-	err := review.WriteOCRInput(ctx, e.reviewRepo, id, ocrInput)
-	if errors.Is(err, repoerr.ErrNotFound) {
-		return fmt.Errorf("review not found: %s", id)
-	}
-	return err
+	return review.WriteOCRInput(ctx, e.store, id, ocrInput)
 }
 
 // judgmentToDomain 把 judge.Judgment 转为 domain.Judgment（供 API 响应）。

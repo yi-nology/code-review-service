@@ -301,12 +301,15 @@ rules:
 
   - id: eino-no-repository-dep
     desc: |
-      【欠账】编排层不得直接持有仓储。internal/eino 目前直接持 6 个仓储并读
-      5 张业务表，等于在 service/review 之外另起了一套编排骨架——两套编排互相
-      调用，是耦合的主要来源。拆法：把 Execute 的前置步骤下沉为
-      review.ReviewPipeline，eino 只做引擎适配。
-      拆除条件：eino 不再 import internal/repository 后升为 error。
-    severity: warn
+      引擎适配层不得直接持有仓储。前置编排（克隆工作区 → 项目策略 → 文件过滤
+      → 规则合并 → 记忆召回 → OCR 执行参数）已下沉为 service/review 的
+      Pipeline（端口 review.PipelineRunner），eino 只持这个窄端口与评审状态
+      的窄存储接口（review.ReviewStateStore）。
+
+      此前 eino 直接持 6 个仓储、读 5 张业务表，又反向调用 service/review 的
+      13 个导出函数——两套编排互相调用，是耦合的主要来源。此规则现在**守住
+      这条边界**：eino 一旦重新 import 仓储包即报错。
+    severity: error
     scope: [internal/eino]
     ignore_test: true
     forbid_import_regex: 'internal/repository'

@@ -123,6 +123,20 @@ func (m *AgentManager) GetAgents() []reviewAgent {
 	return agents
 }
 
+// AgentNames 返回已注册 Agent 的名字列表（按注册顺序）。
+//
+// 它让消费方能只依赖「名册」而不依赖 Agent 的执行能力：评审前置编排只需要
+// 把名册写进审计步骤，并不需要跑 Agent——因此 review 侧声明窄接口
+// （review.AgentRegistry），实现方无需 import 声明方（Go 的接口是结构化的）。
+func (m *AgentManager) AgentNames() []string {
+	agents := m.GetAgents()
+	names := make([]string, 0, len(agents))
+	for _, a := range agents {
+		names = append(names, a.Name())
+	}
+	return names
+}
+
 // getFilteredAgents returns agents matching the filter
 func (m *AgentManager) getFilteredAgents(filter func(reviewAgent) bool) []reviewAgent {
 	m.mu.RLock()

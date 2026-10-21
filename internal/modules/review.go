@@ -31,6 +31,8 @@ var ReviewModule = fx.Options(
 	fx.Provide(NewJudge),
 	fx.Provide(NewFailureReporter),
 	fx.Provide(reviewenrich.New),
+	fx.Provide(NewReviewPipeline),
+	fx.Provide(NewReviewStateStore),
 	fx.Provide(NewExecutorService),
 	fx.Provide(NewReviewService),
 )
@@ -92,6 +94,10 @@ type ExecutorDeps struct {
 	CostCalc        *cost.Calculator
 	Judge           *judge.Judge    // OCR 结果二次综合判断
 	Memory          *memory.Service // 跨会话长期记忆（nil = 未启用）
+	// Pipeline 评审前置编排（窄端口；实现在 service/review）。
+	Pipeline svcReview.PipelineRunner
+	// Store 评审状态存储（窄接口）。
+	Store svcReview.ReviewStateStore
 }
 
 // NewJudge 构造 OCR 结果二次综合判断器。
@@ -109,14 +115,51 @@ func NewFailureReporter(repos *repository.RepoContainer, notifier domain.Notifie
 		statuscheck.NewPoster(gitSvc, cfg.ExternalBaseURL)).WithCommenter(writebackPub)
 }
 
+// NewReviewPipeline 构造评审前置编排器（克隆工作区 → 项目策略 → 文件过滤 →
+// 规则合并 → 记忆召回 → OCR 执行参数）。
+//
+// 它在**装配层**构造：仓储、Agent 名册、记忆服务在这里汇入，引擎侧只拿到
+// 窄端口（svcReview.PipelineRunner）——引擎适配层因此不再直接依赖仓储包，
+// 依赖方向不再倒置（见 internal/eino/executor.go 的说明）。
+func NewReviewPipeline(
+	repos *repository.RepoContainer,
+	agentMgr *agent.AgentManager,
+	mem *memory.Service,
+) svcReview.PipelineRunner {
+	// 记忆未启用时 mem 是 nil 指针：塞进接口会变成「非 nil 接口持有 nil 指针」，
+	// 调用即 panic——所以这里显式留 nil 接口。
+	var recaller svcReview.MemoryRecaller
+	if mem != nil {
+		recaller = mem
+	}
+	var registry svcReview.AgentRegistry
+	if agentMgr != nil {
+		registry = agentMgr
+	}
+	return svcReview.NewPipeline(
+		repos.Review,
+		repos.ProjectPolicy,
+		repos.GlobalRules,
+		repos.OCRRulePackage,
+		repos.ReviewerAgent,
+		repos.OCRSettings,
+		registry,
+		recaller,
+	)
+}
+
+// NewReviewStateStore 提供评审状态的窄存储接口。
+//
+// 引擎侧只认这个窄接口，不认完整的 repository.ReviewRepository——
+// 这样引擎适配层就不必 import 仓储包。
+func NewReviewStateStore(repos *repository.RepoContainer) svcReview.ReviewStateStore {
+	return repos.Review
+}
+
 func NewExecutorService(deps ExecutorDeps) *eino.Executor {
 	return eino.NewExecutor(eino.ExecutorConfig{
-		ReviewRepo:      deps.Repos.Review,
-		ProjectRepo:     deps.Repos.ProjectPolicy,
-		GlobalRulesRepo: deps.Repos.GlobalRules,
-		RulePackageRepo: deps.Repos.OCRRulePackage,
-		AgentRepo:       deps.Repos.ReviewerAgent,
-		OCRSettingsRepo: deps.Repos.OCRSettings,
+		Pipeline:        deps.Pipeline,
+		Store:           deps.Store,
 		Runner:          deps.OcrRunner,
 		Writeback:       deps.WritebackPub,
 		Notifier:        deps.Notifier,
