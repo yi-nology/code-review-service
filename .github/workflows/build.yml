@@ -1,0 +1,137 @@
+name: Build Binaries
+
+# 产出可直接运行的 Linux 二进制（amd64 + arm64）。
+#
+# 与 Quality Gate 分开：门禁管「代码对不对」，本工作流管「能不能发出去」。
+# 触发条件：
+#   - 推 main / 提 PR：出产物，供下载与验证；
+#   - 推 v* tag：除出产物外，把二进制挂到对应的 GitHub Release。
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build linux/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goarch: amd64
+          - goarch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # 预取模块并重试：proxy.golang.org 的 CDN 偶发「stream error /
+      # INTERNAL_ERROR」（传输层中断，不是版本不存在也不是校验失败）。这类抖动
+      # 会让随后的 build 报「read .../@v/xxx.zip: stream error」而红，
+      # 但重试通常一次就过——已下载部分进了 module cache，重试只补剩下的。
+      - name: Download modules
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5; do
+            if go mod download all; then
+              echo "modules ready (attempt $i)"
+              exit 0
+            fi
+            echo "::warning::go mod download failed (attempt $i/5), retrying in 10s"
+            sleep 10
+          done
+          echo "::error::go mod download failed after 5 attempts"
+          exit 1
+
+      # CGO_ENABLED=0 与 Dockerfile 保持一致——静态二进制丢到 alpine/无 libc 的
+      # 机器上也能跑。GOARCH 交叉编译：纯 Go 二进制不需要 arm64 runner。
+      - name: Build
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+          # 限制并发编译的包数：依赖树大，默认并行度下峰值内存贴着 runner 上限。
+          GOFLAGS: -p=2
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          # -trimpath：去掉本地路径，二进制可复现（不同机器构建结果一致）。
+          go build -trimpath -ldflags="-s -w" \
+            -o "dist/review-service-linux-${{ matrix.goarch }}" .
+          go build -trimpath -ldflags="-s -w" \
+            -o "dist/mcp-server-linux-${{ matrix.goarch }}" ./cmd/mcp-server
+          ls -lh dist/
+
+      # 校验产物：ELF 架构正确、确实是可执行文件、带构建元信息。
+      # 不直接运行——arm64 产物在 amd64 runner 上跑不起来。
+      - name: Verify binaries
+        env:
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          set -euo pipefail
+          for bin in "dist/review-service-linux-${GOARCH}" "dist/mcp-server-linux-${GOARCH}"; do
+            test -x "$bin" || { echo "::error::$bin 不可执行"; exit 1; }
+            file "$bin"
+            # Go 会在二进制里写构建信息，用它确认架构与依赖状态。
+            go version -m "$bin" | head -4
+          done
+
+      - name: Checksums
+        run: |
+          cd dist && sha256sum review-service-linux-* mcp-server-linux-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-linux-${{ matrix.goarch }}
+          path: dist/
+          retention-days: 30
+
+  # 打 tag 时把二进制挂到对应 Release——发版即带可下载产物。
+  release:
+    name: Attach to release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: binaries-linux-*
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -lh dist/
+
+      - name: Attach to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # --clobber：同名资产直接覆盖，重跑 tag 不会因「资产已存在」失败。
+          # （不要用 gh release delete —— 那删的是整个 Release，不是单个资产。）
+          for f in dist/review-service-linux-* dist/mcp-server-linux-* dist/SHA256SUMS; do
+            [ -e "$f" ] || continue
+            gh release upload "$TAG" "$f" --clobber
+          done
+          echo "attached to release $TAG"

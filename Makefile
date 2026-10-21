@@ -27,6 +27,19 @@ help:
 build:
 	go build -o bin/review-service .
 
+# build-linux 交叉编译 Linux 二进制（amd64 + arm64），产物落在 dist/。
+#
+# 与 .github/workflows/build.yml 用同一套参数（CGO_ENABLED=0、-trimpath、
+# -ldflags="-s -w"）：本地构建的产物与 CI 发的产物一致，校验和也能对上。
+build-linux:
+	@mkdir -p dist
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/review-service-linux-amd64 .
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/mcp-server-linux-amd64 ./cmd/mcp-server
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/review-service-linux-arm64 .
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/mcp-server-linux-arm64 ./cmd/mcp-server
+	@cd dist && sha256sum review-service-linux-* mcp-server-linux-* > SHA256SUMS
+	@ls -lh dist/
+
 run:
 	go run .
 
