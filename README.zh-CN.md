@@ -43,9 +43,17 @@ Review Service 是一个代码评审网关，支持 GitHub、GitLab、Gitea、Gi
 ├──────────┴──────────┴──────────┴──────────┴─────────────┤
 │                服务层 (uber/fx 依赖注入)                   │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
-│  │ Executor │ │ Workflow │ │  Agent   │ │ Webhook  │  │
-│  │ Service  │ │ Engine   │ │ Manager  │ │ Service  │  │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘  │
+│  │  Review  │ │ Workflow │ │  Agent   │ │ Webhook  │  │
+│  │ Service  │ │  Engine  │ │ Manager  │ │ Service  │  │
+│  │(Pipeline)│ └──────────┘ └──────────┘ └──────────┘  │
+│  └──────────┘                                          │
+├─────────────────────────────────────────────────────────┤
+│              引擎适配层 (internal/eino)                   │
+│         Execute + workflow / runner 两条路径              │
+│         只持有 PipelineRunner 端口，不持仓储               │
+├─────────────────────────────────────────────────────────┤
+│                    领域层 (纯领域)                        │
+│         internal/domain/review —— 类型与端口              │
 ├─────────────────────────────────────────────────────────┤
 │                   数据访问层 (GORM)                       │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
@@ -56,6 +64,10 @@ Review Service 是一个代码评审网关，支持 GitHub、GitLab、Gitea、Gi
 │              PostgreSQL + Git Platform SDK               │
 └─────────────────────────────────────────────────────────┘
 ```
+
+> **分层方向：** 依赖单向流动——handler → service → domain ← 引擎适配层。
+> 引擎适配层不持有仓储，只依赖 `review.PipelineRunner` 端口。这条由架构门禁
+> （`architecture-policy.yaml`）强制执行。
 
 > **部署说明：** 生产/Docker 环境下 Web 控制台由**独立的 nginx 容器**服务，nginx 把 `/api`、`/swagger`、`/healthz` 反向代理到 Go API 服务 —— Go 二进制只提供 API，不内嵌前端。本地开发可 `cd frontend && npm run dev`（Vite dev server 代理 `/api` 到后端）或 `make dev`。
 

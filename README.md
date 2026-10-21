@@ -50,9 +50,17 @@ Review Service is a code review gateway that integrates with GitHub, GitLab, Git
 ├──────────┴──────────┴──────────┴──────────┴─────────────┤
 │                   Service Layer (fx)                     │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
-│  │ Executor │ │ Workflow │ │  Agent   │ │ Webhook  │  │
-│  │ Service  │ │ Engine   │ │ Manager  │ │ Service  │  │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘  │
+│  │  Review  │ │ Workflow │ │  Agent   │ │ Webhook  │  │
+│  │ Service  │ │  Engine  │ │ Manager  │ │ Service  │  │
+│  │ (Pipeline)│ └──────────┘ └──────────┘ └──────────┘  │
+│  └──────────┘                                          │
+├─────────────────────────────────────────────────────────┤
+│              Engine Adapter Layer (internal/eino)       │
+│         Execute + workflow/runner paths                 │
+│         holds only the PipelineRunner port              │
+├─────────────────────────────────────────────────────────┤
+│                  Domain Layer (pure)                    │
+│        internal/domain/review — types & ports           │
 ├─────────────────────────────────────────────────────────┤
 │                  Repository Layer (GORM)                 │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
@@ -63,6 +71,10 @@ Review Service is a code review gateway that integrates with GitHub, GitLab, Git
 │              PostgreSQL + Git Platform SDK               │
 └─────────────────────────────────────────────────────────┘
 ```
+
+> **Layering:** dependencies flow one way — handlers → services → domain ← engine adapter.
+> The engine adapter holds no repository; it depends only on the `review.PipelineRunner`
+> port. This is enforced by the architecture gate (`architecture-policy.yaml`).
 
 > **Deployment note:** In production/Docker the web console is served by a **separate nginx container** that reverse-proxies `/api`, `/swagger`, `/healthz` to the Go API service — the Go binary serves only the API, it does not embed the frontend. For local development run `cd frontend && npm run dev` (Vite dev server proxies `/api` to the backend) or `make dev`.
 
