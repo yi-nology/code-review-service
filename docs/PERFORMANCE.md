@@ -6,38 +6,49 @@ This guide provides recommendations for tuning the review-service performance in
 
 ## Cache Configuration
 
-### LRU Cache
+### 仓库列表本地缓存
 
-The service uses an in-memory LRU cache with TTL support for caching frequently accessed data.
+首页仓库列表（跨平台）走**两层缓存**，实现在 `internal/service/provider/service.go`：
+底座用 `oekit/pkg/cache` 的 `LocalCache`，外层套 `SingleFlightCache` 做并发回源合并。
 
 **Default Configuration:**
-- TTL: 5 minutes
-- Max Items: 1000
-- Cleanup Interval: 2.5 minutes (TTL/2)
-
-**Tuning Recommendations:**
-
-```go
-// For high-traffic environments
-cache := cache.NewLRUCache(
-    10*time.Minute,  // Longer TTL for stable data
-    5000,            // More items for better hit rate
-)
-```
-
-**Monitoring Cache Performance:**
+- TTL: 5 分钟（`repoCacheTTL`）
+- MaxSize: 16 条（`repoCacheMaxSize`——平台数量有限，留足余量即可）
+- StaleIfError: true——回源失败时回退已过期的历史值（fail-open）
+- 同 key 并发未命中只回源一次，防止缓存击穿时对平台 API 放大请求
 
 ```go
-stats := cache.Stats()
-hitRate := stats.HitRate()
-
-// Target: > 80% hit rate
-if hitRate < 0.8 {
-    // Consider increasing cache size or TTL
+// internal/service/provider/service.go
+func newRepoCache(s *GitProviderService) *cache.LocalCache[[]*provider.PlatformRepo] {
+	return cache.NewLocalCache(cache.LocalConfig[[]*provider.PlatformRepo]{
+		TTL:          repoCacheTTL,
+		MaxSize:      repoCacheMaxSize,
+		StaleIfError: true,
+		Source:       s.loadRepos,
+	})
 }
 ```
 
+> 早期版本此处是手搓的 `map` + 5 分钟 TTL，没有并发回源合并——缓存过期瞬间
+> N 个并发请求会同时打向平台 API。现已换成 `oekit/pkg/cache`。
+
+**Monitoring Cache Performance:**
+
+`oekit/pkg/cache` 目前**不暴露命中率统计**（无 `Stats()` / `HitRate()`）。
+可观测的只有条目数：
+
+```go
+size := cache.Size()   // 当前条目数
+```
+
+命中率需从业务侧日志/指标间接推断，不要依赖不存在的 API。
+
+> 早期版本此处示例了 `cache.Stats()` 与 `cache.NewLRUCache(...)`——两者在
+> `oekit/pkg/cache` 中都不存在（实现已换成 `NewLocalCache` + `NewSingleFlightCache`）。
+
 ### Cache Hit Rate Optimization
+
+命中率无内置统计，下表是**调参时的判断依据**（依据业务侧观测推断）：
 
 | Hit Rate | Action |
 |----------|--------|
