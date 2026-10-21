@@ -32,6 +32,11 @@ func NewGitProviderService(lc fx.Lifecycle, repos *repository.RepoContainer) (*g
 			logx.Infof("git providers initialized: %v", svc.GetSupportedPlatforms())
 			return nil
 		},
+		// OnStop：停止仓库列表缓存的后台清扫协程（oekit/pkg/cache 的
+		// LocalCache 在 TTL>0 时会起一个）。不停它，进程退出时会泄漏一个 goroutine。
+		OnStop: func(ctx context.Context) error {
+			return svc.Close(ctx)
+		},
 	})
 
 	return svc, nil

@@ -8,24 +8,28 @@ import (
 	"time"
 
 	"github.com/oekit/logx"
+	"github.com/oekit/pkg/cache"
 	domainplatform "github.com/yi-nology/code-review-service/internal/domain/platform"
 	"github.com/yi-nology/code-review-service/internal/vcs"
 
 	"github.com/yi-nology/go-git-platform/provider"
 )
 
-type repoCacheEntry struct {
-	repos     []*provider.PlatformRepo
-	timestamp time.Time
-}
-
 type GitProviderService struct {
 	mu        sync.RWMutex
 	providers map[string]provider.Provider
 	configs   map[string]provider.Config
 
-	repoCacheMu sync.RWMutex
-	repoCache   map[string]repoCacheEntry
+	// repoCache 是首页仓库列表的缓存（Cache-Aside）。
+	//
+	// 此前是手搓的 map + 5 分钟 TTL：没有并发回源合并——缓存过期瞬间 N 个并发
+	// 请求会各自跑一遍「翻完所有页」，等于对平台 API 打 N 倍请求。
+	// 现在用 oekit/pkg/cache：LocalCache 提供 TTL/空值防穿透/回源失败回退陈旧值，
+	// 外层 SingleFlightCache 装饰器提供并发回源合并（同一 key 只回源一次）。
+	//
+	// repoCacheInner 单独持有是为了拿到 Clear/Close（Cache 接口面上没有这两个）。
+	repoCache      *cache.SingleFlightCache[[]*provider.PlatformRepo]
+	repoCacheInner *cache.LocalCache[[]*provider.PlatformRepo]
 }
 
 func NewGitProviderService(configs map[string]provider.Config) (*GitProviderService, error) {
@@ -42,7 +46,73 @@ func NewGitProviderService(configs map[string]provider.Config) (*GitProviderServ
 		providers[name] = p
 	}
 
-	return &GitProviderService{providers: providers, configs: configs, repoCache: make(map[string]repoCacheEntry)}, nil
+	s := &GitProviderService{providers: providers, configs: configs}
+	s.repoCacheInner = newRepoCache(s)
+	s.repoCache = newSingleFlightRepoCache(s.repoCacheInner)
+	return s, nil
+}
+
+// newRepoCache 构造首页仓库列表的本地缓存。
+func newRepoCache(s *GitProviderService) *cache.LocalCache[[]*provider.PlatformRepo] {
+	return cache.NewLocalCache(cache.LocalConfig[[]*provider.PlatformRepo]{
+		TTL:     repoCacheTTL,
+		MaxSize: repoCacheMaxSize,
+		// 回源失败时回退已过期的历史值（fail-open）：平台 API 抖一下不该让
+		// 首页变成「没有仓库」。
+		StaleIfError: true,
+		Source:       s.loadRepos,
+	})
+}
+
+// newSingleFlightRepoCache 给本地缓存套上并发回源合并：
+// 同一 key 的并发未命中只回源一次（防止缓存击穿时对平台 API 放大请求）。
+func newSingleFlightRepoCache(inner *cache.LocalCache[[]*provider.PlatformRepo]) *cache.SingleFlightCache[[]*provider.PlatformRepo] {
+	return cache.NewSingleFlightCache(inner)
+}
+
+// repoCacheKeySuffix 是仓库列表缓存 key 的固定后缀（首页只取全量这一种视图）。
+const repoCacheKeySuffix = ":all"
+
+// repoCacheTTL 是首页仓库列表的缓存时长。
+const repoCacheTTL = 5 * time.Minute
+
+// repoCacheMaxSize 是缓存条目上限（平台数量有限，留足余量即可）。
+const repoCacheMaxSize = 16
+
+// loadRepos 是缓存的回源函数：按 key 里的平台名收集全��仓库。
+//
+// key 形如 "github:all"——平台名 + 固定后缀（首页只取全量这一种视图）。
+func (s *GitProviderService) loadRepos(ctx context.Context, key string) (*[]*provider.PlatformRepo, error) {
+	platform := strings.TrimSuffix(key, repoCacheKeySuffix)
+	p, err := s.GetProvider(platform)
+	if err != nil {
+		return nil, err
+	}
+	var all []*provider.PlatformRepo
+	page := 1
+	for {
+		batch, err := p.ListRepos(ctx, provider.ListRepoOptions{Page: page, PerPage: 100})
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, batch...)
+		if len(batch) < 100 {
+			break
+		}
+		page++
+	}
+	logx.Infof("[provider] cached %d repos for platform %s", len(all), platform)
+	return &all, nil
+}
+
+// Close 停止缓存的后台清扫协程（LocalCache 在 TTL>0 时会起一个）。
+//
+// 由 fx 的 OnStop 钩子调用（见 internal/modules/provider.go）。
+func (s *GitProviderService) Close(ctx context.Context) error {
+	if s.repoCacheInner == nil {
+		return nil
+	}
+	return s.repoCacheInner.Close(ctx)
 }
 
 func (s *GitProviderService) AddOrUpdate(name string, cfg provider.Config) error {
@@ -56,9 +126,7 @@ func (s *GitProviderService) AddOrUpdate(name string, cfg provider.Config) error
 	s.mu.Unlock()
 
 	// 平台配置变更时清除缓存
-	s.repoCacheMu.Lock()
-	delete(s.repoCache, name+":all")
-	s.repoCacheMu.Unlock()
+	s.invalidateRepoCache(name)
 
 	return nil
 }
@@ -69,9 +137,7 @@ func (s *GitProviderService) Remove(name string) {
 	delete(s.configs, name)
 	s.mu.Unlock()
 
-	s.repoCacheMu.Lock()
-	delete(s.repoCache, name+":all")
-	s.repoCacheMu.Unlock()
+	s.invalidateRepoCache(name)
 }
 
 func (s *GitProviderService) Reload(configs map[string]provider.Config) error {
@@ -88,11 +154,17 @@ func (s *GitProviderService) Reload(configs map[string]provider.Config) error {
 	s.mu.Unlock()
 
 	// 重载时清除所有缓存
-	s.repoCacheMu.Lock()
-	s.repoCache = make(map[string]repoCacheEntry)
-	s.repoCacheMu.Unlock()
+	s.repoCacheInner.Clear()
 
 	return nil
+}
+
+// invalidateRepoCache 清除某平台的仓库列表缓存。
+func (s *GitProviderService) invalidateRepoCache(platform string) {
+	if s.repoCache == nil {
+		return
+	}
+	_ = s.repoCache.Del(context.Background(), platform+repoCacheKeySuffix)
 }
 
 func (s *GitProviderService) GetProvider(platform string) (provider.Provider, error) {
@@ -290,37 +362,18 @@ func (s *GitProviderService) ListRepos(ctx context.Context, platform string, opt
 		return nil, err
 	}
 
-	// 首页缓存（page=1, perPage=100），减少前端首次加载延迟
+	// 首页缓存（page=1, perPage=100），减少前端首次加载延迟。
+	//
+	// GetOrLoad 是 Cache-Aside：未命中回源并回填；并发未命中由 singleflight
+	// 合并成一次回源（此前 N 个并发请求会各翻一遍全部页）。
 	if opts.Page == 1 && opts.PerPage >= 100 {
-		cacheKey := platform + ":all"
-		s.repoCacheMu.RLock()
-		cached, ok := s.repoCache[cacheKey]
-		s.repoCacheMu.RUnlock()
-		if ok && time.Since(cached.timestamp) < 5*time.Minute {
-			return cached.repos, nil
+		repos, err := s.repoCache.GetOrLoad(ctx, platform+repoCacheKeySuffix)
+		if err != nil {
+			return nil, err
 		}
-
-		// 收集所有页
-		var allRepos []*provider.PlatformRepo
-		page := 1
-		for {
-			batch, err := p.ListRepos(ctx, provider.ListRepoOptions{Page: page, PerPage: 100})
-			if err != nil {
-				return nil, err
-			}
-			allRepos = append(allRepos, batch...)
-			if len(batch) < 100 {
-				break
-			}
-			page++
+		if repos != nil {
+			return *repos, nil
 		}
-
-		s.repoCacheMu.Lock()
-		s.repoCache[cacheKey] = repoCacheEntry{repos: allRepos, timestamp: time.Now()}
-		s.repoCacheMu.Unlock()
-
-		logx.Infof("[provider] cached %d repos for platform %s", len(allRepos), platform)
-		return allRepos, nil
 	}
 
 	return p.ListRepos(ctx, opts)
