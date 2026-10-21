@@ -23,7 +23,6 @@ jobs:
       # /tmp 里的构建中间产物曾整体消失（报「open $WORK/bNNN/vet.out: no such
       # file or directory」，每次挂的包都不同）。移出 /tmp 后，出问题时能直接
       # 区分是「谁动了 /tmp」还是别的原因。
-      GOTMPDIR: ${{ runner.temp }}/gotmp
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -63,7 +62,7 @@ jobs:
       # 的假失败，那是子进程被资源限制杀掉，不是编译错误。
       - name: Resources
         run: |
-          mkdir -p "$GOTMPDIR"
+          mkdir -p "$RUNNER_TEMP/gotmp"
           df -h / /tmp
           free -m
           go env GOCACHE GOMODCACHE
@@ -83,7 +82,19 @@ jobs:
       # GOTMPDIR 指向 runner 自己的临时目录（不在 /tmp 下）：Go 的构建临时目录
       # 从此不与 /tmp 同处，出问题时能直接区分是「谁动了 /tmp」还是别的原因。
       - name: Test
-        run: go test -short -vet=off ./...
+        run: |
+          # Go 的构建临时目录放到 runner 自己的临时目录下（不在 /tmp 下）：CI 上
+          # /tmp 里的构建中间产物曾整体消失（报「open $WORK/bNNN/vet.out: no such
+          # file or directory」，每次挂的包都不同）。移出 /tmp 后，出问题时能直接
+          # 区分是「谁动了 /tmp」还是别的原因。
+          #
+          # 用 $RUNNER_TEMP（runner 注入的环境变量）而不是 runner context 的
+          # 表达式：runner context 在 job 级 env 里不可用，写在那里会让整个
+          # workflow 校验失败（GitHub 报 "likely failed because of a workflow
+          # file issue"）。
+          export GOTMPDIR="$RUNNER_TEMP/gotmp"
+          mkdir -p "$GOTMPDIR"
+          go test -short -vet=off ./...
 
       - name: Vulnerability scan
         uses: golang/govulncheck-action@v1
