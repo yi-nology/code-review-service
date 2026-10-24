@@ -30,6 +30,8 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
+
+	"github.com/oekit/pkg/ptrx"
 )
 
 var handlerInst *Handler
@@ -402,7 +404,7 @@ func strPtr(s string) *string {
 	if strings.TrimSpace(s) == "" {
 		return nil
 	}
-	return &s
+	return ptrx.Of(s)
 }
 
 func i64Ptr(v int64) *int64 {

@@ -6,6 +6,8 @@ import (
 
 	gogerrit "github.com/andygrunwald/go-gerrit"
 	"github.com/oekit/logx"
+
+	"github.com/oekit/pkg/ptrx"
 )
 
 // ReviewInput 描述一次 Gerrit 评审请求。
@@ -64,7 +66,7 @@ func (c *Client) SetReview(ctx context.Context, input ReviewInput) (*gogerrit.Re
 			ci := gogerrit.CommentInput{
 				Path:       c.Path,
 				Message:    c.Message,
-				Unresolved: boolPtr(c.Unresolved),
+				Unresolved: ptrx.Of(c.Unresolved),
 			}
 
 			// 行号映射
@@ -130,6 +132,3 @@ func (c *Client) SetLabelVote(ctx context.Context, changeNumber, label string, v
 	return err
 }
 
-func boolPtr(b bool) *bool {
-	return &b
-}

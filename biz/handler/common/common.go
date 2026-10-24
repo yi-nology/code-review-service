@@ -111,7 +111,7 @@ func StrPtr(s string) *string {
 	if s == "" {
 		return nil
 	}
-	return &s
+	return ptrx.Of(s)
 }
 
 const TimeFormat = "2006-01-02T15:04:05Z"

@@ -22,6 +22,8 @@ import (
 
 	"gorm.io/datatypes"
 	gormDB "gorm.io/gorm"
+
+	"github.com/oekit/pkg/ptrx"
 )
 
 // mapping.go 是 domain.* ↔ models.* 的防腐层映射中枢（#6 迁移）。
@@ -685,5 +687,5 @@ func strPtr(s string) *string {
 	if s == "" {
 		return nil
 	}
-	return &s
+	return ptrx.Of(s)
 }
