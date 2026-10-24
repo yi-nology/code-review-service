@@ -13,8 +13,8 @@ require (
 	github.com/hertz-contrib/websocket v0.2.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/mark3labs/mcp-go v1.1.1
-	github.com/oagentkit/guardx v0.12.0
-	github.com/oagentkit/llm v0.14.2
+	github.com/oagentkit/guardx v0.15.0
+	github.com/oagentkit/llm v0.17.1
 	github.com/oekit/bootstrap v0.6.5
 	github.com/oekit/bootstrap/nacos v0.3.7
 	github.com/oekit/bootstrap/obs v0.2.10
@@ -185,8 +185,8 @@ require (
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/next-bin/go-gitee v0.0.0-20260521141902-36ce436eee18 // indirect
 	github.com/nikolalohinski/gonja v1.5.3 // indirect
-	github.com/oagentkit/runtime v0.7.1 // indirect
-	github.com/oagentkit/textx v0.6.1 // indirect
+	github.com/oagentkit/runtime v0.7.2 // indirect
+	github.com/oagentkit/textx v0.6.2 // indirect
 	github.com/oekit/nns v0.4.4 // indirect
 	github.com/oekit/registry v0.5.0 // indirect
 	github.com/oekit/registry/nacosimpl v0.1.0 // indirect
