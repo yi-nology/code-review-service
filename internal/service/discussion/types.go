@@ -3,6 +3,8 @@ package discussion
 import (
 	"time"
 
+	"github.com/oekit/pkg/slicex"
+
 	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 )
 
@@ -90,12 +92,7 @@ func generateDiscussionPrompts(findings []Finding, agents []string, requirements
 }
 
 func containsAgent(agents []string, agent string) bool {
-	for _, a := range agents {
-		if a == agent {
-			return true
-		}
-	}
-	return false
+	return slicex.Contains(agents, agent)
 }
 
 func filterFindings(findings []Finding, excludeID string) []Finding {

@@ -12,6 +12,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository"
 
 	"github.com/oekit/logx"
+	"github.com/oekit/pkg/slicex"
 )
 
 type ruleEntry struct {
@@ -149,18 +150,7 @@ func dedupUintIDs(ids []uint) []uint {
 	if len(ids) == 0 {
 		return nil
 	}
-	seen := make(map[uint]struct{}, len(ids))
-	out := make([]uint, 0, len(ids))
-	for _, id := range ids {
-		if id == 0 {
-			continue
-		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		out = append(out, id)
-	}
+	out := slicex.Unique(slicex.Filter(ids, func(id uint) bool { return id != 0 }))
 	if len(out) == 0 {
 		return nil
 	}
