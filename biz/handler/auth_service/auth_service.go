@@ -3,7 +3,6 @@ package auth_service
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"strings"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/domain/auth"
 
 	"github.com/oekit/pkg/convert"
+	"github.com/oekit/pkg/encoding"
 
 	"github.com/cloudwego/hertz/pkg/app"
 )
@@ -146,6 +146,5 @@ func (h *Handler) listAudit(ctx context.Context, c *app.RequestContext) {
 func ListAudit(ctx context.Context, c *app.RequestContext) { handlerInst.listAudit(ctx, c) }
 
 func hashToken(token string) string {
-	h := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(h[:])
+	return encoding.Sha256(token)
 }

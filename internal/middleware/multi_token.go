@@ -2,9 +2,7 @@ package middleware
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/hex"
 	"net/http"
 	"strings"
 	"time"
@@ -15,6 +13,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository"
 
 	"github.com/cloudwego/hertz/pkg/app"
+
+	"github.com/oekit/pkg/encoding"
 )
 
 // 以下为多 Token 鉴权与审计中间件，作为单一 REVIEW_TOKEN 的过渡升级方案。
@@ -84,8 +84,7 @@ func extractBearerToken(c *app.RequestContext) string {
 }
 
 func hashToken(token string) string {
-	h := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(h[:])
+	return encoding.Sha256(token)
 }
 
 func shouldSkipAuth(path string) bool {

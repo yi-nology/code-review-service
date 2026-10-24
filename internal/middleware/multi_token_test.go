@@ -12,6 +12,8 @@ import (
 	"github.com/yi-nology/code-review-service/internal/domain/auth"
 
 	"github.com/cloudwego/hertz/pkg/app"
+
+	"github.com/oekit/pkg/encoding"
 )
 
 // fakeTokenSource 是 TokenSource 的内存实现。
@@ -195,6 +197,5 @@ func TestRepoTokenSourceExpired(t *testing.T) {
 }
 
 func sha256Hex(s string) string {
-	h := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(h[:])
+	return encoding.Sha256(s)
 }
