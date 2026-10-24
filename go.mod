@@ -15,19 +15,19 @@ require (
 	github.com/mark3labs/mcp-go v1.1.1
 	github.com/oagentkit/guardx v0.12.0
 	github.com/oagentkit/llm v0.14.2
-	github.com/oekit/bootstrap v0.6.4
-	github.com/oekit/bootstrap/nacos v0.3.5
-	github.com/oekit/bootstrap/obs v0.2.9
-	github.com/oekit/concurrency v0.18.0
-	github.com/oekit/core v0.11.0
+	github.com/oekit/bootstrap v0.6.5
+	github.com/oekit/bootstrap/nacos v0.3.7
+	github.com/oekit/bootstrap/obs v0.2.10
+	github.com/oekit/concurrency v0.20.4
+	github.com/oekit/core v0.12.0
 	github.com/oekit/gormx v0.6.1
-	github.com/oekit/hertz v0.7.1
-	github.com/oekit/kitx v0.2.1
+	github.com/oekit/hertz v0.8.2
+	github.com/oekit/kitx v0.3.1
 	github.com/oekit/logx v0.7.1
 	github.com/oekit/metrics v0.1.9
-	github.com/oekit/middleware v0.12.1
-	github.com/oekit/network v0.5.5
-	github.com/oekit/pkg v0.18.0
+	github.com/oekit/middleware v0.13.2
+	github.com/oekit/network v0.5.6
+	github.com/oekit/pkg v0.23.1
 	github.com/oekit/registry/nacos v0.1.0
 	github.com/oekit/tracing v0.3.0
 	github.com/oekit/workflow v0.3.2
@@ -187,7 +187,7 @@ require (
 	github.com/nikolalohinski/gonja v1.5.3 // indirect
 	github.com/oagentkit/runtime v0.7.1 // indirect
 	github.com/oagentkit/textx v0.6.1 // indirect
-	github.com/oekit/nns v0.4.3 // indirect
+	github.com/oekit/nns v0.4.4 // indirect
 	github.com/oekit/registry v0.5.0 // indirect
 	github.com/oekit/registry/nacosimpl v0.1.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
