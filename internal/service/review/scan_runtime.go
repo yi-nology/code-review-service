@@ -5,34 +5,30 @@ import (
 	"sync"
 
 	"github.com/oekit/concurrency/async"
+	"github.com/oekit/concurrency/syncx"
 	"github.com/oekit/logx"
 )
 
-// scanRuntime 聚合 scan 子系统所需的进程内生命周期设施：并发信号量、
+// scanRuntime 聚合 scan 子系统所需的进程内生命周期设施：并发闸门、
 // in-flight 计数、可取消扫描注册表。由 Service 构造期创建并持有，
 // ScanOrchestrator 通过它使用共享设施，而非直接摸 Service 的全部字段。
 type scanRuntime struct {
-	sem         chan struct{} // nil 表示不限制
+	// gate 在飞闸门：cap<=0 表示不限制。上游 syncx.Gate 承担「阻塞取名额 +
+	// ctx 取消退出」与「幂等归还名额」，替掉此前自维护的 chan struct{} 信号量
+	// （归还名额与取名额分离，重复归还会把名额多还一个）。
+	gate        *syncx.Gate
 	inFlight    sync.WaitGroup
 	scanCancels sync.Map // reviewID → context.CancelFunc
 }
 
-func (r *scanRuntime) acquire(ctx context.Context) bool {
-	if r.sem == nil {
-		return true
+// acquire 取一个在飞名额（阻塞直到有可用容量或 ctx 取消）。
+// 返回的 release 归还名额（幂等，可重复调用）；第二个返回值 false 表示 ctx 已取消。
+func (r *scanRuntime) acquire(ctx context.Context) (func(), bool) {
+	release, err := r.gate.Acquire(ctx)
+	if err != nil {
+		return nil, false
 	}
-	select {
-	case r.sem <- struct{}{}:
-		return true
-	case <-ctx.Done():
-		return false
-	}
-}
-
-func (r *scanRuntime) release() {
-	if r.sem != nil {
-		<-r.sem
-	}
+	return release, true
 }
 
 // registerCancel 注册可取消扫描并派生 scanCtx；返回的 done 必须在扫描结束时调用。
@@ -52,13 +48,14 @@ func (r *scanRuntime) runDetached(ctx context.Context, id string, fn func(scanCt
 	async.GoSafe(func() {
 		defer r.inFlight.Done()
 
-		if !r.acquire(ctx) {
+		release, ok := r.acquire(ctx)
+		if !ok {
 			if id != "" {
 				logx.Warnf("scan %s cancelled while waiting for concurrency slot", id)
 			}
 			return
 		}
-		defer r.release()
+		defer release()
 
 		if id == "" {
 			fn(ctx)

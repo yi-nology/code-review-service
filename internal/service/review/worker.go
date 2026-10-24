@@ -207,10 +207,10 @@ func (s *Service) worker(ctx context.Context, workerID int, pollInterval time.Du
 		}
 
 		// 获取并发槽（阻塞直到有可用容量或 ctx 取消），限制同时进行的 review 数。
-		if !s.runtime.acquire(ctx) {
+		release, ok := s.runtime.acquire(ctx)
+		if !ok {
 			return
 		}
-		release := s.runtime.release
 
 		reviews, err := s.reviewRepo.ClaimQueued(ctx, 1)
 		if err != nil {

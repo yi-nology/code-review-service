@@ -10,6 +10,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 
 	//lint:ignore SA1019 PageResponse 未废弃，上游包级别注释误标
+	"github.com/oekit/concurrency/syncx"
 	"github.com/oekit/logx"
 )
 
@@ -107,11 +108,10 @@ func NewService(cfg ServiceConfig) *Service {
 		argusEnabled:      cfg.ArgusEnabled,
 		heartbeatInterval: cfg.HeartbeatInterval,
 	}
-	// 构造期一次性创建共享运行时（含并发信号量），消除运行期懒初始化的数据竞争。
-	// 信号量 nil 表示不限制（Concurrency<=0）。
-	s.runtime = &scanRuntime{}
+	// 构造期一次性创建共享运行时（含并发闸门），消除运行期懒初始化的数据竞争。
+	// 闸门 cap<=0 表示不限制（Concurrency<=0）。
+	s.runtime = &scanRuntime{gate: syncx.NewGate(cfg.Concurrency)}
 	if cfg.Concurrency > 0 {
-		s.runtime.sem = make(chan struct{}, cfg.Concurrency)
 		logx.Infof("review concurrency limit=%d (worker & scan shared)", cfg.Concurrency)
 	}
 

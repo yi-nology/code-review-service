@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/oekit/concurrency/async"
+	"github.com/oekit/concurrency/syncx"
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/slicex"
 )
@@ -318,10 +319,8 @@ func (m *AgentManager) runAgents(ctx context.Context, agents []reviewAgent, ephe
 
 // runParallel runs agents in parallel with concurrency control.
 func (m *AgentManager) runParallel(ctx context.Context, agents []reviewAgent, workspace Workspace, callback func(AgentStatus)) ([]AgentResult, []error) {
-	var sem chan struct{}
-	if m.config.MaxConcurrency > 0 {
-		sem = make(chan struct{}, m.config.MaxConcurrency)
-	}
+	// 在飞闸门：MaxConcurrency<=0 = 不限制（上游 syncx.Gate 的 cap<=0 语义）。
+	gate := syncx.NewGate(m.config.MaxConcurrency)
 
 	var (
 		mu           sync.Mutex
@@ -336,10 +335,11 @@ func (m *AgentManager) runParallel(ctx context.Context, agents []reviewAgent, wo
 		async.GoSafe(func() {
 			defer wg.Done()
 
-			if sem != nil {
-				sem <- struct{}{}
-				defer func() { <-sem }()
+			release, err := gate.Acquire(ctx)
+			if err != nil {
+				return // ctx 取消：排队等名额时退出
 			}
+			defer release()
 
 			if callback != nil {
 				callback(AgentStatus{
