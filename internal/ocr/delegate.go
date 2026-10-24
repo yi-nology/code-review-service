@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
+	"github.com/oekit/pkg/pathx"
 )
 
 // DelegatePreview 实现 domain.Delegator（OCR v1.7.11+）。
@@ -99,11 +99,12 @@ func sanitizeDelegatePaths(paths []string) ([]string, error) {
 		if strings.HasPrefix(p, "-") {
 			return nil, fmt.Errorf("非法路径 %q: 不能以 '-' 开头", p)
 		}
-		if filepath.IsAbs(p) {
-			return nil, fmt.Errorf("非法路径 %q: 必须是工作区内相对路径", p)
-		}
-		if rel := filepath.Clean(p); rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			return nil, fmt.Errorf("非法路径 %q: 不能越出工作区", p)
+		// 路径合法性交上游 pathx.SanitizeRelStrict：拒绝绝对路径、越出工作区
+		//（".." 段）、Windows 盘符、UNC 与反斜杠分隔符。此前是
+		// filepath.IsAbs + filepath.Clean 的平台相关判定——"..\\.." 形绕过
+		// 在 Linux 上按平台解释会漏过。
+		if _, ok := pathx.SanitizeRelStrict(p); !ok {
+			return nil, fmt.Errorf("非法路径 %q: 必须是工作区内相对路径且不能越出工作区", p)
 		}
 		cleaned = append(cleaned, p)
 	}

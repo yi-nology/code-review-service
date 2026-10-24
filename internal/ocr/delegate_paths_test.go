@@ -53,9 +53,27 @@ func TestSanitizeDelegatePaths(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "inner dot-dot staying inside kept",
-			in:   []string{"a/../b.go"},
-			want: []string{"a/../b.go"},
+			// 严格档拒绝一切显式 ".." 段（即便能被抵消掉、文本上不越界）：
+			// ".." 的抵消是纯文本语义，看不见符号链接。
+			name:    "inner dot-dot rejected",
+			in:      []string{"a/../b.go"},
+			wantErr: true,
+		},
+		{
+			// Windows 风格分隔符：Linux 上 "\" 只是普通字符，按平台解释会漏判。
+			name:    "windows backslash traversal rejected",
+			in:      []string{`..\..\etc\passwd`},
+			wantErr: true,
+		},
+		{
+			name:    "windows drive path rejected",
+			in:      []string{`C:\Windows\System32\config`},
+			wantErr: true,
+		},
+		{
+			name:    "unc path rejected",
+			in:      []string{`\\host\share\file`},
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
