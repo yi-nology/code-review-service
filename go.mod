@@ -27,7 +27,7 @@ require (
 	github.com/oekit/metrics v0.1.9
 	github.com/oekit/middleware v0.13.2
 	github.com/oekit/network v0.5.6
-	github.com/oekit/pkg v0.26.0
+	github.com/oekit/pkg v0.28.0
 	github.com/oekit/registry/nacos v0.1.0
 	github.com/oekit/tracing v0.3.0
 	github.com/oekit/workflow v0.3.2
