@@ -18,16 +18,16 @@ require (
 	github.com/oekit/bootstrap v0.6.5
 	github.com/oekit/bootstrap/nacos v0.3.7
 	github.com/oekit/bootstrap/obs v0.2.10
-	github.com/oekit/concurrency v0.20.4
+	github.com/oekit/concurrency v0.21.0
 	github.com/oekit/core v0.12.0
 	github.com/oekit/gormx v0.6.1
-	github.com/oekit/hertz v0.8.3
+	github.com/oekit/hertz v0.8.4
 	github.com/oekit/kitx v0.3.1
 	github.com/oekit/logx v0.7.1
 	github.com/oekit/metrics v0.1.9
 	github.com/oekit/middleware v0.13.2
 	github.com/oekit/network v0.5.6
-	github.com/oekit/pkg v0.25.0
+	github.com/oekit/pkg v0.25.2
 	github.com/oekit/registry/nacos v0.1.0
 	github.com/oekit/tracing v0.3.0
 	github.com/oekit/workflow v0.3.2
