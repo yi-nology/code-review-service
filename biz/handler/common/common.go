@@ -65,18 +65,28 @@ func BizErr(code int, msg string) error {
 	return bizerrors.NewBizError(code, msg)
 }
 
+// pagePolicy 分页口径（默认页码 1 / 默认页长 20 / 页长上限 500 / 超限钳到上限）。
+//
+// 口径**显式声明在本仓**，不隐含在上游包级常量里——上游调整包级默认时，本仓的
+// 对外分页行为不变。pagination.Policy 是声明式口径原语（上游 oekit/pkg#100），
+// 零值即包级默认。
+var pagePolicy = pagination.Policy{
+	DefaultPage:     pagination.DefaultPage,
+	DefaultPageSize: pagination.DefaultPageSize,
+	MaxPageSize:     pagination.MaxPageSize,
+}
+
 // PageParams 从查询字符串里解析 page / pageSize 并规范化（默认值 + 最大 pageSize 上限）。
 // 委托给 ekit pagination 包，避免每个 handler 重复手写 clamp。
 //
 // 行为变化：maxPageSize 200 → 500（ekit pagination.MaxPageSize 默认值）。
 // 历史项目上线后没见触达过 200 上限，放宽到 500 让前端做大列表请求更灵活。
 func PageParams(pageStr, pageSizeStr string) (int, int) {
-	pr := pagination.NewPageRequest(
-		convert.Str2Int(pageStr, pagination.DefaultPage),
-		convert.Str2Int(pageSizeStr, pagination.DefaultPageSize),
+	// 解析失败传 0（非法值），由 pagePolicy 归一化到本仓口径的默认值。
+	return pagePolicy.Normalize(
+		convert.Str2Int(pageStr, 0),
+		convert.Str2Int(pageSizeStr, 0),
 	)
-	pr.Normalize()
-	return pr.Page, pr.PageSize
 }
 
 // MaskToken 脱敏 token，保留首尾各 4 字符。
