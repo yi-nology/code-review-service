@@ -18,7 +18,7 @@ require (
 	github.com/oekit/bootstrap v0.6.5
 	github.com/oekit/bootstrap/nacos v0.3.7
 	github.com/oekit/bootstrap/obs v0.2.10
-	github.com/oekit/concurrency v0.21.0
+	github.com/oekit/concurrency v0.22.0
 	github.com/oekit/core v0.12.0
 	github.com/oekit/gormx v0.6.1
 	github.com/oekit/hertz v0.8.5
@@ -187,7 +187,7 @@ require (
 	github.com/nikolalohinski/gonja v1.5.3 // indirect
 	github.com/oagentkit/runtime v0.7.2 // indirect
 	github.com/oagentkit/textx v0.6.2 // indirect
-	github.com/oekit/nns v0.4.4 // indirect
+	github.com/oekit/nns v0.5.0 // indirect
 	github.com/oekit/registry v0.5.0 // indirect
 	github.com/oekit/registry/nacosimpl v0.1.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect

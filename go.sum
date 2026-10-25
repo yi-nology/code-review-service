@@ -473,8 +473,8 @@ github.com/oekit/bootstrap/nacos v0.3.7 h1:ekJ6e9c4VSyz7Rsy13NwORdPJNo7GbXFW72nc
 github.com/oekit/bootstrap/nacos v0.3.7/go.mod h1:wtJRK898PDaCdXENtKQFZiCleBLVG16BeEqNC1tyv/Y=
 github.com/oekit/bootstrap/obs v0.2.10 h1:SsjzFHySxX9y5agRdH9raMM4em9ITNjD8gUgGkwj3k4=
 github.com/oekit/bootstrap/obs v0.2.10/go.mod h1:VNQDgP3KoxLP8UTAuVGfLOm0apI5SEGIM0pI2StuJk0=
-github.com/oekit/concurrency v0.21.0 h1:thG8GP47xdrmaKEYKDbvEGQ7EVU8jbUHH+mpMi4Y4p8=
-github.com/oekit/concurrency v0.21.0/go.mod h1:lwbExjpKR1eWmT0qAQr0hUcEw/IzpMdkcPSsJvNFmV0=
+github.com/oekit/concurrency v0.22.0 h1:0daVHV1pEnbFoKGxxAvCpqj6RbUi4+/W6QwwLvTlLRA=
+github.com/oekit/concurrency v0.22.0/go.mod h1:lwbExjpKR1eWmT0qAQr0hUcEw/IzpMdkcPSsJvNFmV0=
 github.com/oekit/core v0.12.0 h1:Xy3ZgZyiyt+qhVYcjNeWlZsy3EAbdfpQjyQKKyT/xS0=
 github.com/oekit/core v0.12.0/go.mod h1:HhBTwYHU5MUp9tfNvHjfZv6P4yglQmn4jKmz98dUIsM=
 github.com/oekit/gormx v0.6.1 h1:d3F2+etPckB64eNJiJvZZU0ec7vSGfL5lvNXe/qW8Ro=
@@ -491,8 +491,8 @@ github.com/oekit/middleware v0.13.2 h1:QzkAwET5s3sDhWBsGcouR8NJnE7AbGbQ7g+8aEagV
 github.com/oekit/middleware v0.13.2/go.mod h1:evfsiqAssH8dL7rZShr3PUuLN+uDacPltkBgXyC0Nxw=
 github.com/oekit/network v0.5.6 h1:SEzLMk/mrXjAp2M/CWwBnczf+vLnEJSYHt0n4CsrLUI=
 github.com/oekit/network v0.5.6/go.mod h1:g2sOxEtspl/Jnqlh4uB3H02twn1hafgleQXxeCQ5oEE=
-github.com/oekit/nns v0.4.4 h1:Sjss2TpuLJnv65nNxh5G+5OIcKFOrsU1Oc+u139AwHk=
-github.com/oekit/nns v0.4.4/go.mod h1:yq9enR3KxiNuMFR8FzTDaqyq4K5mvcyPhUL6RdiHXKM=
+github.com/oekit/nns v0.5.0 h1:ezaEXzRwk9B+metkBlJEjXveA4Hn5NLZb6orsBcvLzc=
+github.com/oekit/nns v0.5.0/go.mod h1:yq9enR3KxiNuMFR8FzTDaqyq4K5mvcyPhUL6RdiHXKM=
 github.com/oekit/pkg v0.28.0 h1:I3zrO2keJri8a4/h8Up8gHHUYOzktlQqjKtf+yOK3wo=
 github.com/oekit/pkg v0.28.0/go.mod h1:sVeOtmG1sLY2aSnzFIbUAF2Qoh7G8R5vnWtWmLCv8NM=
 github.com/oekit/registry v0.5.0 h1:UJUMU3EAszQkOAhvBqvZbCoJQv1FAtX2zbmprJ6yc8Y=
