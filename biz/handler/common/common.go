@@ -19,21 +19,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type AppError struct {
-	Code    int
-	Message string
-}
-
-func (e *AppError) Error() string {
-	return e.Message
-}
-
 func Fail(ctx context.Context, c *hertzApp.RequestContext, err error) {
-	var appErr *AppError
-	if errors.As(err, &appErr) {
-		mw.ErrorResp(c, appErr.Code, appErr.Message)
-		return
-	}
 	if _, ok := bizerrors.AsBizError(err); ok {
 		// v0.19.2: mw.Fail 直接接受 error，内部处理 BizError 的 BizCode/HTTPCode 拆分。
 		mw.Fail(ctx, c, err)
@@ -58,7 +44,9 @@ func InternalErr(err error) error {
 		return nil
 	}
 	logx.Errorf("internal error: %v", err)
-	return &AppError{Code: 500, Message: "internal server error"}
+	// 业务码与 HTTP 码都是 500：与迁移前 AppError{Code:500} 经 mw.ErrorResp
+	// 写出的响应逐字节一致（body code=500、HTTP 500、data=null、message 相同）。
+	return bizerrors.NewBizErrorWithStatus(500, 500, "internal server error")
 }
 
 func Success(c *hertzApp.RequestContext, data any) {
