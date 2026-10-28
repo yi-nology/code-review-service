@@ -145,7 +145,7 @@ Compose 会启动 PostgreSQL、API 服务和 Web 控制台。API 暴露在 `http
 推 `main` 和打 `v*` tag 都会构建多架构镜像（`linux/amd64` + `linux/arm64`）并发布到 GitHub Container Registry：
 
 ```sh
-docker pull ghcr.io/yi-nology/code-review-service:v0.2.1
+docker pull ghcr.io/yi-nology/code-review-service:main
 ```
 
 | Tag | 何时推 | 说明 |
@@ -157,7 +157,9 @@ docker pull ghcr.io/yi-nology/code-review-service:v0.2.1
 
 提 PR 会构建镜像但不推送 —— 这个 job 是 Dockerfile 的回归检查。
 
-注意：首次发布时包默认是**私有**可见性，需要改一次（GitHub → Packages → `code-review-service` → Package settings → Change visibility → Public）。公开包在容器注册表上可以匿名拉取，私有包必须带 token。
+早于本工作流发布的版本（v0.2.1 及更早）没有对应镜像；下一个 `v*` tag 会同时产出发布版 tag 和 `latest`。
+
+镜像包以 **public** 可见性发布，`docker pull` 不需要登录。如果你 fork 这套配置后包是 private，改一次即可（GitHub → Packages → `code-review-service` → Package settings → Change visibility → Public）—— 公开包在容器注册表上支持匿名拉取，私有包必须带 token。
 
 本地构建同样的镜像：
 

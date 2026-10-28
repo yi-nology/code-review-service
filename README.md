@@ -153,7 +153,7 @@ The compose stack starts PostgreSQL, the API service, and the web console. The A
 Every push to `main` and every `v*` tag builds a multi-architecture image (`linux/amd64` + `linux/arm64`) and publishes it to GitHub Container Registry:
 
 ```sh
-docker pull ghcr.io/yi-nology/code-review-service:v0.2.1
+docker pull ghcr.io/yi-nology/code-review-service:main
 ```
 
 | Tag | Pushed on | Notes |
@@ -165,7 +165,9 @@ docker pull ghcr.io/yi-nology/code-review-service:v0.2.1
 
 Pull requests build the image but never push it — that job is a Dockerfile regression check.
 
-Note: the first publish creates the package with **private** visibility. Set it to **Public** once (GitHub → Packages → `code-review-service` → Package settings → Change visibility) — public packages can be pulled anonymously from the container registry, private ones need a token.
+Already-published releases (v0.2.1 and earlier) predate this workflow and have no image; the next `v*` tag produces both the release tags and `latest`.
+
+The package is published **public**, so `docker pull` needs no login. If you fork this setup and the package ends up private, flip it once (GitHub → Packages → `code-review-service` → Package settings → Change visibility → Public) — public packages are pullable anonymously from the container registry, private ones need a token.
 
 Build the same image locally:
 
