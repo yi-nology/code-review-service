@@ -148,6 +148,31 @@ docker compose up --build
 
 The compose stack starts PostgreSQL, the API service, and the web console. The API is exposed on `http://localhost:8080`, and the web console is exposed on `http://localhost/`. Git platform tokens, OCR settings, and project policies are all managed from the web console after launch — no environment variables needed.
 
+### Container Image
+
+Every push to `main` and every `v*` tag builds a multi-architecture image (`linux/amd64` + `linux/arm64`) and publishes it to GitHub Container Registry:
+
+```sh
+docker pull ghcr.io/yi-nology/code-review-service:v0.2.1
+```
+
+| Tag | Pushed on | Notes |
+| --- | --- | --- |
+| `v0.2.1`, `0.2.1`, `0.2` | `v*` tag push | Release tags. `0.2` tracks the latest patch of the `0.2` line. |
+| `latest` | `v*` tag push | Points at the newest **release** — not at `main`. |
+| `main` | `main` push | Rolling build of the default branch. |
+| `sha-abc1234` | any push | Exact commit, for reproducible deploys. |
+
+Pull requests build the image but never push it — that job is a Dockerfile regression check.
+
+Note: the first publish creates the package with **private** visibility. Set it to **Public** once (GitHub → Packages → `code-review-service` → Package settings → Change visibility) — public packages can be pulled anonymously from the container registry, private ones need a token.
+
+Build the same image locally:
+
+```sh
+docker build -t review-service .
+```
+
 ### Health check
 
 ```sh

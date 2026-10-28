@@ -140,6 +140,31 @@ docker compose up --build
 
 Compose 会启动 PostgreSQL、API 服务和 Web 控制台。API 暴露在 `http://localhost:8080`，Web 控制台暴露在 `http://localhost/`。Git 平台 Token、OCR 设置、项目策略等业务配置均在 Web 控制台管理，无需环境变量。
 
+### 容器镜像
+
+推 `main` 和打 `v*` tag 都会构建多架构镜像（`linux/amd64` + `linux/arm64`）并发布到 GitHub Container Registry：
+
+```sh
+docker pull ghcr.io/yi-nology/code-review-service:v0.2.1
+```
+
+| Tag | 何时推 | 说明 |
+| --- | --- | --- |
+| `v0.2.1`、`0.2.1`、`0.2` | 推 `v*` tag | 发布版 tag；`0.2` 跟随 `0.2` 系列的最新补丁版本 |
+| `latest` | 推 `v*` tag | 指向**最新发布版**，不是 `main` |
+| `main` | 推 `main` | 默认分支的滚动构建 |
+| `sha-abc1234` | 任意推送 | 精确到 commit，便于可复现部署 |
+
+提 PR 会构建镜像但不推送 —— 这个 job 是 Dockerfile 的回归检查。
+
+注意：首次发布时包默认是**私有**可见性，需要改一次（GitHub → Packages → `code-review-service` → Package settings → Change visibility → Public）。公开包在容器注册表上可以匿名拉取，私有包必须带 token。
+
+本地构建同样的镜像：
+
+```sh
+docker build -t review-service .
+```
+
 ### 健康检查
 
 ```sh

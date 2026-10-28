@@ -1,0 +1,152 @@
+name: Docker Image
+
+# 产出可直接拉取的容器镜像（GitHub Container Registry）。
+#
+# 与 Build Binaries / Quality Gate 分开：那两个管「代码对不对」，本工作流管
+# 「能不能拉起来跑」。
+# 触发条件：
+#   - 提 PR：只构建不推送 —— 当作 Dockerfile 的回归检查（只跑 amd64，快一倍）；
+#   - 推 main：推 ghcr.io/yi-nology/code-review-service:main 与 sha-<短哈希>；
+#   - 推 v* tag：推 v* / 语义化版本 / latest，并把镜像摘要回填到 Release 说明。
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+# 同一分支上的新提交不必再等旧构建：PR 直接取消，先到先出。
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  # PR 只构建 amd64（一次构建的耗时减半）；推 main / 打 tag 才出完整双架构。
+  PLATFORMS: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
+
+jobs:
+  image:
+    name: Build & publish image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # 推 GHCR 需要写包权限；PR 里只构建不推，用不上。
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # arm64 的运行阶段（apk / npm / OCR 二进制）要在 QEMU 模拟下跑；
+      # Go 交叉编译本身是原生的，不吃这份开销。
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        # PR 不登录：只构建，不往 registry 推任何东西。
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_tag}}
+          labels: |
+            org.opencontainers.image.title=review-service
+            org.opencontainers.image.description=Code review gateway: runs Open Code Review on PR/MR events and writes the findings back.
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ env.PLATFORMS }}
+          # PR 只构建不推；其余情况推 GHCR。
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # 官方代理在 runner 上比 goproxy.cn 稳（Dockerfile 默认是 goproxy.cn）。
+          build-args: |
+            GOPROXY=https://proxy.golang.org,direct
+          # PR 不写缓存：fork 来的 PR 没有写缓存的权限，写了反而会红。
+          cache-from: type=gha
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max' || '' }}
+          # 带构建来源证明（provenance）：镜像层能追到具体 commit 与构建环境。
+          provenance: mode=max
+
+      - name: Summary
+        if: steps.build.outputs.digest != ''
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          {
+            echo "### 容器镜像"
+            echo ""
+            echo '```'
+            echo "$TAGS"
+            echo "$IMAGE@$DIGEST"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # 打 tag 时把镜像摘要回填到 Release 说明：发版页上直接能看到拉取命令。
+      - name: Annotate release with image digest
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::notice::Release $TAG 还没创建，跳过摘要回填。"
+            exit 0
+          fi
+          body="$(gh release view "$TAG" --json body --jq '.body // ""')"
+          # 用 bash 的字符串匹配而不是 `printf | grep -q`：grep -q 命中即退出会
+          # 让上游 printf 收到 SIGPIPE，在 pipefail 下反而判成「没找到」。
+          if [[ "$body" == *"$IMAGE@$DIGEST"* ]]; then
+            echo "摘要已在 Release 说明里，跳过。"
+            exit 0
+          fi
+          # 反引号在 heredoc 里必须转义，否则会被当成命令替换执行。
+          # 分隔符用 NOTES_EOF，避免正文里正好有一行 EOF 把 heredoc 截断。
+          cat > "$RUNNER_TEMP/release-notes.md" <<NOTES_EOF
+          $body
+
+          ### 容器镜像
+
+          - \`$IMAGE@$DIGEST\`
+          NOTES_EOF
+          gh release edit "$TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
+          echo "已把镜像摘要写入 Release $TAG"
