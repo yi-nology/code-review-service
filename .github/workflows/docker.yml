@@ -67,6 +67,11 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # latest 不在这里显式写：metadata-action 的 flavor 默认 latest=auto，
+          # 对 type=ref,event=tag / type=semver 自动补一个 latest —— 于是 latest
+          # 只在推 v* tag 时出现，main 推送不带它。
+          # （enable 属性只认 ${{ }} 形式的工作流表达式与 {{is_default_branch}}，
+          #   没有 {{is_tag}} —— 写了会直接报 "Invalid value for enable attribute"。）
           tags: |
             type=ref,event=branch
             type=ref,event=tag
@@ -74,7 +79,6 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
-            type=raw,value=latest,enable={{is_tag}}
           labels: |
             org.opencontainers.image.title=review-service
             org.opencontainers.image.description=Code review gateway: runs Open Code Review on PR/MR events and writes the findings back.
