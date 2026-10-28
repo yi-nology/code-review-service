@@ -131,4 +131,3 @@ func (c *Client) SetLabelVote(ctx context.Context, changeNumber, label string, v
 	})
 	return err
 }
-
