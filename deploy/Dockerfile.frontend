@@ -11,4 +11,8 @@ FROM docker.io/library/nginx:1.27-alpine
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /src/frontend/dist /usr/share/nginx/html
 
+# 静态资源必须对 nginx worker 可读：源文件权限若被带成 0600，
+# 容器内会直接 403（实测 frontend/public/icons.svg 曾因此 403）。
+RUN chmod -R a+rX /usr/share/nginx/html
+
 EXPOSE 80
