@@ -1,9 +1,15 @@
-# Review Service
+<div align="center">
+  <img src="docs/assets/logo.svg" alt="AI Code Review" width="88" height="88" />
+</div>
+
+<h1 align="center">Review Service</h1>
+
+<p align="center">
+  <a href="README.md">English</a> | <a href="README.zh-CN.md">中文</a>
+</p>
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/go-1.27%2B-00ADD8.svg)](https://go.dev/)
-
-[English](README.md) | [中文](README.zh-CN.md)
 
 [![CI](https://github.com/yi-nology/code-review-service/actions/workflows/quality.yml/badge.svg)](https://github.com/yi-nology/code-review-service/actions/workflows/quality.yml)
 
@@ -158,14 +164,14 @@ docker pull ghcr.io/yi-nology/code-review-service:main
 
 | Tag | Pushed on | Notes |
 | --- | --- | --- |
-| `v0.2.1`, `0.2.1`, `0.2` | `v*` tag push | Release tags. `0.2` tracks the latest patch of the `0.2` line. |
+| `v0.3.0`, `0.3.0`, `0.3` | `v*` tag push | Release tags. `0.3` tracks the latest patch of the `0.3` line. |
 | `latest` | `v*` tag push | Points at the newest **release** — not at `main`. |
 | `main` | `main` push | Rolling build of the default branch. |
 | `sha-abc1234` | any push | Exact commit, for reproducible deploys. |
 
 Pull requests build the image but never push it — that job is a Dockerfile regression check.
 
-Already-published releases (v0.2.1 and earlier) predate this workflow and have no image; the next `v*` tag produces both the release tags and `latest`.
+Releases before v0.3.0 predate this workflow and have no image; `v0.3.0` is the first tag that publishes both the release tags and `latest`.
 
 The package is published **public**, so `docker pull` needs no login. If you fork this setup and the package ends up private, flip it once (GitHub → Packages → `code-review-service` → Package settings → Change visibility → Public) — public packages are pullable anonymously from the container registry, private ones need a token.
 

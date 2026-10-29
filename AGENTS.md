@@ -7,7 +7,7 @@ that are not obvious from the directory layout. The canonical, longer reference 
 ## This repository
 
 - **Public repository**: <https://github.com/yi-nology/code-review-service>
-  (Apache-2.0, published 2026-10-21; latest release v0.2.1).
+  (Apache-2.0, published 2026-10-21; latest release v0.3.0).
 - **Module path**: `github.com/yi-nology/code-review-service`.
 - **Remotes in this checkout**: `github` → the GitHub repository above;
   `origin` → a local bare mirror (`../code-review-service.git`).
@@ -26,7 +26,17 @@ A code-review gateway. It receives PR/MR events (webhook or API), clones via the
 go-git-platform, runs **Open Code Review (OCR)** as a subprocess with a multi-agent
 workflow, computes a quality-gate verdict, writes findings back as inline comments
 and commit status, and exposes a Vue.js web console. Supports GitHub, GitLab, Gitea,
-GitCode, Tencent Code. Stack: Go 1.27 + Hertz + uber/fx + GORM/PostgreSQL.
+Forgejo, Gitee, GitCode, Tencent Code, and Gerrit. Stack: Go 1.27 + Hertz + uber/fx +
+GORM/PostgreSQL.
+
+**Gerrit is the one platform without a go-git-platform SDK backend** — it goes through
+an independent go-gerrit client (`internal/service/gerrit`). Two consequences bite
+whenever a code path dispatches by provider: `provider.NewProvider("gerrit")` always
+returns "platform not registered", and the platform must be registered from
+`configs` (not from the SDK provider map) or the review pipeline treats it as
+unconfigured. The dispatch point is `usesSDKBackend` in `internal/service/provider`;
+the frontend platform list is `PROVIDER_OPTIONS` in `frontend/src/utils/url-parser.ts`
+— adding a platform means touching both.
 
 Dependency orgs (all split repos, no monorepo):
 `github.com/oekit/*` (基础库矩阵), `github.com/oagentkit/*` (Agent/LLM 工具链),

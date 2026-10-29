@@ -1,6 +1,12 @@
-# Review Service / 代码评审服务
+<div align="center">
+  <img src="docs/assets/logo.svg" alt="AI Code Review" width="88" height="88" />
+</div>
 
-[English](README.md) | [中文](README.zh-CN.md)
+<h1 align="center">Review Service / 代码评审服务</h1>
+
+<p align="center">
+  <a href="README.md">English</a> | <a href="README.zh-CN.md">中文</a>
+</p>
 
 ## 概述
 
@@ -150,14 +156,14 @@ docker pull ghcr.io/yi-nology/code-review-service:main
 
 | Tag | 何时推 | 说明 |
 | --- | --- | --- |
-| `v0.2.1`、`0.2.1`、`0.2` | 推 `v*` tag | 发布版 tag；`0.2` 跟随 `0.2` 系列的最新补丁版本 |
+| `v0.3.0`、`0.3.0`、`0.3` | 推 `v*` tag | 发布版 tag；`0.3` 跟随 `0.3` 系列的最新补丁版本 |
 | `latest` | 推 `v*` tag | 指向**最新发布版**，不是 `main` |
 | `main` | 推 `main` | 默认分支的滚动构建 |
 | `sha-abc1234` | 任意推送 | 精确到 commit，便于可复现部署 |
 
 提 PR 会构建镜像但不推送 —— 这个 job 是 Dockerfile 的回归检查。
 
-早于本工作流发布的版本（v0.2.1 及更早）没有对应镜像；下一个 `v*` tag 会同时产出发布版 tag 和 `latest`。
+早于 v0.3.0 的版本没有对应镜像（晚于本工作流发布的第一个 tag）；`v0.3.0` 会同时产出发布版 tag 和 `latest`。
 
 镜像包以 **public** 可见性发布，`docker pull` 不需要登录。如果你 fork 这套配置后包是 private，改一次即可（GitHub → Packages → `code-review-service` → Package settings → Change visibility → Public）—— 公开包在容器注册表上支持匿名拉取，私有包必须带 token。
 
