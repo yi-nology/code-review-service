@@ -72,8 +72,15 @@ export function getProviderInitial(provider: string): string {
   return map[provider] || provider.slice(0, 2).toUpperCase()
 }
 
+/**
+ * 标识符缩略：超长时保留**尾部**并加前导省略号。
+ *
+ * 取尾而不是取头：审查 ID 是 ULID，前 8 位是时间戳（同一时间创建的记录
+ * 头部几乎一样），尾部才是区分度所在；取头会让一列记录看起来完全相同。
+ */
 export function shortId(id: string): string {
-  return id.length > 12 ? `${id.slice(0, 8)}…` : id
+  if (!id) return ''
+  return id.length > 12 ? `…${id.slice(-6)}` : id
 }
 
 // ===== 以下为从各视图/组件收敛来的公共格式化（单一真源，避免本地复制） =====
@@ -99,9 +106,15 @@ export function formatRelativeTime(iso: string): string {
 /** token 数缩写：1.2M / 3.4k / 原值；空值出 '—'。 */
 export function formatTokens(n?: number): string {
   if (n === undefined || n === null) return '—'
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
+  if (n >= 1_000_000) return trimZero(n / 1_000_000) + 'M'
+  if (n >= 1000) return trimZero(n / 1000) + 'k'
   return String(n)
+}
+
+/** 去掉小数尾部的 .0：776.0k → 776k。 */
+function trimZero(v: number): string {
+  const s = v.toFixed(1)
+  return s.endsWith('.0') ? s.slice(0, -2) : s
 }
 
 /** 千分位数字；空值出 fallback。 */

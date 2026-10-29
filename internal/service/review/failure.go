@@ -66,7 +66,7 @@ func (f *FailureReporter) Report(ctx context.Context, id string, req domain.Requ
 		ReviewID: id,
 		Status:   "failed",
 		Summary:  "review failed",
-		Gate:     domain.ErrorGate("review execution failed"),
+		Gate:     domain.ErrorGate("审查执行失败，流程未完整完成"),
 		Error:    runErr.Error(),
 	}
 	if ocrMeta.SessionID != "" {

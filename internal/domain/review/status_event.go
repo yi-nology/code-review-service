@@ -16,14 +16,17 @@ func StatusEventState(status string) string {
 }
 
 // StatusEventMessage 把评审状态映射为人类可读的进度事件消息。
+//
+// 文案与控制台语言一致（中文）：这条消息直接进审查步骤审计面板，
+// 与其它审计步骤消息（"写回失败"、"OCR 代码审查失败" 等）同属一套语气。
 func StatusEventMessage(status string) string {
 	switch status {
 	case "running":
-		return "worker claimed the task and started execution"
+		return "任务已被领取，开始执行"
 	case "success":
-		return "review report and quality gate generated"
+		return "审查报告与质量门禁已生成"
 	case "failed":
-		return "review execution failed"
+		return "审查执行失败"
 	default:
 		return status
 	}

@@ -143,7 +143,7 @@ func (o *ScanOrchestrator) scanAsync(ctx context.Context, req domain.ScanRequest
 		History: []domain.Event{{
 			Stage:     stageQueued,
 			Status:    statusCompleted,
-			Message:   "repository scan queued",
+			Message:   "代码库扫描已入队",
 			CreatedAt: time.Now().UTC(),
 		}},
 	}
@@ -199,7 +199,7 @@ func (o *ScanOrchestrator) runScanBackground(scanCtx context.Context, reviewID s
 		resp.History = append(resp.History, domain.Event{
 			Stage:     "repository",
 			Status:    statusRunning,
-			Message:   "preparing workspace and running full scan",
+			Message:   "正在准备仓库工作区并执行全量扫描",
 			CreatedAt: time.Now().UTC(),
 		})
 		review.Status = statusRunning
@@ -343,8 +343,10 @@ func (o *ScanOrchestrator) recordScanFailure(ctx context.Context, reviewID strin
 			resp = domain.Response{ReviewID: reviewID}
 		}
 		resp.Status = statusFailed
+		// Summary 是 API 字段（MCP 工具输出给 agent 用），保持机器可读的英文；
+		// 门禁原因只面向控制台，直接写中文。
 		resp.Summary = "repository scan failed"
-		resp.Gate = domain.ErrorGate("scan execution failed")
+		resp.Gate = domain.ErrorGate("代码库扫描执行失败，请查看失败提示与执行步骤。")
 		resp.Error = scanErr.Error()
 		resp.History = append(resp.History, domain.Event{
 			Stage:     "ocr_scan",
@@ -398,13 +400,13 @@ func (o *ScanOrchestrator) persistScanResultUpdate(ctx context.Context, reviewID
 			{
 				Stage:     "repository",
 				Status:    statusCompleted,
-				Message:   "repository prepared for full scan",
+				Message:   "仓库工作区已就绪，开始全量扫描",
 				CreatedAt: time.Now().UTC(),
 			},
 			{
 				Stage:   "ocr_scan",
 				Status:  statusCompleted,
-				Message: "full repository scan completed",
+				Message: "全量仓库扫描已完成",
 				Details: map[string]any{
 					"files_reviewed": result.OCR.FilesReviewed,
 					"comments":       result.OCR.Comments,

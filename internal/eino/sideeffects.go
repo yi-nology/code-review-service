@@ -145,7 +145,7 @@ func (e *Executor) notifyStart(ctx context.Context, id string, req domain.Reques
 		})
 	}
 
-	e.appendHistory(ctx, id, "notify", "started", "review start notification sent", nil)
+	e.appendHistory(ctx, id, "notify", "started", "已发送审查开始通知", nil)
 }
 
 func countTruePositives(j *judge.Judgment) int {

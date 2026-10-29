@@ -93,7 +93,7 @@ func (pt *ProgressTracker) SetError(err string) {
 
 	pt.publish(progressEvent{
 		Type: eventError, Phase: phase, Status: "failed",
-		Progress: prog, Error: err, Message: "Review failed: " + err,
+		Progress: prog, Error: err, Message: "审查执行失败：" + err,
 	})
 }
 
@@ -104,7 +104,7 @@ func (pt *ProgressTracker) Complete() {
 
 	pt.publish(progressEvent{
 		Type: eventComplete, Phase: PhaseComplete, Status: "completed",
-		Progress: 100, Message: "Review completed successfully",
+		Progress: 100, Message: "审查已完成",
 	})
 }
 

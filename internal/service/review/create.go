@@ -197,11 +197,15 @@ func queuedSummary(isWebhook bool) string {
 	return "review queued"
 }
 
+// queuedMessage 是审计面板里的入队说明，直接进控制台，因此写中文。
+//
+// 与 queuedSummary 的分工：Summary 是 API 字段（MCP 工具输出给 agent 用），
+// 保持机器可读的英文，由前端展示层翻译；Message 只面向人，直接写中文。
 func queuedMessage(isWebhook bool) string {
 	if isWebhook {
-		return "review queued via webhook"
+		return "评审已入队（由 Webhook 触发）"
 	}
-	return "review queued"
+	return "评审已入队"
 }
 
 func validate(req domain.Request) error {

@@ -346,7 +346,7 @@ func (m *AgentManager) runParallel(ctx context.Context, agents []reviewAgent, wo
 					Name:     agent.Name(),
 					Status:   "running",
 					Progress: 0,
-					Message:  "starting review",
+					Message:  "开始审查",
 				})
 			}
 

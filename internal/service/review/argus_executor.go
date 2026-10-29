@@ -213,13 +213,14 @@ func CompleteFromArgusReport(ctx context.Context, reviewRepo repository.ReviewRe
 	status := statusSuccess
 	summary := fmt.Sprintf("argus 裁决：%s（H%d M%d L%d）", argusVerdictLabel(rep.Verdict),
 		rep.FindingsHigh, rep.FindingsMedium, rep.FindingsLow)
-	gate := domain.CompletedGate(true, "argus: "+rep.Verdict)
+	// 门禁原因进控制台，与摘要同一套中文标签（argusVerdictLabel）。
+	gate := domain.CompletedGate(true, "argus 裁决："+argusVerdictLabel(rep.Verdict))
 	switch rep.Verdict {
 	case argusingest.VerdictRequestChanges:
-		gate = domain.CompletedGate(false, "argus: request_changes")
+		gate = domain.CompletedGate(false, "argus 裁决：要求修改")
 	case argusingest.VerdictError:
 		status = statusFailed
-		gate = domain.ErrorGate("argus: " + rep.ErrorMessage)
+		gate = domain.ErrorGate("argus 裁决：审查失败" + argusErrorSuffix(rep.ErrorMessage))
 		if rep.ErrorMessage != "" {
 			summary = "argus 审查失败：" + rep.ErrorMessage
 		}
@@ -345,6 +346,15 @@ func argusVerdictLabel(v string) string {
 		return "审查失败"
 	}
 	return v
+}
+
+// argusErrorSuffix 把 argus 的错误详情接在中文门禁原因后面；无详情时返回空串。
+func argusErrorSuffix(msg string) string {
+	msg = strings.TrimSpace(msg)
+	if msg == "" {
+		return ""
+	}
+	return "：" + msg
 }
 
 // argusFindingsToDomain argus 三档意见 → 评审记录的标准 Finding。

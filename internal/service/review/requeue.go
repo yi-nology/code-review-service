@@ -53,7 +53,7 @@ func (s *Service) Requeue(ctx context.Context, reviewID string) (domain.Response
 		resp.History = append(resp.History, domain.Event{
 			Stage:     stageQueued,
 			Status:    statusCompleted,
-			Message:   "review re-queued by user",
+			Message:   "评审已由用户重新入队",
 			CreatedAt: time.Now().UTC(),
 		})
 
@@ -94,12 +94,14 @@ func (s *Service) Cancel(ctx context.Context, reviewID string) (domain.Response,
 
 		resp := review.Response
 		resp.Status = statusFailed
+		// Summary 是 API 字段（MCP 工具输出给 agent 用），保持机器可读的英文；
+		// 门禁原因与审计消息只面向控制台，直接写中文。
 		resp.Summary = "review cancelled by user"
-		resp.Gate = domain.ErrorGate("review cancelled")
+		resp.Gate = domain.ErrorGate("评审已取消")
 		resp.History = append(resp.History, domain.Event{
 			Stage:     stageCancelled,
 			Status:    statusFailed,
-			Message:   "review cancelled by user",
+			Message:   "评审已由用户取消",
 			CreatedAt: time.Now().UTC(),
 		})
 
