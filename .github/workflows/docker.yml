@@ -38,9 +38,12 @@ jobs:
     name: Build & publish image
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       # 推 GHCR 需要写包权限；PR 里只构建不推，用不上。
       packages: write
+      # 打 tag 时要把镜像摘要回填进 Release 说明（gh release edit），
+      # 那是写仓内容 —— 只给 contents: read 会 403
+      # （"Resource not accessible by integration"），回填静默不发生。
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
