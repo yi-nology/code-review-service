@@ -113,10 +113,12 @@ func buildWeeklyMarkdown(provider, repo string, agg *domain.AggregateStats, cont
 			if name == "" {
 				name = ct.Author
 			}
+			// PassRate 已是百分数（仓储层把 SQL 比值 ×100 后的值透传上来），
+			// 这里再乘 100 会写成 10000%。
 			b.WriteString(fmt.Sprintf("| %s | %d | %d | %d | %d | %d | %d | %.0f%% |\n",
 				name, ct.ReviewCount, ct.TotalFindings,
 				ct.CriticalCount, ct.MajorCount, ct.MinorCount, ct.InfoCount,
-				ct.PassRate*100))
+				ct.PassRate))
 		}
 		b.WriteString("\n")
 	}
