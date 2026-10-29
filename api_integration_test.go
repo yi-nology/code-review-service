@@ -391,7 +391,7 @@ func testAgents(t *testing.T) {
 }
 
 func testProjectAgents(t *testing.T) {
-	path := "/api/v1/settings/project-agents?provider=gitea&repo=" + url.QueryEscape("enjoydream/ekit")
+	path := "/api/v1/settings/project-agents?provider=gitea&repo=" + url.QueryEscape("acme/ekit")
 	resp, api := doRequest(t, "GET", path, nil, true)
 	assertHTTP(t, resp, 200, "/project-agents")
 	assertOK(t, api, "/project-agents")
@@ -478,7 +478,7 @@ func testReviewCreateValidation(t *testing.T) {
 func testReviewCreateAndQuery(t *testing.T) {
 	body := map[string]any{
 		"provider":        "gitea",
-		"repo":            "enjoydream/ekit",
+		"repo":            "acme/ekit",
 		"pull_request_id": "1",
 		"callback_mode":   "none",
 		"wait":            false,
@@ -581,7 +581,7 @@ func testStatsProjects(t *testing.T) {
 }
 
 func testStatsOCRMetrics(t *testing.T) {
-	path := "/api/v1/stats/projects/ocr?provider=gitea&repo=" + url.QueryEscape("enjoydream/ekit")
+	path := "/api/v1/stats/projects/ocr?provider=gitea&repo=" + url.QueryEscape("acme/ekit")
 	resp, api := doRequest(t, "GET", path, nil, true)
 	assertHTTP(t, resp, 200, "/stats/projects/ocr")
 	assertOK(t, api, "/stats/projects/ocr")
