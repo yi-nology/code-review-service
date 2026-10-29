@@ -16,8 +16,8 @@
         <div class="repo-cell">
           <span class="provider-mark">{{ getProviderInitial(row.provider) }}</span>
           <div>
-            <strong>{{ row.repo }}</strong>
-            <div class="review-id">
+            <strong :title="row.repo">{{ row.repo }}</strong>
+            <div class="review-id" :title="row.review_id">
               {{ getProviderLabel(row.provider) }}
               <el-tag
                 v-if="!pinnedEngine && row.engine"
@@ -39,7 +39,7 @@
         <div v-if="row.author" class="author-cell">
           <img v-if="row.author_avatar" :src="row.author_avatar" class="author-avatar" :alt="row.author" />
           <span v-else class="author-avatar-fallback">{{ (row.author_name || row.author).slice(0, 1).toUpperCase() }}</span>
-          <router-link v-if="row.author" :to="`/contributors/${encodeURIComponent(row.author)}`" class="author-link" @click.stop>
+          <router-link v-if="row.author" :to="`/contributors/${encodeURIComponent(row.author)}`" class="author-link" :title="row.author_name || row.author" @click.stop>
             {{ row.author_name || row.author }}
           </router-link>
         </div>
@@ -193,9 +193,16 @@ function onSortChange({ prop, order }: { prop: string | null; order: 'ascending'
   gap: 12px;
 }
 
+/* 文本容器必须允许收缩（min-width:0），否则长仓库名不缩、溢出后被单元格
+   硬裁成「acme/code-review-se」这种断字，而不是省略号。 */
+.repo-cell > div {
+  min-width: 0;
+  flex: 1;
+}
+
 .repo-cell strong {
   display: block;
-  max-width: 230px;
+  max-width: 100%;
   overflow: hidden;
   color: var(--app-text);
   font-size: 13px;
@@ -261,6 +268,7 @@ function onSortChange({ prop, order }: { prop: string | null; order: 'ascending'
 }
 
 .author-link {
+  min-width: 0;
   overflow: hidden;
   color: var(--app-text);
   font-size: 13px;

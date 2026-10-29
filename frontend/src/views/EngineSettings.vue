@@ -30,7 +30,7 @@
           <div class="ss-meta">
             <span class="mono">{{ form.model || '未设置模型' }}</span>
             <span class="sep">·</span>
-            <span class="mono url">{{ form.url || '—' }}</span>
+            <span class="mono url">{{ form.url || '未配置地址' }}</span>
             <span class="sep">·</span>
             <span>{{ form.language === '中文' ? '中文' : 'English' }}</span>
             <span class="sep">·</span>

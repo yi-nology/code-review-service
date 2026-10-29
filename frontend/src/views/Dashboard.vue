@@ -66,7 +66,7 @@
           <span class="kpi-icon gate"><el-icon><CircleCheckFilled /></el-icon></span>
           <span>门禁通过率</span>
           <strong>{{ gatePassRate }}%</strong>
-          <small>{{ passedCount }} / {{ completedCount }}</small>
+          <small>{{ passedCount }} / {{ completedCount }} · 最近 {{ recentReviews.length }} 次</small>
         </div>
         <div class="kpi-card">
           <span class="kpi-icon findings"><el-icon><Aim /></el-icon></span>
@@ -127,7 +127,7 @@
             >
               <span class="provider-mark">{{ getProviderInitial(item.provider) }}</span>
               <span class="feed-main">
-                <strong>{{ item.repo }}</strong>
+                <strong :title="item.repo">{{ item.repo }}</strong>
                 <small>{{ getStatusLabel(item.status) }} · {{ formatDateRelative(item.updated_at) }}</small>
               </span>
               <span class="feed-side">
@@ -194,7 +194,7 @@
             >
               <span class="provider-mark">{{ getProviderInitial(project.provider) }}</span>
               <span class="risk-main">
-                <strong>{{ project.repo }}</strong>
+                <strong :title="project.repo">{{ project.repo }}</strong>
                 <small>{{ project.review_count }} 次审查 · {{ project.total_findings }} 个问题</small>
               </span>
               <span class="risk-score" :class="scoreClass(project.avg_score)">

@@ -6,6 +6,7 @@
  */
 import { ref, computed } from 'vue'
 import type { ReviewDetail } from '@/types/review'
+import { formatReviewSummary } from '@/utils/reviewText'
 import ReviewFindingsPanel from './ReviewFindingsPanel.vue'
 import ReviewOcrCard from './ReviewOcrCard.vue'
 import ReviewDebugPanel from './ReviewDebugPanel.vue'
@@ -98,7 +99,7 @@ defineExpose({ resetPatchState, focusFinding })
         <span class="verdict-dot" :style="{ background: argusAccent.color }"></span>
         <strong :style="{ color: argusAccent.color }">Argus 裁决：{{ argusAccent.label }}</strong>
       </div>
-      <div class="summary-content" v-html="renderMarkdown(detail.summary)"></div>
+      <div class="summary-content" v-html="renderMarkdown(formatReviewSummary(detail.summary))"></div>
     </div>
 
     <!-- AI 综合判断（agentkit Judge） -->

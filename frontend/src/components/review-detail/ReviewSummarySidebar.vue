@@ -16,6 +16,7 @@ import {
 import type { ReviewDetail, Finding } from '@/types/review'
 import { getStatusLabel, getStatusType } from '@/utils/status'
 import { formatDateTime } from '@/utils/format'
+import { formatGateReason } from '@/utils/reviewText'
 import { DEAD_LETTER_THRESHOLD } from '@/constants/review'
 import {
   resolveReviewMode, REVIEW_MODE_META,
@@ -105,7 +106,7 @@ const explanations = computed(() => {
       items.push({ title: `裁决：${verdictMeta.value?.label || o.verdict}`, body: props.detail.summary || 'Argus 裁决已写入门禁结果。' })
     }
     if (props.detail.gate?.status === 'failed') {
-      items.push({ title: '门禁策略触发', body: props.detail.gate?.reason || 'Argus 裁决未满足质量门禁。' })
+      items.push({ title: '门禁策略触发', body: formatGateReason(props.detail.gate?.reason) || 'Argus 裁决未满足质量门禁。' })
     }
     return items
   }
@@ -114,7 +115,7 @@ const explanations = computed(() => {
     items.push({ title: '执行失败', body: '审查流程未完整完成，请查看失败提示、OCR 配置和任务日志。' })
   }
   if (props.detail.gate?.status === 'failed') {
-    items.push({ title: '门禁策略触发', body: props.detail.gate?.reason || '当前审查结果未满足质量门禁。' })
+    items.push({ title: '门禁策略触发', body: formatGateReason(props.detail.gate?.reason) || '当前审查结果未满足质量门禁。' })
   }
   if (counts && (counts.critical > 0 || counts.major > 0)) {
     items.push({ title: '高严重度问题', body: `严重 ${counts.critical} 个，高风险 ${counts.major} 个。优先修复可解除门禁阻塞。` })
@@ -131,7 +132,7 @@ const explanations = computed(() => {
 
 function severityLabel(severity: string) {
   const map: Record<string, string> = { critical: '严重', major: '高', minor: '中', info: '提示' }
-  return map[severity] || severity
+  return map[severity] || '未知'
 }
 
 function scoreColor(score: number) {
@@ -343,7 +344,7 @@ function goArgusReport() {
           @click="emit('focus-finding', item.index)"
         >
           <el-tag size="small" :type="item.finding.severity === 'critical' ? 'danger' : 'warning'">{{ severityLabel(item.finding.severity) }}</el-tag>
-          <span>{{ item.finding.path || '未知' }}<template v-if="item.finding.line">:{{ item.finding.line }}</template></span>
+          <span :title="`${item.finding.path || '未知'}${item.finding.line ? ':' + item.finding.line : ''}`">{{ item.finding.path || '未知' }}<template v-if="item.finding.line">:{{ item.finding.line }}</template></span>
           <el-icon class="blocking-arrow"><TopRight /></el-icon>
         </button>
       </div>

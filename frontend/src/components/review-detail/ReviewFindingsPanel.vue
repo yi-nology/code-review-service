@@ -359,7 +359,7 @@ function countSeverities(entries: FindingEntry[]): Record<string, number> {
 
 function severityLabel(severity: string) {
   const map: Record<string, string> = { critical: '严重', major: '高风险', minor: '中风险', info: '提示' }
-  return map[severity] || severity
+  return map[severity] || '未知'
 }
 
 function toggleGroup(key: string) {
@@ -455,7 +455,7 @@ function feedbackLabel(status?: string) {
     deferred: '暂不处理',
     fixed: '已修复',
   }
-  return status ? map[status] || status : ''
+  return status ? map[status] || '未知' : ''
 }
 
 function togglePatchFinding(index: number, checked: boolean) {

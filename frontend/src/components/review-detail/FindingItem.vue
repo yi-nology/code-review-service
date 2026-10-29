@@ -89,7 +89,7 @@ const FEEDBACK_LABELS: Record<string, string> = {
 }
 
 function feedbackLabel(status?: string) {
-  return status ? FEEDBACK_LABELS[status] || status : ''
+  return status ? FEEDBACK_LABELS[status] || '未知' : ''
 }
 </script>
 

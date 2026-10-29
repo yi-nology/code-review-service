@@ -190,8 +190,28 @@ onBeforeUnmount(() => {
 }
 
 .navigation {
+  /* 导航项多于视口高度时必须能滚动：不给 min-height:0，flex 子项不会缩到
+     内容高度以下，底部状态卡会被顶出视口（最后两个入口点不到）。 */
   flex: 1;
+  min-height: 0;
   padding: 18px 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #2c3852 transparent;
+}
+
+.navigation::-webkit-scrollbar {
+  width: 6px;
+}
+
+.navigation::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: #2c3852;
+}
+
+.navigation::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .nav-label {
@@ -238,6 +258,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 11px;
+  flex: 0 0 auto;
   margin: 14px;
   padding: 14px;
   border: 1px solid rgba(255, 255, 255, 0.07);

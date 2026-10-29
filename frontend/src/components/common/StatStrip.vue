@@ -5,7 +5,7 @@
       :key="index"
       :xs="12"
       :sm="12"
-      :md="colSpan"
+      :md="spans[index] ?? 24"
     >
       <el-card shadow="never" class="stat-card" :class="item.tone || 'primary'">
         <div class="stat-icon">
@@ -13,7 +13,11 @@
         </div>
         <div class="stat-body">
           <span class="stat-label">{{ item.label }}</span>
-          <strong class="stat-value">{{ item.value }}</strong>
+          <strong
+            class="stat-value"
+            :class="valueSizeClass(item.value)"
+            :title="item.title ?? String(item.value)"
+          >{{ item.value }}</strong>
           <small v-if="item.sublabel" class="stat-sublabel">{{ item.sublabel }}</small>
         </div>
       </el-card>
@@ -33,6 +37,8 @@ export interface StatItem {
   icon: Component
   label: string
   value: string | number
+  /** 悬浮提示：数值被缩写或换行时，完整值仍可查。 */
+  title?: string
   sublabel?: string
   tone?: 'primary' | 'success' | 'warning' | 'danger' | 'info'
 }
@@ -41,11 +47,33 @@ const props = defineProps<{
   items: StatItem[]
 }>()
 
-// 24 栅格按项数均分，最少每项占 4 栅格（一行最多 6 项）。
-const colSpan = computed(() => {
+// 24 栅格按项数均分。
+//
+// 不能用 Math.floor(24/count) 给所有项同一个 span：项数不能整除 24 时会
+// 留下整列空白（5 项 → 每项 4 栅格 = 只用掉 20/24，右侧空一列），
+// 卡片被压窄后数值还会被 ellipsis 截断（如「776.…」）。
+// 正确做法是逐项分配 base/base+1，总和恰好 24。
+/**
+ * 数值过长时降一档字号。
+ *
+ * 卡片宽度随项数变化（6 项时每张最窄），26px 的「776.2k」在窄卡里会被
+ * ellipsis 截成「776.…」——数字被截断等于没有数字。
+ */
+function valueSizeClass(value: string | number): string {
+  const len = String(value).length
+  if (len > 9) return 'stat-value--xs'
+  if (len > 5) return 'stat-value--sm'
+  return ''
+}
+
+const spans = computed(() => {
   const count = props.items.length
-  if (!count) return 24
-  return Math.max(4, Math.floor(24 / count))
+  if (!count) return []
+  const base = Math.max(1, Math.floor(24 / count))
+  const remainder = 24 - base * count
+  // 余数补给**最后**几项：末尾常常是数值最长的卡片（如「累计 Tokens」），
+  // 放在最前面会让它变成整行最窄的一张。
+  return props.items.map((_, i) => base + (i >= count - remainder ? 1 : 0))
 })
 </script>
 
@@ -91,6 +119,7 @@ const colSpan = computed(() => {
 
 .stat-body {
   min-width: 0;
+  flex: 1;
 }
 
 .stat-label {
@@ -109,6 +138,14 @@ const colSpan = computed(() => {
   line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.stat-value--sm {
+  font-size: 20px;
+}
+
+.stat-value--xs {
+  font-size: 17px;
 }
 
 .stat-sublabel {

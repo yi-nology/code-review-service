@@ -9,6 +9,7 @@
  * - 失败步骤高亮，成功步骤绿色
  */
 import { ref, computed } from 'vue'
+import { getEventStatusLabel } from '@/utils/status'
 import type { Event } from '@/types/review'
 
 const props = defineProps<{
@@ -36,25 +37,34 @@ const totalDuration = computed(() =>
 
 const stageConfig: Record<string, { icon: string; label: string; color: string }> = {
   queued:       { icon: '·', label: '任务入队', color: '#94a3b8' },
+  running:      { icon: '↻', label: '开始执行', color: '#3984cf' },
+  success:      { icon: '✓', label: '完成', color: '#22c55e' },
+  failed:       { icon: '✕', label: '执行失败', color: '#dc2626' },
+  worker:       { icon: '⚙', label: '任务调度', color: '#64748b' },
+  pipeline:     { icon: '⇉', label: '前置编排', color: '#6366f1' },
   dispatch:     { icon: '↗', label: '派发引擎', color: '#0d9488' },
   argus_report: { icon: '◉', label: 'Argus 回报', color: '#0d9488' },
+  argus_poll:   { icon: '◌', label: 'Argus 轮询', color: '#0d9488' },
   repository:  { icon: '1', label: '仓库准备', color: '#6366f1' },
   scope:       { icon: '2', label: '文件过滤', color: '#8b5cf6' },
   policy:      { icon: '3', label: '项目策略', color: '#f59e0b' },
   rules:       { icon: '4', label: '审查规则', color: '#8b5cf6' },
+  memory:      { icon: '4', label: '长期记忆', color: '#8b5cf6' },
   agent:       { icon: '5', label: 'Agent 选择', color: '#ec4899' },
   ocr_config:  { icon: '6', label: 'OCR 参数', color: '#64748b' },
   ocr:         { icon: '7', label: 'OCR 审查', color: '#3b82f6' },
+  ocr_scan:    { icon: '7', label: '代码扫描', color: '#3b82f6' },
   judge:       { icon: '8', label: 'AI 判断', color: '#06b6d4' },
   gate:        { icon: '9', label: '门禁评估', color: '#f59e0b' },
   writeback:   { icon: '10', label: '写回 PR', color: '#10b981' },
   notify:      { icon: '11', label: '通知', color: '#64748b' },
   workflow:    { icon: 'W', label: '多 Agent', color: '#6366f1' },
-  success:     { icon: '✓', label: '完成', color: '#22c55e' },
 }
 
 function cfg(stage: string) {
-  return stageConfig[stage] || { icon: '?', label: stage, color: '#94a3b8' }
+  // 未知阶段不直出原始串：后端新增阶段而前端未同步时，直出英文枚举会污染
+  // 中文界面。原始 stage 仍保留在展开详情里，便于排障。
+  return stageConfig[stage] || { icon: '?', label: '未知阶段', color: '#94a3b8' }
 }
 
 function fmtDuration(ms: number): string {
@@ -140,7 +150,7 @@ const VERDICT_LABELS: Record<string, string> = {
 }
 
 function verdictLabel(v: string) {
-  return VERDICT_LABELS[v] || v
+  return VERDICT_LABELS[v] || '未知'
 }
 </script>
 
@@ -187,7 +197,7 @@ function verdictLabel(v: string) {
                 'status-run': step.status === 'running',
               }"
             >
-              {{ step.status === 'completed' ? '完成' : step.status === 'failed' ? '失败' : step.status === 'running' ? '执行中' : step.status }}
+              {{ getEventStatusLabel(step.status) }}
             </span>
             <span v-if="step.duration_ms" class="step-time">
               {{ fmtDuration(step.duration_ms) }}

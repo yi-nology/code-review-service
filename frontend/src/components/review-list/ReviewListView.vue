@@ -145,6 +145,7 @@ import {
   Stopwatch,
   WarningFilled,
 } from '@element-plus/icons-vue'
+import { formatTokens } from '@/utils/format'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import PageShell from '@/components/common/PageShell.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -254,7 +255,7 @@ const reviewStats = computed(() => [
   { icon: Loading, label: '正在执行', value: stats.value.running, tone: 'info' as const },
   { icon: WarningFilled, label: '门禁未通过', value: stats.value.gate_failed, tone: 'danger' as const },
   { icon: Aim, label: '发现问题', value: stats.value.findings, tone: 'warning' as const },
-  { icon: Coin, label: '累计 Tokens', value: stats.value.total_tokens ? stats.value.total_tokens.toLocaleString() : 0, tone: 'success' as const },
+  { icon: Coin, label: '累计 Tokens', value: formatTokens(stats.value.total_tokens), title: stats.value.total_tokens ? stats.value.total_tokens.toLocaleString() : '0', tone: 'success' as const },
 ])
 
 const activeSavedView = computed<SavedViewKey | ''>(() => {

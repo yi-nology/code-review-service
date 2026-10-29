@@ -1,18 +1,18 @@
-<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40" fill="none">
   <defs>
-    <linearGradient id="favicon-bg" x1="0" y1="0" x2="0" y2="40" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#3b82f6" />
-      <stop offset="1" stop-color="#1d4ed8" />
+    <linearGradient id="favicon-bg" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#60a5fa" />
+      <stop offset="1" stop-color="#2563eb" />
     </linearGradient>
   </defs>
-  <rect width="40" height="40" rx="9" fill="url(#favicon-bg)" />
+  <rect width="40" height="40" rx="11" fill="url(#favicon-bg)" />
+  <!-- 放大镜镜身：审查 / 检查代码 -->
+  <circle cx="17.8" cy="17.2" r="9.8" stroke="#ffffff" stroke-width="3" fill="#ffffff" fill-opacity="0.14" />
+  <!-- 镜内对勾：审查通过 / 质量门禁 -->
   <path
-    d="M20 8.5L13 11v6.2c0 4.35 2.95 8.42 7 9.78 4.05-1.36 7-5.43 7-9.78V11l-7-2.5z"
-    fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round" opacity="0.95"
+    d="M13.6 17.4 16.4 20.2 21.6 14.4"
+    stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
   />
-  <path
-    d="M15.5 20.2L18.6 23.5L24.8 16.5"
-    fill="none" stroke="#ffffff" stroke-width="2.1"
-    stroke-linecap="round" stroke-linejoin="round"
-  />
+  <!-- 手柄 -->
+  <path d="M24.9 24.3 31.8 31.2" stroke="#ffffff" stroke-width="3.6" stroke-linecap="round" />
 </svg>

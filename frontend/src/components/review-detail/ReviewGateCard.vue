@@ -83,7 +83,7 @@ function severityLabel(severity: string) {
     minor: '中',
     info: '提示',
   }
-  return map[severity] || severity
+  return map[severity] || '未知'
 }
 </script>
 

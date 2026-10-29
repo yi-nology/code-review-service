@@ -548,9 +548,9 @@ const scopeLabel = computed(() => {
 })
 
 const scanStats = computed(() => [
-  { icon: Connection, label: '代码平台', value: form.provider || '—', tone: 'primary' as const },
-  { icon: FolderOpened, label: '目标仓库', value: form.repo || '—', tone: 'info' as const },
-  { icon: Discount, label: '当前分支', value: branch.value || '—', tone: 'warning' as const },
+  { icon: Connection, label: '代码平台', value: form.provider || '未选择', tone: 'primary' as const },
+  { icon: FolderOpened, label: '目标仓库', value: form.repo || '未选择', tone: 'info' as const },
+  { icon: Discount, label: '当前分支', value: branch.value || '未选择', tone: 'warning' as const },
   { icon: Aim, label: '预计范围', value: scopeLabel.value, tone: 'success' as const },
 ])
 

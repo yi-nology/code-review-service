@@ -95,7 +95,7 @@ function getOCRStatusLabel(status: string) {
     skipped: '已跳过', queued: '排队中', running: '执行中',
     failed: '执行失败', error: '执行失败',
   }
-  return labels[status] || status || '暂无执行状态'
+  return labels[status] || '暂无执行状态'
 }
 
 function getEngineLabel(engine: string, hasOCRData: boolean) {

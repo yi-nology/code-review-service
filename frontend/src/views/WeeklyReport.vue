@@ -139,8 +139,8 @@
                   <span class="stat-chip" v-if="ct.minor_count">中 {{ ct.minor_count }}</span>
                   <span class="stat-chip muted" v-if="ct.info_count">低 {{ ct.info_count }}</span>
                   <span class="stat-total">共 {{ ct.total_findings }} 个问题</span>
-                  <span class="stat-pass" :class="{ ok: ct.pass_rate >= 0.8, bad: ct.pass_rate < 0.6 }">
-                    通过率 {{ Math.round(ct.pass_rate * 100) }}%
+                  <span class="stat-pass" :class="{ ok: ct.pass_rate >= 80, bad: ct.pass_rate < 60 }">
+                    通过率 {{ Math.round(ct.pass_rate) }}%
                   </span>
                 </div>
               </div>

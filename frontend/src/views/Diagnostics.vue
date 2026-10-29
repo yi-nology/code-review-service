@@ -59,10 +59,10 @@
             </el-table-column>
             <el-table-column prop="event_type" label="事件" min-width="130" />
             <el-table-column prop="action" label="动作" min-width="100" />
-            <el-table-column prop="delivery_id" label="Delivery" min-width="160" show-overflow-tooltip />
+            <el-table-column prop="delivery_id" label="投递 ID" min-width="160" show-overflow-tooltip />
             <el-table-column label="状态" min-width="110">
               <template #default="{ row }">
-                <el-tag :type="statusTag(row.status)" size="small">{{ row.status }}</el-tag>
+                <el-tag :type="statusTag(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="收到时间" min-width="160">
@@ -85,15 +85,17 @@
             </div>
           </template>
           <el-table v-loading="loading" :data="snapshot?.recent_writebacks || []" empty-text="暂无写回记录">
-            <el-table-column prop="review_id" label="Review" min-width="160" show-overflow-tooltip>
+            <el-table-column prop="review_id" label="审查 ID" min-width="160" show-overflow-tooltip>
               <template #default="{ row }">
                 <router-link class="review-link" :to="`/reviews/${row.review_id}`">{{ row.review_id }}</router-link>
               </template>
             </el-table-column>
-            <el-table-column prop="kind" label="类型" min-width="90" />
+            <el-table-column prop="kind" label="类型" min-width="90">
+              <template #default="{ row }">{{ kindLabel(row.kind) }}</template>
+            </el-table-column>
             <el-table-column label="状态" min-width="110">
               <template #default="{ row }">
-                <el-tag :type="statusTag(row.status)" size="small">{{ row.status }}</el-tag>
+                <el-tag :type="statusTag(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column label="评论链接" min-width="110">
@@ -149,9 +151,9 @@ const writebackProblems = computed(() => (snapshot.value?.writebacks.failed || 0
 
 const diagnosticStats = computed(() => [
   { icon: Connection, label: 'Webhook 成功', value: webhookAccepted.value, sublabel: `${snapshot.value?.since_hours || hours.value} 小时窗口`, tone: 'primary' as const },
-  { icon: WarningFilled, label: 'Webhook 异常 / 忽略', value: webhookProblems.value, sublabel: (webhookErrors.value || webhookIgnored.value) ? `${webhookErrors.value} 错误 · ${webhookIgnored.value} 忽略` : 'error / ignored', tone: 'warning' as const },
+  { icon: WarningFilled, label: 'Webhook 异常 / 忽略', value: webhookProblems.value, sublabel: (webhookErrors.value || webhookIgnored.value) ? `${webhookErrors.value} 错误 · ${webhookIgnored.value} 忽略` : '错误 / 忽略', tone: 'warning' as const },
   { icon: Promotion, label: '写回成功', value: writebackPublished.value, sublabel: '已发布评论或总结', tone: 'success' as const },
-  { icon: CircleCloseFilled, label: '写回待处理', value: writebackProblems.value, sublabel: 'failed / pending', tone: 'danger' as const },
+  { icon: CircleCloseFilled, label: '写回待处理', value: writebackProblems.value, sublabel: '失败 / 待处理', tone: 'danger' as const },
 ])
 
 function statusTag(status: string) {
@@ -159,6 +161,36 @@ function statusTag(status: string) {
   if (['failed', 'error'].includes(status)) return 'danger'
   if (['pending', 'received'].includes(status)) return 'warning'
   return 'info'
+}
+
+/**
+ * 状态列文案。取值域来自后端诊断快照的两组统计键：
+ * - Webhook 投递：received / accepted / ignored / error
+ * - 写回条目：pending / published / failed / downgraded
+ * 未知取值不直出原始串。
+ */
+function statusLabel(status: string): string {
+  const map: Record<string, string> = {
+    received: '已接收',
+    accepted: '已受理',
+    ignored: '已忽略',
+    error: '异常',
+    pending: '待处理',
+    published: '已发布',
+    failed: '失败',
+    downgraded: '已降级',
+    success: '成功',
+  }
+  return map[status] || '未知'
+}
+
+/** 写回条目类型文案。 */
+function kindLabel(kind: string): string {
+  const map: Record<string, string> = {
+    inline: '行内评论',
+    summary: '总结评论',
+  }
+  return map[kind] || kind || '-'
 }
 
 async function fetchSnapshot() {
