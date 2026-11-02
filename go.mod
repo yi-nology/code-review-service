@@ -1,6 +1,6 @@
 module github.com/yi-nology/code-review-service
 
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/andygrunwald/go-gerrit v1.2.0
@@ -38,7 +38,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.43.0
 	github.com/yi-nology/agent-harness v0.6.5
 	github.com/yi-nology/agent-memory v0.6.0
-	github.com/yi-nology/go-git-platform v0.95.0
+	github.com/yi-nology/go-git-platform v0.100.0
 	go.uber.org/fx v1.24.0
 	golang.org/x/time v0.16.0
 	gorm.io/datatypes v1.2.5
@@ -50,8 +50,8 @@ require (
 	codeberg.org/mvdkleijn/forgejo-sdk/forgejo/v3 v3.0.0 // indirect
 	dario.cat/mergo v1.0.2 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
-	gitea.dev/sdk v1.3.0 // indirect
-	github.com/42wim/httpsig v1.2.4 // indirect
+	gitea.dev/sdk v1.4.0 // indirect
+	github.com/42wim/httpsig v1.3.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -149,7 +149,6 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/hashicorp/go-version v1.9.0 // indirect
-	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hertz-contrib/requestid v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
@@ -210,7 +209,6 @@ require (
 	github.com/slongfield/pyfmt v0.0.0-20220222012616-ea85ff4c361f // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
-	github.com/studyzy/gongfeng-sdk-go v0.6.0 // indirect
 	github.com/swaggo/swag v1.16.1 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
@@ -222,10 +220,11 @@ require (
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/yargevad/filepathx v1.0.0 // indirect
-	github.com/yi-nology/go-gitcode v0.7.2 // indirect
+	github.com/yi-nology/go-gitcode v0.8.0 // indirect
+	github.com/yi-nology/go-gongfeng v0.2.1 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	gitlab.com/gitlab-org/api/client-go/v3 v3.18.0 // indirect
+	gitlab.com/gitlab-org/api/client-go/v3 v3.40.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.72.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.72.0 // indirect
