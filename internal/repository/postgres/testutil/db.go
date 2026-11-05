@@ -45,6 +45,8 @@ var AllModels = []any{
 	&models.LLMModelPricing{},
 	&models.ArgusReview{},
 	&models.ArgusFinding{},
+	&models.Lease{},
+	&models.MemoryNamespace{},
 }
 
 // activeReviewIndexSQL 与 db.go 的部分唯一索引完全一致（#24 TOCTOU 修复）。

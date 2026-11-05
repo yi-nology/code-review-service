@@ -32,5 +32,7 @@ func NewRepoContainer(db *gormDB.DB) *repository.RepoContainer {
 		Notification:     NewNotificationRepo(db),
 		Auth:             NewAuthRepo(db),
 		ArgusReview:      NewArgusReviewRepo(db),
+		Lease:            NewLeaseRepo(db),
+		MemoryNS:         NewMemoryNSRepo(db),
 	}
 }

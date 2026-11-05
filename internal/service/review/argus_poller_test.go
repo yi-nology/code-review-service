@@ -26,7 +26,7 @@ func TestArgusPollerSweep(t *testing.T) {
 			Request:  domain.Request{Engine: domain.EngineArgus},
 			Response: domain.Response{ArgusTaskID: "t-1"},
 		}
-		p := NewArgusPoller(repo, &fakeArgusReviewRepo{}, argusclient.New(argus.URL, "tok"), nil, nil, time.Second)
+		p := NewArgusPoller(repo, &fakeArgusReviewRepo{}, argusclient.New(argus.URL, "tok"), nil, nil, time.Second, nil)
 		if err := p.sweep(context.Background()); err != nil {
 			t.Fatal(err)
 		}
@@ -57,7 +57,7 @@ func TestArgusPollerSweep(t *testing.T) {
 			Response: domain.Response{ArgusTaskID: "t-2"},
 		}
 		argusRepo := &fakeArgusReviewRepo{}
-		p := NewArgusPoller(repo, argusRepo, argusclient.New(argus.URL, "tok"), nil, nil, time.Second)
+		p := NewArgusPoller(repo, argusRepo, argusclient.New(argus.URL, "tok"), nil, nil, time.Second, nil)
 		if err := p.sweep(context.Background()); err != nil {
 			t.Fatal(err)
 		}
@@ -91,7 +91,7 @@ func TestArgusPollerSweep(t *testing.T) {
 			Request:  domain.Request{Engine: domain.EngineArgus},
 			Response: domain.Response{ArgusTaskID: "t-2b"},
 		}
-		p := NewArgusPoller(repo, &fakeArgusReviewRepo{fail: true}, argusclient.New(argus.URL, "tok"), nil, nil, time.Second)
+		p := NewArgusPoller(repo, &fakeArgusReviewRepo{fail: true}, argusclient.New(argus.URL, "tok"), nil, nil, time.Second, nil)
 		if err := p.sweep(context.Background()); err != nil {
 			t.Fatal(err)
 		}
@@ -115,7 +115,7 @@ func TestArgusPollerSweep(t *testing.T) {
 			ID: "rev-o", Status: statusRunning,
 			Request: domain.Request{Engine: domain.EngineOCR},
 		}
-		p := NewArgusPoller(repo, &fakeArgusReviewRepo{}, argusclient.New(argus.URL, "tok"), nil, nil, time.Second)
+		p := NewArgusPoller(repo, &fakeArgusReviewRepo{}, argusclient.New(argus.URL, "tok"), nil, nil, time.Second, nil)
 		if err := p.sweep(context.Background()); err != nil {
 			t.Fatal(err)
 		}
@@ -138,7 +138,7 @@ func TestArgusPollerSweep(t *testing.T) {
 			Request:  domain.Request{Engine: domain.EngineArgus},
 			Response: domain.Response{ArgusTaskID: "t-4"},
 		}
-		p := NewArgusPoller(repo, &fakeArgusReviewRepo{}, argusclient.New(argus.URL, "tok"), nil, nil, time.Second)
+		p := NewArgusPoller(repo, &fakeArgusReviewRepo{}, argusclient.New(argus.URL, "tok"), nil, nil, time.Second, nil)
 		// 轮询期间 sink 回推先到：UpdateInTransaction 里二次校验 running。
 		// 模拟：先手动把状态改成 success（模拟并发收敛），轮询更新应跳过。
 		repo.saved["rev-x"].Status = statusSuccess

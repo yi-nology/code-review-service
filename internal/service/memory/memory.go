@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/yi-nology/code-review-service/internal/ocr"
+	"github.com/yi-nology/code-review-service/internal/repository"
 
 	"github.com/yi-nology/agent-memory/application"
 	"github.com/yi-nology/agent-memory/pipeline/entity"
@@ -59,6 +60,10 @@ type Service struct {
 	// 所以「有哪些 ns 要维护」只能由宿主自己记。
 	nsMu       sync.RWMutex
 	namespaces map[store.Namespace]struct{}
+
+	// nsRepo 命名空间注册表的数据面（业务库，全副本共享）。nil 安全：
+	// 缺失时退回进程内 map（单副本语义，多副本下 registry 会分裂）。
+	nsRepo repository.MemoryNamespaceRepository
 }
 
 // Config 是记忆服务的装配配置。
@@ -93,6 +98,10 @@ type Deps struct {
 	Escalation promotion.Escalation
 	// Estimator token 计量（可选）：缺失时退静态代理。
 	Estimator ports.TokenEstimator
+	// NSRepo 命名空间注册表数据面（可选）：nil 时退回进程内注册表。
+	// 多副本部署必须注入——进程内注册表会分裂（各副本各记各的），
+	// 且单副本重启即丢（重启后直到下一次 capture/recall 才重建）。
+	NSRepo repository.MemoryNamespaceRepository
 }
 
 // New 组装记忆服务。
@@ -117,6 +126,7 @@ func New(cfg Config, deps Deps) (*Service, error) {
 	//   - PerEntityMax 0 = 单个实体不限条数。同一实体挂十条事实时，它们说的
 	//     是同一件事的十个侧面，全塞进去会把其他实体的事实挤出预算。
 	// 改用底座默认（RecallTimeout 2s / PerEntityMax 3），确需放开时再显式配。
+	nsRepo := deps.NSRepo
 	recallCfg := recall.DefaultConfig()
 	if cfg.RecallBudget > 0 {
 		recallCfg.TotalBudget = cfg.RecallBudget
@@ -141,11 +151,12 @@ func New(cfg Config, deps Deps) (*Service, error) {
 	}
 
 	return &Service{
-		app:   app,
-		llm:   deps.LLM,
-		ns:    cfg.Namespace,
-		host:  cfg.Host,
-		limit: cfg.RecallLimit,
+		app:    app,
+		llm:    deps.LLM,
+		ns:     cfg.Namespace,
+		host:   cfg.Host,
+		limit:  cfg.RecallLimit,
+		nsRepo: nsRepo,
 	}, nil
 }
 

@@ -108,6 +108,13 @@ type reapPoster struct {
 	states []string
 }
 
+// snapshot 并发安全取回全部门禁状态写入（异步 goroutine 追加）。
+func (c *reapPoster) snapshot() ([]string, []string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]string{}, c.shas...), append([]string{}, c.states...)
+}
+
 func (c *reapPoster) Post(_ context.Context, _, _, sha, state, _, _ string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -118,6 +125,13 @@ func (c *reapPoster) Post(_ context.Context, _, _, sha, state, _, _ string) {
 type captureNotifier struct {
 	mu     sync.Mutex
 	events []notifdomain.Event
+}
+
+// snapshotEvents 并发安全取回事件（异步 goroutine 追加）。
+func (c *captureNotifier) snapshotEvents() []notifdomain.Event {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]notifdomain.Event{}, c.events...)
 }
 
 func (c *captureNotifier) Notify(_ context.Context, event notifdomain.Event) error {
@@ -203,19 +217,20 @@ func TestReapOrphansReportsExhaustedReviews(t *testing.T) {
 
 	svc.reapOrphans(context.Background(), time.Now().Add(-time.Hour))
 
-	if len(poster.states) != 1 {
-		t.Fatalf("expected 1 gate status post, got %d (%v)", len(poster.states), poster.states)
+	shas, states := poster.snapshot()
+	if len(states) != 1 {
+		t.Fatalf("expected 1 gate status post, got %d (%v)", len(states), states)
 	}
 	// 强门禁：执行失败 → error 终态（MR 释放永久 pending，作者可见并可重试）。
-	if poster.states[0] != domain.StateError {
-		t.Fatalf("gate status state = %q, want %q", poster.states[0], domain.StateError)
+	if states[0] != domain.StateError {
+		t.Fatalf("gate status state = %q, want %q", states[0], domain.StateError)
 	}
-	if poster.shas[0] != req.HeadSHA {
-		t.Fatalf("gate status sha = %q, want %q", poster.shas[0], req.HeadSHA)
+	if shas[0] != req.HeadSHA {
+		t.Fatalf("gate status sha = %q, want %q", shas[0], req.HeadSHA)
 	}
 
 	// notify/comment 走异步 goroutine，轮询避免调度竞态。
-	waitFor(t, "failure notification", func() bool { return len(notifier.events) == 1 })
+	waitFor(t, "failure notification", func() bool { return len(notifier.snapshotEvents()) == 1 })
 	waitFor(t, "failure comment", func() bool { return len(commenter.comments()) == 1 })
 	if body := commenter.comments()[0]; !strings.Contains(body, "重试上限") {
 		t.Fatalf("failure comment should mention retry limit, got: %s", body)
@@ -252,8 +267,9 @@ func TestFailureCommentSkippedWithoutPR(t *testing.T) {
 
 	svc.reapOrphans(context.Background(), time.Now().Add(-time.Hour))
 
-	if len(poster.states) != 1 {
-		t.Fatalf("expected gate status still posted, got %v", poster.states)
+	_, states := poster.snapshot()
+	if len(states) != 1 {
+		t.Fatalf("expected gate status still posted, got %v", states)
 	}
 	time.Sleep(50 * time.Millisecond)
 	if n := len(commenter.comments()); n != 0 {
@@ -270,8 +286,10 @@ func TestReapOrphansNoExhausted(t *testing.T) {
 
 	svc.reapOrphans(context.Background(), time.Now())
 
-	if len(poster.states) != 0 || len(notifier.events) != 0 {
-		t.Fatalf("unexpected side effects: posts=%v events=%v", poster.states, notifier.events)
+	_, states := poster.snapshot()
+	evs := notifier.snapshotEvents()
+	if len(states) != 0 || len(evs) != 0 {
+		t.Fatalf("unexpected side effects: posts=%v events=%v", states, evs)
 	}
 }
 
@@ -294,8 +312,9 @@ func TestBackfillBrokenGateFailures(t *testing.T) {
 
 	svc.backfillBrokenGateFailures(context.Background())
 
-	if len(poster.states) != 1 || poster.states[0] != domain.StateError {
-		t.Fatalf("expected 1 error gate status post, got %v", poster.states)
+	_, states := poster.snapshot()
+	if len(states) != 1 || states[0] != domain.StateError {
+		t.Fatalf("expected 1 error gate status post, got %v", states)
 	}
 	waitFor(t, "backfill comment", func() bool { return len(commenter.comments()) == 1 })
 	if len(repo.listOpts) != 2 {
@@ -328,8 +347,9 @@ func TestBackfillEmptyNoOp(t *testing.T) {
 
 	svc.backfillBrokenGateFailures(context.Background())
 
-	if len(poster.states) != 0 {
-		t.Fatalf("unexpected posts: %v", poster.states)
+	_, states := poster.snapshot()
+	if len(states) != 0 {
+		t.Fatalf("unexpected posts: %v", states)
 	}
 	if len(repo.listOpts) != 1 {
 		t.Fatalf("expected exactly 1 list call, got %d", len(repo.listOpts))
@@ -347,8 +367,9 @@ func TestBackfillListErrorStops(t *testing.T) {
 	})
 	svc.backfillBrokenGateFailures(context.Background())
 
-	if len(poster.states) != 0 {
-		t.Fatalf("unexpected posts on list error: %v", poster.states)
+	_, states := poster.snapshot()
+	if len(states) != 0 {
+		t.Fatalf("unexpected posts on list error: %v", states)
 	}
 }
 

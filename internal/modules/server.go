@@ -51,15 +51,14 @@ func RegisterGlobalMiddleware(h *server.Hertz, cfg *config.Config, repos *reposi
 	h.Use(cors.Default())
 
 	skipPaths := middleware.DefaultSkipPaths
-	// oekit 零指标强制：Prometheus 显式挂栈首（DefaultMiddleware 栈内自带 Recovery，
-	// 开头显式的 mw.RecoveryMiddleware() 为存量双挂，一并对齐移除由栈内承担）
-	pm := mw.NewPrometheusMetrics(mw.PrometheusConfig{
-		ServiceName: "review-service",
-		SkipPaths:   skipPaths,
-		Registry:    emetrics.Registry,
-	})
-	h.Use(pm.Middleware())
-	for _, m := range mw.DefaultMiddleware(mw.StackConfig{SkipPaths: skipPaths}) {
+	// oekit/middleware#16 一键栈（栈内自带 Recovery，原补挂为存量双挂已移除）。
+	for _, m := range mw.DefaultMiddleware(mw.StackConfig{
+		SkipPaths: skipPaths,
+		Prometheus: &mw.PrometheusConfig{
+			ServiceName: "review-service",
+			Registry:    emetrics.Registry,
+		},
+	}) {
 		h.Use(m)
 	}
 
@@ -100,6 +99,7 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *ocrcore.Metrics, o
 	healthOpts = append(healthOpts,
 		health.WithCheckers(health.NamedChecker("ocr-binary", readiness.OCRBinaryCheck(repos, resolver))),
 		health.WithCheckers(health.NamedChecker("llm-endpoint", readiness.LLMEndpointCheck(repos, resolver))),
+		health.WithCheckers(health.NamedChecker("llm-usable", readiness.LLMAvailabilityCheck(repos, resolver))),
 	)
 	health.RegisterHealthRoutes(h, healthOpts...)
 
@@ -110,6 +110,9 @@ func RegisterRoutes(h *server.Hertz, db *gorm.DB, llmMetrics *ocrcore.Metrics, o
 			health.NamedChecker("db", readiness.DBCheck(db)),
 			health.NamedChecker("ocr-binary", readiness.OCRBinaryCheck(repos, resolver)),
 			health.NamedChecker("llm-endpoint", readiness.LLMEndpointCheck(repos, resolver)),
+			// llm-usable（v3.179.1）：可达≠可用——TCP 探针在配额尽/凭证失效时
+			// 仍绿灯（215 实证）；1-token 探测把 429/401 变成有语义的红灯。
+			health.NamedChecker("llm-usable", readiness.LLMAvailabilityCheck(repos, resolver)),
 		),
 	)
 	h.GET("/healthz", probeHandler)

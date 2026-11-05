@@ -15,6 +15,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/yi-nology/code-review-service/internal/repository"
+
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
 )
@@ -48,6 +50,9 @@ type Maintainer struct {
 	rawRetention time.Duration
 	stopCh       chan struct{}
 	doneCh       chan struct{}
+	// lease 多副本单例化维护 tick（维护动作扫全部事实卡，双跑浪费且加存储
+	// 压力；GC/合并幂等所以不是正确性问题，是成本问题）。nil 安全。
+	lease repository.LeaseRepository
 }
 
 // MaintainerOption 是维护器配置项。
@@ -68,6 +73,13 @@ func WithRawRetention(d time.Duration) MaintainerOption {
 		if d > 0 {
 			m.rawRetention = d
 		}
+	}
+}
+
+// WithLease 注入多副本单例化租约数据面。
+func WithLease(l repository.LeaseRepository) MaintainerOption {
+	return func(m *Maintainer) {
+		m.lease = l
 	}
 }
 
@@ -119,6 +131,13 @@ func (m *Maintainer) Start() {
 func (m *Maintainer) runOnce() {
 	ctx, cancel := context.WithTimeout(context.Background(), maintenanceTimeout)
 	defer cancel()
+
+	// 多副本单例化：TTL = 90% 周期，保证下个 tick 前租约必然过期（本设计里
+	// 「执行节奏 = TTL」，TTL 过长会把维护频率拉长到 TTL 而非 interval）。
+	// 抢不到 = 另一副本在本窗口内跑过，跳过。
+	if m.lease != nil && !m.lease.TryAcquire(ctx, "memory-maintainer", m.interval*9/10) {
+		return
+	}
 
 	res, err := m.svc.MaintainAll(ctx, m.rawRetention)
 	if err != nil {

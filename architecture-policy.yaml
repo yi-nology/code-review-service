@@ -118,7 +118,9 @@ modules:
 
   - id: progress
     roots: ['internal/service/progress']
-    requires: ['domain', 'ext:github.com/oekit', 'ext:github.com/yi-nology/agent-harness']
+    # repository（接口包）：PhaseReader 适配器把 session 仓储读数桥接为跨副本
+    # 进度降级通道（多副本部署，WS 连到非执行副本时的兜底）。接口依赖，非实现。
+    requires: ['domain', 'repository', 'ext:github.com/oekit', 'ext:github.com/yi-nology/agent-harness']
     owner: review-service
     managed: true
     notes: 进度事件词汇与总线桥

@@ -27,6 +27,10 @@ type StoreConfig struct {
 // 默认 SQLite 文件（纯 Go 驱动，无 CGO）：记忆库是独立数据面，
 // 与业务库同库会把 11 张记忆表混进业务 schema。配了 DSN 时走 Postgres——
 // 多实例部署必须走 Postgres（SQLite 文件在多副本下会各写各的）。
+//
+// 驱动共存：agent-memory 的 storage/sqlite（modernc）与 gormx 的 glebarez
+// 都注册 "sqlite" 驱动名，历史上同链 init panic（oekit/gormx#72）；gormx
+// v0.8.0 已把 sqlite 驱动移出根包（零链接 + AST 静态断言门禁），共存安全。
 func OpenStore(cfg StoreConfig) (store.Store, error) {
 	if cfg.DSN != "" {
 		st, err := postgres.Open(cfg.DSN)

@@ -10,10 +10,15 @@
 
 ### 新增
 
+- **多副本部署支持**：`job_leases` 租约表（TTL 内单持有者）单例化 Argus
+  兜底轮询、记忆维护循环与 worker 启动回填（双跑 = 意见/通知/commit status
+  双写）；`memory_namespaces` 注册表落库（原进程内登记表多副本分裂、重启
+  丢失）；进度 WebSocket 在 tracker 缺席（评审跑在另一副本）时降级轮询
+  session 持久层，粗粒度进度全局一致
 - `deploy/k8s/`：Kubernetes 部署 manifests（PostgreSQL StatefulSet + review-service +
   mcp-server + review-frontend），含生产实测注意项——探针必须 `tcpSocket`（`/healthz`
   含 LLM 可用性检查，作 liveness 会把配额尽时的好端在 pod 无限重启）、前端容器自带
-  `/api` 反代（Service 名必须为 `review-service`）、离线集群 `ctr -n k8s.io` 导入镜像。
+  `/api` 反代（Service 名必须为 `review-service`）、离线集群 `ctr -n k8s.io` 导入镜像
 
 ### 修复
 
@@ -21,27 +26,16 @@
   移除 Docker 内置 DNS 的 `resolver 127.0.0.11` + 变量式 upstream——k8s 里无此 DNS，
   且 nginx `resolver` 不使用 search 域、coredns 拒绝裸名查询，动态解析在 k8s 下全量
   502；静态解析在 k8s（ClusterIP 恒定）与 compose（docker DNS 解析容器名）两种形态
-  下都正确。
+  下都正确
 
 ### 变更
 
-- 依赖 `go-git-platform` 升级至 **v0.100.0**（v0.95.0 → v0.100.0，跨 5 个 minor）：
-  - 工蜂 SDK 从 `studyzy/gongfeng-sdk-go` 抽为独立组件 `yi-nology/go-gongfeng`
-    （上游 v0.99.8），依赖随之切换；
-  - GitCode SDK 升至 v0.8.0（上游 v0.99.12）：webhook 密钥的 wire 字段由 `secret`
-    修正为 `password`（此前密钥实际从未生效），事件订阅改用 `push_events` 等
-    五族布尔旗标；
-  - GitLab 客户端升至 v3.40.0、Gitea SDK 升至 v1.4.0（上游 v0.100.0）；
-  - `go` 指令随上游的最低版本要求由 1.27.2 抬到 1.27.3。
-- 上游在这段区间修掉一批安全与正确性缺陷，本仓随升级受益：**跨 host 重定向
-  把平台令牌发给第三方主机**（v0.99.4 / v0.99.7）、**日志里的 URL 未脱敏
-  userinfo 与 query 密钥**（v0.99.5）、**入站 webhook 事件 ID 永不为空**
-  导致按事件去重的链路从第 2 条起静默丢事件（v0.99.3）、gogit 后端的
-  checkout 半切换 / cherry-pick 静默覆盖未提交改动 / merge 快进只移 ref
-  等会破坏工作区的行为（v0.99.4）、Gitee 与 GitCode 的文件内容返回 base64
-  未解码（v0.99.7）、伪翻页无进展检测（v0.99.10）。
-- 本仓只消费 SDK 的 `provider` 包面（不实现 SDK 的接口），升级未带来代码改动。
-
+- **结构债清零**（archcheck 报告 0 欠账）：`SettingsHandler` god object（44 方法，
+  阈值 30）按 settings 域收敛为 9 个子 handler（每域只持自己的 deps，biz/router
+  包级委托名不变）；`service_test.go`（1274 行 > 800）拆为 mocks + create +
+  lifecycle/scan 三个聚焦文件
+- 依赖升级：`agent-harness` v0.6.5 → **v0.15.0**、`agent-memory` v0.6.0 → **v0.9.0**、
+  `go-git-platform` v0.100.0 → **v0.113.0**（全部零源码适配）
 ## [0.3.0] - 2026-10-29
 
 控制台改版与已知缺陷收口：把机器占位串从中文界面里清干净，修掉周报通过率与

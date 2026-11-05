@@ -18,7 +18,7 @@ import (
 	"github.com/oekit/logx"
 )
 
-func (h *SettingsHandler) getOCRSettings(ctx context.Context, c *app.RequestContext) {
+func (h *OCRSettingsHandler) getOCRSettings(ctx context.Context, c *app.RequestContext) {
 	settings, err := h.ocrRepo.Get(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
@@ -32,9 +32,11 @@ func (h *SettingsHandler) getOCRSettings(ctx context.Context, c *app.RequestCont
 }
 
 // GetOCRSettings 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
-func GetOCRSettings(ctx context.Context, c *app.RequestContext) { handlerInst.getOCRSettings(ctx, c) }
+func GetOCRSettings(ctx context.Context, c *app.RequestContext) {
+	ocrSettingsInst.getOCRSettings(ctx, c)
+}
 
-func (h *SettingsHandler) updateOCRSettings(ctx context.Context, c *app.RequestContext) {
+func (h *OCRSettingsHandler) updateOCRSettings(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.UpdateOCRSettingsReq](c)
 	if !ok {
 		return
@@ -83,10 +85,10 @@ func (h *SettingsHandler) updateOCRSettings(ctx context.Context, c *app.RequestC
 
 // UpdateOCRSettings 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
 func UpdateOCRSettings(ctx context.Context, c *app.RequestContext) {
-	handlerInst.updateOCRSettings(ctx, c)
+	ocrSettingsInst.updateOCRSettings(ctx, c)
 }
 
-func (h *SettingsHandler) testLLM(ctx context.Context, c *app.RequestContext) {
+func (h *OCRSettingsHandler) testLLM(ctx context.Context, c *app.RequestContext) {
 	if !common.FeatureGuard(c, h.ocr.Tester(), "LLM 测试") {
 		return
 	}
@@ -103,7 +105,7 @@ func (h *SettingsHandler) testLLM(ctx context.Context, c *app.RequestContext) {
 }
 
 // TestLLM 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
-func TestLLM(ctx context.Context, c *app.RequestContext) { handlerInst.testLLM(ctx, c) }
+func TestLLM(ctx context.Context, c *app.RequestContext) { ocrSettingsInst.testLLM(ctx, c) }
 
 func validateOCRSettings(s *ocrsettings.Settings) error {
 	if s == nil {

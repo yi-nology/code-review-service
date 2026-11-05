@@ -16,7 +16,7 @@ import (
 func InitDB(cfg *config.DatabaseConfig) (*gormDB.DB, error) {
 	db, err := gormx.Open(
 		gormLib.Open(cfg.DSN),
-		gormx.WithConnectionPool(cfg.MaxIdleConns, cfg.MaxOpenConns, 30*time.Minute),
+		gormx.WithConnectionPool(cfg.MaxOpenConns, cfg.MaxIdleConns, 30*time.Minute),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("init database: %w", err)
@@ -50,6 +50,8 @@ func InitDB(cfg *config.DatabaseConfig) (*gormDB.DB, error) {
 			&models.LLMModelPricing{},
 			&models.ArgusReview{},
 			&models.ArgusFinding{},
+			&models.Lease{},
+			&models.MemoryNamespace{},
 		); err != nil {
 			return nil, fmt.Errorf("auto migrate: %w", err)
 		}

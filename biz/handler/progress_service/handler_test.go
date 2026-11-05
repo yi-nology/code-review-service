@@ -8,7 +8,7 @@ import (
 
 func TestNewProgressHandler(t *testing.T) {
 	pm := progress.NewProgressManager()
-	h := NewProgressHandler(pm)
+	h := NewProgressHandler(pm, nil)
 	if h == nil {
 		t.Fatalf("NewProgressHandler returned nil")
 	}
@@ -22,7 +22,7 @@ func TestNewProgressHandler(t *testing.T) {
 
 func TestInitHandler_BackwardCompat(t *testing.T) {
 	pm := progress.NewProgressManager()
-	InitHandler(pm)
+	InitHandler(pm, nil)
 	if handlerInst == nil {
 		t.Fatalf("expected handlerInst to be set after InitHandler")
 	}

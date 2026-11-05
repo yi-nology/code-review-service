@@ -27,4 +27,6 @@ type RepoContainer struct {
 	Notification     NotificationRepository
 	Auth             AuthRepository
 	ArgusReview      ArgusReviewRepository
+	Lease            LeaseRepository
+	MemoryNS         MemoryNamespaceRepository
 }

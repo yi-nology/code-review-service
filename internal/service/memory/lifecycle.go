@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/oekit/concurrency/async"
+	"github.com/oekit/logx"
 	"github.com/yi-nology/agent-memory/lifecycle"
 	"github.com/yi-nology/agent-memory/store"
 )
@@ -91,20 +93,18 @@ func (s *Service) Maintain(ctx context.Context, ns store.Namespace, rawRetention
 
 // MaintainAll 对所有已知命名空间执行一轮维护。
 //
-// 命名空间从**宿主自己的登记表**取（见 rememberNamespace），不从底座反查——
+// 命名空间从**宿主的登记表**取（见 rememberNamespace），不从底座反查——
 // 底座的存储接口全部按命名空间过滤，没有跨命名空间列举的能力
 // （`ListEntities` 的 SQL 是 `WHERE namespace = ?`）。
 // 反查只能拿到某个已知 ns 下的实体，那不是「有哪些 ns」。
 //
-// 登记表是**进程内**的：它记的是「本实例碰过哪些 ns」。
-// 后果是多副本部署时每个副本只维护自己碰过的 ns——
-// 这不影响正确性（每个 ns 的维护动作幂等，且 GC/合并对同一 ns 并发执行
-// 结果一致），只是各副本维护的覆盖面不同。
-// 真正的「全域维护」由运维侧或一次性任务触发。
+// 登记表落**业务库**（memory_namespaces 表，capture/recall 两条路径都会
+// TouchNS）：多副本共享全量视图、重启不丢；数据面缺失时降级进程内 map
+// （单副本语义，各副本各记各的——历史行为）。
 func (s *Service) MaintainAll(ctx context.Context, rawRetention time.Duration) (MaintenanceResult, error) {
 	var total MaintenanceResult
 
-	for _, ns := range s.knownNamespaces() {
+	for _, ns := range s.knownNamespaces(ctx) {
 		res, err := s.Maintain(ctx, ns, rawRetention)
 		if err != nil {
 			// 单个 ns 维护失败不应中断其余 ns：一次失败多半是存储抖动，
@@ -121,8 +121,18 @@ func (s *Service) MaintainAll(ctx context.Context, rawRetention time.Duration) (
 	return total, nil
 }
 
-// knownNamespaces 返回本实例已登记的命名空间（拷贝，调用方不得改写本包状态）。
-func (s *Service) knownNamespaces() []store.Namespace {
+// knownNamespaces 返回要维护的命名空间全集：DB 注册表优先（全副本共享视图），
+// 查库失败或为空时降级进程内 map（单副本语义）。
+func (s *Service) knownNamespaces(ctx context.Context) []store.Namespace {
+	if s.nsRepo != nil {
+		if nss, err := s.nsRepo.ListNS(ctx); err == nil && len(nss) > 0 {
+			out := make([]store.Namespace, 0, len(nss))
+			for _, ns := range nss {
+				out = append(out, store.Namespace(ns))
+			}
+			return out
+		}
+	}
 	s.nsMu.RLock()
 	defer s.nsMu.RUnlock()
 
@@ -143,9 +153,22 @@ func (s *Service) rememberNamespace(ns store.Namespace) {
 		return
 	}
 	s.nsMu.Lock()
-	defer s.nsMu.Unlock()
 	if s.namespaces == nil {
 		s.namespaces = make(map[store.Namespace]struct{})
 	}
 	s.namespaces[ns] = struct{}{}
+	s.nsMu.Unlock()
+
+	// DB 登记是 best-effort 且**异步**：capture/recall 在评审链路上（召回有
+	// 2s 总时限），登记绝不能拖慢主链。失败只降级为「本实例仍会维护该 ns」
+	// （内存 map 兜底），下次 capture/recall 会重试落库。
+	if s.nsRepo != nil {
+		async.GoSafe(func() {
+			tctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			if err := s.nsRepo.TouchNS(tctx, string(ns)); err != nil {
+				logx.Warnf("memory namespace %q db-registry touch failed: %v", ns, err)
+			}
+		})
+	}
 }

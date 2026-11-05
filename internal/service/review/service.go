@@ -56,6 +56,8 @@ type ServiceConfig struct {
 	// ArgusEnabled 表示 argus 引擎可用（argus.bot_url 已配置）。
 	// false 时 engine=argus 的创建请求 fail-fast 拒绝，而非入队后在 worker 失败。
 	ArgusEnabled bool
+	// StartupLease 多副本单例化 worker 启动回填（见 Service.startupLease）。
+	StartupLease repository.LeaseRepository
 }
 
 type Service struct {
@@ -75,6 +77,10 @@ type Service struct {
 	progressManager *progress.ProgressManager
 	Executor        Executor
 	argusEnabled    bool
+
+	// startupLease 多副本下单例化 worker 启动回填（backfillBrokenGateFailures
+	// 补写 commit status）；nil 安全。
+	startupLease repository.LeaseRepository
 
 	// runtime 聚合 worker/scan 共享的进程内生命周期设施
 	//（并发信号量、in-flight、扫描取消注册表）。
@@ -107,9 +113,10 @@ func NewService(cfg ServiceConfig) *Service {
 		Executor:          cfg.Executor,
 		argusEnabled:      cfg.ArgusEnabled,
 		heartbeatInterval: cfg.HeartbeatInterval,
+		startupLease:      cfg.StartupLease,
 	}
-	// 构造期一次性创建共享运行时（含并发闸门），消除运行期懒初始化的数据竞争。
-	// 闸门 cap<=0 表示不限制（Concurrency<=0）。
+	// 构造期一次性创建共享运行时（含并发信号量），消除运行期懒初始化的数据竞争。
+	// 信号量 nil 表示不限制（Concurrency<=0）。
 	s.runtime = &scanRuntime{gate: syncx.NewGate(cfg.Concurrency)}
 	if cfg.Concurrency > 0 {
 		logx.Infof("review concurrency limit=%d (worker & scan shared)", cfg.Concurrency)

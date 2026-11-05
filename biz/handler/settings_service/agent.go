@@ -14,7 +14,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
-func (h *SettingsHandler) listReviewerAgents(ctx context.Context, c *app.RequestContext) {
+func (h *AgentSettingsHandler) listReviewerAgents(ctx context.Context, c *app.RequestContext) {
 	agents, err := h.agentRepo.List(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
@@ -28,10 +28,10 @@ func (h *SettingsHandler) listReviewerAgents(ctx context.Context, c *app.Request
 
 // ListReviewerAgents 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
 func ListReviewerAgents(ctx context.Context, c *app.RequestContext) {
-	handlerInst.listReviewerAgents(ctx, c)
+	agentSettingsInst.listReviewerAgents(ctx, c)
 }
 
-func (h *SettingsHandler) createReviewerAgent(ctx context.Context, c *app.RequestContext) {
+func (h *AgentSettingsHandler) createReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.CreateReviewerAgentReq](c)
 	if !ok {
 		return
@@ -74,10 +74,10 @@ func (h *SettingsHandler) createReviewerAgent(ctx context.Context, c *app.Reques
 
 // CreateReviewerAgent 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
 func CreateReviewerAgent(ctx context.Context, c *app.RequestContext) {
-	handlerInst.createReviewerAgent(ctx, c)
+	agentSettingsInst.createReviewerAgent(ctx, c)
 }
 
-func (h *SettingsHandler) updateReviewerAgent(ctx context.Context, c *app.RequestContext) {
+func (h *AgentSettingsHandler) updateReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.UpdateReviewerAgentReq](c)
 	if !ok {
 		return
@@ -136,10 +136,10 @@ func (h *SettingsHandler) updateReviewerAgent(ctx context.Context, c *app.Reques
 
 // UpdateReviewerAgent 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
 func UpdateReviewerAgent(ctx context.Context, c *app.RequestContext) {
-	handlerInst.updateReviewerAgent(ctx, c)
+	agentSettingsInst.updateReviewerAgent(ctx, c)
 }
 
-func (h *SettingsHandler) deleteReviewerAgent(ctx context.Context, c *app.RequestContext) {
+func (h *AgentSettingsHandler) deleteReviewerAgent(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.DeleteReviewerAgentReq](c)
 	if !ok {
 		return
@@ -158,7 +158,7 @@ func (h *SettingsHandler) deleteReviewerAgent(ctx context.Context, c *app.Reques
 
 // DeleteReviewerAgent 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
 func DeleteReviewerAgent(ctx context.Context, c *app.RequestContext) {
-	handlerInst.deleteReviewerAgent(ctx, c)
+	agentSettingsInst.deleteReviewerAgent(ctx, c)
 }
 
 func dbReviewerAgentToAPI(a *reviewer.Agent) *modelSettings.ReviewerAgentInfo {

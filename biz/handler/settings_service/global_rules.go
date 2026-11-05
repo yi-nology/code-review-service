@@ -11,7 +11,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
-func (h *SettingsHandler) getGlobalRules(ctx context.Context, c *app.RequestContext) {
+func (h *GlobalRulesHandler) getGlobalRules(ctx context.Context, c *app.RequestContext) {
 	rules, err := h.globalRules.Get(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
@@ -21,9 +21,11 @@ func (h *SettingsHandler) getGlobalRules(ctx context.Context, c *app.RequestCont
 }
 
 // GetGlobalRules 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
-func GetGlobalRules(ctx context.Context, c *app.RequestContext) { handlerInst.getGlobalRules(ctx, c) }
+func GetGlobalRules(ctx context.Context, c *app.RequestContext) {
+	globalRulesInst.getGlobalRules(ctx, c)
+}
 
-func (h *SettingsHandler) updateGlobalRules(ctx context.Context, c *app.RequestContext) {
+func (h *GlobalRulesHandler) updateGlobalRules(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.UpdateGlobalRulesReq](c)
 	if !ok {
 		return
@@ -38,7 +40,7 @@ func (h *SettingsHandler) updateGlobalRules(ctx context.Context, c *app.RequestC
 
 // UpdateGlobalRules 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
 func UpdateGlobalRules(ctx context.Context, c *app.RequestContext) {
-	handlerInst.updateGlobalRules(ctx, c)
+	globalRulesInst.updateGlobalRules(ctx, c)
 }
 
 func dbGlobalRulesToAPI(r *rules.Global) *modelSettings.GlobalRules {

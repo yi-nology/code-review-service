@@ -14,7 +14,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
-func (h *SettingsHandler) listCustomProviders(ctx context.Context, c *app.RequestContext) {
+func (h *CustomProviderHandler) listCustomProviders(ctx context.Context, c *app.RequestContext) {
 	if !common.FeatureGuard(c, h.customProvider, "自定义 Provider") {
 		return
 	}
@@ -32,10 +32,10 @@ func (h *SettingsHandler) listCustomProviders(ctx context.Context, c *app.Reques
 
 // ListCustomProviders 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
 func ListCustomProviders(ctx context.Context, c *app.RequestContext) {
-	handlerInst.listCustomProviders(ctx, c)
+	customProviderInst.listCustomProviders(ctx, c)
 }
 
-func (h *SettingsHandler) createCustomProvider(ctx context.Context, c *app.RequestContext) {
+func (h *CustomProviderHandler) createCustomProvider(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.CreateCustomProviderReq](c)
 	if !ok {
 		return
@@ -66,10 +66,10 @@ func (h *SettingsHandler) createCustomProvider(ctx context.Context, c *app.Reque
 
 // CreateCustomProvider 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
 func CreateCustomProvider(ctx context.Context, c *app.RequestContext) {
-	handlerInst.createCustomProvider(ctx, c)
+	customProviderInst.createCustomProvider(ctx, c)
 }
 
-func (h *SettingsHandler) updateCustomProvider(ctx context.Context, c *app.RequestContext) {
+func (h *CustomProviderHandler) updateCustomProvider(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.UpdateCustomProviderReq](c)
 	if !ok {
 		return
@@ -112,10 +112,10 @@ func (h *SettingsHandler) updateCustomProvider(ctx context.Context, c *app.Reque
 
 // UpdateCustomProvider 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
 func UpdateCustomProvider(ctx context.Context, c *app.RequestContext) {
-	handlerInst.updateCustomProvider(ctx, c)
+	customProviderInst.updateCustomProvider(ctx, c)
 }
 
-func (h *SettingsHandler) deleteCustomProvider(ctx context.Context, c *app.RequestContext) {
+func (h *CustomProviderHandler) deleteCustomProvider(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.DeleteCustomProviderReq](c)
 	if !ok {
 		return
@@ -129,7 +129,7 @@ func (h *SettingsHandler) deleteCustomProvider(ctx context.Context, c *app.Reque
 
 // DeleteCustomProvider 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
 func DeleteCustomProvider(ctx context.Context, c *app.RequestContext) {
-	handlerInst.deleteCustomProvider(ctx, c)
+	customProviderInst.deleteCustomProvider(ctx, c)
 }
 
 func dbCustomProviderToAPI(p *llmprovider.Custom) *modelSettings.CustomProvider {

@@ -27,12 +27,18 @@ func (s *Service) RunWorkers(ctx context.Context, concurrency int, pollInterval,
 	}
 
 	// 启动时：收敛上一实例遗留的孤儿（服务重启后全是孤儿，必须重新处理）。
+	// 多副本安全：FailStaleRunning / RequeueStale 是原子条件 UPDATE（RETURNING
+	// 认领，两组副本拿到互斥的行集），无需额外单例化。
 	s.reapOrphans(ctx, time.Now().UTC().Add(1*time.Hour))
 
 	// 启动回填：修复历史版本「重试超限静默置 failed、不写门禁 status」留下的
 	// 卡死 MR（DB 已 failed 但 response.gate 仍 pending 的记录）。幂等：补写后
-	// gate 变为 error，下次启动不再命中。
-	s.backfillBrokenGateFailures(ctx)
+	// gate 变为 error，下次启动不再命中。多副本下用租约单例化——回填写
+	// commit status，滚动发布时两副本同时启动会双写（同 context 覆盖写，无害
+	// 但徒增 GitLab API 调用）。
+	if s.startupLease != nil && s.startupLease.TryAcquire(ctx, "review-startup-backfill", 5*time.Minute) {
+		s.backfillBrokenGateFailures(ctx)
+	}
 
 	g := &group.Group{}
 	for workerID := 1; workerID <= concurrency; workerID++ {

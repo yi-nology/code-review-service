@@ -32,7 +32,7 @@ func StartArgusPoller(lc fx.Lifecycle, repos *repository.RepoContainer, argus *a
 		return
 	}
 	poller := svcReview.NewArgusPoller(repos.Review, repos.ArgusReview, argus, notifier,
-		statuscheck.NewPoster(gitSvc, cfg.ExternalBaseURL), 30*time.Second)
+		statuscheck.NewPoster(gitSvc, cfg.ExternalBaseURL), 30*time.Second, repos.Lease)
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			async.GoSafe(func() { poller.Run(ctx) })

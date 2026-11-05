@@ -11,7 +11,7 @@ import (
 )
 
 // CheckOCRUpdate 检查 ocr 二进制是否有新版本。
-func (h *SettingsHandler) checkOCRUpdate(ctx context.Context, c *app.RequestContext) {
+func (h *OCRUpgradeHandler) checkOCRUpdate(ctx context.Context, c *app.RequestContext) {
 	if !common.FeatureGuard(c, h.ocr.Upgrader(), "OCR 升级") {
 		return
 	}
@@ -35,10 +35,12 @@ func (h *SettingsHandler) checkOCRUpdate(ctx context.Context, c *app.RequestCont
 }
 
 // CheckOCRUpdate 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
-func CheckOCRUpdate(ctx context.Context, c *app.RequestContext) { handlerInst.checkOCRUpdate(ctx, c) }
+func CheckOCRUpdate(ctx context.Context, c *app.RequestContext) {
+	ocrUpgradeInst.checkOCRUpdate(ctx, c)
+}
 
 // StartOCRUpgrade 触发 ocr 二进制在线升级（异步）。
-func (h *SettingsHandler) startOCRUpgrade(ctx context.Context, c *app.RequestContext) {
+func (h *OCRUpgradeHandler) startOCRUpgrade(ctx context.Context, c *app.RequestContext) {
 	if !common.FeatureGuard(c, h.ocr.Upgrader(), "OCR 升级") {
 		return
 	}
@@ -63,10 +65,12 @@ func (h *SettingsHandler) startOCRUpgrade(ctx context.Context, c *app.RequestCon
 }
 
 // StartOCRUpgrade 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
-func StartOCRUpgrade(ctx context.Context, c *app.RequestContext) { handlerInst.startOCRUpgrade(ctx, c) }
+func StartOCRUpgrade(ctx context.Context, c *app.RequestContext) {
+	ocrUpgradeInst.startOCRUpgrade(ctx, c)
+}
 
 // OCRUpgradeStatus 查询当前升级任务的状态。
-func (h *SettingsHandler) oCRUpgradeStatus(ctx context.Context, c *app.RequestContext) {
+func (h *OCRUpgradeHandler) oCRUpgradeStatus(ctx context.Context, c *app.RequestContext) {
 	if !common.FeatureGuard(c, h.ocr.Upgrader(), "OCR 升级") {
 		return
 	}
@@ -80,7 +84,7 @@ func (h *SettingsHandler) oCRUpgradeStatus(ctx context.Context, c *app.RequestCo
 
 // OCRUpgradeStatus 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
 func OCRUpgradeStatus(ctx context.Context, c *app.RequestContext) {
-	handlerInst.oCRUpgradeStatus(ctx, c)
+	ocrUpgradeInst.oCRUpgradeStatus(ctx, c)
 }
 
 func upgradeStatusToResp(s *domain.OCRUpgradeStatus) *modelSettings.OCRUpgradeStatusResp {

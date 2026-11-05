@@ -227,5 +227,6 @@ func NewReviewService(deps ReviewServiceDeps) *svcReview.Service {
 		Concurrency:       deps.Config.Review.WorkerConcurrency,
 		HeartbeatInterval: deps.Config.GetWorkerStaleAfter() / 3,
 		ArgusEnabled:      deps.ArgusClient.Enabled(),
+		StartupLease:      deps.Repos.Lease,
 	})
 }

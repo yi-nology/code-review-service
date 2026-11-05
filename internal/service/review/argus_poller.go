@@ -39,18 +39,23 @@ type ArgusPoller struct {
 	// statusPoster 收敛后向 PR head 写门禁 status；nil 安全。
 	statusPoster domain.StatusPoster
 	interval     time.Duration
+	// lease 多副本单例化 sweep tick：同一时刻只有一个副本执行 sweep，
+	// 防止 recoverReport 对同一任务双跑（findings/通知/commit status 双写）。
+	// nil 安全（测试/单副本）。
+	lease repository.LeaseRepository
 }
 
 // NewArgusPoller 构造；client 未启用时 Run 直接退出（argus 引擎不可用）。
 func NewArgusPoller(reviewRepo repository.ReviewRepository, argusRepo repository.ArgusReviewRepository,
 	client *argusclient.Client, notifier domain.Notifier, statusPoster domain.StatusPoster,
-	interval time.Duration) *ArgusPoller {
+	interval time.Duration, lease repository.LeaseRepository) *ArgusPoller {
 	if interval <= 0 {
 		interval = 30 * time.Second
 	}
 	return &ArgusPoller{
 		reviewRepo: reviewRepo, argusRepo: argusRepo, client: client,
 		notifier: notifier, statusPoster: statusPoster, interval: interval,
+		lease: lease,
 	}
 }
 
@@ -68,6 +73,12 @@ func (p *ArgusPoller) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			// 多副本单例化：本设计里「执行节奏 = TTL」——TTL 内单次执行，租约
+			// 过期后任意副本（含原持有者）可再抢。TTL=2×interval：兜底轮询的
+			// 节奏放宽到 ~60s 可接受，故障副本的租约到期自动让位。
+			if p.lease != nil && !p.lease.TryAcquire(ctx, "argus-poller-sweep", 2*p.interval) {
+				continue
+			}
 			if err := p.sweep(ctx); err != nil {
 				logx.CtxWarnf(ctx, "argus poller sweep failed: %v", err)
 			}

@@ -91,8 +91,8 @@ func InitSessionHandler(sessionSvc *session.SessionService) {
 	session_service.InitHandler(sessionSvc)
 }
 
-func InitProgressHandler(progressMgr *progress.ProgressManager) {
-	progress_service.InitHandler(progressMgr)
+func InitProgressHandler(progressMgr *progress.ProgressManager, sessRepo repository.SessionRepository) {
+	progress_service.InitHandler(progressMgr, progress.NewRepoPhaseReader(sessRepo))
 }
 
 func InitPublisherHandler(writebackOrch *writeback.Orchestrator, reviewSvc *svcReview.Service, providerSvc *gitProvider.GitProviderService) {

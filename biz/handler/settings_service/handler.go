@@ -6,42 +6,132 @@ import (
 	"github.com/yi-nology/code-review-service/internal/repository"
 )
 
-var handlerInst *SettingsHandler
+// god object 拆分：原 SettingsHandler（44 方法，archcheck 阈值 30）按 settings
+// 域收敛为 9 个子 handler，每个只持自己的 deps（依赖面从全量 8 repo + gitMgr
+// + ocr 缩到每域 1-2 个）。biz/router 的包级委托名保持不变。
+// 各域类型/构造器定义在其所属域文件旁（见 var 块下方 new* 函数集中于此）。
 
-// SettingsHandler 收口为 1 个 *ocr.Registry 字段。
-// 仓储直持为过渡期形态（settings 纵向多为薄 CRUD 转发）；gitMgr 已收窄为 PlatformAdmin。
-// A 阶段：repository 字段可下沉到 ocr.Registry.Repos()。
-type SettingsHandler struct {
-	ocrRepo        repository.OCRSettingsRepository
-	project        repository.ProjectPolicyRepository
-	platform       repository.GitPlatformRepository
-	globalRules    repository.GlobalRulesRepository
-	rulePackages   repository.OCRRulePackageRepository
-	toolPackages   repository.OCRToolPackageRepository
-	agentRepo      repository.ReviewerAgentRepository
+// 各域子 handler 的包级实例（InitHandler 装配）。
+var agentSettingsInst *AgentSettingsHandler
+var customProviderInst *CustomProviderHandler
+var ocrAssetsInst *OCRAssetsHandler
+var ocrToolsInst *OCRToolsHandler
+var globalRulesInst *GlobalRulesHandler
+var ocrUpgradeInst *OCRUpgradeHandler
+var projectPolicyInst *ProjectPolicyHandler
+var ocrSettingsInst *OCRSettingsHandler
+var platformInst *PlatformSettingsHandler
+
+func newAgentSettingsHandler(repos *repository.RepoContainer) *AgentSettingsHandler {
+	return &AgentSettingsHandler{
+		agentRepo: repos.ReviewerAgent,
+	}
+}
+
+func newCustomProviderHandler(repos *repository.RepoContainer) *CustomProviderHandler {
+	return &CustomProviderHandler{
+		customProvider: repos.CustomProvider,
+	}
+}
+
+func newOCRAssetsHandler(repos *repository.RepoContainer) *OCRAssetsHandler {
+	return &OCRAssetsHandler{
+		rulePackages: repos.OCRRulePackage,
+		toolPackages: repos.OCRToolPackage,
+	}
+}
+
+func newOCRToolsHandler(repos *repository.RepoContainer, ocrReg *ocr.Registry) *OCRToolsHandler {
+	return &OCRToolsHandler{
+		ocr: ocrReg,
+	}
+}
+
+func newGlobalRulesHandler(repos *repository.RepoContainer) *GlobalRulesHandler {
+	return &GlobalRulesHandler{
+		globalRules: repos.GlobalRules,
+	}
+}
+
+func newOCRUpgradeHandler(repos *repository.RepoContainer, ocrReg *ocr.Registry) *OCRUpgradeHandler {
+	return &OCRUpgradeHandler{
+		ocr: ocrReg,
+	}
+}
+
+func newProjectPolicyHandler(repos *repository.RepoContainer) *ProjectPolicyHandler {
+	return &ProjectPolicyHandler{
+		project: repos.ProjectPolicy,
+	}
+}
+
+func newOCRSettingsHandler(repos *repository.RepoContainer, ocrReg *ocr.Registry) *OCRSettingsHandler {
+	return &OCRSettingsHandler{
+		ocrRepo: repos.OCRSettings,
+		ocr:     ocrReg,
+	}
+}
+
+func newPlatformSettingsHandler(repos *repository.RepoContainer, gitMgr svcApp.PlatformAdmin) *PlatformSettingsHandler {
+	return &PlatformSettingsHandler{
+		platform: repos.GitPlatform,
+		gitMgr:   gitMgr,
+	}
+}
+
+// 各域子 handler 类型定义（deps 按域最小化）。
+type AgentSettingsHandler struct {
+	agentRepo repository.ReviewerAgentRepository
+}
+
+type CustomProviderHandler struct {
 	customProvider repository.CustomProviderRepository
-	gitMgr         svcApp.PlatformAdmin
-	// ocr 聚合了 tester/lister/checker/versioner/viewer/upgrader 6 个能力。
+}
+
+type OCRAssetsHandler struct {
+	rulePackages repository.OCRRulePackageRepository
+	toolPackages repository.OCRToolPackageRepository
+}
+
+type OCRToolsHandler struct {
 	ocr *ocr.Registry
 }
 
+type GlobalRulesHandler struct {
+	globalRules repository.GlobalRulesRepository
+}
+
+type OCRUpgradeHandler struct {
+	ocr *ocr.Registry
+}
+
+type ProjectPolicyHandler struct {
+	project repository.ProjectPolicyRepository
+}
+
+type OCRSettingsHandler struct {
+	ocrRepo repository.OCRSettingsRepository
+	ocr     *ocr.Registry
+}
+
+type PlatformSettingsHandler struct {
+	platform repository.GitPlatformRepository
+	gitMgr   svcApp.PlatformAdmin
+}
+
 // InitHandler 收口为 2 个参数：repos（聚合 8 个 repo）+ ocr.Registry。
-// 之前 14 个参数；B 阶段拆为 2 个，未来可进一步压成 1 个 *RepoContainer。
 func InitHandler(
 	repos *repository.RepoContainer,
 	gitMgr svcApp.PlatformAdmin,
 	ocrReg *ocr.Registry,
 ) {
-	handlerInst = &SettingsHandler{
-		ocrRepo:        repos.OCRSettings,
-		project:        repos.ProjectPolicy,
-		platform:       repos.GitPlatform,
-		globalRules:    repos.GlobalRules,
-		rulePackages:   repos.OCRRulePackage,
-		toolPackages:   repos.OCRToolPackage,
-		agentRepo:      repos.ReviewerAgent,
-		customProvider: repos.CustomProvider,
-		gitMgr:         gitMgr,
-		ocr:            ocrReg,
-	}
+	agentSettingsInst = newAgentSettingsHandler(repos)
+	customProviderInst = newCustomProviderHandler(repos)
+	ocrAssetsInst = newOCRAssetsHandler(repos)
+	ocrToolsInst = newOCRToolsHandler(repos, ocrReg)
+	globalRulesInst = newGlobalRulesHandler(repos)
+	ocrUpgradeInst = newOCRUpgradeHandler(repos, ocrReg)
+	projectPolicyInst = newProjectPolicyHandler(repos)
+	ocrSettingsInst = newOCRSettingsHandler(repos, ocrReg)
+	platformInst = newPlatformSettingsHandler(repos, gitMgr)
 }

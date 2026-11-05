@@ -6,6 +6,7 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/config"
 	"github.com/yi-nology/code-review-service/internal/ocr"
+	"github.com/yi-nology/code-review-service/internal/repository"
 	"github.com/yi-nology/code-review-service/internal/service/memory"
 
 	"github.com/oekit/logx"
@@ -24,7 +25,7 @@ var MemoryModule = fx.Options(
 )
 
 // NewMemoryService 构造记忆服务；未启用或装配失败时返回 nil。
-func NewMemoryService(cfg *config.Config, llmProvider ocr.Provider) *memory.Service {
+func NewMemoryService(cfg *config.Config, repos *repository.RepoContainer, llmProvider ocr.Provider) *memory.Service {
 	if cfg == nil || !cfg.Memory.Enabled {
 		return nil
 	}
@@ -65,6 +66,7 @@ func NewMemoryService(cfg *config.Config, llmProvider ocr.Provider) *memory.Serv
 		LLM:        memory.NewLLMAdapter(llmProvider),
 		Escalation: memory.NewRepositoryResolver(),
 		Estimator:  ports.StaticEstimator{},
+		NSRepo:     repos.MemoryNS,
 	})
 	if err != nil {
 		logx.Errorf("memory service assemble failed, long-term memory disabled: %v", err)
@@ -77,12 +79,15 @@ func NewMemoryService(cfg *config.Config, llmProvider ocr.Provider) *memory.Serv
 }
 
 // NewMemoryMaintainer 构造记忆库后台维护器；未启用维护时返回 nil。
-func NewMemoryMaintainer(cfg *config.Config, svc *memory.Service) *memory.Maintainer {
+func NewMemoryMaintainer(cfg *config.Config, repos *repository.RepoContainer, svc *memory.Service) *memory.Maintainer {
 	if cfg == nil || !cfg.Memory.Enabled || !cfg.Memory.MaintenanceEnabled || svc == nil {
 		return nil
 	}
 
 	var opts []memory.MaintainerOption
+	if repos != nil {
+		opts = append(opts, memory.WithLease(repos.Lease))
+	}
 	if d, err := time.ParseDuration(cfg.Memory.MaintenanceInterval); err == nil && d > 0 {
 		opts = append(opts, memory.WithInterval(d))
 	} else if cfg.Memory.MaintenanceInterval != "" {

@@ -16,7 +16,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
-func (h *SettingsHandler) listProjectPolicies(ctx context.Context, c *app.RequestContext) {
+func (h *ProjectPolicyHandler) listProjectPolicies(ctx context.Context, c *app.RequestContext) {
 	items, err := h.project.List(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
@@ -30,10 +30,10 @@ func (h *SettingsHandler) listProjectPolicies(ctx context.Context, c *app.Reques
 
 // ListProjectPolicies 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
 func ListProjectPolicies(ctx context.Context, c *app.RequestContext) {
-	handlerInst.listProjectPolicies(ctx, c)
+	projectPolicyInst.listProjectPolicies(ctx, c)
 }
 
-func (h *SettingsHandler) putProjectPolicy(ctx context.Context, c *app.RequestContext) {
+func (h *ProjectPolicyHandler) putProjectPolicy(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.PutProjectPolicyReq](c)
 	if !ok {
 		return
@@ -64,10 +64,10 @@ func (h *SettingsHandler) putProjectPolicy(ctx context.Context, c *app.RequestCo
 
 // PutProjectPolicy 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
 func PutProjectPolicy(ctx context.Context, c *app.RequestContext) {
-	handlerInst.putProjectPolicy(ctx, c)
+	projectPolicyInst.putProjectPolicy(ctx, c)
 }
 
-func (h *SettingsHandler) deleteProjectPolicy(ctx context.Context, c *app.RequestContext) {
+func (h *ProjectPolicyHandler) deleteProjectPolicy(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.DeleteProjectPolicyReq](c)
 	if !ok {
 		return
@@ -85,7 +85,7 @@ func (h *SettingsHandler) deleteProjectPolicy(ctx context.Context, c *app.Reques
 
 // DeleteProjectPolicy 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
 func DeleteProjectPolicy(ctx context.Context, c *app.RequestContext) {
-	handlerInst.deleteProjectPolicy(ctx, c)
+	projectPolicyInst.deleteProjectPolicy(ctx, c)
 }
 
 func validateProjectPolicy(p *projectpolicy.ProjectPolicy) error {

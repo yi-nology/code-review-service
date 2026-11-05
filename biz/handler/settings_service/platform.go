@@ -15,7 +15,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 )
 
-func (h *SettingsHandler) listPlatforms(ctx context.Context, c *app.RequestContext) {
+func (h *PlatformSettingsHandler) listPlatforms(ctx context.Context, c *app.RequestContext) {
 	items, err := h.platform.List(ctx)
 	if err != nil {
 		common.Fail(ctx, c, err)
@@ -34,9 +34,9 @@ func (h *SettingsHandler) listPlatforms(ctx context.Context, c *app.RequestConte
 }
 
 // ListPlatforms 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
-func ListPlatforms(ctx context.Context, c *app.RequestContext) { handlerInst.listPlatforms(ctx, c) }
+func ListPlatforms(ctx context.Context, c *app.RequestContext) { platformInst.listPlatforms(ctx, c) }
 
-func (h *SettingsHandler) putPlatform(ctx context.Context, c *app.RequestContext) {
+func (h *PlatformSettingsHandler) putPlatform(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.PutPlatformReq](c)
 	if !ok {
 		return
@@ -99,9 +99,9 @@ func (h *SettingsHandler) putPlatform(ctx context.Context, c *app.RequestContext
 }
 
 // PutPlatform 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
-func PutPlatform(ctx context.Context, c *app.RequestContext) { handlerInst.putPlatform(ctx, c) }
+func PutPlatform(ctx context.Context, c *app.RequestContext) { platformInst.putPlatform(ctx, c) }
 
-func (h *SettingsHandler) deletePlatform(ctx context.Context, c *app.RequestContext) {
+func (h *PlatformSettingsHandler) deletePlatform(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.DeletePlatformReq](c)
 	if !ok {
 		return
@@ -144,9 +144,9 @@ func (h *SettingsHandler) deletePlatform(ctx context.Context, c *app.RequestCont
 }
 
 // DeletePlatform 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
-func DeletePlatform(ctx context.Context, c *app.RequestContext) { handlerInst.deletePlatform(ctx, c) }
+func DeletePlatform(ctx context.Context, c *app.RequestContext) { platformInst.deletePlatform(ctx, c) }
 
-func (h *SettingsHandler) testPlatform(ctx context.Context, c *app.RequestContext) {
+func (h *PlatformSettingsHandler) testPlatform(ctx context.Context, c *app.RequestContext) {
 	req, ok := common.Bind[modelSettings.TestPlatformReq](c)
 	if !ok {
 		return
@@ -168,4 +168,4 @@ func (h *SettingsHandler) testPlatform(ctx context.Context, c *app.RequestContex
 }
 
 // TestPlatform 包级入口（biz/router 生成代码引用）；一行委托到方法，测试可直接构造 Handler。
-func TestPlatform(ctx context.Context, c *app.RequestContext) { handlerInst.testPlatform(ctx, c) }
+func TestPlatform(ctx context.Context, c *app.RequestContext) { platformInst.testPlatform(ctx, c) }

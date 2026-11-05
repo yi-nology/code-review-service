@@ -126,7 +126,7 @@ func TestMaintainAllCoversRegisteredNamespaces(t *testing.T) {
 		t.Fatalf("capture review: %v", err)
 	}
 
-	known := svc.knownNamespaces()
+	known := svc.knownNamespaces(ctx)
 	if len(known) == 0 {
 		t.Fatal("捕获后应登记命名空间")
 	}
@@ -158,7 +158,7 @@ func TestRecallAlsoRegistersNamespace(t *testing.T) {
 	}
 
 	found := false
-	for _, ns := range svc.knownNamespaces() {
+	for _, ns := range svc.knownNamespaces(ctx) {
 		if ns == svc.Namespace("github", "acme/recalled-only") {
 			found = true
 			break
