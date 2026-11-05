@@ -55,13 +55,14 @@
             @keyup.enter="applyFilters"
             @clear="applyFilters"
           />
-          <el-select v-model="filters.severity" placeholder="全部风险档" clearable @change="applyFilters">
+          <el-select v-model="filters.severity" class="argus-severity-select" placeholder="全部风险档" clearable @change="applyFilters">
             <el-option label="含 high 意见" value="high" />
             <el-option label="含 medium 意见" value="medium" />
             <el-option label="含 low 意见" value="low" />
           </el-select>
           <el-date-picker
             v-model="filters.since"
+            class="argus-since-picker"
             type="datetime"
             placeholder="起始时间"
             format="YYYY-MM-DD HH:mm"
@@ -363,6 +364,7 @@ onUnmounted(() => {
 }
 .argus-filter-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 16px;
 }
@@ -371,6 +373,13 @@ onUnmounted(() => {
 }
 .argus-platform-input {
   width: 170px;
+}
+/* 无宽度约束时 el-select 会被 flex 拉伸到数百像素，把同排输入框挤瘪（实测 414px）。 */
+.argus-severity-select {
+  width: 150px;
+}
+.argus-since-picker {
+  width: 200px;
 }
 .argus-table {
   width: 100%;

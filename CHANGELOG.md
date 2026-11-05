@@ -8,6 +8,11 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-06
+
+多副本部署落地 + 结构债清零：租约单例化让多副本部署形态安全，archcheck
+结构欠账全部销账，并补齐此前漏同步的 LLM 探活防抖与就绪探针测试。
+
 ### 新增
 
 - **多副本部署支持**：`job_leases` 租约表（TTL 内单持有者）单例化 Argus
@@ -27,6 +32,16 @@
   且 nginx `resolver` 不使用 search 域、coredns 拒绝裸名查询，动态解析在 k8s 下全量
   502；静态解析在 k8s（ClusterIP 恒定）与 compose（docker DNS 解析容器名）两种形态
   下都正确
+- **LLM 探活防抖补齐**（此前漏随开源同步）：单次探活失败降为 Warn 留痕，
+  连续 3 次（≈90s）仍失败才 Error 红灯——探活是趋势信号，不应被 DNS 路径
+  的单次抖动打红（成功即清零）
+- 就绪探针测试补齐（`internal/readiness`）：fakeDial 编排拨号替身覆盖
+  Bearer 前缀、自定义头与超时路径
+- **前端日期控件修复**：Element Plus 2.14 的 `theme-chalk/el-date-picker.css`
+  是 0 字节空文件，须引 `el-date-picker-panel.css`——此前 Argus 审查、项目报告、
+  报告详情三页的日期控件按原生控件裸渲染
+- **Argus 审查页筛选栏修复**：el-select 无宽度约束会被 flex 拉伸挤瘪同排
+  输入框，显式定宽并允许换行；Git 平台页补 `InfoFilled` 图标 import
 
 ### 变更
 
@@ -36,6 +51,7 @@
   lifecycle/scan 三个聚焦文件
 - 依赖升级：`agent-harness` v0.6.5 → **v0.15.0**、`agent-memory` v0.6.0 → **v0.9.0**、
   `go-git-platform` v0.100.0 → **v0.113.0**（全部零源码适配）
+
 ## [0.3.0] - 2026-10-29
 
 控制台改版与已知缺陷收口：把机器占位串从中文界面里清干净，修掉周报通过率与

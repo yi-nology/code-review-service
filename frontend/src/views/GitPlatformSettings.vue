@@ -182,6 +182,7 @@ import {
   Connection,
   Delete,
   EditPen,
+  InfoFilled,
   Plus,
   Refresh,
   Search,

@@ -48,7 +48,10 @@ import 'element-plus/theme-chalk/el-card.css'
 import 'element-plus/theme-chalk/el-checkbox.css'
 import 'element-plus/theme-chalk/el-col.css'
 import 'element-plus/theme-chalk/el-collapse.css'
-import 'element-plus/theme-chalk/el-date-picker.css'
+// el-date-picker.css 在 theme-chalk 里是 0 字节空文件；.el-date-editor 输入框与
+// 日期面板的真实样式都在 el-date-picker-panel.css（缺了它日期控件按原生控件裸渲染，
+// 且 220px 默认宽度丢失会把 flex 筛选栏挤塌）。
+import 'element-plus/theme-chalk/el-date-picker-panel.css'
 import 'element-plus/theme-chalk/el-collapse-item.css'
 import 'element-plus/theme-chalk/el-config-provider.css'
 import 'element-plus/theme-chalk/el-descriptions.css'

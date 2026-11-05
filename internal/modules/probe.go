@@ -31,13 +31,25 @@ func RegisterLLMProbe(lc fx.Lifecycle, ocrReg *ocr.Registry) {
 				ticker := time.NewTicker(30 * time.Second)
 				defer ticker.Stop()
 				check := readiness.LLMEndpointCheck(repos, resolver)
+				// 连续失败阈值：探活是趋势信号，不被单次抖动打红
+				//（生产实测 DNS 路径偶发抖动、端点实际可达——单次失败降 Warn
+				// 留痕，连续 3 次（≈90s）仍失败才 Error 红灯告警；成功即清零）。
+				const failThreshold = 3
+				failStreak := 0
 				for {
 					select {
 					case <-probeCtx.Done():
 						return
 					case <-ticker.C:
 						if err := check(probeCtx); err != nil {
-							logx.Errorf("[llm-probe] LLM endpoint 探活失败: %v（评审将会失败，请检查 LLM 配置/网络）", err)
+							failStreak++
+							if failStreak >= failThreshold {
+								logx.Errorf("[llm-probe] LLM endpoint 探活连续失败 %d 次: %v（评审将会失败，请检查 LLM 配置/网络）", failStreak, err)
+							} else {
+								logx.Warnf("[llm-probe] LLM endpoint 探活失败（%d/%d，疑似抖动）: %v", failStreak, failThreshold, err)
+							}
+						} else {
+							failStreak = 0
 						}
 					}
 				}
