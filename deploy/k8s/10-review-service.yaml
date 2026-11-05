@@ -1,0 +1,114 @@
+# review-service 主服务（API + 评审编排）。
+# 探针为什么用 tcpSocket 而不是 /healthz —— 见注释与 deploy/k8s/README.md。
+apiVersion: v1
+kind: Secret
+metadata:
+  name: review-service-env
+type: Opaque
+stringData:
+  # 控制台/API 访问令牌（控制台登录框里填的就是它）。
+  REVIEW_TOKEN: change-me-review-token
+  # 与 00-postgres.yaml 的凭据对齐；k8s 内走 Service DNS。
+  DATABASE_URL: postgres://review:change-me-pg-password@postgres:5432/review_service?sslmode=disable
+  DATABASE_AUTO_MIGRATE: "true"
+  # 评审写回的链接基地址（MR 评论/commit status 里的 target_url 前缀）。
+  EXTERNAL_BASE_URL: https://review.example.com
+  # 可选：argus 评审引擎对接。不接 argus 时这两行留空或删除。
+  ARGUS_BOT_URL: ""
+  ARGUS_BOT_TOKEN: ""
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rs-config
+data:
+  config-prod.yaml: |
+    port: 8080
+
+    auth:
+      token: ""
+
+    webhook:
+      bot_username: "review-bot"
+
+    database:
+      dsn: ""
+      max_idle_conns: 20
+      max_open_conns: 100
+      auto_migrate: true
+
+    review:
+      worker_concurrency: 4
+      worker_poll_interval: "2s"
+      worker_stale_after: "15m"
+      max_diff_bytes: 10485760
+      workspace_cleanup:
+        enabled: true
+        max_age: "24h"
+        interval: "1h"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: review-service
+  labels:
+    app: review-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: review-service
+  template:
+    metadata:
+      labels:
+        app: review-service
+    spec:
+      containers:
+      - name: review-service
+        image: ghcr.io/yi-nology/code-review-service:main
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - secretRef:
+            name: review-service-env
+        resources:
+          requests: {cpu: 500m, memory: 512Mi}
+          limits: {cpu: "4", memory: 4Gi}
+        # tcpSocket 探针：/healthz 含 llm-usable 检查（LLM 配额尽/凭证失效时 503），
+        # 作为 liveness 会把好端在的 pod 无限重启。进程存活用 TCP 探针保证；
+        # LLM 红灯通过 /health API 观测（控制台健康页有语义化展示）。
+        startupProbe:
+          tcpSocket:
+            port: 8080
+          failureThreshold: 30
+          periodSeconds: 5
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+          periodSeconds: 15
+        volumeMounts:
+        - name: etc
+          mountPath: /app/etc
+          readOnly: true
+      volumes:
+      - name: etc
+        configMap:
+          name: rs-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: review-service
+spec:
+  type: NodePort
+  selector:
+    app: review-service
+  ports:
+  - name: http
+    port: 8080
+    nodePort: 30090

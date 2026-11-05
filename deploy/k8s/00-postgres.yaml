@@ -1,0 +1,78 @@
+# PostgreSQL（评审记录/配置存储）。
+# 数据面说明见 deploy/k8s/README.md——生产建议接托管 PG，删除本文件即可。
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-auth
+  annotations:
+    # 本文件包含 change-me 占位凭据，仅示例——真实凭据不要提交。
+    note: replace change-me placeholders before applying
+type: Opaque
+stringData:
+  POSTGRES_USER: review
+  POSTGRES_PASSWORD: change-me-pg-password
+  POSTGRES_DB: review_service
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  labels:
+    app: review-postgres
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: review-postgres
+  template:
+    metadata:
+      labels:
+        app: review-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:18-alpine
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: postgres-auth
+        env:
+        # PGDATA 指到子目录：卷根是挂载点，直接用卷根会让 postgres 拒启（lost+found）。
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        ports:
+        - containerPort: 5432
+        resources:
+          requests: {cpu: 250m, memory: 256Mi}
+          limits: {cpu: "2", memory: 2Gi}
+        readinessProbe:
+          exec:
+            command: [pg_isready, -U, review, -d, review_service]
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command: [pg_isready, -U, review, -d, review_service]
+          periodSeconds: 20
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  clusterIP: None
+  selector:
+    app: review-postgres
+  ports:
+    - port: 5432

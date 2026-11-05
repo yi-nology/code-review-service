@@ -8,6 +8,21 @@
 
 ## [Unreleased]
 
+### 新增
+
+- `deploy/k8s/`：Kubernetes 部署 manifests（PostgreSQL StatefulSet + review-service +
+  mcp-server + review-frontend），含生产实测注意项——探针必须 `tcpSocket`（`/healthz`
+  含 LLM 可用性检查，作 liveness 会把配额尽时的好端在 pod 无限重启）、前端容器自带
+  `/api` 反代（Service 名必须为 `review-service`）、离线集群 `ctr -n k8s.io` 导入镜像。
+
+### 修复
+
+- `deploy/nginx.conf`：`/api`、`/swagger/` 等反代改为静态 `proxy_pass http://review-service:8080`，
+  移除 Docker 内置 DNS 的 `resolver 127.0.0.11` + 变量式 upstream——k8s 里无此 DNS，
+  且 nginx `resolver` 不使用 search 域、coredns 拒绝裸名查询，动态解析在 k8s 下全量
+  502；静态解析在 k8s（ClusterIP 恒定）与 compose（docker DNS 解析容器名）两种形态
+  下都正确。
+
 ### 变更
 
 - 依赖 `go-git-platform` 升级至 **v0.100.0**（v0.95.0 → v0.100.0，跨 5 个 minor）：

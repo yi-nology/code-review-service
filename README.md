@@ -181,6 +181,14 @@ Build the same image locally:
 docker build -t review-service .
 ```
 
+### Kubernetes
+
+`deploy/k8s/` 提供全家桶（API + MCP server + Web 控制台 + PostgreSQL）的 Kubernetes manifests，含生产实测的注意项（探针形态、前端容器自带的 `/api` 反代约定、离线集群导入镜像）。见 [deploy/k8s/README.md](deploy/k8s/README.md)。
+
+```sh
+kubectl apply -f deploy/k8s/
+```
+
 ### Health check
 
 ```sh
