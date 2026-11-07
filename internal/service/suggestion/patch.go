@@ -79,6 +79,18 @@ type interval struct {
 
 // BuildSuggestionPatch 根据选中的 finding 索引生成 unified-diff 补丁预览。
 // indexes 为空时表示全选。会跳过缺字段 / 行号无效 / 与已有 hunk 重叠的 finding。
+// CheckPatchEligible scan 模式记录的 patch 入口门禁（issue #2 产品决策）：
+// scan 评审无 PR diff 锚定，finding 行号大量为 0 或不可信，patch 的行号
+// 定位前提不成立。此前入口未禁用，BuildSuggestionPatch 逐条静默跳过
+// 「missing valid line」，调用方拿到近乎空 patch 而不知原因——现在在入口
+// 明确拒绝。HTTP preview/apply 与 MCP get_suggestion_patch 三处共用。
+func CheckPatchEligible(callbackMode string) error {
+	if strings.TrimSpace(callbackMode) == "scan" {
+		return fmt.Errorf("scan 模式评审无 PR diff 锚定，finding 行号不可信，不提供 suggestion patch")
+	}
+	return nil
+}
+
 func BuildSuggestionPatch(reviewID string, findings []domain.Finding, indexes []int) SuggestionPatchPreview {
 	selected := indexes
 	if len(selected) == 0 {

@@ -33,6 +33,21 @@ func FormatReviewReport(reportMarker string, summary string, findings []FormatFi
 		counts["critical"], counts["major"], counts["minor"],
 		counts["info"])
 
+	// line=0 findings 的下游产品决策（issue #2）：统计分母显式带出——
+	// 行内评论/patch 只覆盖有有效行号的部分，读者需要知道这个差值存在，
+	// 否则「没审到」与「没法锚定」不可分辨。
+	locatable := 0
+	for _, f := range findings {
+		if f.Line > 0 {
+			locatable++
+		}
+	}
+	if unlocatable := len(findings) - locatable; unlocatable > 0 {
+		fmt.Fprintf(&out,
+			"**Unlocatable findings:** %d（无有效行号，未包含在行内评论与 patch 候选中）\n",
+			unlocatable)
+	}
+
 	if summaryOnly {
 		return out.String()
 	}

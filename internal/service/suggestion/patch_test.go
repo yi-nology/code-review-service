@@ -166,3 +166,19 @@ func TestApplyPatchCommitCreatesRepairBranch(t *testing.T) {
 		t.Fatalf("patch not applied:\n%s", content)
 	}
 }
+
+// scan 模式 patch 入口门禁（issue #2）：无 PR diff 锚定的记录在入口拒绝，
+// 不再让 BuildSuggestionPatch 逐条静默跳过后返回近乎空 patch。
+func TestCheckPatchEligible(t *testing.T) {
+	if err := CheckPatchEligible("scan"); err == nil {
+		t.Fatal("scan 模式必须拒绝 patch 入口")
+	}
+	if err := CheckPatchEligible(" scan "); err == nil {
+		t.Fatal("scan 模式（含空白）必须拒绝")
+	}
+	for _, mode := range []string{"", "comment", "review", "silent"} {
+		if err := CheckPatchEligible(mode); err != nil {
+			t.Fatalf("mode %q 不应拒绝: %v", mode, err)
+		}
+	}
+}
