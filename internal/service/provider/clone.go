@@ -115,15 +115,19 @@ func cloneAndResolvePR(
 
 	var baseSHA string
 	if apiBaseSHA != "" {
-		if _, err := git.RevParse(ctx, apiBaseSHA); err == nil {
-			mb, mbErr := git.MergeBase(ctx, apiBaseSHA, headRef)
-			if mbErr == nil && mb != "" && mb != headSHA {
-				baseSHA = mb
-			} else if p, pErr := git.RevParse(ctx, apiBaseSHA+"~1"); pErr == nil {
-				mb2, _ := git.MergeBase(ctx, p, headRef)
-				if mb2 != "" && mb2 != headSHA {
-					baseSHA = mb2
-				}
+		// 平台显式给了 base SHA 却解析不了（如生产实测的 fetch 失败场景），
+		// 不允许静默滑到 target 分支启发式——那会产出对照错误基线甚至空 diff
+		// 的评审，而「没审成」与「审了没问题」不可分辨（issue #1）。fail fast。
+		if _, err := git.RevParse(ctx, apiBaseSHA); err != nil {
+			_ = os.RemoveAll(dir)
+			return "", "", "", fmt.Errorf("resolve api base SHA %s: %w", apiBaseSHA, err)
+		}
+		if mb, mbErr := git.MergeBase(ctx, apiBaseSHA, headRef); mbErr == nil && mb != "" && mb != headSHA {
+			baseSHA = mb
+		} else if p, pErr := git.RevParse(ctx, apiBaseSHA+"~1"); pErr == nil {
+			mb2, _ := git.MergeBase(ctx, p, headRef)
+			if mb2 != "" && mb2 != headSHA {
+				baseSHA = mb2
 			}
 		}
 	}
@@ -142,6 +146,13 @@ func cloneAndResolvePR(
 				return "", "", "", fmt.Errorf("resolve base SHA: %w", err)
 			}
 		}
+	}
+	// base==head 意味着 diff 必空：继续跑只会产出「零意见 + gate passed」的
+	// 空跑成功。这是解析失败/分支同名的信号，不是「审了没问题」——明确报错
+	// 让它在终态可分辨（issue #1）。
+	if baseSHA == headSHA {
+		_ = os.RemoveAll(dir)
+		return "", "", "", fmt.Errorf("base SHA 与 head SHA 相同（%s），无法构造评审 diff", headSHA)
 	}
 
 	if err := git.Checkout(ctx, headRef); err != nil {
@@ -249,11 +260,14 @@ func cloneAndResolveSHA(ctx context.Context, cloneURL, token string, skipTLS boo
 		return "", "", "", "", fmt.Errorf("git checkout head: %w", err)
 	}
 
+	// diff 拿不到就 fail fast：吞掉错误继续跑会产出空 diff 的「成功」评审，
+	// 与空跑不可分辨（issue #1）。
 	diffBytes, diffErr := git.Diff(ctx, baseSHA, headSHA)
-	var diff string
-	if diffErr == nil {
-		diff = string(diffBytes)
+	if diffErr != nil {
+		_ = os.RemoveAll(dir)
+		return "", "", "", "", fmt.Errorf("git diff %s..%s: %w", baseSHA, headSHA, diffErr)
 	}
+	diff := string(diffBytes)
 
 	if maxDiffBytes > 0 && int64(len(diff)) > maxDiffBytes {
 		_ = os.RemoveAll(dir)

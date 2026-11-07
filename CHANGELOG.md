@@ -8,6 +8,43 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-07
+
+「没审成」与「审了没问题」从此可分辨：base SHA 解析失败、diff 获取失败一律
+fail fast 走 error 终态，不再产出零意见的「成功」评审；line=0 findings 的
+下游逐面显式化（patch 入口 scan 门禁 + 统计分母 + 摘要未锚定计数）。
+
+### 修复
+
+- **base SHA 解析失败不得静默空跑报 success（#1）**：生产实测（2026-11-06）
+  PR 评审链路对已检出同分支的工作区 clone 执行 Fetch 被拒（`refusing to
+  fetch into branch`，根因 go-git-platform#37 已修）→ base SHA 解析失败 →
+  diff 为空 → 评审照跑并报 success + gate passed，`complete=false` 只藏在
+  report 内层——「没审成」与「审了没问题」不可分辨。三处 fail fast：
+  - 平台显式给的 `apiBaseSHA` 解析失败直接报错，不再静默滑到 target 分支
+    启发式（那会产出对照错误基线甚至空 diff 的评审）；
+  - 兜底链终点新增 `base==head` 守卫：diff 必空，报错而非空跑成功；
+  - SHA 模式 `git.Diff` 错误不再吞掉（此前 diff 留空继续跑）。
+  失败经既有 failure 路径落 error gate / StateError 终态，监控与回调可见。
+- **line=0 findings 的下游处理（#2）**：
+  - **patch 入口 scan 门禁**：scan 评审无 PR diff 锚定，行号不可信——
+    HTTP preview/apply 与 MCP `get_suggestion_patch` 三入口经
+    `suggestion.CheckPatchEligible` 明确拒绝（此前 BuildSuggestionPatch
+    逐条静默跳过 `missing valid line`，调用方拿到近乎空 patch 不知原因）；
+  - **统计分母显式带出**：MCP `get_review_findings` 输出新增 `locatable`
+    （line>0 计数）与 `total` 并列；评审摘要新增 `Unlocatable findings`
+    行——行内评论/patch 只覆盖有有效行号的部分，读者需要知道这个差值；
+  - 行号兜底的产品决策落定：解析层 start→end 兜底保留（scan 无行号时
+    尽力锚定），writeback 无效定位照旧丢弃但摘要可见（Unlocatable 行）。
+
+### 变更
+
+- **deps: go-git-platform v0.100.0 → v0.117.0**——#37 根因修复线
+  （v0.116.0 native Fetch 显式 refspec + v0.117.0 refspec 透传兼容），
+  base SHA 解析的生产事故形态在上游闭环。
+
+
+
 ## [0.4.0] - 2026-11-06
 
 多副本部署落地 + 结构债清零：租约单例化让多副本部署形态安全，archcheck

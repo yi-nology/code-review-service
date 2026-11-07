@@ -115,6 +115,10 @@ func (h *ReviewHandler) applySuggestionPatch(ctx context.Context, c *app.Request
 		common.Fail(ctx, c, common.NotFound("review not found"))
 		return
 	}
+	if err := suggestion.CheckPatchEligible(record.Request.CallbackMode); err != nil {
+		common.Fail(ctx, c, common.BadRequest(err.Error()))
+		return
+	}
 	if err := validateFindingIndexes(req.FindingIndexes, len(record.Response.Findings)); err != nil {
 		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return
@@ -216,6 +220,10 @@ func buildSuggestionPatchPreview(ctx context.Context, c *app.RequestContext) (su
 	}
 	if !found {
 		common.Fail(ctx, c, common.NotFound("review not found"))
+		return suggestion.SuggestionPatchPreview{}, false
+	}
+	if err := suggestion.CheckPatchEligible(record.Request.CallbackMode); err != nil {
+		common.Fail(ctx, c, common.BadRequest(err.Error()))
 		return suggestion.SuggestionPatchPreview{}, false
 	}
 	indexes, err := parseFindingIndexes(c.Query("finding_indexes"), len(record.Response.Findings))

@@ -58,6 +58,7 @@ func getReviewFindingsHandler(svc app.ReviewReader) func(ctx context.Context, re
 		filtered := make([]map[string]any, 0, limit)
 		total := 0
 		truncated := false
+		locatable := 0
 		for _, f := range record.Response.Findings {
 			if severity != "" && !strings.EqualFold(f.Severity, severity) {
 				continue
@@ -72,6 +73,9 @@ func getReviewFindingsHandler(svc app.ReviewReader) func(ctx context.Context, re
 				}
 			}
 			total++
+			if f.Line > 0 || f.StartLine > 0 {
+				locatable++
+			}
 			if len(filtered) >= limit {
 				truncated = true
 				continue
@@ -83,6 +87,9 @@ func getReviewFindingsHandler(svc app.ReviewReader) func(ctx context.Context, re
 			"review_id": reviewID,
 			"findings":  filtered,
 			"total":     total,
+			// line=0 findings 的显式分母（issue #2）：LLM/调用方需要知道
+			// 有多少条没法锚定代码行，而不是只看到 total。
+			"locatable": locatable,
 			"truncated": truncated,
 			"limit":     limit,
 		})
@@ -138,6 +145,12 @@ func getSuggestionPatchHandler(svc app.ReviewReader) func(ctx context.Context, r
 		if !ok {
 			return NewToolErrorf(ErrCategoryNotFound, "review_not_found", "用 list_reviews 找 review",
 				"review %s 不存在", reviewID), nil
+		}
+
+		if err := suggestion.CheckPatchEligible(record.Request.CallbackMode); err != nil {
+			return NewToolErrorf(ErrCategoryInvalidParam, "patch_disabled_for_scan",
+				"用 list_reviews 找非 scan 评审",
+				"%v", err), nil
 		}
 
 		// finding_indexes 解析。
