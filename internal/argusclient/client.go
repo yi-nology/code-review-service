@@ -63,10 +63,13 @@ type Client struct {
 
 // New 构造客户端；baseURL/token 为空时 Enabled()=false，调用方法将返回 ErrDisabled。
 func New(baseURL, token string) *Client {
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	return &Client{
-		baseURL: strings.TrimRight(strings.TrimSpace(baseURL), "/"),
+		baseURL: base,
 		token:   strings.TrimSpace(token),
-		client:  &http.Client{Timeout: 10 * time.Second},
+		// 同源重定向钳制（GO-2026-6911 自持缓解）：argus 返回 30x 时只跟随
+		// 同源 Location，防止凭证外带 / SSRF。
+		client: newRedirectGuardedClient(&http.Client{Timeout: 10 * time.Second}, base),
 	}
 }
 

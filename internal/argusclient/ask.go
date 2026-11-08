@@ -6,6 +6,7 @@ package argusclient
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	mcpclient "github.com/mark3labs/mcp-go/client"
@@ -15,6 +16,13 @@ import (
 
 // askToolName argus 侧问答工具（internal/channel/mcpserver/server.go）。
 const askToolName = "ask_argus"
+
+// mcpHTTPClient 供 MCP streamable transport 使用的 http.Client：
+// 同源重定向钳制（GO-2026-6911 自持缓解），且不带整体 Timeout——
+// SSE 长流依赖 transport 默认的无超时语义。
+func (c *Client) mcpHTTPClient() *http.Client {
+	return newRedirectGuardedClient(&http.Client{}, c.baseURL)
+}
 
 // AskQuestion 基于 argus 对某 PR 的最近审查报告回答追问；question 为空返回
 // 完整结论摘要（argus 侧语义）。失败返回 error（含 argus 工具错误文本）。
@@ -27,9 +35,14 @@ func (c *Client) AskQuestion(ctx context.Context, platform, owner, repo, number,
 		return "", fmt.Errorf("platform/owner/repo 必填且 number 须为纯十进制序号")
 	}
 
-	tr, err := transport.NewStreamableHTTP(c.baseURL+"/mcp", transport.WithHTTPHeaders(map[string]string{
-		"Authorization": "Bearer " + c.token,
-	}))
+	// 同源重定向钳制（GO-2026-6911 自持缓解）：mcp-go StreamableHTTP 默认
+	// client 不带 CheckRedirect（Fixed in: N/A，上游 PR #1190/#1192 未合并），
+	// 这里显式注入带同源钳制的 client。
+	tr, err := transport.NewStreamableHTTP(c.baseURL+"/mcp",
+		transport.WithHTTPBasicClient(c.mcpHTTPClient()),
+		transport.WithHTTPHeaders(map[string]string{
+			"Authorization": "Bearer " + c.token,
+		}))
 	if err != nil {
 		return "", fmt.Errorf("创建 argus MCP 传输失败: %w", err)
 	}
