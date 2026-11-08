@@ -8,6 +8,12 @@
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-09
+
+### Fixed
+
+- MCP/REST 出站同源重定向钳制：GO-2026-6911（mcp-go SSRF，上游 Fixed in: N/A）自持缓解——跨源 Location 拒绝、Bearer 凭证不外带、同源跳数上限 3（#4）
+
 ## [0.5.0] - 2026-11-07
 
 「没审成」与「审了没问题」从此可分辨：base SHA 解析失败、diff 获取失败一律
