@@ -216,3 +216,19 @@ func TestValidateRepoPathAcceptsLegitimate(t *testing.T) {
 		}
 	}
 }
+
+// TestCloneURLGuardHostCaseInsensitive host 比较按 DNS 口径大小写不敏感。
+//
+// 注释一直声明「host 名在 DNS 里不区分大小写」，但 sameHost 此前用 ==
+// 逐字节比较 Host——GitLab.Example.com 与 gitlab.example.com 是同一个
+// host 却被拒。两个方向（base 大写 / clone 大写）都必须放行。
+func TestCloneURLGuardHostCaseInsensitive(t *testing.T) {
+	g := NewCloneURLGuard()
+
+	if err := g.Validate("https://GitLab.Example.com", "https://gitlab.example.com/acme/app.git"); err != nil {
+		t.Fatalf("base host 大写应放行: %v", err)
+	}
+	if err := g.Validate("https://gitlab.example.com", "https://GitLab.Example.com/acme/app.git"); err != nil {
+		t.Fatalf("clone host 大写应放行: %v", err)
+	}
+}

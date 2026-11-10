@@ -327,6 +327,30 @@ func (s *GitProviderService) GetCRDiffString(ctx context.Context, platform, owne
 	return diff.RawDiff, nil
 }
 
+// cloneBaseURL 把平台 API 基址改写成 clone 基址：拼接与校验共用的单一真相源。
+//
+// gitea/gitlab 只去 API 路径后缀（host 不变）；github/gitcode 除此之外还要做
+// **host 级**改写（api.github.com → github.com、api.gitcode.com → gitcode.com）——
+// 这两个平台的 API 域名与站点域名是两个域。gerrit 的 REST API 路径就是根路径，
+// 不 strip（认证 clone 的 /a/ 前缀在 gerrit.BuildCloneURL 里追加）。
+func cloneBaseURL(platform, baseURL string) string {
+	base := strings.TrimRight(baseURL, "/")
+	switch strings.ToLower(platform) {
+	case "gitea":
+		return strings.TrimSuffix(base, "/api/v1")
+	case "gitcode":
+		base = strings.TrimSuffix(base, "/api/v5")
+		return strings.Replace(base, "://api.gitcode.com", "://gitcode.com", 1)
+	case "gitlab":
+		return strings.TrimSuffix(base, "/api/v4")
+	case "github":
+		base = strings.TrimSuffix(base, "/api/v3")
+		return strings.Replace(base, "://api.github.com", "://github.com", 1)
+	default:
+		return base
+	}
+}
+
 func (s *GitProviderService) BuildCloneURL(platform, owner, repo string) string {
 	s.mu.RLock()
 	cfg, ok := s.configs[platform]
@@ -335,19 +359,9 @@ func (s *GitProviderService) BuildCloneURL(platform, owner, repo string) string 
 		return ""
 	}
 
-	base := strings.TrimRight(cfg.BaseURL, "/")
-	switch strings.ToLower(platform) {
-	case "gitea":
-		base = strings.TrimSuffix(base, "/api/v1")
-	case "gitcode":
-		base = strings.TrimSuffix(base, "/api/v5")
-		base = strings.Replace(base, "://api.gitcode.com", "://gitcode.com", 1)
-	case "gitlab":
-		base = strings.TrimSuffix(base, "/api/v4")
-	case "github":
-		base = strings.TrimSuffix(base, "/api/v3")
-		base = strings.Replace(base, "://api.github.com", "://github.com", 1)
-	case "gerrit":
+	base := cloneBaseURL(platform, cfg.BaseURL)
+
+	if strings.EqualFold(platform, "gerrit") {
 		// Gerrit 认证 clone 使用 /a/ 前缀；不 strip API path
 		// （Gerrit 的 REST API 路径就是根路径）。
 		//
@@ -378,7 +392,7 @@ func (s *GitProviderService) BuildCloneURL(platform, owner, repo string) string 
 // 去访问它）与路径穿越（owner 含 ".." 时指向平台上的另一个路径）。
 //
 // 判据在 vcs.CloneURLGuard（底座 netguard）：拼出的 host 必须与该平台
-// 配置的 base URL 的 host 完全一致，且通过出站校验（拒回环）。
+// clone 基址的 host 完全一致，且通过出站校验（拒回环）。
 func (s *GitProviderService) ValidateCloneURL(platform, owner, repo, cloneURL string) error {
 	if err := vcs.ValidateRepoPath(owner, repo); err != nil {
 		return err
@@ -391,9 +405,11 @@ func (s *GitProviderService) ValidateCloneURL(platform, owner, repo, cloneURL st
 		return fmt.Errorf("平台 %q 未配置", platform)
 	}
 
-	// 基地址取**未做平台路径改写**的原始值：host 比较只关心 host，
-	// 而改写只动路径部分（/api/v4 之类），host 不变。
-	return vcs.NewCloneURLGuard().Validate(cfg.BaseURL, cloneURL)
+	// 校验基址与拼接基址**同源**：都走 cloneBaseURL。github/gitcode 的改写是
+	// host 级的（api.github.com → github.com），若拿未改写的 API 基址比 host，
+	// 平台自己拼出的 clone URL 会被自己的守卫必拒（api.github.com ≠ github.com），
+	// 默认配置下每次评审都死在 clone 前。
+	return vcs.NewCloneURLGuard().Validate(cloneBaseURL(platform, cfg.BaseURL), cloneURL)
 }
 
 func (s *GitProviderService) GetToken(platform string) string {
