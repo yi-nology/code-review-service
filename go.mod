@@ -36,7 +36,7 @@ require (
 	github.com/swaggo/files v1.0.1
 	github.com/testcontainers/testcontainers-go v0.45.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.45.0
-	github.com/yi-nology/agent-harness v0.27.1
+	github.com/yi-nology/agent-harness v0.15.0
 	github.com/yi-nology/agent-memory v0.11.0
 	github.com/yi-nology/go-git-platform v0.124.0
 	go.uber.org/fx v1.24.0

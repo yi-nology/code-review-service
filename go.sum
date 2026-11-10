@@ -338,8 +338,8 @@ github.com/google/go-querystring v1.2.0/go.mod h1:8IFJqpSRITyJ8QhQ13bmbeMBDfmeEJ
 github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
 github.com/google/jsonschema-go v0.4.3 h1:/DBOLZTfDow7pe2GmaJNhltueGTtDKICi8V8p+DQPd0=
 github.com/google/jsonschema-go v0.4.3/go.mod h1:r5quNTdLOYEz95Ru18zA0ydNbBuYoo9tgaYcxEYhJVE=
-github.com/google/pprof v0.0.0-20261105003125-4bf881d7fb0b h1:5NKFt6kcAJNVt3XBOf8jwp8TnWZVOZFmmGkK0XextI4=
-github.com/google/pprof v0.0.0-20261105003125-4bf881d7fb0b/go.mod h1:yUo1AMMpsPIDFGuwDK8nLcf8+vvAd5l2O6JDZ6hpwrM=
+github.com/google/pprof v0.0.0-20261016150608-1facf8f91b50 h1:PlNWJRxu5APSV0pWqfIsZ0qt9OOGHSWfZQ4zvx+WgWs=
+github.com/google/pprof v0.0.0-20261016150608-1facf8f91b50/go.mod h1:yUo1AMMpsPIDFGuwDK8nLcf8+vvAd5l2O6JDZ6hpwrM=
 github.com/google/uuid v1.3.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
@@ -660,8 +660,8 @@ github.com/xanzy/ssh-agent v0.3.3 h1:+/15pJfg/RsTxqYcX6fHqOXZwwMP+2VyYWJeWM2qQFM
 github.com/xanzy/ssh-agent v0.3.3/go.mod h1:6dzNDKs0J9rVPHPhaGCukekBHKqfl+L3KghI1Bc68Uw=
 github.com/yargevad/filepathx v1.0.0 h1:SYcT+N3tYGi+NvazubCNlvgIPbzAk7i7y2dwg3I5FYc=
 github.com/yargevad/filepathx v1.0.0/go.mod h1:BprfX/gpYNJHJfc35GjRRpVcwWXS89gGulUIU5tK3tA=
-github.com/yi-nology/agent-harness v0.27.1 h1:fxOXADPNG8Eeq0/OPRkLePmSag/DE31uPhsBFNzN9EY=
-github.com/yi-nology/agent-harness v0.27.1/go.mod h1:v/UWv+ZMWvKMNuvMuK5qrdfZeu8KI2q3XoG+7i1fklI=
+github.com/yi-nology/agent-harness v0.15.0 h1:2yMV+IYe///qL+2DO+FnuXYQgALusEiTK2bjPJpIVH0=
+github.com/yi-nology/agent-harness v0.15.0/go.mod h1:QDE6GDYSRZ376PZN904GdJ3P9BNYAn2+s5iVr7ZVUig=
 github.com/yi-nology/agent-memory v0.11.0 h1:L6BXTtlcFMH4g1F2tbI/I+w+hCmA2FrRCqZ0ZVGWvKU=
 github.com/yi-nology/agent-memory v0.11.0/go.mod h1:hCCt3W3X/u3zFSIAalH8PDbuchMV5FfhA4aMukroEMs=
 github.com/yi-nology/go-git-platform v0.124.0 h1:Fj6QiJAc+HMmzH071LaUfixt4jqnWJ98u6dos4XisBQ=
