@@ -8,6 +8,27 @@
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-11
+
+### Fixed
+
+- **GitHub/GitCode 的 clone URL 不再被自身守卫必拒（#7）**：BuildCloneURL 对这两个
+  平台的 API 基址做 **host 级**改写（api.github.com → github.com、
+  api.gitcode.com → gitcode.com），而 ValidateCloneURL 拿**未改写的** cfg.BaseURL
+  比 host——官方默认配置（前端/SDK 给的就是 api 基址）下每次评审都在 clone 前被
+  自己的守卫拦下（`clone 目标 host 不匹配`）。改写收敛为单一真相源
+  `cloneBaseURL`，Build 与 Validate 共用：守卫比的就是拼 URL 时用的那个基址。
+  附带：sameHost 的 host 比较改为大小写不敏感（注释一直声明 DNS 口径，实现却在
+  用 == 逐字节比较）；新增回归不变式测试——平台拼出的 clone URL 必须能通过自己
+  的守卫（host 改写命中与不命中两态），守卫对陌生 host 的拒绝能力不放松。
+
+### Changed
+
+- `go get -u ./...` 全量依赖升级：oekit 系（pkg v0.42.0、hertz v0.11.4、
+  bootstrap v0.7.5 等）、guardx v0.24.1、llm v0.21.8、mcp-go v1.5.0、eino
+  v0.9.23、pgx v5.12.0 等；go 指令维持 1.27.3。`go test -race ./...` 全量
+  通过，无破坏性升级需要钉回。
+
 ## [0.5.1] - 2026-11-09
 
 ### Fixed

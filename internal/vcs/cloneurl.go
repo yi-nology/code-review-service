@@ -164,10 +164,12 @@ func (g *CloneURLGuard) egressOptions() egress.Options {
 
 // sameHost 判断两个 URL 的 host（含端口）是否完全一致。
 //
-// 大小写不敏感：host 名在 DNS 里不区分大小写，
-// 但 scheme 是区分的（HTTP 与 HTTPS 是两个服务）。
+// 大小写不敏感：host 名在 DNS 里不区分大小写（注释一直如此声明，此前实现
+// 却用 == 逐字节比较——GitLab.Example.com 与 gitlab.example.com 是同一个
+// host 却被拒）。端口是数字，EqualFold 不影响；scheme 保持区分（HTTP 与
+// HTTPS 是两个服务，且 url.Parse 已把 scheme 归一为小写）。
 func sameHost(a, b *url.URL) bool {
-	return strings.EqualFold(a.Scheme, b.Scheme) && a.Host == b.Host
+	return strings.EqualFold(a.Scheme, b.Scheme) && strings.EqualFold(a.Host, b.Host)
 }
 
 // baseHost 返回用于错误信息的 host 展示串。
