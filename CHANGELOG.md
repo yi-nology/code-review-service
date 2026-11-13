@@ -8,6 +8,23 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-13
+
+仓级兼容垫片清仓：删 `internal/service/review/report.go` 里转发 `internal/domain/scoring`
+的全部向后兼容别名，消费方直连真身（**BREAKING**）。
+
+### Removed
+
+- **`service/review` 的 scoring 转发别名（BREAKING）**：常量 `OCRStatusSuccess` /
+  `OCRStatusTimeout` / `OCRStatusSkipped` / `OCRStatusCompletedWithErrors`、
+  未导出转发 `isOCRComplete`、`CountDiffLines` / `CountDiffFiles` 全部删除
+  （scoring 包抽取时留的兼容面，零逻辑）。**下游要做什么**：仓外若有 import
+  `internal/service/review` 使用上述别名的代码，改 import
+  `internal/domain/scoring` 同名符号（`isOCRComplete` 对应 `scoring.IsOCRComplete`）。
+  仓内消费方已全部直连：`internal/eino/executor.go` 4 处调用点、
+  `BuildReport` 内部、`report_test.go`。
+- `internal/domain/review/ocr_aliases.go` 是正式接口定义非垫片，**不动**。
+
 ## [0.6.0] - 2026-11-13
 
 三组织依赖吃到 2026-11-12 上游发布列车的 issue 修复红利（oekit / oagentkit /
