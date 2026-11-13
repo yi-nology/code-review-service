@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/yi-nology/code-review-service/internal/domain/review"
+	"github.com/yi-nology/code-review-service/internal/domain/scoring"
 	"github.com/yi-nology/code-review-service/internal/service/review"
 )
 
@@ -338,14 +339,14 @@ index abc..def 100644
 -old1
  line3
 `
-	lines := review.CountDiffLines(diff)
+	lines := scoring.CountDiffLines(diff)
 	if lines != 3 {
 		t.Fatalf("expected 3 changed lines (2 added + 1 removed), got %d", lines)
 	}
 }
 
 func TestCountDiffLinesEmpty(t *testing.T) {
-	if review.CountDiffLines("") != 0 {
+	if scoring.CountDiffLines("") != 0 {
 		t.Fatal("expected 0 for empty diff")
 	}
 }

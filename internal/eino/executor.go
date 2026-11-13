@@ -9,6 +9,7 @@ import (
 	"github.com/cloudwego/eino/callbacks"
 	types "github.com/yi-nology/code-review-service/internal/domain/finding"
 	"github.com/yi-nology/code-review-service/internal/domain/review"
+	"github.com/yi-nology/code-review-service/internal/domain/scoring"
 	"github.com/yi-nology/code-review-service/internal/ocr"
 	"github.com/yi-nology/code-review-service/internal/service/agent"
 	"github.com/yi-nology/code-review-service/internal/service/cost"
@@ -271,9 +272,9 @@ func (e *Executor) executeWithWorkflow(
 	types.ComputeFingerprints(findings)
 
 	scope := workspace.Scope
-	scope.ChangedLines = review.CountDiffLines(workspace.Diff)
+	scope.ChangedLines = scoring.CountDiffLines(workspace.Diff)
 	if scope.ChangedFiles == 0 {
-		scope.ChangedFiles = review.CountDiffFiles(workspace.Diff)
+		scope.ChangedFiles = scoring.CountDiffFiles(workspace.Diff)
 	}
 	if scope.ReviewedFiles == 0 {
 		scope.ReviewedFiles = scope.ChangedFiles
@@ -299,7 +300,7 @@ func (e *Executor) executeWithWorkflow(
 		OCR: domain.OCRMetadata{
 			Engine:        "workflow",
 			Model:         e.currentModel(),
-			Status:        review.OCRStatusSuccess,
+			Status:        scoring.OCRStatusSuccess,
 			FilesReviewed: int64(scope.ChangedFiles),
 			Comments:      int64(len(findings)),
 			TotalTokens:   workflowTokens,
@@ -408,7 +409,7 @@ func (e *Executor) executeWithRunner(ctx context.Context, id string, req domain.
 		},
 	))
 	result.Scope = workspace.Scope
-	result.Scope.ChangedLines = review.CountDiffLines(workspace.Diff)
+	result.Scope.ChangedLines = scoring.CountDiffLines(workspace.Diff)
 
 	types.ComputeFingerprints(result.Findings)
 
