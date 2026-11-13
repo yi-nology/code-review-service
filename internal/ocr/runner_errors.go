@@ -11,7 +11,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/domain/review"
 
 	"github.com/oekit/logx"
-	"github.com/yi-nology/agent-harness/toolfail"
+	"github.com/yi-nology/goagent-kernel/toolfail"
 )
 
 // runner_errors.go：子进程输出采集（cappedBuffer）与错误分类（超时/退出/永久性/二进制缺失）。

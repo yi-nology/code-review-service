@@ -14,9 +14,17 @@ import (
 )
 
 func InitDB(cfg *config.DatabaseConfig) (*gormDB.DB, error) {
+	// SQL 日志列级脱敏（gormx #106）：Open 默认注入 Info 级 Logger，Trace 里的
+	// INSERT/UPDATE 绑定值是全量明文——git_platforms.token / webhook_secret、
+	// ocr_settings.auth_token、custom_providers.api_key、api_tokens.token_hash
+	// 会随写路径进日志（日志采集外送会进一步放大泄漏面）。列名命中处替换为 ***，
+	// 语句结构保留，排障不失真。
 	db, err := gormx.Open(
 		gormLib.Open(cfg.DSN),
 		gormx.WithConnectionPool(cfg.MaxOpenConns, cfg.MaxIdleConns, 30*time.Minute),
+		gormx.WithLogger(gormx.NewDefaultLogger(gormx.WithRedactColumns(
+			"token", "webhook_secret", "auth_token", "api_key", "token_hash",
+		))),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("init database: %w", err)

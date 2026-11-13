@@ -65,7 +65,7 @@ npm run lint --prefix frontend && npm run build --prefix frontend
 - **不要另建一套配置合并逻辑**。`internal/ocr` 的 `BuildConfig` 是唯一实现
   （overrides > settings > fallback > defaults），配置变更一律走它。
 - **不要复制阶段表**。合法的阶段顺序只存在于 `internal/domain/session/phase.go`。
-- **不要复制状态迁移表**。合法的步骤状态迁移由 `agent-harness` 内核定义，
+- **不要复制状态迁移表**。合法的步骤状态迁移由 `goagent-kernel` 内核定义，
   本项目通过 `internal/service/workflow/kernel.go` 触达。
 
 `docs/CODE_REVIEW_POLICY.md` 描述本项目对自己施加的评审与严重度策略。其中标记

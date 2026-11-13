@@ -10,6 +10,7 @@ import (
 	modelSettings "github.com/yi-nology/code-review-service/biz/model/settings"
 	"github.com/yi-nology/code-review-service/internal/domain/projectpolicy"
 
+	"github.com/oekit/pkg/pathx"
 	"github.com/oekit/pkg/ptrx"
 	"github.com/oekit/pkg/slicex"
 
@@ -123,6 +124,34 @@ func validateProjectPolicy(p *projectpolicy.ProjectPolicy) error {
 	case "", projectpolicy.GateModeStrong, projectpolicy.GateModeWeak:
 	default:
 		return fmt.Errorf("门禁强弱依赖模式仅支持 strong、weak，留空表示 auto（OCR 强 / argus 弱）")
+	}
+	if err := validateIgnorePathsPatterns(p.IgnorePaths); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateIgnorePathsPatterns 校验 ignore_paths 中每条 glob 的语法。
+//
+// pathx.MatchesPath 对非法 pattern 是静默吞错（ErrBadPattern 被丢弃、返回不匹配），
+// 于是把 *.go 误写成 *.go[ 时这条忽略规则永不生效——本该被忽略的文件照样参与门禁、
+// 把评审卡在 major 上，而控制台与日志都看不到任何提示。写入侧是唯一能让配置错误
+// 当场暴露的位置，因此在保存时 fail-loud。
+func validateIgnorePathsPatterns(raw json.RawMessage) error {
+	if len(raw) == 0 {
+		return nil
+	}
+	var patterns []string
+	if err := json.Unmarshal(raw, &patterns); err != nil {
+		return fmt.Errorf("忽略路径必须是字符串数组: %v", err)
+	}
+	for _, pattern := range patterns {
+		if strings.TrimSpace(pattern) == "" {
+			continue
+		}
+		if err := pathx.ValidatePattern(pattern); err != nil {
+			return fmt.Errorf("忽略路径 %q 不是合法的 glob 模式（%v）", strings.TrimSpace(pattern), err)
+		}
 	}
 	return nil
 }

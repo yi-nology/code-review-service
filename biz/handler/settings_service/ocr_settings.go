@@ -12,6 +12,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/domain/ocrsettings"
 	ocrcore "github.com/yi-nology/code-review-service/internal/ocr"
 
+	"github.com/oekit/pkg/pathx"
 	"github.com/oekit/pkg/ptrx"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -157,6 +158,16 @@ func validateOCRSettings(s *ocrsettings.Settings) error {
 	case "", "anthropic", "openai", "openai-responses":
 	default:
 		return fmt.Errorf("protocol 仅支持 anthropic / openai / openai-responses（留空则由 use_anthropic 推断）")
+	}
+	// 忽略路径语法校验：pathx.MatchesPath 对非法 glob 静默返回不匹配，写错的规则
+	// 会永久失效且无任何提示（见 project_policy.go 的同名校验）。
+	for _, pattern := range s.PolicyIgnorePaths {
+		if strings.TrimSpace(pattern) == "" {
+			continue
+		}
+		if err := pathx.ValidatePattern(pattern); err != nil {
+			return fmt.Errorf("忽略路径 %q 不是合法的 glob 模式（%v）", strings.TrimSpace(pattern), err)
+		}
 	}
 	return nil
 }

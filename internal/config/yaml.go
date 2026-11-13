@@ -24,6 +24,27 @@ type Config struct {
 	Notification    NotificationConfig `yaml:"notification"`
 	Cost            CostConfig         `yaml:"cost"`
 	Memory          MemoryConfig       `yaml:"memory"`
+	Proxy           ProxyConfig        `yaml:"proxy"`
+}
+
+// ProxyConfig 是反向代理拓扑下的可信代理配置。
+//
+// 本服务在生产里跑在 nginx 之后（deploy/nginx.conf 把 /api 反代到本服务，
+// 并写入 X-Forwarded-For / X-Real-IP）。oekit/middleware v0.14.1 起访问日志的
+// 客户端 IP 改为 fail-closed（只取 TCP 对端地址、不采信任何代理头，
+// 因为 hertz 的 c.ClientIP() 默认信任任意来源的 XFF，直连方可伪造）——
+// 这在直连部署下是对的，但在反代拓扑下会让来源 IP 全部退化成 nginx 容器地址。
+//
+// 上游为此留了注入缝 mw.WithAccessLogClientIP：宿主注入自己的解析函数，
+// 按可信代理网段解析 X-Forwarded-For。「哪些网段是可信代理」是部署形态知识，
+// 属基础设施调优（AGENTS.md：业务配置进 DB，部署调优走 yaml），因此落在这里
+// 而不是数据库。
+//
+// 留空 = 不信任任何代理头 = 上游默认口径（来源 IP 记为对端地址）。
+type ProxyConfig struct {
+	// TrustedProxies 是可信反向代理的地址清单（CIDR 或裸 IP）。
+	// 非法条目在启动时 fail-fast（配置错误的暴露点应在启动那一刻）。
+	TrustedProxies []string `yaml:"trusted_proxies"`
 }
 
 // TracingConfig 链路追踪配置（上游 tracing.Config 的本地镜像）。

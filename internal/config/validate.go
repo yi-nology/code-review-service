@@ -68,6 +68,12 @@ func (c *Config) Validate(environment string) error {
 		}
 	}
 
+	// 可信代理清单必须能解析：解析失败时静默跳过会让「配置了却没生效」
+	// 与「没配置」长得一模一样（上游 pkg#104 同款形态），因此在启动即报错。
+	if _, err := c.GetTrustedProxySet(); err != nil {
+		problems = append(problems, "proxy.trusted_proxies is invalid: "+err.Error())
+	}
+
 	if len(problems) > 0 {
 		return fmt.Errorf("invalid config: %s", strings.Join(problems, "; "))
 	}

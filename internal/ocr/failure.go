@@ -1,4 +1,4 @@
-// failure.go：OCR 子进程失败的**分类判定**——判据表来自底座 agent-harness/toolfail。
+// failure.go：OCR 子进程失败的**分类判定**——判据表来自底座 goagent-kernel/toolfail。
 //
 // 此前本文件把「不可重试」压成一个 PermanentError：DNS 解析失败、认证失败、
 // 连接被拒统统归为同一类，处置只有「不重试」一种。
@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	"github.com/oekit/pkg/stringx"
-	"github.com/yi-nology/agent-harness/toolfail"
+	"github.com/yi-nology/goagent-kernel/toolfail"
 )
 
 // classifyOCRFailure 把 OCR 子进程失败映射到底座类别。

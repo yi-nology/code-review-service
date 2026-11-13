@@ -16,6 +16,14 @@ review:
 
 # OCR、策略、Git 平台等业务配置已迁移到数据库，通过 Web 控制台管理。
 
+# 可信反向代理（可选）：本服务通常跑在 nginx 之后，nginx 会写 X-Forwarded-For。
+# 填了这里的网段后，访问日志与限流分桶才按**真实客户端 IP** 计算；
+# 留空 = 不信任任何代理头（来源 IP 记为 TCP 对端地址，即 nginx 的地址）。
+# 非法条目会让服务启动失败（配置错误在启动那一刻暴露，不静默降级）。
+# proxy:
+#   trusted_proxies:
+#     - 172.16.0.0/12   # docker 默认网段（compose 本机部署）
+#     - 10.42.0.0/16    # k8s pod 网段（按集群实际调整）
 nacos:
   addr: "${NACOS_ADDR}"
   namespace_id: "${NACOS_NAMESPACE}"

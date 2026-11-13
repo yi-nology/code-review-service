@@ -316,6 +316,38 @@ func TestValidateProjectPolicy(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			// pathx.MatchesPath 会静默吞掉 ErrBadPattern，坏 glob 在运行期只是
+			// 「这条规则不生效」；保存侧必须拦住，否则用户永远不知道忽略没生效。
+			name: "invalid ignore_paths glob returns error",
+			input: &projectpolicy.ProjectPolicy{
+				Provider:    "github",
+				Repo:        "org/repo",
+				FailOn:      "critical",
+				IgnorePaths: json.RawMessage(`["*.go["]`),
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid ignore_paths globs pass",
+			input: &projectpolicy.ProjectPolicy{
+				Provider:    "github",
+				Repo:        "org/repo",
+				FailOn:      "critical",
+				IgnorePaths: json.RawMessage(`["vendor/**","*.generated.go"]`),
+			},
+			wantErr: false,
+		},
+		{
+			name: "non-array ignore_paths returns error",
+			input: &projectpolicy.ProjectPolicy{
+				Provider:    "github",
+				Repo:        "org/repo",
+				FailOn:      "critical",
+				IgnorePaths: json.RawMessage(`{"vendor/**":true}`),
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -326,6 +358,33 @@ func TestValidateProjectPolicy(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestValidateIgnorePathGlobs 覆盖全局设置与项目策略两条 ignore_paths 写入口：
+// 两条路径都存进 DB 后由 pathx.MatchesPath 求值，而它对非法 glob 静默返回不匹配，
+// 所以语法错误必须在保存时拦下（否则「配了忽略却不生效」无迹可寻）。
+func TestValidateIgnorePathGlobs(t *testing.T) {
+	t.Run("global settings rejects bad glob", func(t *testing.T) {
+		err := validateOCRSettings(&ocrsettings.Settings{PolicyIgnorePaths: []string{"vendor/**", "*.go["}})
+		if err == nil {
+			t.Fatal("非法 glob 应被拒")
+		}
+	})
+	t.Run("global settings accepts good globs", func(t *testing.T) {
+		err := validateOCRSettings(&ocrsettings.Settings{PolicyIgnorePaths: []string{"vendor/**", "*.generated.go", "  "}})
+		if err != nil {
+			t.Fatalf("合法 glob 不应报错: %v", err)
+		}
+	})
+	t.Run("project policy rejects bad glob", func(t *testing.T) {
+		err := validateProjectPolicy(&projectpolicy.ProjectPolicy{
+			Provider: "github", Repo: "org/repo", FailOn: "critical",
+			IgnorePaths: json.RawMessage(`["docs/**","a[b"]`),
+		})
+		if err == nil {
+			t.Fatal("非法 glob 应被拒")
+		}
+	})
 }
 
 func TestParseUintID(t *testing.T) {

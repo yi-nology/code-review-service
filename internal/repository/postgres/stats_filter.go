@@ -3,6 +3,7 @@ package postgres
 import (
 	"time"
 
+	"github.com/oekit/gormx"
 	"github.com/yi-nology/code-review-service/internal/domain/review"
 	domstats "github.com/yi-nology/code-review-service/internal/domain/stats"
 )
@@ -27,7 +28,7 @@ func buildStatsFilter(provider, repo string, from, to time.Time, withProviderRep
 		}
 		if repo != "" {
 			f.clause += " AND repo ILIKE ?"
-			f.args = append(f.args, "%"+repo+"%")
+			f.args = append(f.args, gormx.LikeContains(repo))
 		}
 	}
 	if !from.IsZero() {

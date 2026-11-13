@@ -72,7 +72,7 @@ func generateDiscussionPrompts(findings []Finding, agents []string, requirements
 	var prompts []discussionPrompt
 	for _, finding := range findings {
 		for _, agent := range agents {
-			if containsAgent(finding.Agents, agent) {
+			if slicex.Contains(finding.Agents, agent) {
 				continue
 			}
 			responseTypes := []responseType{responseAgree, responseChallenge, responseConnect}
@@ -89,10 +89,6 @@ func generateDiscussionPrompts(findings []Finding, agents []string, requirements
 		}
 	}
 	return prompts
-}
-
-func containsAgent(agents []string, agent string) bool {
-	return slicex.Contains(agents, agent)
 }
 
 func filterFindings(findings []Finding, excludeID string) []Finding {

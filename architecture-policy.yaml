@@ -1,7 +1,7 @@
 # review-service 架构治理策略
 #
 # 本文件既是**声明面**（模块清单 + 依赖方向，供人阅读与 AI 对齐），也是**可执行面**
-# （rules 段由 agent-harness/archcheck 逐条执行，`make architecture-check` 门禁，
+# （rules 段由 goagent-kernel/archcheck 逐条执行，`make architecture-check` 门禁，
 # 违反即非零退出）。
 #
 # 为什么要有这个文件：AGENTS.md 里的层级规则一直是散文——「service 不该摸 ORM」
@@ -111,7 +111,7 @@ modules:
 
   - id: ocr
     roots: ['internal/ocr']
-    requires: ['domain', 'progress', 'repository', 'reviewdomain', 'ext:github.com/cloudwego', 'ext:github.com/oagentkit', 'ext:github.com/oekit', 'ext:github.com/yi-nology/agent-harness']
+    requires: ['domain', 'progress', 'repository', 'reviewdomain', 'ext:github.com/cloudwego', 'ext:github.com/oagentkit', 'ext:github.com/oekit', 'ext:github.com/yi-nology/goagent-kernel']
     owner: review-service
     managed: true
     notes: OCR 能力的单一入口
@@ -120,7 +120,7 @@ modules:
     roots: ['internal/service/progress']
     # repository（接口包）：PhaseReader 适配器把 session 仓储读数桥接为跨副本
     # 进度降级通道（多副本部署，WS 连到非执行副本时的兜底）。接口依赖，非实现。
-    requires: ['domain', 'repository', 'ext:github.com/oekit', 'ext:github.com/yi-nology/agent-harness']
+    requires: ['domain', 'repository', 'ext:github.com/oekit', 'ext:github.com/yi-nology/goagent-kernel']
     owner: review-service
     managed: true
     notes: 进度事件词汇与总线桥
@@ -162,7 +162,7 @@ modules:
 
   - id: service
     roots: ['internal/service']
-    requires: ['argusclient', 'config', 'domain', 'observability', 'ocr', 'progress', 'repository', 'reviewdomain', 'strutil', 'vcs', 'ext:github.com/oekit', 'ext:github.com/yi-nology/agent-harness', 'ext:github.com/yi-nology/agent-memory']
+    requires: ['argusclient', 'config', 'domain', 'observability', 'ocr', 'progress', 'repository', 'reviewdomain', 'strutil', 'vcs', 'ext:github.com/oekit', 'ext:github.com/yi-nology/goagent-kernel', 'ext:github.com/yi-nology/agent-memory']
     owner: review-service
     managed: true
     notes: 业务服务层
@@ -185,7 +185,7 @@ modules:
 
   - id: vcs
     roots: ['internal/vcs']
-    requires: ['ext:github.com/oagentkit', 'ext:github.com/yi-nology/agent-harness']
+    requires: ['ext:github.com/oagentkit', 'ext:github.com/yi-nology/goagent-kernel']
     owner: review-service
     managed: true
     notes: VCS 克隆与出站防护
@@ -204,7 +204,7 @@ dependency_direction:
   ext_prefixes:
     - github.com/oekit
     - github.com/oagentkit
-    - github.com/yi-nology/agent-harness
+    - github.com/yi-nology/goagent-kernel
     - github.com/yi-nology/agent-memory
     - gorm.io
     - github.com/cloudwego
@@ -239,7 +239,7 @@ rules:
     severity: error
     scope: [internal/domain]
     ignore_test: true
-    forbid_import_regex: '^(gorm\.io|github\.com/cloudwego|github\.com/yi-nology/go-git-platform|github\.com/yi-nology/agent-harness|github\.com/yi-nology/agent-memory)'
+    forbid_import_regex: '^(gorm\.io|github\.com/cloudwego|github\.com/yi-nology/go-git-platform|github\.com/yi-nology/goagent-kernel|github\.com/yi-nology/agent-memory)'
 
   - id: domain-no-internal-dep
     desc: |
@@ -329,3 +329,104 @@ rules:
     negative_follow:
       - anchor: 'internal/service/'
         forbid_follow: review/domain
+
+# ── 子进程出口登记（goagent-kernel archcheck 的 egress_paths 判据面）──
+#
+# 每个 os/exec 启动点都必须在这里登记出口档位（未登记即红；unrestricted 也
+# 必须显式写）。本仓现状：没有进程内的出口代理强制面（无 egress.Spec 后端），
+# 子进程是本服务二进制的 re-exec，按部署环境直连 LLM provider 与 git 主机——
+# 故如实登记为 unrestricted。若将来接入出口代理强制面（spawn 前 Spec.Env +
+# Spec.SatisfiedBy 两半兑现），相应条目应升为 proxy。
+egress_paths:
+  enabled: true
+  severity: error
+  entries:
+    - path: internal/ocr/internal/command.go
+      fn: Run
+      mode: unrestricted
+      notes: |
+        OCR 子进程统一执行入口（三段式 SIGTERM → KillGrace → SIGKILL）。
+        子进程是本服务的 re-exec，直连 LLM provider 与平台端点；本进程无出口
+        代理强制面，如实登记 unrestricted（出口管控若存在归部署层）。
+    - path: internal/ocr/runner.go
+      fn: runOnce
+      mode: unrestricted
+      notes: |
+        单次评审的 OCR 运行（re-exec）：出网到 LLM provider。无代理强制面 ⇒ unrestricted。
+    - path: internal/ocr/scanner.go
+      fn: Preview
+      mode: unrestricted
+      notes: |
+        仓库扫描预览（re-exec）：需要 clone / 拉取与扫描自身出网 ⇒ unrestricted。
+    - path: internal/ocr/scanner.go
+      fn: Scan
+      mode: unrestricted
+      notes: |
+        仓库扫描（re-exec）：同 Preview，git 与扫描依赖出网 ⇒ unrestricted。
+    - path: internal/ocr/delegate.go
+      fn: runDelegateCmd
+      mode: unrestricted
+      notes: |
+        delegate 子进程（任务执行/编辑代理）：按需访问 MCP 与网络资源 ⇒ unrestricted。
+    - path: internal/ocr/managers.go
+      fn: StartViewer
+      mode: unrestricted
+      notes: |
+        本地 viewer 进程：预期只服务本机端口；不设限是事实陈述，显式登记。
+    - path: internal/service/suggestion/git.go
+      fn: runGitApplyCheck
+      mode: unrestricted
+      notes: |
+        git apply --check 以本地操作为主；git CLI 的网络行为不受本进程约束 ⇒ unrestricted。
+    - path: internal/service/suggestion/git.go
+      fn: runGitCommand
+      mode: unrestricted
+      notes: |
+        git 命令执行（可能 fetch 远端）：出网到任意 git 主机 ⇒ unrestricted。
+
+# ── 例外登记（rule + path + line 精确豁免；until 到期即重新欠账）──
+#
+# 全量环境继承（egress_full_env_inherit）4 处：OCR 子进程的环境是**刻意的
+# denylist 设计**（internal/ocr/env.go childEnv：先摘宿主凭据，其余保留），
+# 改白名单会挡掉 OCR 真正依赖的变量（ssh / CA / 代理 / provider 凭证），
+# 后果是「评审跑不起来」。权衡记录在 env.go 包注释里；此为已知债务。
+exceptions:
+  - rule: harness-subprocess-egress
+    path: internal/ocr/delegate.go
+    line: 118
+    violation: egress_full_env_inherit
+    reason: |
+      childEnv 是 denylist 设计：先摘宿主凭据（DATABASE_URL / REVIEW_TOKEN /
+      MCP_TOKEN / ARGUS_BOT_TOKEN，显式凭证下再摘 provider key），其余全量保留。
+      改 procx.ChildEnv 白名单会挡掉 OCR 依赖的 SSH_AUTH_SOCK / GIT_SSH_COMMAND /
+      NODE_EXTRA_CA_CERTS / HTTP(S)_PROXY / 未显式下发的 provider 凭证，后果是评审
+      跑不起来——env.go 有完整权衡记录。
+    until: "2027-05-13"
+    removal: childEnv 基底改为 procx.ChildEnv 白名单并覆盖上述变量，经真实评审流水线（ssh clone、provider 凭证、MCP、仓库 hooks）验证后移除
+  - rule: harness-subprocess-egress
+    path: internal/ocr/runner.go
+    line: 412
+    violation: egress_full_env_inherit
+    reason: |
+      同 delegate.go 条目：childEnv denylist 设计，白名单会挡掉 OCR 依赖的
+      ssh / CA / 代理 / provider 凭证变量（env.go 权衡记录）。
+    until: "2027-05-13"
+    removal: childEnv 基底改为 procx.ChildEnv 白名单并覆盖上述变量，经真实评审流水线（ssh clone、provider 凭证、MCP、仓库 hooks）验证后移除
+  - rule: harness-subprocess-egress
+    path: internal/ocr/scanner.go
+    line: 49
+    violation: egress_full_env_inherit
+    reason: |
+      同 delegate.go 条目：childEnv denylist 设计，白名单会挡掉 OCR 依赖的
+      ssh / CA / 代理 / provider 凭证变量（env.go 权衡记录）。
+    until: "2027-05-13"
+    removal: childEnv 基底改为 procx.ChildEnv 白名单并覆盖上述变量，经真实评审流水线（ssh clone、provider 凭证、MCP、仓库 hooks）验证后移除
+  - rule: harness-subprocess-egress
+    path: internal/ocr/scanner.go
+    line: 169
+    violation: egress_full_env_inherit
+    reason: |
+      同 delegate.go 条目：childEnv denylist 设计，白名单会挡掉 OCR 依赖的
+      ssh / CA / 代理 / provider 凭证变量（env.go 权衡记录）。
+    until: "2027-05-13"
+    removal: childEnv 基底改为 procx.ChildEnv 白名单并覆盖上述变量，经真实评审流水线（ssh clone、provider 凭证、MCP、仓库 hooks）验证后移除

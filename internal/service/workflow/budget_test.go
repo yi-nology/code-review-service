@@ -5,7 +5,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/yi-nology/agent-harness/budget"
+	"github.com/yi-nology/goagent-kernel/budget"
 )
 
 // TestComputeDiffBudgetChineseNotUnderestimated 钉住本次重构修的那个 bug。

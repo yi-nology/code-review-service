@@ -40,7 +40,7 @@ the frontend platform list is `PROVIDER_OPTIONS` in `frontend/src/utils/url-pars
 
 Dependency orgs (all split repos, no monorepo):
 `github.com/oekit/*` (基础库矩阵), `github.com/oagentkit/*` (Agent/LLM 工具链),
-`github.com/yi-nology/agent-harness` (多智能体编排内核),
+`github.com/yi-nology/goagent-kernel` (多智能体编排内核),
 `github.com/yi-nology/agent-memory` (跨会话长期记忆内核).
 
 ## Common commands
@@ -121,13 +121,13 @@ Layered, wired with `uber/fx`:
 - `internal/modules/*` fx wiring (`fx.Provide` / `fx.Invoke`). New services must be
   registered here, mirroring the existing module pattern.
 
-### Agent kernels (agent-harness / agent-memory)
+### Agent kernels (goagent-kernel / agent-memory)
 
 Two upstream kernels carry the orchestration and the long-term memory. They are
 **siblings, not parent/child** — the harness never imports the memory kernel and
 vice versa; the exchange happens in this repo.
 
-- **`agent-harness`** — orchestration mechanism (no domain vocabulary). This repo
+- **`goagent-kernel`** — orchestration mechanism (no domain vocabulary). This repo
   consumes: `statemachine` (the legal transition table for step status), `eventbus`
   (the single publish point for progress events), `budget` (input-side context
   budget), `toolfail` (mechanical failure classification), `netguard` (outbound
@@ -158,7 +158,7 @@ vice versa; the exchange happens in this repo.
   `base_url` host and rejects path traversal, query/fragment truncation, `@`,
   duplicate slashes, and loopback targets. The allow face permits private ranges
   (self-hosted GitLab is usually internal) but still rejects loopback.
-- **Deliberately not consumed from agent-harness** — these have no trigger in this
+- **Deliberately not consumed from goagent-kernel** — these have no trigger in this
   architecture, and wiring them would be fake machinery rather than a guarantee:
   `checkpoint` (a service-level snapshot would duplicate OCR's own `--resume`, which
   is the resume mechanism that actually runs; a snapshot nobody reads is also
@@ -239,7 +239,7 @@ execution & env vars, writeback flows, and anything touching tokens/secrets.
 
 `architecture-policy.yaml` at the repo root is **both a declaration and an
 executable gate**. The judgment comes from the base
-`agent-harness/archcheck` (no second copy of the rules lives here); the policy
+`goagent-kernel/archcheck` (no second copy of the rules lives here); the policy
 file lists the modules, their allowed dependency directions, and the
 rule set. `make architecture-check` (also a CI step) fails on a violation.
 

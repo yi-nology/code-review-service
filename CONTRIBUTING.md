@@ -82,7 +82,7 @@ A few project-specific rules that are not obvious from the code layout:
 - **Do not duplicate the phase table.** The legal phase order lives in
   `internal/domain/session/phase.go` and nowhere else.
 - **Do not add a second status-transition table.** The legal step-status
-  transitions are owned by the `agent-harness` kernel and reached through
+  transitions are owned by the `goagent-kernel` kernel and reached through
   `internal/service/workflow/kernel.go`.
 
 `docs/CODE_REVIEW_POLICY.md` describes the review and severity policy that this

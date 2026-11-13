@@ -27,7 +27,7 @@ type Event struct {
 	//
 	// 与 Error 分开是因为二者的处置完全不同：Error 是「重试或等一会儿就好」，
 	// NeedsOperator 是「等人来换 token」——后者不推出去就没人知道。
-	// 判据来自 agent-harness/toolfail 的策略表（NeedsOperator 标记）。
+	// 判据来自 goagent-kernel/toolfail 的策略表（NeedsOperator 标记）。
 	NeedsOperator bool `json:"needs_operator,omitempty"`
 	// Summary 是评审摘要（完成时），供通知正文引用。
 	Summary string `json:"summary,omitempty"`

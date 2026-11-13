@@ -1,4 +1,4 @@
-// kernel.go：评审编排的**阶段推进器**——阶段状态的合法迁移交给 agent-harness/statemachine 裁决。
+// kernel.go：评审编排的**阶段推进器**——阶段状态的合法迁移交给 goagent-kernel/statemachine 裁决。
 //
 // 重构前：8 个 step 各自散落调用 sessionService.UpdatePhase 与 tracker.UpdatePhase，
 // 阶段推进**没有状态机**——任何顺序的阶段写入都会被会话层接受（只查一张手写顺序表），
@@ -27,7 +27,7 @@ import (
 	dsession "github.com/yi-nology/code-review-service/internal/domain/session"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 
-	"github.com/yi-nology/agent-harness/statemachine"
+	"github.com/yi-nology/goagent-kernel/statemachine"
 )
 
 // 阶段状态机的取值直接用底座词表，不另立别名——

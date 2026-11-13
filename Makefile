@@ -78,10 +78,10 @@ vuln:
 
 # architecture-check 执行 architecture-policy.yaml 的可执行面。
 #
-# 判据来源是底座 agent-harness/archcheck（机械判据，不在本仓另立一套）。
+# 判据来源是底座 goagent-kernel/archcheck（机械判据，不在本仓另立一套）。
 # policy 文件既是声明面也是执行面：违反即非零退出。
 architecture-check:
-	go run github.com/yi-nology/agent-harness/cmd/archcheck --report
+	go run github.com/yi-nology/goagent-kernel/cmd/archcheck --report
 
 frontend-install:
 	npm ci --prefix frontend

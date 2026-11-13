@@ -3,6 +3,8 @@ package discussion
 import (
 	"fmt"
 	"strings"
+
+	"github.com/oekit/pkg/slicex"
 )
 
 // llmDiscussionItem 是 LLM 对单条发现的讨论响应（B1）。
@@ -56,7 +58,7 @@ func buildDiscourseUserPrompt(findings []Finding, agentName string, requirements
 	sb.WriteString("【其他评审者的发现】\n")
 	count := 0
 	for _, f := range findings {
-		if containsAgent(f.Agents, agentName) {
+		if slicex.Contains(f.Agents, agentName) {
 			continue
 		}
 		count++

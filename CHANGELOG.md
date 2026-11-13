@@ -8,6 +8,54 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-13
+
+三组织依赖吃到 2026-11-12 上游发布列车的 issue 修复红利（oekit / oagentkit /
+yi-nology 全量对齐最新版），`agent-harness` 上游更名 `goagent-kernel` 随之全仓
+切换；反代拓扑真实客户端 IP 与忽略路径校验两处加固一并落地。
+
+### Added
+
+- **可信反向代理配置 `proxy.trusted_proxies`**：部署通常在 nginx 之后，middleware
+  v0.14.1 起访问日志来源 IP 为 fail-closed（只认 TCP 对端地址、不采信任何代理头，
+  本仓 0.5.2 已随升级生效）——不配置则来源 IP 全部退化成 nginx 容器地址；填入可信
+  网段后访问日志与限流按**真实客户端 IP** 解析与分桶（XFF 只在可信来源下采信）。
+  非法条目**启动即报错**——静默跳过会让「配了却没生效」与「没配置」同形
+- **ignore_paths glob 保存侧校验**：`pathx.MatchesPath` 对非法 pattern 静默吞错
+  （坏 glob 永不生效且无任何提示），全局设置与项目策略两条写入口现在保存时
+  fail-loud；评审时对存量坏 pattern 每次 Evaluate 打 WARN（不随 findings 数量放大）
+- **SQL 日志列级脱敏**（gormx #106）：Trace 日志绑定值对 token / webhook_secret /
+  auth_token / api_key / token_hash 列替换为 `***`，封堵写路径的日志泄密面
+- 记忆捕获后台协程改用 `async.GoDetached`（保留 parent values 与 trace_id，
+  替代手搓 `WithoutCancel`+`GoSafe` 三件套）
+
+### Changed
+
+- **依赖升级到 2026-11-12 上游最新**：
+  - oekit：pkg v0.42.0 → **v0.47.0**、middleware v0.16.2 → **v0.18.0**、
+    workflow v0.3.12 → **v0.11.1**、logx v0.9.2 → **v0.10.0**、core v0.14.0 → **v0.15.1**、
+    kitx v0.6.2 → **v0.9.1**、network v0.9.2 → **v0.10.3**、concurrency v0.32.0 → **v0.34.1**、
+    hertz v0.11.4 → **v0.11.6**、gormx v0.11.12 → **v0.11.15**、metrics v0.2.3 → **v0.3.1**、
+    bootstrap v0.7.5 → **v0.7.10**、tracing v0.3.10 → **v0.4.3**、
+    registry/nacos v0.1.13 → **v0.1.14**（nns / registry / nacosimpl 同步对齐）
+  - oagentkit：guardx v0.24.1 → **v0.24.6**、llm v0.21.8 → **v0.21.12**、runtime / textx 随升
+  - yi-nology：**agent-harness 更名 goagent-kernel**（上游 v0.31.0 BREAKING）——
+    全仓 import、archcheck 调用与 architecture-policy.yaml 切到
+    `github.com/yi-nology/goagent-kernel` **v0.34.1**；agent-memory v0.11.0 → **v0.12.1**、
+    go-git-platform v0.124.0 → **v0.131.0**、go-gitcode v0.15.0 → **v0.17.0**、
+    go-gongfeng v0.3.1 → **v0.4.0**（钉住：v0.5.0 的 API 变更与 go-git-platform
+    v0.131.0 不兼容，编译不过）
+  - `go` 指令随 goagent-kernel 的安全地板由 1.27.3 抬到 **1.27.4**；pgx 随 MVS → **v5.13.0**
+- 上游修复红利（择要）：middleware 来源 IP fail-closed 与一键栈演进
+  （#177/#179/#180/#182）、pkg 29 单修复批（#383-#413，含 #104 配置解析失败
+  静默跳过的教训）、logx v0.10.0 原子级别闸门与 JSON 热路径去分配（#161-#172）、
+  core 15 单修复批（#138-#150）、concurrency `GoDetached`（#155/#211）、
+  hertz clientip 预构造解析（#174）
+- 架构门禁接入 goagent-kernel 新规则 **harness-subprocess-egress**：8 个子进程
+  启动点全部在 `architecture-policy.yaml` 的 `egress_paths` 段登记（如实
+  `unrestricted`——本仓无出口代理强制面）；4 处全量环境继承按 `childEnv`
+  denylist 设计登记带到期日（2027-05-13）与拆除条件的例外
+
 ## [0.5.2] - 2026-11-11
 
 ### Fixed

@@ -139,7 +139,7 @@ func (r *ReviewRepo) List(ctx context.Context, opts domain.ListOptions) (*page.P
 			db = db.Where("provider = ?", opts.Provider)
 		}
 		if opts.Repo != "" {
-			db = db.Where("repo ILIKE ?", "%"+opts.Repo+"%")
+			db = db.Where("repo ILIKE ?", ekitGorm.LikeContains(opts.Repo))
 		}
 		if opts.Engine != "" {
 			db = db.Where(reviewEngineFilterClause, opts.Engine)
@@ -312,7 +312,7 @@ func (r *ReviewRepo) AggregateStats(ctx context.Context, opts domain.ListOptions
 			db = db.Where("provider = ?", opts.Provider)
 		}
 		if opts.Repo != "" {
-			db = db.Where("repo ILIKE ?", "%"+opts.Repo+"%")
+			db = db.Where("repo ILIKE ?", ekitGorm.LikeContains(opts.Repo))
 		}
 		if opts.Engine != "" {
 			db = db.Where(reviewEngineFilterClause, opts.Engine)
@@ -383,7 +383,7 @@ func (r *ReviewRepo) ProjectOCRMetrics(ctx context.Context, opts domain.ProjectS
 			db = db.Where("provider = ?", opts.Provider)
 		}
 		if opts.Repo != "" {
-			db = db.Where("repo ILIKE ?", "%"+opts.Repo+"%")
+			db = db.Where("repo ILIKE ?", ekitGorm.LikeContains(opts.Repo))
 		}
 		if !opts.From.IsZero() {
 			db = db.Where("created_at >= ?", opts.From)

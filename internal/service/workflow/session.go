@@ -32,7 +32,7 @@ type ReviewSession struct {
 	Tracker *progress.ProgressTracker
 
 	// Kernel 是底座适配层：阶段推进、进度快照与终态独占提交都走它。
-	// 阶段状态迁移的合法性由 agent-harness/statemachine 裁决，
+	// 阶段状态迁移的合法性由 goagent-kernel/statemachine 裁决，
 	// 宿主不另立状态表。
 	Kernel *phaseController
 }

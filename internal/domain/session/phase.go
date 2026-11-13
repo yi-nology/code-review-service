@@ -9,7 +9,7 @@ package session
 //
 // 阶段的**状态机**（created→running→succeeded/failed）不归本包：
 // 那是运行时状态而非领域常量，落在 internal/service/workflow/kernel.go，
-// 底座是 agent-harness/statemachine（合法转移表由底座裁决，本仓不另立一份）。
+// 底座是 goagent-kernel/statemachine（合法转移表由底座裁决，本仓不另立一份）。
 
 // 阶段顺序表：每个阶段之后允许进入的阶段。
 //

@@ -10,6 +10,7 @@ import (
 
 	"github.com/oekit/core/config"
 	"github.com/oekit/logx"
+	"github.com/oekit/pkg/convert"
 	"github.com/oekit/tracing"
 )
 
@@ -200,6 +201,19 @@ func (c *Config) GetRateLimit() (rps, burst int) {
 		burst = defaultBurst
 	}
 	return rps, burst
+}
+
+// GetTrustedProxySet 解析可信代理清单为预解析集合（热路径形态）。
+//
+// 清单为空时返回 nil set —— 上游的 ResolveClientIPWithSet 对 nil/空集合
+// 等价于「不信任任何代理头」，即 fail-closed 的对端地址口径。
+// 非法条目返回 error（不静默跳过）：pkg#104 的教训是「解析失败就跳过」
+// 会让配置悄悄退化成未生效，且查配置看不出任何异常。
+func (c *Config) GetTrustedProxySet() (*convert.TrustedProxySet, error) {
+	if len(c.Proxy.TrustedProxies) == 0 {
+		return nil, nil
+	}
+	return convert.NewTrustedProxySet(c.Proxy.TrustedProxies)
 }
 
 // parsePort 支持 ":8080" / "0.0.0.0:8080" / "8080" 三种形式。

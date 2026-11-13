@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/oekit/logx"
-	"github.com/yi-nology/agent-harness/eventbus"
+	"github.com/yi-nology/goagent-kernel/eventbus"
 )
 
 type ProgressManager struct {
@@ -31,7 +31,7 @@ func NewProgressManager() *ProgressManager {
 	return pm
 }
 
-// Bus 返回进程内的事件总线（底座 agent-harness/eventbus）。
+// Bus 返回进程内的事件总线（底座 goagent-kernel/eventbus）。
 //
 // 编排层（workflow）用它发布阶段生命周期事件；前端 websocket 订阅的是
 // 桥接出去的进度事件。两者共用一条总线，事件面因此只有一个发布点。

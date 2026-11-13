@@ -147,7 +147,7 @@ upgrader := websocket.HertzUpgrader{
 ### Broadcasting Optimization
 
 进度事件的出口是**单源总线**：`internal/service/progress/broadcaster.go` 桥接
-底座 `agent-harness/eventbus` 与 WebSocket，事件经总线流向 broadcaster，
+底座 `goagent-kernel/eventbus` 与 WebSocket，事件经总线流向 broadcaster，
 不存在多路直推。
 
 1. **Room-Based Broadcasting:**

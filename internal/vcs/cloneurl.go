@@ -1,4 +1,4 @@
-// cloneurl.go：clone URL 的**出站防护**——判据来自底座 agent-harness/netguard。
+// cloneurl.go：clone URL 的**出站防护**——判据来自底座 goagent-kernel/netguard。
 //
 // # 缺口从哪来
 //
@@ -43,7 +43,7 @@ import (
 	"strings"
 
 	"github.com/oagentkit/guardx/egress"
-	"github.com/yi-nology/agent-harness/netguard"
+	"github.com/yi-nology/goagent-kernel/netguard"
 )
 
 // CloneURLGuard 校验 clone URL 的出站目标。

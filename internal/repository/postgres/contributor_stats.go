@@ -3,6 +3,7 @@ package postgres
 import (
 	"time"
 
+	"github.com/oekit/gormx"
 	"github.com/oekit/pkg/mathx"
 	"github.com/oekit/pkg/slicex"
 	"github.com/yi-nology/code-review-service/internal/domain/stats"
@@ -53,7 +54,7 @@ func (r *ContributorStatsRepo) applyFilters(db *gormLib.DB, opts stats.Contribut
 		db = db.Where("provider = ?", opts.Provider)
 	}
 	if opts.Repo != "" {
-		db = db.Where("repo ILIKE ?", "%"+opts.Repo+"%")
+		db = db.Where("repo ILIKE ?", gormx.LikeContains(opts.Repo))
 	}
 	if !opts.From.IsZero() {
 		db = db.Where("created_at >= ?", opts.From)

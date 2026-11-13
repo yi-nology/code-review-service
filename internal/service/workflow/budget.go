@@ -5,8 +5,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/yi-nology/agent-harness/budget"
 	"github.com/yi-nology/agent-memory/ports"
+	"github.com/yi-nology/goagent-kernel/budget"
 )
 
 // budget.go：评审输入侧的**上下文预算**。
@@ -21,7 +21,7 @@ import (
 // 现在这段估算与判定都交给底座：
 //   - token 估算：agent-memory/ports.StaticEstimator
 //     （CJK 每 2 字符 1 token、其余每 4 字符 1 token，逐段向上取整）
-//   - 窗口扣减与压力分档：agent-harness/budget
+//   - 窗口扣减与压力分档：goagent-kernel/budget
 //     （MaxInput 扣输出预留、Classify 判 normal/tight/critical）
 //
 // 口径单源：估算器与分档表各只有一处，宿主不再另立一套。

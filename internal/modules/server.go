@@ -50,20 +50,37 @@ var ServerModule = fx.Options(
 func RegisterGlobalMiddleware(h *server.Hertz, cfg *config.Config, repos *repository.RepoContainer) {
 	h.Use(cors.Default())
 
+	// 可信代理集合：非 nil 时按真实客户端 IP 解析（反代拓扑必需，见
+	// middleware.AccessLogClientIPFunc 的注释）。解析失败已在 cfg.Validate 拦下，
+	// 这里再兜一层：解析不出来就退化为上游默认口径（对端地址），不 panic。
+	trusted, err := cfg.GetTrustedProxySet()
+	if err != nil {
+		logx.Errorf("proxy.trusted_proxies is invalid, falling back to peer-address client IP: %v", err)
+		trusted = nil
+	} else if trusted != nil {
+		logx.Infof("trusted proxy list active (%d entries): client IP resolved from X-Forwarded-For",
+			len(cfg.Proxy.TrustedProxies))
+	}
+
 	skipPaths := middleware.DefaultSkipPaths
 	// oekit/middleware#16 一键栈（栈内自带 Recovery，原补挂为存量双挂已移除）。
-	for _, m := range mw.DefaultMiddleware(mw.StackConfig{
+	stackCfg := mw.StackConfig{
 		SkipPaths: skipPaths,
 		Prometheus: &mw.PrometheusConfig{
 			ServiceName: "review-service",
 			Registry:    emetrics.Registry,
 		},
-	}) {
+	}
+	// 访问日志的来源 IP：反代拓扑下注入可信代理解析，否则 nginx 地址会顶掉真实客户端 IP。
+	if ipFn := middleware.AccessLogClientIPFunc(trusted); ipFn != nil {
+		stackCfg.AccessLogOptions = append(stackCfg.AccessLogOptions, mw.WithAccessLogClientIP(ipFn))
+	}
+	for _, m := range mw.DefaultMiddleware(stackCfg) {
 		h.Use(m)
 	}
 
 	rps, burst := cfg.GetRateLimit()
-	h.Use(middleware.RateLimitMiddleware(rps, burst))
+	h.Use(middleware.RateLimitMiddleware(rps, burst, trusted))
 	logx.Infof("rate limiting middleware enabled (%d req/s, burst %d)", rps, burst)
 
 	// 多 Token 鉴权：优先查 DB api_tokens 表（具名 token + scope + 审计），

@@ -10,10 +10,10 @@ import (
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
 	"github.com/oekit/network/wsutil"
-	"github.com/yi-nology/agent-harness/eventbus"
+	"github.com/yi-nology/goagent-kernel/eventbus"
 )
 
-// bus.go：评审事件的**单源总线**——底座 agent-harness/eventbus。
+// bus.go：评审事件的**单源总线**——底座 goagent-kernel/eventbus。
 //
 // 此前进度事件只有一条出口：tracker 直接调 broadcaster.BroadcastEvent 推给 websocket。
 // 把底座总线放在 tracker 与 websocket 之间，事件就有了单源发布点与多消费面

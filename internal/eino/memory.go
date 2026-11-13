@@ -60,8 +60,11 @@ func (e *Executor) captureReviewMemoryAsync(
 		})
 	}
 
-	async.GoSafe(func() {
-		bgCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), memoryCaptureTimeout)
+	// GoDetached：与请求生命周期解耦（保留 parent 的 values 与 trace_id），
+	// panic 收编并带 task 标签——等价于手搓的 WithoutCancel + GoSafe 三件套，
+	// 但 trace_id 不会在后台丢失（上游 concurrency#155/#211）。
+	async.GoDetached(ctx, "memory-capture", func(detachedCtx context.Context) {
+		bgCtx, cancel := context.WithTimeout(detachedCtx, memoryCaptureTimeout)
 		defer cancel()
 		outcome, err := e.memory.CaptureReview(bgCtx, capture)
 		if err != nil {
