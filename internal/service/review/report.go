@@ -6,17 +6,6 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/policy"
 )
 
-// 评分逻辑已提取到 scoring 包（高内聚），此处保留常量/函数为向后兼容别名。
-
-const (
-	OCRStatusSuccess             = scoring.OCRStatusSuccess
-	OCRStatusTimeout             = scoring.OCRStatusTimeout
-	OCRStatusSkipped             = scoring.OCRStatusSkipped
-	OCRStatusCompletedWithErrors = scoring.OCRStatusCompletedWithErrors
-)
-
-func isOCRComplete(status string) bool { return scoring.IsOCRComplete(status) }
-
 // BuildReport 基于审查结果组装最终报告，评分委托给 scoring.Compute。
 func BuildReport(result *domain.Result) domain.Report {
 	if result == nil {
@@ -44,7 +33,7 @@ func BuildReport(result *domain.Result) domain.Report {
 		}
 	}
 
-	complete := isOCRComplete(result.OCR.Status)
+	complete := scoring.IsOCRComplete(result.OCR.Status)
 
 	return domain.Report{
 		OCR:      result.OCR,
@@ -58,10 +47,6 @@ func BuildReport(result *domain.Result) domain.Report {
 		Score: scoring.Compute(counts, result.Scope.ChangedLines, warningCount, complete),
 	}
 }
-
-// CountDiffLines / CountDiffFiles 向后兼容别名，供 executor 等已 import review 的包使用。
-func CountDiffLines(diff string) int { return scoring.CountDiffLines(diff) }
-func CountDiffFiles(diff string) int { return scoring.CountDiffFiles(diff) }
 
 // PolicyFindings 把 domain findings 转为门禁引擎输入。
 // scan 路径与 eino 执行器共用（此前两处各持一份相同的转换）。
