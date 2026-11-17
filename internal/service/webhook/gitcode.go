@@ -19,7 +19,9 @@ import (
 	"sync"
 	"time"
 
+	sdkmodel "github.com/yi-nology/go-git-platform/model"
 	sdkprovider "github.com/yi-nology/go-git-platform/provider"
+	sdkruntime "github.com/yi-nology/go-git-platform/runtime"
 )
 
 type GitCodeNormalizer struct {
@@ -42,7 +44,7 @@ var (
 func gitlabFamilyParser() (sdkprovider.Provider, error) {
 	gitlabParseOnce.Do(func() {
 		gitlabParseProvider, gitlabParseErr = sdkprovider.NewProvider(sdkprovider.Config{
-			Platform: sdkprovider.PlatformGitLab,
+			Platform: sdkmodel.PlatformGitLab,
 		})
 	})
 	return gitlabParseProvider, gitlabParseErr
@@ -75,7 +77,7 @@ func (n *GitCodeNormalizer) Normalize(rawBody []byte, eventType string) (*Change
 	// 只做 payload 解析：签名已由本 normalizer 的 VerifySignature 校验
 	// （GitCode 的 header 约定与 SDK gitlab 家族不同），SDK 内部再校验一次
 	// 既冗余又必然失败——用哨兵显式声明 parse-only。
-	ne, err := p.ParseWebhookEvent(req, sdkprovider.SkipValidationSecret)
+	ne, err := p.ParseWebhookEvent(req, sdkruntime.SkipValidationSecret)
 	if err != nil {
 		return nil, fmt.Errorf("gitcode parse webhook: %w", err)
 	}

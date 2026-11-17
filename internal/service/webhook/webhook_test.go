@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	sdkprovider "github.com/yi-nology/go-git-platform/provider"
+	sdkmodel "github.com/yi-nology/go-git-platform/model"
 )
 
 func TestIsSupportedAction(t *testing.T) {
@@ -223,10 +223,10 @@ func TestMapNormalizedEvent_RecoversActionFromCRType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ne := &sdkprovider.NormalizedEvent{
+			ne := &sdkmodel.NormalizedEvent{
 				Type: tt.crType,
-				Repo: &sdkprovider.EventRepo{ID: 70, FullName: "zhangyi/rs-argus-e2e"},
-				CR:   &sdkprovider.ChangeRequest{Number: "1", HeadSHA: "abc", BaseSHA: "def"},
+				Repo: &sdkmodel.EventRepo{ID: 70, FullName: "zhangyi/rs-argus-e2e"},
+				CR:   &sdkmodel.ChangeRequest{Number: "1", HeadSHA: "abc", BaseSHA: "def"},
 			}
 			raw := []byte(`{"repository":{"id":70}}`)
 			ce := mapNormalizedEvent(tt.platform, ne, raw)

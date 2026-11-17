@@ -12,7 +12,7 @@ import (
 	"github.com/oekit/logx"
 	"github.com/yi-nology/code-review-service/internal/config"
 
-	_ "github.com/yi-nology/go-git-platform/backends/all" // 注册所有平台后端（v0.32.0 起 provider 不再自动注册）
+	_ "github.com/yi-nology/go-git-platform/adapter/all" // 注册所有平台后端（v0.32.0 起 provider 不再自动注册）
 )
 
 func init() {

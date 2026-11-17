@@ -8,6 +8,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/vcs"
 
 	"github.com/oekit/logx"
+	sdkmodel "github.com/yi-nology/go-git-platform/model"
 	sdk "github.com/yi-nology/go-git-platform/provider"
 )
 
@@ -132,7 +133,7 @@ func (a *platformAdapter) Publish(ctx context.Context, rev Review) (Result, erro
 // inlineResultsWithFallback 按 gitlab 语义映射评论结果：从 reviewResult.Comments
 // 按下标取 ExternalID；发布失败的评论降级为 MR note（降级后 Inline=false，
 // 锚点信息存 URL 语义的 ExternalID）。
-func (a *platformAdapter) inlineResultsWithFallback(ctx context.Context, p sdk.Provider, owner, repo string, rev Review, reviewResult *sdk.ReviewResult) []CommentResult {
+func (a *platformAdapter) inlineResultsWithFallback(ctx context.Context, p sdk.Provider, owner, repo string, rev Review, reviewResult *sdkmodel.ReviewResult) []CommentResult {
 	results := make([]CommentResult, 0, len(rev.Comments))
 	for i, c := range rev.Comments {
 		cr := CommentResult{
@@ -173,10 +174,10 @@ func (a *platformAdapter) inlineResultsWithFallback(ctx context.Context, p sdk.P
 //   - github：多行用 StartLine/EndLine，单行用 Line；Start==0 不锚定行号。
 //   - gitlab：Line/StartLine/EndLine 全量下发。
 //   - 其余（gitea 家族/gitcode）：仅 Line。
-func buildComments(platform string, comments []Comment) []sdk.ReviewComment {
-	out := make([]sdk.ReviewComment, 0, len(comments))
+func buildComments(platform string, comments []Comment) []sdkmodel.ReviewComment {
+	out := make([]sdkmodel.ReviewComment, 0, len(comments))
 	for _, c := range comments {
-		rc := sdk.ReviewComment{
+		rc := sdkmodel.ReviewComment{
 			Path: c.Path,
 			Body: c.Body,
 		}

@@ -8,10 +8,11 @@ import (
 
 	// 平台注册是各后端包的 init 副作用（主程序用 backends/all 统一引入），
 	// 测试里按需引入用到的后端即可。
-	_ "github.com/yi-nology/go-git-platform/backends/gitcode"
-	_ "github.com/yi-nology/go-git-platform/backends/gitea"
-	_ "github.com/yi-nology/go-git-platform/backends/github"
-	_ "github.com/yi-nology/go-git-platform/backends/gitlab"
+	_ "github.com/yi-nology/go-git-platform/adapter/gitcode"
+	_ "github.com/yi-nology/go-git-platform/adapter/gitea"
+	_ "github.com/yi-nology/go-git-platform/adapter/github"
+	sdkmodel "github.com/yi-nology/go-git-platform/model"
+	_ "github.com/yi-nology/go-git-platform/adapter/gitlab"
 )
 
 // cloneURLFixtureCase 一条「平台基址 → 期望 clone 基址」的用例。
@@ -106,7 +107,7 @@ func TestBuildAndValidateCloneURLConsistency(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			svc, _ := newGerritService(t)
 			if err := svc.AddOrUpdate(tc.platform, sdk.Config{
-				Platform: sdk.Platform(tc.platform),
+				Platform: sdkmodel.Platform(tc.platform),
 				BaseURL:  tc.baseURL,
 				Token:    "dummy",
 			}); err != nil {

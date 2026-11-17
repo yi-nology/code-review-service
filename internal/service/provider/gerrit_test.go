@@ -9,6 +9,7 @@ import (
 	domainplatform "github.com/yi-nology/code-review-service/internal/domain/platform"
 	"github.com/yi-nology/code-review-service/internal/service/gerrit"
 
+	sdkmodel "github.com/yi-nology/go-git-platform/model"
 	sdk "github.com/yi-nology/go-git-platform/provider"
 )
 
@@ -32,7 +33,7 @@ func TestAddOrUpdateGerrit(t *testing.T) {
 	svc, _ := newGerritService(t)
 
 	err := svc.AddOrUpdate(domainplatform.ProviderGerrit, sdk.Config{
-		Platform: sdk.Platform(domainplatform.ProviderGerrit),
+		Platform: sdkmodel.Platform(domainplatform.ProviderGerrit),
 		BaseURL:  "https://gerrit.example.com",
 		Token:    "bot:http-pass",
 		SkipTLS:  true,
@@ -68,7 +69,7 @@ func TestAddOrUpdateGerrit(t *testing.T) {
 func TestGerritBuildCloneURL(t *testing.T) {
 	svc, _ := newGerritService(t)
 	if err := svc.AddOrUpdate(domainplatform.ProviderGerrit, sdk.Config{
-		Platform: sdk.Platform(domainplatform.ProviderGerrit),
+		Platform: sdkmodel.Platform(domainplatform.ProviderGerrit),
 		BaseURL:  "https://gerrit.example.com",
 		Token:    "bot:http-pass",
 	}); err != nil {
@@ -137,7 +138,7 @@ func TestGerritTestWithToken(t *testing.T) {
 func TestRemoveGerrit(t *testing.T) {
 	svc, holder := newGerritService(t)
 	if err := svc.AddOrUpdate(domainplatform.ProviderGerrit, sdk.Config{
-		Platform: sdk.Platform(domainplatform.ProviderGerrit),
+		Platform: sdkmodel.Platform(domainplatform.ProviderGerrit),
 		BaseURL:  "https://gerrit.example.com",
 		Token:    "bot:http-pass",
 	}); err != nil {
@@ -163,7 +164,7 @@ func TestRemoveGerrit(t *testing.T) {
 func TestGerritHotReload(t *testing.T) {
 	svc, holder := newGerritService(t)
 	cfg := sdk.Config{
-		Platform: sdk.Platform(domainplatform.ProviderGerrit),
+		Platform: sdkmodel.Platform(domainplatform.ProviderGerrit),
 		BaseURL:  "https://gerrit.example.com",
 		Token:    "bot:old-pass",
 	}

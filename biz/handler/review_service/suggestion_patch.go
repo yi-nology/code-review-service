@@ -15,6 +15,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/suggestion"
 
 	"github.com/cloudwego/hertz/pkg/app"
+	sdkmodel "github.com/yi-nology/go-git-platform/model"
 	provider_sdk "github.com/yi-nology/go-git-platform/provider"
 )
 
@@ -158,7 +159,7 @@ func ApplySuggestionPatch(ctx context.Context, c *app.RequestContext) {
 	handlerInst.applySuggestionPatch(ctx, c)
 }
 
-func createSuggestionPatchCR(ctx context.Context, svcReq domain.Request, req *applySuggestionPatchReq, sourceBranch string) (*provider_sdk.ChangeRequest, error) {
+func createSuggestionPatchCR(ctx context.Context, svcReq domain.Request, req *applySuggestionPatchReq, sourceBranch string) (*sdkmodel.ChangeRequest, error) {
 	owner, repoName, err := gitprovider.ParseRepoPath(svcReq.Repo)
 	if err != nil {
 		return nil, err

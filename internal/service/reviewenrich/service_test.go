@@ -6,25 +6,25 @@ import (
 	"testing"
 
 	"github.com/yi-nology/code-review-service/internal/domain/review"
-	"github.com/yi-nology/go-git-platform/provider"
+	"github.com/yi-nology/go-git-platform/model"
 )
 
 type fakeCRSource struct {
 	platforms map[string]bool
-	cr        *provider.ChangeRequest
+	cr        *model.ChangeRequest
 	getErr    error
 	getCalled int
 }
 
 func (f *fakeCRSource) HasProvider(platform string) bool { return f.platforms[platform] }
 
-func (f *fakeCRSource) GetCR(context.Context, string, string, string, string) (*provider.ChangeRequest, error) {
+func (f *fakeCRSource) GetCR(context.Context, string, string, string, string) (*model.ChangeRequest, error) {
 	f.getCalled++
 	return f.cr, f.getErr
 }
 
 func TestFillAuthor(t *testing.T) {
-	author := &provider.CRUser{Username: "octocat", Name: "Octo Cat", AvatarURL: "https://avatar/octocat"}
+	author := &model.CRUser{Username: "octocat", Name: "Octo Cat", AvatarURL: "https://avatar/octocat"}
 
 	tests := []struct {
 		name    string
@@ -33,7 +33,7 @@ func TestFillAuthor(t *testing.T) {
 		wantSet bool
 		want    domain.Request
 	}{
-		{"已有作者短路", newService(&fakeCRSource{platforms: map[string]bool{"github": true}, cr: &provider.ChangeRequest{Author: author}}),
+		{"已有作者短路", newService(&fakeCRSource{platforms: map[string]bool{"github": true}, cr: &model.ChangeRequest{Author: author}}),
 			domain.Request{Provider: "github", Repo: "o/r", Author: "webhook-author"}, false, domain.Request{}},
 		{"nil service 不 panic", nil,
 			domain.Request{Provider: "github", Repo: "o/r", PullRequestID: "7"}, false, domain.Request{}},
@@ -45,13 +45,13 @@ func TestFillAuthor(t *testing.T) {
 			domain.Request{Provider: "github", Repo: "", PullRequestID: "7"}, false, domain.Request{}},
 		{"GetCR 失败跳过", newService(&fakeCRSource{platforms: map[string]bool{"github": true}, getErr: errors.New("boom")}),
 			domain.Request{Provider: "github", Repo: "o/r", PullRequestID: "7"}, false, domain.Request{}},
-		{"CR 无作者跳过", newService(&fakeCRSource{platforms: map[string]bool{"github": true}, cr: &provider.ChangeRequest{}}),
+		{"CR 无作者跳过", newService(&fakeCRSource{platforms: map[string]bool{"github": true}, cr: &model.ChangeRequest{}}),
 			domain.Request{Provider: "github", Repo: "o/r", PullRequestID: "7"}, false, domain.Request{}},
-		{"命中补全", newService(&fakeCRSource{platforms: map[string]bool{"github": true}, cr: &provider.ChangeRequest{Author: author}}),
+		{"命中补全", newService(&fakeCRSource{platforms: map[string]bool{"github": true}, cr: &model.ChangeRequest{Author: author}}),
 			domain.Request{Provider: "github", Repo: "o/r", PullRequestID: "7"}, true, domain.Request{
 				Author: "octocat", AuthorName: "Octo Cat", AuthorAvatar: "https://avatar/octocat"}},
 		{"Name 缺失回退 Username", newService(&fakeCRSource{platforms: map[string]bool{"github": true},
-			cr: &provider.ChangeRequest{Author: &provider.CRUser{Username: "octocat"}}}),
+			cr: &model.ChangeRequest{Author: &model.CRUser{Username: "octocat"}}}),
 			domain.Request{Provider: "github", Repo: "o/r", MergeRequestIID: "!9"}, true, domain.Request{
 				Author: "octocat", AuthorName: "octocat"}},
 	}

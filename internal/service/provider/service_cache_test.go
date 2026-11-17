@@ -5,11 +5,12 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/yi-nology/go-git-platform/model"
 	"github.com/yi-nology/go-git-platform/provider"
 )
 
 // fakePlatform 是测试用的假平台标识。
-const fakePlatform provider.Platform = "faketest"
+const fakePlatform model.Platform = "faketest"
 
 // fakePlatformProvider 是 provider.Provider 的替身。
 //
@@ -20,10 +21,10 @@ type fakePlatformProvider struct {
 
 	mu    sync.Mutex
 	calls int
-	repos []*provider.PlatformRepo
+	repos []*model.PlatformRepo
 }
 
-func (f *fakePlatformProvider) ListRepos(_ context.Context, _ provider.ListRepoOptions) ([]*provider.PlatformRepo, error) {
+func (f *fakePlatformProvider) ListRepos(_ context.Context, _ provider.ListRepoOptions) ([]*model.PlatformRepo, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++
@@ -62,7 +63,7 @@ func newCacheTestService(fake *fakePlatformProvider) *GitProviderService {
 // TestListRepos_CachesFirstPage 验证首页（全量视图）被缓存：第二次调用
 // 不再打平台 API。
 func TestListRepos_CachesFirstPage(t *testing.T) {
-	fake := &fakePlatformProvider{repos: []*provider.PlatformRepo{{FullName: "o/r"}}}
+	fake := &fakePlatformProvider{repos: []*model.PlatformRepo{{FullName: "o/r"}}}
 	s := newCacheTestService(fake)
 	defer func() { _ = s.Close(context.Background()) }()
 
@@ -83,7 +84,7 @@ func TestListRepos_CachesFirstPage(t *testing.T) {
 
 // TestListRepos_InvalidateOnAddOrUpdate 验证平台配置变更会清掉该平台的缓存。
 func TestListRepos_InvalidateOnAddOrUpdate(t *testing.T) {
-	fake := &fakePlatformProvider{repos: []*provider.PlatformRepo{{FullName: "o/r"}}}
+	fake := &fakePlatformProvider{repos: []*model.PlatformRepo{{FullName: "o/r"}}}
 	s := newCacheTestService(fake)
 	defer func() { _ = s.Close(context.Background()) }()
 
@@ -105,7 +106,7 @@ func TestListRepos_InvalidateOnAddOrUpdate(t *testing.T) {
 
 // TestListRepos_NonHomePageNotCached 验证非首页视图不进缓存（分页视图每次都打 API）。
 func TestListRepos_NonHomePageNotCached(t *testing.T) {
-	fake := &fakePlatformProvider{repos: []*provider.PlatformRepo{{FullName: "o/r"}}}
+	fake := &fakePlatformProvider{repos: []*model.PlatformRepo{{FullName: "o/r"}}}
 	s := newCacheTestService(fake)
 	defer func() { _ = s.Close(context.Background()) }()
 

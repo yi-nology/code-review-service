@@ -4,13 +4,14 @@ import (
 	"context"
 	"testing"
 
+	"github.com/yi-nology/go-git-platform/model"
 	"github.com/yi-nology/go-git-platform/provider"
 )
 
 // fakeCommitStatusManager 记录写调用，并按预设返回当前状态列表。
 type fakeCommitStatusManager struct {
 	written []provider.CommitStatusOptions
-	current []provider.CommitStatus
+	current []model.CommitStatus
 	listErr error
 }
 
@@ -19,7 +20,7 @@ func (f *fakeCommitStatusManager) CreateCommitStatus(_ context.Context, _, _, _ 
 	return nil
 }
 
-func (f *fakeCommitStatusManager) ListCommitStatuses(_ context.Context, _, _, _ string) ([]provider.CommitStatus, error) {
+func (f *fakeCommitStatusManager) ListCommitStatuses(_ context.Context, _, _, _ string) ([]model.CommitStatus, error) {
 	if f.listErr != nil {
 		return nil, f.listErr
 	}
@@ -36,7 +37,7 @@ func (f *fakeProvider) CreateCommitStatus(ctx context.Context, owner, repo, sha 
 	return f.csm.CreateCommitStatus(ctx, owner, repo, sha, opts)
 }
 
-func (f *fakeProvider) ListCommitStatuses(ctx context.Context, owner, repo, sha string) ([]provider.CommitStatus, error) {
+func (f *fakeProvider) ListCommitStatuses(ctx context.Context, owner, repo, sha string) ([]model.CommitStatus, error) {
 	return f.csm.ListCommitStatuses(ctx, owner, repo, sha)
 }
 
@@ -109,8 +110,8 @@ func TestCreateCommitStatusTranslatesState(t *testing.T) {
 // :enqueue from :pending"）。这里必须先读后写。
 func TestCreateCommitStatusSkipsDuplicateNonTerminal(t *testing.T) {
 	csm := &fakeCommitStatusManager{
-		current: []provider.CommitStatus{
-			{State: provider.CommitStatusPending, Context: "review-service/gate"},
+		current: []model.CommitStatus{
+			{State: model.CommitStatusPending, Context: "review-service/gate"},
 		},
 	}
 	s := newServiceWithFake(t, "gitlab", csm)
@@ -129,21 +130,21 @@ func TestCreateCommitStatusSkipsDuplicateNonTerminal(t *testing.T) {
 func TestCreateCommitStatusWritesWhenStateDiffers(t *testing.T) {
 	cases := []struct {
 		name    string
-		current provider.CommitStatusState
+		current model.CommitStatusState
 		write   string
 		want    int
 	}{
-		{name: "pending → pending（重复，非法）", current: provider.CommitStatusPending, write: "pending", want: 0},
-		{name: "pending → success", current: provider.CommitStatusPending, write: "success", want: 1},
-		{name: "success → pending（终态回非终态，合法）", current: provider.CommitStatusSuccess, write: "pending", want: 1},
-		{name: "failed → pending", current: provider.CommitStatusFailure, write: "pending", want: 1},
+		{name: "pending → pending（重复，非法）", current: model.CommitStatusPending, write: "pending", want: 0},
+		{name: "pending → success", current: model.CommitStatusPending, write: "success", want: 1},
+		{name: "success → pending（终态回非终态，合法）", current: model.CommitStatusSuccess, write: "pending", want: 1},
+		{name: "failed → pending", current: model.CommitStatusFailure, write: "pending", want: 1},
 		{name: "无既有状态 → pending", current: "", write: "pending", want: 1},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			csm := &fakeCommitStatusManager{}
 			if tc.current != "" {
-				csm.current = []provider.CommitStatus{
+				csm.current = []model.CommitStatus{
 					{State: tc.current, Context: "review-service/gate"},
 				}
 			}
@@ -165,8 +166,8 @@ func TestCreateCommitStatusWritesWhenStateDiffers(t *testing.T) {
 // 不同 context 是独立的 check，别的 check 是 pending 不代表我们这个也是。
 func TestCreateCommitStatusIgnoresOtherContexts(t *testing.T) {
 	csm := &fakeCommitStatusManager{
-		current: []provider.CommitStatus{
-			{State: provider.CommitStatusPending, Context: "check_site"},
+		current: []model.CommitStatus{
+			{State: model.CommitStatusPending, Context: "check_site"},
 		},
 	}
 	s := newServiceWithFake(t, "gitlab", csm)

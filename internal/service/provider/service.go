@@ -9,10 +9,13 @@ import (
 
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/cache"
+
 	domainplatform "github.com/yi-nology/code-review-service/internal/domain/platform"
 	"github.com/yi-nology/code-review-service/internal/service/gerrit"
 	"github.com/yi-nology/code-review-service/internal/vcs"
 
+	runtime "github.com/yi-nology/go-git-platform/runtime"
+	"github.com/yi-nology/go-git-platform/model"
 	"github.com/yi-nology/go-git-platform/provider"
 )
 
@@ -43,8 +46,8 @@ type GitProviderService struct {
 	// 外层 SingleFlightCache 装饰器提供并发回源合并（同一 key 只回源一次）。
 	//
 	// repoCacheInner 单独持有是为了拿到 Clear/Close（Cache 接口面上没有这两个）。
-	repoCache      *cache.SingleFlightCache[[]*provider.PlatformRepo]
-	repoCacheInner *cache.LocalCache[[]*provider.PlatformRepo]
+	repoCache      *cache.SingleFlightCache[[]*model.PlatformRepo]
+	repoCacheInner *cache.LocalCache[[]*model.PlatformRepo]
 }
 
 func NewGitProviderService(configs map[string]provider.Config, gerritHolder *gerrit.ClientHolder) (*GitProviderService, error) {
@@ -76,8 +79,8 @@ func NewGitProviderService(configs map[string]provider.Config, gerritHolder *ger
 }
 
 // newRepoCache 构造首页仓库列表的本地缓存。
-func newRepoCache(s *GitProviderService) *cache.LocalCache[[]*provider.PlatformRepo] {
-	return cache.NewLocalCache(cache.LocalConfig[[]*provider.PlatformRepo]{
+func newRepoCache(s *GitProviderService) *cache.LocalCache[[]*model.PlatformRepo] {
+	return cache.NewLocalCache(cache.LocalConfig[[]*model.PlatformRepo]{
 		TTL:     repoCacheTTL,
 		MaxSize: repoCacheMaxSize,
 		// 回源失败时回退已过期的历史值（fail-open）：平台 API 抖一下不该让
@@ -89,7 +92,7 @@ func newRepoCache(s *GitProviderService) *cache.LocalCache[[]*provider.PlatformR
 
 // newSingleFlightRepoCache 给本地缓存套上并发回源合并：
 // 同一 key 的并发未命中只回源一次（防止缓存击穿时对平台 API 放大请求）。
-func newSingleFlightRepoCache(inner *cache.LocalCache[[]*provider.PlatformRepo]) *cache.SingleFlightCache[[]*provider.PlatformRepo] {
+func newSingleFlightRepoCache(inner *cache.LocalCache[[]*model.PlatformRepo]) *cache.SingleFlightCache[[]*model.PlatformRepo] {
 	return cache.NewSingleFlightCache(inner)
 }
 
@@ -105,13 +108,13 @@ const repoCacheMaxSize = 16
 // loadRepos 是缓存的回源函数：按 key 里的平台名收集全��仓库。
 //
 // key 形如 "github:all"——平台名 + 固定后缀（首页只取全量这一种视图）。
-func (s *GitProviderService) loadRepos(ctx context.Context, key string) (*[]*provider.PlatformRepo, error) {
+func (s *GitProviderService) loadRepos(ctx context.Context, key string) (*[]*model.PlatformRepo, error) {
 	platform := strings.TrimSuffix(key, repoCacheKeySuffix)
 	p, err := s.GetProvider(platform)
 	if err != nil {
 		return nil, err
 	}
-	var all []*provider.PlatformRepo
+	var all []*model.PlatformRepo
 	page := 1
 	for {
 		batch, err := p.ListRepos(ctx, provider.ListRepoOptions{Page: page, PerPage: 100})
@@ -249,8 +252,8 @@ func (s *GitProviderService) GetProvider(platform string) (provider.Provider, er
 	return p, nil
 }
 
-func (s *GitProviderService) DetectAndGetProvider(remoteURL string) (provider.Provider, *provider.DetectResult, error) {
-	result, err := provider.DetectPlatform(remoteURL)
+func (s *GitProviderService) DetectAndGetProvider(remoteURL string) (provider.Provider, *runtime.DetectResult, error) {
+	result, err := runtime.DetectPlatform(remoteURL)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -263,7 +266,7 @@ func (s *GitProviderService) DetectAndGetProvider(remoteURL string) (provider.Pr
 	return p, result, nil
 }
 
-func (s *GitProviderService) GetCRDiff(ctx context.Context, platform, owner, repo, number string) (*provider.MergeDiff, error) {
+func (s *GitProviderService) GetCRDiff(ctx context.Context, platform, owner, repo, number string) (*model.MergeDiff, error) {
 	p, err := s.GetProvider(platform)
 	if err != nil {
 		return nil, err
@@ -271,7 +274,7 @@ func (s *GitProviderService) GetCRDiff(ctx context.Context, platform, owner, rep
 	return p.GetCRDiff(ctx, owner, repo, number)
 }
 
-func (s *GitProviderService) GetCRFiles(ctx context.Context, platform, owner, repo, number string) ([]*provider.ChangedFile, error) {
+func (s *GitProviderService) GetCRFiles(ctx context.Context, platform, owner, repo, number string) ([]*model.ChangedFile, error) {
 	p, err := s.GetProvider(platform)
 	if err != nil {
 		return nil, err
@@ -279,7 +282,7 @@ func (s *GitProviderService) GetCRFiles(ctx context.Context, platform, owner, re
 	return p.GetCRFiles(ctx, owner, repo, number)
 }
 
-func (s *GitProviderService) GetCR(ctx context.Context, platform, owner, repo, number string) (*provider.ChangeRequest, error) {
+func (s *GitProviderService) GetCR(ctx context.Context, platform, owner, repo, number string) (*model.ChangeRequest, error) {
 	p, err := s.GetProvider(platform)
 	if err != nil {
 		return nil, err
@@ -287,7 +290,7 @@ func (s *GitProviderService) GetCR(ctx context.Context, platform, owner, repo, n
 	return p.GetCR(ctx, owner, repo, number)
 }
 
-func (s *GitProviderService) CreateCR(ctx context.Context, platform string, opts provider.CreateCROptions) (*provider.ChangeRequest, error) {
+func (s *GitProviderService) CreateCR(ctx context.Context, platform string, opts provider.CreateCROptions) (*model.ChangeRequest, error) {
 	p, err := s.GetProvider(platform)
 	if err != nil {
 		return nil, err
@@ -295,7 +298,7 @@ func (s *GitProviderService) CreateCR(ctx context.Context, platform string, opts
 	return p.CreateCR(ctx, opts)
 }
 
-func (s *GitProviderService) TestConnection(ctx context.Context, platform string) (*provider.TestConnectionResult, error) {
+func (s *GitProviderService) TestConnection(ctx context.Context, platform string) (*model.TestConnectionResult, error) {
 	p, err := s.GetProvider(platform)
 	if err != nil {
 		return nil, err
@@ -431,7 +434,7 @@ func (s *GitProviderService) GetSkipTLS(platform string) bool {
 	return ok && cfg.SkipTLS
 }
 
-func (s *GitProviderService) ListRepos(ctx context.Context, platform string, opts provider.ListRepoOptions) ([]*provider.PlatformRepo, error) {
+func (s *GitProviderService) ListRepos(ctx context.Context, platform string, opts provider.ListRepoOptions) ([]*model.PlatformRepo, error) {
 	p, err := s.GetProvider(platform)
 	if err != nil {
 		return nil, err
@@ -454,7 +457,7 @@ func (s *GitProviderService) ListRepos(ctx context.Context, platform string, opt
 	return p.ListRepos(ctx, opts)
 }
 
-func (s *GitProviderService) ListBranches(ctx context.Context, platform, owner, repo string) ([]*provider.PlatformBranch, error) {
+func (s *GitProviderService) ListBranches(ctx context.Context, platform, owner, repo string) ([]*model.PlatformBranch, error) {
 	p, err := s.GetProvider(platform)
 	if err != nil {
 		return nil, err
@@ -462,7 +465,7 @@ func (s *GitProviderService) ListBranches(ctx context.Context, platform, owner, 
 	return p.ListBranches(ctx, owner, repo)
 }
 
-func (s *GitProviderService) ListCRs(ctx context.Context, platform string, opts provider.ListCROptions) ([]*provider.ChangeRequest, int, error) {
+func (s *GitProviderService) ListCRs(ctx context.Context, platform string, opts provider.ListCROptions) ([]*model.ChangeRequest, int, error) {
 	p, err := s.GetProvider(platform)
 	if err != nil {
 		return nil, 0, err
@@ -526,7 +529,7 @@ func (s *GitProviderService) AddOrUpdateFromDB(p *domainplatform.Platform) error
 	// 不再污染全局 os.Environ（历史上曾用 os.Setenv("GIT_SSL_NO_VERIFY") 导致
 	// 配过一个自签名平台后所有平台 clone 都跳过 TLS 校验）。
 	cfg := provider.Config{
-		Platform: provider.Platform(p.Provider),
+		Platform: model.Platform(p.Provider),
 		BaseURL:  p.BaseURL,
 		Token:    p.Token,
 		SkipTLS:  p.SkipTLS,
@@ -543,7 +546,7 @@ func (s *GitProviderService) TestWithToken(ctx context.Context, platform, baseUR
 	}
 
 	cfg := provider.Config{
-		Platform: provider.Platform(platform),
+		Platform: model.Platform(platform),
 		BaseURL:  baseURL,
 		Token:    token,
 		SkipTLS:  skipTLS,

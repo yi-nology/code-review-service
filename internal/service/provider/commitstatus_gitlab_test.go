@@ -13,7 +13,8 @@ import (
 
 	// 平台注册是各后端包的 init 副作用（主程序用 backends/all 统一引入），
 	// 测试里按需引入 GitLab 后端即可。
-	_ "github.com/yi-nology/go-git-platform/backends/gitlab"
+	sdkmodel "github.com/yi-nology/go-git-platform/model"
+	_ "github.com/yi-nology/go-git-platform/adapter/gitlab"
 )
 
 // fakeGitLab 复刻 GitLab 的 commit status 端点与**状态机**。
@@ -213,7 +214,7 @@ func (f *fakeGitLab) handleGet(t *testing.T, w http.ResponseWriter, r *http.Requ
 func newGitLabService(t *testing.T, srv *httptest.Server) *GitProviderService {
 	t.Helper()
 	p, err := sdk.NewProvider(sdk.Config{
-		Platform: sdk.PlatformGitLab,
+		Platform: sdkmodel.PlatformGitLab,
 		BaseURL:  srv.URL + "/api/v4",
 		Token:    "test-token",
 	})

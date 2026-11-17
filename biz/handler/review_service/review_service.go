@@ -23,6 +23,7 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
+	sdkmodel "github.com/yi-nology/go-git-platform/model"
 	provider_sdk "github.com/yi-nology/go-git-platform/provider"
 )
 
@@ -376,7 +377,7 @@ func (h *ReviewHandler) listProviderRepos(ctx context.Context, c *app.RequestCon
 		return
 	}
 
-	items := slicex.Map(repos, func(r *provider_sdk.PlatformRepo) *modelPlatform.RepoItem {
+	items := slicex.Map(repos, func(r *sdkmodel.PlatformRepo) *modelPlatform.RepoItem {
 		return &modelPlatform.RepoItem{
 			ID: convert.Int64ToStr(r.ID), FullName: r.FullName, Name: r.Name, Owner: r.Owner,
 			Description: common.StrPtr(r.Description), DefaultBranch: common.StrPtr(r.DefaultBranch), Private: r.Private,
@@ -406,7 +407,7 @@ func (h *ReviewHandler) listProviderBranches(ctx context.Context, c *app.Request
 		return
 	}
 
-	items := slicex.Map(branches, func(b *provider_sdk.PlatformBranch) *modelPlatform.BranchItem {
+	items := slicex.Map(branches, func(b *sdkmodel.PlatformBranch) *modelPlatform.BranchItem {
 		return &modelPlatform.BranchItem{Name: b.Name}
 	})
 	common.Success(c, &modelPlatform.ListProviderBranchesResp{Items: items})
@@ -436,14 +437,14 @@ func (h *ReviewHandler) listProviderPulls(ctx context.Context, c *app.RequestCon
 	state := stringx.TakeOne(ptrx.Deref(req.State, ""), "opened")
 
 	crs, _, err := h.platform.ListCRs(ctx, req.Provider, provider_sdk.ListCROptions{
-		Owner: req.Owner, Repo: req.Repo, State: provider_sdk.CRState(state), Page: page, PerPage: perPage,
+		Owner: req.Owner, Repo: req.Repo, State: sdkmodel.CRState(state), Page: page, PerPage: perPage,
 	})
 	if err != nil {
 		common.Fail(ctx, c, common.BizErr(500, fmt.Sprintf("获取 PR/MR 列表失败: %v", err)))
 		return
 	}
 
-	items := slicex.Map(crs, func(cr *provider_sdk.ChangeRequest) *modelPlatform.PullItem {
+	items := slicex.Map(crs, func(cr *sdkmodel.ChangeRequest) *modelPlatform.PullItem {
 		item := &modelPlatform.PullItem{
 			Number: convert.Str2Int64(cr.Number, 0), Title: cr.Title, State: string(cr.State),
 			SourceBranch: cr.SourceBranch, TargetBranch: cr.TargetBranch,

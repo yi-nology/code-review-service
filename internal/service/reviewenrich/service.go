@@ -15,13 +15,13 @@ import (
 	"github.com/oekit/logx"
 	"github.com/oekit/pkg/stringx"
 
-	"github.com/yi-nology/go-git-platform/provider"
+	"github.com/yi-nology/go-git-platform/model"
 )
 
 // CRSource 是补全作者所需的平台窄接口（*GitProviderService 结构化满足）。
 type CRSource interface {
 	HasProvider(platform string) bool
-	GetCR(ctx context.Context, platform, owner, repo, number string) (*provider.ChangeRequest, error)
+	GetCR(ctx context.Context, platform, owner, repo, number string) (*model.ChangeRequest, error)
 }
 
 type Service struct {

@@ -27,7 +27,7 @@ require (
 	github.com/oekit/metrics v0.3.1
 	github.com/oekit/middleware v0.18.0
 	github.com/oekit/network v0.10.3
-	github.com/oekit/pkg v0.47.0
+	github.com/oekit/pkg v0.48.0
 	github.com/oekit/registry/nacos v0.1.14
 	github.com/oekit/tracing v0.4.3
 	github.com/oekit/workflow v0.11.1
@@ -37,7 +37,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.45.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.45.0
 	github.com/yi-nology/agent-memory v0.12.1
-	github.com/yi-nology/go-git-platform v0.131.0
+	github.com/yi-nology/go-git-platform v1.0.0
 	github.com/yi-nology/goagent-kernel v0.34.1
 	go.uber.org/fx v1.24.0
 	golang.org/x/time v0.16.0
@@ -220,7 +220,7 @@ require (
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/yargevad/filepathx v1.0.0 // indirect
 	github.com/yi-nology/go-gitcode v0.17.0 // indirect
-	github.com/yi-nology/go-gongfeng v0.4.0 // indirect
+	github.com/yi-nology/go-gongfeng v0.5.0 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	gitlab.com/gitlab-org/api/client-go/v3 v3.48.0 // indirect

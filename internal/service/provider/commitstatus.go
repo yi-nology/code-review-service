@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/yi-nology/go-git-platform/model"
 	"github.com/yi-nology/go-git-platform/provider"
 )
 
@@ -102,7 +103,7 @@ func (s *GitProviderService) CreateCommitStatus(ctx context.Context, platform, o
 	opts.State = platformCommitState(platform, opts.State)
 
 	// 非终态重复写是 GitLab 的非法转移 → 先读当前值，已是同态就跳过。
-	if !provider.CommitStatusState(provider.NormalizeCommitStatusState(opts.State)).Terminal() {
+	if !model.CommitStatusState(model.NormalizeCommitStatusState(opts.State)).Terminal() {
 		if commitStatusAlreadySame(ctx, csm, owner, repo, sha, opts) {
 			return nil
 		}
@@ -121,12 +122,12 @@ func commitStatusAlreadySame(ctx context.Context, csm provider.CommitStatusManag
 		// 读失败不阻断写入：写路径自己会给出真实错误。
 		return false
 	}
-	target := provider.NormalizeCommitStatusState(opts.State)
+	target := model.NormalizeCommitStatusState(opts.State)
 	for _, st := range statuses {
 		if st.Context != opts.Context {
 			continue
 		}
-		return provider.NormalizeCommitStatusState(string(st.State)) == target
+		return model.NormalizeCommitStatusState(string(st.State)) == target
 	}
 	return false
 }

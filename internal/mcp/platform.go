@@ -10,6 +10,7 @@ import (
 	"github.com/yi-nology/code-review-service/internal/domain/review"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	sdkmodel "github.com/yi-nology/go-git-platform/model"
 	provider_sdk "github.com/yi-nology/go-git-platform/provider"
 )
 
@@ -90,7 +91,7 @@ func listPullRequestsHandler(git app.GitProviderManager) func(ctx context.Contex
 		crs, total, err := git.ListCRs(ctx, normalizeProvider(provider), provider_sdk.ListCROptions{
 			Owner:   owner,
 			Repo:    repo,
-			State:   provider_sdk.CRState(state),
+			State:   sdkmodel.CRState(state),
 			Page:    page,
 			PerPage: perPage,
 		})

@@ -40,7 +40,9 @@ import (
 	"strings"
 
 	"github.com/oekit/pkg/convert"
+	sdkmodel "github.com/yi-nology/go-git-platform/model"
 	sdkprovider "github.com/yi-nology/go-git-platform/provider"
+	sdkruntime "github.com/yi-nology/go-git-platform/runtime"
 )
 
 // ProviderGetter 按平台名返回 SDK provider。
@@ -93,7 +95,7 @@ func normalizeWithSDK(getter ProviderGetter, platform string, rawBody []byte, ev
 	// 只做 payload 解析：签名已由各 normalizer 的 VerifySignature 校验
 	// （各平台 header 约定与 SDK 模型不同），SDK 内部再校验一次既冗余又必然
 	// 失败——用哨兵显式声明 parse-only。
-	ne, err := p.ParseWebhookEvent(req, sdkprovider.SkipValidationSecret)
+	ne, err := p.ParseWebhookEvent(req, sdkruntime.SkipValidationSecret)
 	if err != nil {
 		return nil, fmt.Errorf("sdk parse webhook: %w", err)
 	}
@@ -120,7 +122,7 @@ func buildSDKWebhookRequest(platform, eventType string, rawBody []byte) *http.Re
 // 对 SDK 未暴露的字段（repo ID、部分平台 SHA），从 RawPayload 兜底提取。
 // 返回 nil 表示该事件应被忽略（非 push/CR 事件、action 不受支持、GitLab
 // 空更新等）。
-func mapNormalizedEvent(platform string, ne *sdkprovider.NormalizedEvent, raw []byte) *ChangeEvent {
+func mapNormalizedEvent(platform string, ne *sdkmodel.NormalizedEvent, raw []byte) *ChangeEvent {
 	// 部分 SDK 后端（如 gitea/github）不回填 NormalizedEvent.Action（只把 action
 	// 编进 Type 的 "cr.<action>" 前缀），空 action 会被 IsSupportedAction 全量
 	// 过滤掉 CR webhook。在构造 ChangeEvent 前从 Type 恢复动作。

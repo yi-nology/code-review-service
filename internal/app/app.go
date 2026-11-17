@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"github.com/yi-nology/code-review-service/internal/domain/platform"
-	"github.com/yi-nology/code-review-service/internal/domain/review"
+	domain "github.com/yi-nology/code-review-service/internal/domain/review"
 
+	"github.com/yi-nology/go-git-platform/model"
 	"github.com/yi-nology/go-git-platform/provider"
 )
 
@@ -50,16 +51,16 @@ type ReviewService interface {
 // PlatformReader 平台只读查询（仓库/分支/PR/MR 浏览、SHA 解析）。
 type PlatformReader interface {
 	HasProvider(platform string) bool
-	ListRepos(ctx context.Context, platform string, opts provider.ListRepoOptions) ([]*provider.PlatformRepo, error)
-	ListBranches(ctx context.Context, platform, owner, repo string) ([]*provider.PlatformBranch, error)
-	ListCRs(ctx context.Context, platform string, opts provider.ListCROptions) ([]*provider.ChangeRequest, int, error)
-	GetCR(ctx context.Context, platform, owner, repo, number string) (*provider.ChangeRequest, error)
+	ListRepos(ctx context.Context, platform string, opts provider.ListRepoOptions) ([]*model.PlatformRepo, error)
+	ListBranches(ctx context.Context, platform, owner, repo string) ([]*model.PlatformBranch, error)
+	ListCRs(ctx context.Context, platform string, opts provider.ListCROptions) ([]*model.ChangeRequest, int, error)
+	GetCR(ctx context.Context, platform, owner, repo, number string) (*model.ChangeRequest, error)
 	GetBranchSHA(ctx context.Context, platform, owner, repo, branch string) (string, error)
 }
 
 // PlatformCRWriter 创建 PR/MR（suggestion patch 应用路径）。
 type PlatformCRWriter interface {
-	CreateCR(ctx context.Context, platform string, opts provider.CreateCROptions) (*provider.ChangeRequest, error)
+	CreateCR(ctx context.Context, platform string, opts provider.CreateCROptions) (*model.ChangeRequest, error)
 }
 
 // PlatformAdmin 平台安装管理（web console 平台设置页）。
