@@ -18,16 +18,16 @@ require (
 	github.com/oekit/bootstrap v0.7.10
 	github.com/oekit/bootstrap/nacos v0.3.24
 	github.com/oekit/bootstrap/obs v0.2.26
-	github.com/oekit/concurrency v0.34.1
+	github.com/oekit/concurrency v0.39.0
 	github.com/oekit/core v0.15.1
 	github.com/oekit/gormx v0.11.15
 	github.com/oekit/hertz v0.11.6
 	github.com/oekit/kitx v0.9.1
-	github.com/oekit/logx v0.10.0
+	github.com/oekit/logx v0.12.0
 	github.com/oekit/metrics v0.3.1
 	github.com/oekit/middleware v0.18.0
 	github.com/oekit/network v0.10.3
-	github.com/oekit/pkg v0.48.0
+	github.com/oekit/pkg v0.54.0
 	github.com/oekit/registry/nacos v0.1.14
 	github.com/oekit/tracing v0.4.3
 	github.com/oekit/workflow v0.11.1
@@ -37,7 +37,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.45.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.45.0
 	github.com/yi-nology/agent-memory v0.12.1
-	github.com/yi-nology/go-git-platform v1.0.0
+	github.com/yi-nology/go-git-platform v1.0.6
 	github.com/yi-nology/goagent-kernel v0.34.1
 	go.uber.org/fx v1.24.0
 	golang.org/x/time v0.16.0
