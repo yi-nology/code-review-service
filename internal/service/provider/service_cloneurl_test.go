@@ -11,8 +11,8 @@ import (
 	_ "github.com/yi-nology/go-git-platform/adapter/gitcode"
 	_ "github.com/yi-nology/go-git-platform/adapter/gitea"
 	_ "github.com/yi-nology/go-git-platform/adapter/github"
-	sdkmodel "github.com/yi-nology/go-git-platform/model"
 	_ "github.com/yi-nology/go-git-platform/adapter/gitlab"
+	sdkmodel "github.com/yi-nology/go-git-platform/model"
 )
 
 // cloneURLFixtureCase 一条「平台基址 → 期望 clone 基址」的用例。

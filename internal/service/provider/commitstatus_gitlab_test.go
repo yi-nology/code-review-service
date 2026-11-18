@@ -13,8 +13,8 @@ import (
 
 	// 平台注册是各后端包的 init 副作用（主程序用 backends/all 统一引入），
 	// 测试里按需引入 GitLab 后端即可。
-	sdkmodel "github.com/yi-nology/go-git-platform/model"
 	_ "github.com/yi-nology/go-git-platform/adapter/gitlab"
+	sdkmodel "github.com/yi-nology/go-git-platform/model"
 )
 
 // fakeGitLab 复刻 GitLab 的 commit status 端点与**状态机**。

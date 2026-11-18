@@ -14,9 +14,9 @@ import (
 	"github.com/yi-nology/code-review-service/internal/service/gerrit"
 	"github.com/yi-nology/code-review-service/internal/vcs"
 
-	runtime "github.com/yi-nology/go-git-platform/runtime"
 	"github.com/yi-nology/go-git-platform/model"
 	"github.com/yi-nology/go-git-platform/provider"
+	runtime "github.com/yi-nology/go-git-platform/runtime"
 )
 
 // usesSDKBackend 报告该 provider 是否由 go-git-platform SDK 提供 backend。
