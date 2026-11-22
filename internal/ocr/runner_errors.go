@@ -10,8 +10,8 @@ import (
 
 	"github.com/yi-nology/code-review-service/internal/domain/review"
 
+	"github.com/oagentkit/guardx/toolfail"
 	"github.com/oekit/logx"
-	"github.com/yi-nology/goagent-kernel/toolfail"
 )
 
 // runner_errors.go：子进程输出采集（cappedBuffer）与错误分类（超时/退出/永久性/二进制缺失）。
@@ -57,7 +57,7 @@ func (b *cappedBuffer) String() string { return b.buf.String() }
 //
 // 对外的错误类型**保持不变**（调用方按 errors.As 判别，这是既有契约），
 // 但内部分类不再靠字符串匹配自己判「不可重试」——
-// 类别判定下沉到 harness/toolfail（见 failure.go）：
+// 类别判定下沉到 guardx/toolfail（见 failure.go）：
 // 认证失败与 DNS 失败虽然都不可重试，前者**需要人工介入**，
 // 压成一类会让运维看不出「这是配置问题」。
 func classifyExitError(ctx context.Context, runErr error, timeout time.Duration, stderr string) error {

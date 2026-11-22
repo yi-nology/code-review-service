@@ -111,7 +111,7 @@ modules:
 
   - id: ocr
     roots: ['internal/ocr']
-    requires: ['domain', 'progress', 'repository', 'reviewdomain', 'ext:github.com/cloudwego', 'ext:github.com/oagentkit', 'ext:github.com/oekit', 'ext:github.com/yi-nology/goagent-kernel']
+    requires: ['domain', 'progress', 'repository', 'reviewdomain', 'ext:github.com/cloudwego', 'ext:github.com/oagentkit', 'ext:github.com/oekit']
     owner: review-service
     managed: true
     notes: OCR 能力的单一入口
@@ -185,7 +185,7 @@ modules:
 
   - id: vcs
     roots: ['internal/vcs']
-    requires: ['ext:github.com/oagentkit', 'ext:github.com/yi-nology/goagent-kernel']
+    requires: ['ext:github.com/oagentkit']
     owner: review-service
     managed: true
     notes: VCS 克隆与出站防护

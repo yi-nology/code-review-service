@@ -1,4 +1,4 @@
-// failure.go：OCR 子进程失败的**分类判定**——判据表来自底座 goagent-kernel/toolfail。
+// failure.go：OCR 子进程失败的**分类判定**——判据表来自底座 guardx/toolfail。
 //
 // 此前本文件把「不可重试」压成一个 PermanentError：DNS 解析失败、认证失败、
 // 连接被拒统统归为同一类，处置只有「不重试」一种。
@@ -23,8 +23,8 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/oagentkit/guardx/toolfail"
 	"github.com/oekit/pkg/stringx"
-	"github.com/yi-nology/goagent-kernel/toolfail"
 )
 
 // classifyOCRFailure 把 OCR 子进程失败映射到底座类别。
@@ -143,7 +143,7 @@ func ocrRetryable(err error, stderr string) bool {
 // NeedsOperator 判断一次 OCR 执行失败是否**需要人工介入**。
 //
 // 典型场景是 LLM 凭证失效/权限不足：机器自己无能为力（重试也没用），
-// 只能人去换 token 或放权限。判据来自 harness/toolfail 的策略表
+// 只能人去换 token 或放权限。判据来自 guardx/toolfail 的策略表
 // （ClassAuthentication / ClassPermissionDenied 带 NeedsOperator 标记），
 // 宿主不自己判类别。
 //

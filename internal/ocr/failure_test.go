@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/yi-nology/goagent-kernel/toolfail"
+	"github.com/oagentkit/guardx/toolfail"
 )
 
 // TestClassifyOCRFailureDNSIsPermanent DNS 解析失败属环境类问题：

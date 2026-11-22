@@ -460,7 +460,7 @@ func TestRunner_NoResumeUsesHeadSHA(t *testing.T) {
 //   - 瞬时失败配 MaxRetries=2 → 应执行 2 次（第 2 次成功）。
 //
 // 这条用例正是重试实现换成 oekit/concurrency/retry 之后要守住的边界：
-// 「可重试与否」的判定必须仍由 harness/toolfail 的策略表说了算。
+// 「可重试与否」的判定必须仍由 guardx/toolfail 的策略表说了算。
 func TestRunner_DirectRun_AttemptCounts(t *testing.T) {
 	t.Run("permanent failure runs once", func(t *testing.T) {
 		tmpDir := t.TempDir()

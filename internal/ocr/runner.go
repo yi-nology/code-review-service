@@ -239,7 +239,7 @@ func (r *Runner) Run(ctx context.Context, workspace domain.Workspace) (domain.Re
 			if IsBinaryMissing(err) {
 				return false
 			}
-			// 值得重试吗：判据来自 harness/toolfail 的策略表，宿主不再自己判。
+			// 值得重试吗：判据来自 guardx/toolfail 的策略表，宿主不再自己判。
 			return ocrRetryable(err, stderrOf(err))
 		},
 	}

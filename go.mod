@@ -13,7 +13,7 @@ require (
 	github.com/hertz-contrib/websocket v0.2.0
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/mark3labs/mcp-go v1.5.0
-	github.com/oagentkit/guardx v0.24.6
+	github.com/oagentkit/guardx v0.29.0
 	github.com/oagentkit/llm v0.21.12
 	github.com/oekit/bootstrap v0.7.10
 	github.com/oekit/bootstrap/nacos v0.3.24
@@ -27,7 +27,7 @@ require (
 	github.com/oekit/metrics v0.3.1
 	github.com/oekit/middleware v0.18.0
 	github.com/oekit/network v0.10.3
-	github.com/oekit/pkg v0.54.0
+	github.com/oekit/pkg v0.59.0
 	github.com/oekit/registry/nacos v0.1.14
 	github.com/oekit/tracing v0.4.3
 	github.com/oekit/workflow v0.11.1

@@ -8,6 +8,27 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **出站防护与失败分类归位到 guardx（分层对齐）**：`netguard`（出站 SSRF 守卫）与
+  `toolfail`（工具失败分类）的判据语义属**工具治理 / 执行安全**概念域，与编排
+  无关，故自 `github.com/yi-nology/goagent-kernel` 迁入
+  `github.com/oagentkit/guardx`（kernel v0.73.0 起对应包已整包移除）。本仓 import
+  随之切换：
+  - `internal/vcs/cloneurl.go`：`goagent-kernel/netguard` → `oagentkit/guardx/netguard`
+  - `internal/ocr/{failure.go,runner_errors.go,failure_test.go}`：
+    `goagent-kernel/toolfail` → `oagentkit/guardx/toolfail`
+  - 判据**零破坏**：`netguard.Allow` 字段逐字未变（`Private` / `Loopback`）；
+    guardx v0.24.6 → v0.29.0 的 7 个包（egress / logredact / injectband /
+    invoke / sandbox / wire / toolfail）导出面**零删除**；`netguard.NewTransport`
+    的签名变更（返回 error）本仓未调用，不命中
+  - `architecture-policy.yaml` 同步：`ocr` / `vcs` 两个模块迁后不再依赖
+    goagent-kernel，撤下 `ext:github.com/yi-nology/goagent-kernel` 登记——
+    声明面与事实面对齐（`service` / `progress` 仍消费 kernel，登记保留）
+- **依赖升级**：guardx v0.24.6 → **v0.29.0**、oekit/pkg v0.54.0 → **v0.59.0**
+  （随 guardx 的 MVS 地板被动抬升；pkg v0.54.0 → v0.59.0 区间唯一破坏项是删除
+  已废弃的 `toolname` 包，本仓未使用，其 12 个在用子包导出面零破坏）
+
 ## [0.7.0] - 2026-11-13
 
 仓级兼容垫片清仓：删 `internal/service/review/report.go` 里转发 `internal/domain/scoring`
