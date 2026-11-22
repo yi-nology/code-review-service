@@ -28,6 +28,13 @@
 - **依赖升级**：guardx v0.24.6 → **v0.29.0**、oekit/pkg v0.54.0 → **v0.59.0**
   （随 guardx 的 MVS 地板被动抬升；pkg v0.54.0 → v0.59.0 区间唯一破坏项是删除
   已废弃的 `toolname` 包，本仓未使用，其 12 个在用子包导出面零破坏）
+- **依赖升级：goagent-kernel v0.34.1 → v0.73.0**（编排内核跨 40 个版本对齐当前
+  上游）：本仓消费的三个包导出面**零破坏**——`eventbus`（113 → 152 条，纯新增
+  `Hub` / `DurablePublisher` / `Tailer` 等）、`budget`（57 → 57 条，逐条相同）、
+  `statemachine`（23 → 29 条，纯新增 `Valid()` / `AllStepTypes()` 等）。
+  go.mod 净变动只有 kernel 一行（另有一条已无用的 `oagentkit/runtime` indirect 被
+  `go mod tidy` 摘掉——本仓消费的 kernel 包不依赖 runtime）。
+  架构门禁改用 kernel v0.73.0 的判据（`cmd/archcheck`）重跑，宿主 policy 全绿
 
 ## [0.7.0] - 2026-11-13
 

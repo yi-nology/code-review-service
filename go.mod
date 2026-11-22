@@ -38,7 +38,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.45.0
 	github.com/yi-nology/agent-memory v0.12.1
 	github.com/yi-nology/go-git-platform v1.0.6
-	github.com/yi-nology/goagent-kernel v0.34.1
+	github.com/yi-nology/goagent-kernel v0.73.0
 	go.uber.org/fx v1.24.0
 	golang.org/x/time v0.16.0
 	gorm.io/datatypes v1.2.7
@@ -181,7 +181,6 @@ require (
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/next-bin/go-gitee v0.0.0-20260521141902-36ce436eee18 // indirect
 	github.com/nikolalohinski/gonja v1.5.3 // indirect
-	github.com/oagentkit/runtime v0.12.9 // indirect
 	github.com/oagentkit/textx v0.11.0 // indirect
 	github.com/oekit/nns v0.8.1 // indirect
 	github.com/oekit/registry v0.5.16 // indirect
