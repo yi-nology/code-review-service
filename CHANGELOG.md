@@ -36,6 +36,18 @@
   `go mod tidy` 摘掉——本仓消费的 kernel 包不依赖 runtime）。
   架构门禁改用 kernel v0.73.0 的判据（`cmd/archcheck`）重跑，宿主 policy 全绿
 
+### Fixed
+
+- **OCR 子进程 stderr 被截断 ⇒ 永久失败被误判成可重试**：runner 此前先
+  `cmd.Wait()` 再等 stderr 扫描收尾，而 os/exec 的 `Wait` 会**关闭 pipe 读端**
+  （官方文档明说不可先 Wait 后读）——CI 上表现为
+  `ocr stderr scanner error: read |0: file already closed`，stderr 文本整段丢失，
+  失败分类落到缺省「可重试」，于是 DNS 解析失败这类**永久失败也会多跑一轮**
+  （`TestRunner_DirectRun_AttemptCounts/permanent_failure_runs_once` 判红）。
+  该竞态自 2026-07-01（e8cbd8c）引入，本轮由依赖升级后的 CI 撞出。
+  修法：先等 stderr 读到 EOF（`stderrDone`）再 `Wait`；上界由 attempt ctx 兜底
+  （ctx 到期时进程被杀、管道随之关闭），不引入新的挂起路径。
+
 ## [0.7.0] - 2026-11-13
 
 仓级兼容垫片清仓：删 `internal/service/review/report.go` 里转发 `internal/domain/scoring`

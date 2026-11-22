@@ -440,9 +440,13 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 	var stderrLines []string
 	var stderrMu sync.Mutex
 	var stderrWg sync.WaitGroup
+	// stderrDone 在 stderr 读到 EOF（或出错）时关闭——Wait 之前靠它确认
+	// 「读完了」，否则 Wait 会把 pipe 读端关掉、stderr 被截断。
+	stderrDone := make(chan struct{})
 	stderrWg.Add(1)
 	async.GoSafe(func() {
 		defer stderrWg.Done()
+		defer close(stderrDone)
 		scanner := bufio.NewScanner(stderrPipe)
 		scanner.Buffer(make([]byte, 0, 64*1024), 1<<20)
 		for scanner.Scan() {
@@ -471,6 +475,15 @@ func (r *Runner) runOnce(ctx context.Context, workspace domain.Workspace, timeou
 		}
 	})
 
+	// 先等 stderr 读完，再 Wait：os/exec 的 Wait 会关闭 pipe 读端，
+	// 先 Wait 后读会截断 stderr（CI 上表现为
+	// "ocr stderr scanner error: read |0: file already closed"）——
+	// 截断后失败分类落到缺省「可重试」，永久失败被误判成可重试而多跑一轮。
+	// 上界由 attempt ctx 兜底：ctx 到期时进程被杀，管道随之关闭。
+	select {
+	case <-stderrDone:
+	case <-ctx.Done():
+	}
 	err = cmd.Wait()
 	close(done)
 	stderrWg.Wait()
