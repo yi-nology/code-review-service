@@ -13,12 +13,14 @@ require (
 	github.com/hertz-contrib/websocket v0.2.0
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/mark3labs/mcp-go v1.5.0
+	github.com/oagentkit/goagent-kernel v0.77.0
 	github.com/oagentkit/guardx v0.29.0
 	github.com/oagentkit/llm v0.21.12
+	github.com/oagentkit/textx v0.14.0
 	github.com/oekit/bootstrap v0.7.10
 	github.com/oekit/bootstrap/nacos v0.3.24
 	github.com/oekit/bootstrap/obs v0.2.26
-	github.com/oekit/concurrency v0.39.0
+	github.com/oekit/concurrency v0.40.0
 	github.com/oekit/core v0.15.1
 	github.com/oekit/gormx v0.11.15
 	github.com/oekit/hertz v0.11.6
@@ -27,7 +29,7 @@ require (
 	github.com/oekit/metrics v0.3.1
 	github.com/oekit/middleware v0.18.0
 	github.com/oekit/network v0.10.3
-	github.com/oekit/pkg v0.59.0
+	github.com/oekit/pkg v0.61.4
 	github.com/oekit/registry/nacos v0.1.14
 	github.com/oekit/tracing v0.4.3
 	github.com/oekit/workflow v0.11.1
@@ -38,7 +40,6 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.45.0
 	github.com/yi-nology/agent-memory v0.12.1
 	github.com/yi-nology/go-git-platform v1.0.6
-	github.com/yi-nology/goagent-kernel v0.73.0
 	go.uber.org/fx v1.24.0
 	golang.org/x/time v0.16.0
 	gorm.io/datatypes v1.2.7
@@ -181,7 +182,6 @@ require (
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/next-bin/go-gitee v0.0.0-20260521141902-36ce436eee18 // indirect
 	github.com/nikolalohinski/gonja v1.5.3 // indirect
-	github.com/oagentkit/textx v0.11.0 // indirect
 	github.com/oekit/nns v0.8.1 // indirect
 	github.com/oekit/registry v0.5.16 // indirect
 	github.com/oekit/registry/nacosimpl v0.2.0 // indirect
@@ -270,3 +270,6 @@ require (
 )
 
 replace github.com/apache/thrift => github.com/apache/thrift v0.13.0
+
+
+
