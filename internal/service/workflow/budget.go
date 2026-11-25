@@ -6,7 +6,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/yi-nology/agent-memory/ports"
-	"github.com/yi-nology/goagent-kernel/budget"
+	"github.com/oagentkit/textx/budget"
 )
 
 // budget.go：评审输入侧的**上下文预算**。

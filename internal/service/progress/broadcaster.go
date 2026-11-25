@@ -10,7 +10,7 @@ import (
 	"github.com/oekit/concurrency/async"
 	"github.com/oekit/logx"
 	"github.com/oekit/network/wsutil"
-	"github.com/yi-nology/goagent-kernel/eventbus"
+	"github.com/oagentkit/goagent-kernel/eventbus"
 )
 
 // bus.go：评审事件的**单源总线**——底座 goagent-kernel/eventbus。

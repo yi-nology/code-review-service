@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/oekit/logx"
-	"github.com/yi-nology/goagent-kernel/eventbus"
+	"github.com/oagentkit/goagent-kernel/eventbus"
 )
 
 type ProgressManager struct {
