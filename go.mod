@@ -13,7 +13,7 @@ require (
 	github.com/hertz-contrib/websocket v0.2.0
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/mark3labs/mcp-go v1.5.0
-	github.com/oagentkit/goagent-kernel v0.77.0
+	github.com/yi-nology/goagent-kernel v0.80.0
 	github.com/oagentkit/guardx v0.29.0
 	github.com/oagentkit/llm v0.21.12
 	github.com/oagentkit/textx v0.14.0
