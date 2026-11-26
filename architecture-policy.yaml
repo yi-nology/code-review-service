@@ -162,7 +162,7 @@ modules:
 
   - id: service
     roots: ['internal/service']
-    requires: ['argusclient', 'config', 'domain', 'observability', 'ocr', 'progress', 'repository', 'reviewdomain', 'strutil', 'vcs', 'ext:github.com/oekit', 'ext:github.com/yi-nology/goagent-kernel', 'ext:github.com/yi-nology/agent-memory']
+    requires: ['argusclient', 'config', 'domain', 'observability', 'ocr', 'progress', 'repository', 'reviewdomain', 'strutil', 'vcs', 'ext:github.com/oekit', 'ext:github.com/oagentkit', 'ext:github.com/yi-nology/goagent-kernel', 'ext:github.com/yi-nology/agent-memory']
     owner: review-service
     managed: true
     notes: 业务服务层
