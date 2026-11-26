@@ -27,7 +27,7 @@ import (
 	dsession "github.com/yi-nology/code-review-service/internal/domain/session"
 	"github.com/yi-nology/code-review-service/internal/service/progress"
 
-	"github.com/oagentkit/goagent-kernel/statemachine"
+	"github.com/yi-nology/goagent-kernel/statemachine"
 )
 
 // 阶段状态机的取值直接用底座词表，不另立别名——

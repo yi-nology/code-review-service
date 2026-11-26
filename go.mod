@@ -13,8 +13,7 @@ require (
 	github.com/hertz-contrib/websocket v0.2.0
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/mark3labs/mcp-go v1.5.0
-	github.com/oagentkit/goagent-kernel v0.77.0
-	github.com/oagentkit/guardx v0.29.0
+	github.com/oagentkit/guardx v0.30.0
 	github.com/oagentkit/llm v0.21.12
 	github.com/oagentkit/textx v0.14.0
 	github.com/oekit/bootstrap v0.7.10
@@ -25,7 +24,7 @@ require (
 	github.com/oekit/gormx v0.11.15
 	github.com/oekit/hertz v0.11.6
 	github.com/oekit/kitx v0.9.1
-	github.com/oekit/logx v0.12.0
+	github.com/oekit/logx v0.12.1
 	github.com/oekit/metrics v0.3.1
 	github.com/oekit/middleware v0.18.0
 	github.com/oekit/network v0.10.3
@@ -40,6 +39,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.45.0
 	github.com/yi-nology/agent-memory v0.12.1
 	github.com/yi-nology/go-git-platform v1.0.6
+	github.com/yi-nology/goagent-kernel v0.80.0
 	go.uber.org/fx v1.24.0
 	golang.org/x/time v0.16.0
 	gorm.io/datatypes v1.2.7
@@ -142,7 +142,7 @@ require (
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/goph/emperror v0.17.2 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/gorilla/websocket v1.5.4-0.20240701034025-d67f41855da4 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.33.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
